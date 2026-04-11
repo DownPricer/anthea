@@ -1,0 +1,53 @@
+# Anthea — stack production (MongoDB + FastAPI + Nginx / SPA)
+# Utilisation : depuis ce dossier (`site/deploy/`) : docker compose up -d --build
+#
+# Le service « web » n’expose aucun port sur l’hôte : il est joint uniquement via
+# le réseau Docker externe partagé avec le conteneur downpricer-nginx.
+# Renseigner EXTERNAL_PROXY_NETWORK dans .env (voir .env.example).
+
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    volumes:
+      - mongo_data:/data/db
+    networks:
+      - anthea_internal
+
+  api:
+    build:
+      context: ../backend
+      dockerfile: ../deploy/Dockerfile.backend
+    restart: unless-stopped
+    environment:
+      MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017}
+      DB_NAME: ${DB_NAME:-anthea}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+    depends_on:
+      - mongo
+    networks:
+      - anthea_internal
+
+  web:
+    container_name: anthea-web
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile.frontend
+      args:
+        REACT_APP_BACKEND_URL: ${PUBLIC_ORIGIN:?set PUBLIC_ORIGIN in .env}
+    restart: unless-stopped
+    depends_on:
+      - api
+    networks:
+      anthea_internal:
+      proxy_net:
+
+volumes:
+  mongo_data:
+
+networks:
+  anthea_internal:
+    driver: bridge
+  proxy_net:
+    external: true
+    name: ${EXTERNAL_PROXY_NETWORK:?set EXTERNAL_PROXY_NETWORK in .env}
