@@ -1,0 +1,195 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Manrope:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #0A0A0A;
+  --surface-elevated: #141414;
+  --surface-high: #1C1C1C;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --text-primary: #FFFFFF;
+  --text-secondary: #A1A1AA;
+  
+  /* Default Sporty Theme */
+  --theme-primary: #06B6D4;
+  --theme-primary-glow: rgba(6, 182, 212, 0.3);
+  --theme-secondary: #10B981;
+  --theme-accent: #0891B2;
+  --theme-surface-active: rgba(6, 182, 212, 0.1);
+}
+
+.theme-girly {
+  --theme-primary: #D946EF;
+  --theme-primary-glow: rgba(217, 70, 239, 0.3);
+  --theme-secondary: #8B5CF6;
+  --theme-accent: #C026D3;
+  --theme-surface-active: rgba(217, 70, 239, 0.1);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Manrope', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--background);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  overflow-x: hidden;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: 'Outfit', sans-serif;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--surface-high);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-secondary);
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 20px var(--theme-primary-glow); }
+  50% { box-shadow: 0 0 40px var(--theme-primary-glow); }
+}
+
+@keyframes countdown {
+  0% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.5); opacity: 0.5; }
+  100% { transform: scale(2); opacity: 0; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.animate-countdown {
+  animation: countdown 1s ease-out forwards;
+}
+
+/* Glass effect */
+.glass {
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Button styles */
+.btn-primary {
+  background: linear-gradient(135deg, var(--theme-primary), var(--theme-secondary));
+  box-shadow: 0 4px 20px var(--theme-primary-glow);
+}
+
+.btn-primary:hover {
+  opacity: 0.9;
+}
+
+.btn-primary:active {
+  transform: scale(0.98);
+}
+
+/* Card styles */
+.card {
+  background: var(--surface-elevated);
+  border: 1px solid var(--border-color);
+  border-radius: 1rem;
+}
+
+/* Input overrides */
+input, textarea, select {
+  background: var(--surface-elevated) !important;
+  border-color: var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+input:focus, textarea:focus, select:focus {
+  border-color: var(--theme-primary) !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px var(--theme-primary-glow) !important;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #52525b !important;
+}
+
+/* Safe area for iOS */
+.safe-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 20px);
+}
+
+/* Prevent pull to refresh on mobile */
+html, body {
+  overscroll-behavior-y: contain;
+}
+
+/* Selection color */
+::selection {
+  background: var(--theme-primary);
+  color: var(--text-primary);
+}
+
+/* Number inputs */
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Tab styles for radix */
+[data-state="active"] {
+  color: var(--theme-primary);
+}
+
+/* Toast styles */
+[data-sonner-toast] {
+  background: var(--surface-elevated) !important;
+  border: 1px solid var(--border-color) !important;
+  color: var(--text-primary) !important;
+}
+
+/* Calendar overrides */
+.rdp {
+  --rdp-accent-color: var(--theme-primary) !important;
+  --rdp-background-color: var(--theme-surface-active) !important;
+}
+
+.rdp-day_selected {
+  background-color: var(--theme-primary) !important;
+}

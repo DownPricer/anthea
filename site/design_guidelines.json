@@ -1,0 +1,107 @@
+{
+  "theme_archetype": {
+    "name": "Modified Performance Pro (Archetype 2) + Jewel & Luxury (Archetype 5)",
+    "description": "A high-end, dark-mode-only mobile web app (PWA). It blends tactical, command-center athleticism with premium, intimate luxury. The UI feels like an elite gym at night—dark, sleek, with strategic neon illuminations."
+  },
+  "typography": {
+    "heading_font": "Outfit",
+    "body_font": "Manrope",
+    "mono_font": "JetBrains Mono",
+    "hierarchy": {
+      "h1": "text-4xl sm:text-5xl tracking-tighter font-black text-white",
+      "h2": "text-2xl sm:text-3xl tracking-tight font-bold text-white",
+      "h3": "text-xl font-semibold text-zinc-200",
+      "body": "text-base leading-relaxed text-zinc-400",
+      "caption": "text-sm text-zinc-500 uppercase tracking-[0.15em]",
+      "timer": "text-6xl sm:text-8xl font-mono tracking-tighter text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.3)]"
+    }
+  },
+  "colors": {
+    "base": {
+      "background": "#0A0A0A",
+      "surface_elevated": "#141414",
+      "surface_high": "#1C1C1C",
+      "border": "rgba(255, 255, 255, 0.08)",
+      "text_primary": "#FFFFFF",
+      "text_secondary": "#A1A1AA"
+    },
+    "themes": {
+      "default": {
+        "name": "Sporty Default",
+        "description": "Clean, energetic sporty vibe.",
+        "variables": {
+          "--theme-primary": "#06B6D4",
+          "--theme-primary-glow": "rgba(6, 182, 212, 0.3)",
+          "--theme-secondary": "#10B981",
+          "--theme-accent": "#0891B2",
+          "--theme-surface-active": "rgba(6, 182, 212, 0.1)"
+        }
+      },
+      "girly": {
+        "name": "Girly Intimate",
+        "description": "Dark base but with romantic/intimate neon highlights.",
+        "variables": {
+          "--theme-primary": "#D946EF",
+          "--theme-primary-glow": "rgba(217, 70, 239, 0.3)",
+          "--theme-secondary": "#8B5CF6",
+          "--theme-accent": "#C026D3",
+          "--theme-surface-active": "rgba(217, 70, 239, 0.1)"
+        }
+      }
+    }
+  },
+  "layout_spacing": {
+    "container_strategy": "Mobile-first wrapper: `max-w-md mx-auto w-full min-h-[100dvh] bg-[#0A0A0A] relative pb-24 shadow-2xl overflow-x-hidden`",
+    "dashboard_grid": "Bento Grid Mode: `grid grid-cols-2 gap-4`. Use `col-span-2` for hero metrics (e.g., Next Workout), and `col-span-1` for split stats.",
+    "padding": {
+      "screen_edge": "p-5 sm:p-6",
+      "card_internal": "p-5"
+    },
+    "radii": {
+      "card": "rounded-2xl",
+      "button": "rounded-xl",
+      "pill": "rounded-full"
+    }
+  },
+  "surface_strategies": {
+    "bottom_nav": "Fixed at bottom within the `max-w-md` container. `h-20 bg-[#0A0A0A]/80 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center z-50`",
+    "cards_neumorphic_tactile": "Solid `bg-[#141414]` with `border border-white/5`. NO large drop shadows. Rely on the 1px stroke to define the shape against the black background.",
+    "glassmorphism_overlays": "For modals and player controls: `bg-[#0A0A0A]/60 backdrop-blur-xl border border-white/10`. Must have high blur to feel premium."
+  },
+  "components": {
+    "buttons": {
+      "primary": "`w-full py-4 rounded-xl font-bold tracking-wide text-white bg-gradient-to-r from-[var(--theme-primary)] to-[var(--theme-secondary)] hover:opacity-90 active:scale-[0.98] transition-all flex justify-center items-center gap-2 shadow-[0_4px_20px_var(--theme-primary-glow)]`",
+      "secondary": "`w-full py-4 rounded-xl font-semibold tracking-wide text-white bg-white/5 border border-white/10 hover:bg-white/10 active:scale-[0.98] transition-all`",
+      "fab_center": "The '+' tab in nav: `w-14 h-14 -translate-y-4 rounded-full bg-[var(--theme-primary)] flex items-center justify-center text-white shadow-[0_8px_25px_var(--theme-primary-glow)] border-4 border-[#0A0A0A]`"
+    },
+    "inputs": "Shadcn overrides: `bg-[#141414] border-white/10 text-white placeholder:text-zinc-600 focus-visible:border-[var(--theme-primary)] focus-visible:ring-1 focus-visible:ring-[var(--theme-primary)] rounded-xl py-6 px-4`",
+    "nav_item": "`flex flex-col items-center gap-1.5 text-zinc-500 hover:text-white transition-colors aria-[current=page]:text-[var(--theme-primary)] text-[10px] font-medium tracking-wider uppercase`",
+    "duo_feed_card": "Stack partner avatars organically (`-space-x-4`). Use micro-interactions for emoji reactions floating over the card."
+  },
+  "motion_and_interactions": {
+    "hover_states": "`transition-all duration-200 ease-out hover:-translate-y-0.5` for cards.",
+    "press_states": "MANDATORY on all buttons and cards: `active:scale-[0.98]`.",
+    "page_transitions": "Framer motion is recommended: `initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}`."
+  },
+  "media": {
+    "hero_gym_dark": "https://images.unsplash.com/photo-1770513649465-2c60c8039806?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwxfHxkYXJrJTIwbW9vZHklMjBsdXh1cnklMjBneW0lMjBuaWdodHxlbnwwfHx8fDE3NzU2MDk1ODN8MA&ixlib=rb-4.1.0&q=85",
+    "couple_running": "https://images.pexels.com/photos/4853112/pexels-photo-4853112.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "dumbbell_detail": "https://images.pexels.com/photos/7690454/pexels-photo-7690454.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+    "default_avatar_partner_1": "https://ui-avatars.com/api/?name=P1&background=141414&color=06B6D4&size=256&rounded=true&bold=true",
+    "default_avatar_partner_2": "https://ui-avatars.com/api/?name=P2&background=141414&color=D946EF&size=256&rounded=true&bold=true",
+    "badge_streak": "https://images.unsplash.com/photo-1637430308606-86576d8fef3c?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjAzMjV8MHwxfHNlYXJjaHwzfHxkYXJrJTIwbW9vZHklMjBsdXh1cnklMjBneW0lMjBuaWdodHxlbnwwfHx8fDE3NzU2MDk1ODN8MA&ixlib=rb-4.1.0&q=85"
+  },
+  "icons_and_assets": {
+    "library": "lucide-react",
+    "usage_rules": "Use `strokeWidth={1.5}` globally for a sharp, premium aesthetic. For the 'Girly' theme, utilize `Heart` icons heavily for likes/streaks. For 'Default' theme, use `Zap` or `Flame` for streaks."
+  },
+  "instructions_to_main_agent": [
+    "1. FRAMEWORK: Use React + Tailwind. Implement the strict mobile-first viewport layout (`max-w-md mx-auto min-h-screen bg-[#0A0A0A]`) so it works beautifully as a PWA and looks like a phone emulator on desktop.",
+    "2. THEME ENGINE: Set up a theme context or simply toggle a `.theme-girly` class on the root container. Map the CSS variables from the 'colors.themes' section to your Tailwind config or use arbitrary values like `bg-[var(--theme-primary)]`.",
+    "3. TYPOGRAPHY: Import and apply 'Outfit' (headers), 'Manrope' (body), and 'JetBrains Mono' (numbers/timers). Do not use Inter for headers. Maintain sharp font weights (Light, Bold, Black).",
+    "4. WORKOUT PLAYER: This is the core experience. Make the timer massive (`text-8xl`), center-aligned, using Monospace, glowing over the dark background. The controls (Pause/Play, TTS announce) should be large, thumb-friendly floating glassmorphism buttons.",
+    "5. SHADCN OVERRIDES: Strip the default white/gray Shadcn styles. Override inputs, cards, and dialogs to match the `bg-[#141414]` and `border-white/10` dark mode luxury specification.",
+    "6. DUO SPACE & PARTNER LINKING: Use overlapping avatars (negative right margin) to visually represent the couple link. Reactions should be visually distinct against the dark background.",
+    "7. TESTING: Every single button, tab, and form input MUST have a `data-testid` (e.g., `data-testid='nav-workouts'`, `data-testid='theme-toggle'`)."
+  ]
+}

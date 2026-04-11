@@ -1,0 +1,894 @@
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import { workoutsApi, exercisesApi, templatesApi } from '../lib/api';
+import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
+import { Label } from '../components/ui/label';
+import { Textarea } from '../components/ui/textarea';
+import { Checkbox } from '../components/ui/checkbox';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '../components/ui/dialog';
+import { Calendar } from '../components/ui/calendar';
+import {
+  ArrowLeft,
+  Plus,
+  Trash2,
+  Clock,
+  Hash,
+  Save,
+  Loader2,
+  ChevronDown,
+  ChevronUp,
+  Copy,
+  Search,
+  CalendarDays,
+  Repeat,
+  Image as ImageIcon,
+} from 'lucide-react';
+import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { fr } from 'date-fns/locale';
+import { toast } from 'sonner';
+
+const BLOCK_TYPES = [
+  { value: 'warmup', label: 'Échauffement' },
+  { value: 'main', label: 'Corps de séance' },
+  { value: 'cooldown', label: 'Retour au calme' },
+];
+
+const DIFFICULTIES = [
+  { value: 'easy', label: 'Facile' },
+  { value: 'medium', label: 'Moyen' },
+  { value: 'hard', label: 'Difficile' },
+  { value: 'intense', label: 'Intense' },
+];
+
+const WEEK_DAYS = [
+  { value: 0, label: 'Lun' },
+  { value: 1, label: 'Mar' },
+  { value: 2, label: 'Mer' },
+  { value: 3, label: 'Jeu' },
+  { value: 4, label: 'Ven' },
+  { value: 5, label: 'Sam' },
+  { value: 6, label: 'Dim' },
+];
+
+export function CreateWorkoutPage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [forUserId, setForUserId] = useState('');
+  const [scheduledTime, setScheduledTime] = useState('');
+  const [difficulty, setDifficulty] = useState('medium');
+  
+  // Scheduling state
+  const [scheduleMode, setScheduleMode] = useState('single'); // single, multiple, weekly
+  const [singleDate, setSingleDate] = useState(new Date());
+  const [multipleDates, setMultipleDates] = useState([]);
+  const [weekDays, setWeekDays] = useState([]);
+  const [startDate, setStartDate] = useState(format(new Date(), 'yyyy-MM-dd'));
+  const [endDate, setEndDate] = useState(format(addWeeks(new Date(), 4), 'yyyy-MM-dd'));
+  const [repeatWeeks, setRepeatWeeks] = useState(4);
+  
+  const [blocks, setBlocks] = useState([
+    { block_type: 'warmup', exercises: [], expanded: true },
+    { block_type: 'main', exercises: [], expanded: true },
+    { block_type: 'cooldown', exercises: [], expanded: true },
+  ]);
+  
+  const [exercises, setExercises] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
+  const [currentBlockIndex, setCurrentBlockIndex] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [showSchedulePreview, setShowSchedulePreview] = useState(false);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      const [exercisesRes, templatesRes] = await Promise.all([
+        exercisesApi.getAll(),
+        templatesApi.getAll(),
+      ]);
+      setExercises(exercisesRes.data || []);
+      setTemplates(templatesRes.data || []);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const addExerciseToBlock = (exercise) => {
+    if (currentBlockIndex === null) return;
+
+    const newExercise = {
+      exercise_id: exercise.id,
+      name: exercise.name,
+      description: exercise.description,
+      exercise_type: exercise.exercise_type,
+      duration: exercise.default_duration,
+      reps: exercise.default_reps,
+      rest_after: exercise.default_rest || 30,
+      order: blocks[currentBlockIndex].exercises.length,
+      tts_enabled: true,
+      image_url: exercise.image_url,
+    };
+
+    setBlocks((prev) => {
+      const updated = [...prev];
+      updated[currentBlockIndex].exercises.push(newExercise);
+      return updated;
+    });
+
+    setExerciseDialogOpen(false);
+    setCurrentBlockIndex(null);
+    setSearchQuery('');
+  };
+
+  const removeExercise = (blockIndex, exerciseIndex) => {
+    setBlocks((prev) => {
+      const updated = [...prev];
+      updated[blockIndex].exercises.splice(exerciseIndex, 1);
+      updated[blockIndex].exercises = updated[blockIndex].exercises.map((e, i) => ({
+        ...e,
+        order: i,
+      }));
+      return updated;
+    });
+  };
+
+  const updateExercise = (blockIndex, exerciseIndex, field, value) => {
+    setBlocks((prev) => {
+      const updated = [...prev];
+      updated[blockIndex].exercises[exerciseIndex][field] = value;
+      return updated;
+    });
+  };
+
+  const moveExercise = (blockIndex, exerciseIndex, direction) => {
+    const newIndex = exerciseIndex + direction;
+    if (newIndex < 0 || newIndex >= blocks[blockIndex].exercises.length) return;
+
+    setBlocks((prev) => {
+      const updated = [...prev];
+      const exercises = [...updated[blockIndex].exercises];
+      [exercises[exerciseIndex], exercises[newIndex]] = [exercises[newIndex], exercises[exerciseIndex]];
+      updated[blockIndex].exercises = exercises.map((e, i) => ({ ...e, order: i }));
+      return updated;
+    });
+  };
+
+  const toggleBlockExpanded = (blockIndex) => {
+    setBlocks((prev) => {
+      const updated = [...prev];
+      updated[blockIndex].expanded = !updated[blockIndex].expanded;
+      return updated;
+    });
+  };
+
+  const loadFromTemplate = (template) => {
+    setTitle(template.title);
+    setDescription(template.description || '');
+    setDifficulty(template.difficulty || 'medium');
+    
+    if (template.blocks) {
+      setBlocks(
+        template.blocks.map((b) => ({
+          ...b,
+          expanded: true,
+          exercises: b.exercises || [],
+        }))
+      );
+    }
+    
+    toast.success('Modèle chargé');
+  };
+
+  const toggleWeekDay = (day) => {
+    setWeekDays((prev) =>
+      prev.includes(day) ? prev.filter((d) => d !== day) : [...prev, day]
+    );
+  };
+
+  const toggleMultipleDate = (date) => {
+    setMultipleDates((prev) => {
+      const exists = prev.some((d) => isSameDay(d, date));
+      if (exists) {
+        return prev.filter((d) => !isSameDay(d, date));
+      }
+      return [...prev, date];
+    });
+  };
+
+  const getScheduledDatesPreview = () => {
+    if (scheduleMode === 'single') {
+      return [format(singleDate, 'yyyy-MM-dd')];
+    }
+    
+    if (scheduleMode === 'multiple') {
+      return multipleDates.map((d) => format(d, 'yyyy-MM-dd')).sort();
+    }
+    
+    if (scheduleMode === 'weekly' && weekDays.length > 0 && startDate) {
+      const dates = [];
+      const start = new Date(startDate);
+      const end = endDate ? new Date(endDate) : addWeeks(start, repeatWeeks);
+      
+      let current = start;
+      while (current <= end) {
+        if (weekDays.includes(current.getDay() === 0 ? 6 : current.getDay() - 1)) {
+          dates.push(format(current, 'yyyy-MM-dd'));
+        }
+        current = addDays(current, 1);
+      }
+      return dates;
+    }
+    
+    return [];
+  };
+
+  const previewDates = getScheduledDatesPreview();
+
+  const handleSave = async (asDraft = false) => {
+    if (!title.trim()) {
+      toast.error('Donne un titre à ta séance');
+      return;
+    }
+
+    if (previewDates.length === 0) {
+      toast.error('Sélectionne au moins une date');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      if (scheduleMode === 'single') {
+        // Single workout creation (original behavior)
+        const workoutData = {
+          title: title.trim(),
+          description: description.trim(),
+          for_user_id: forUserId || user.id,
+          scheduled_date: format(singleDate, 'yyyy-MM-dd'),
+          scheduled_time: scheduledTime || null,
+          difficulty,
+          blocks: blocks.filter((b) => b.exercises.length > 0).map((b) => ({
+            block_type: b.block_type,
+            exercises: b.exercises,
+          })),
+          is_draft: asDraft,
+        };
+
+        const { data } = await workoutsApi.create(workoutData);
+        toast.success(asDraft ? 'Brouillon sauvegardé' : 'Séance créée !');
+        
+        if (!asDraft) {
+          navigate('/workouts');
+        }
+      } else {
+        // Multi-schedule creation
+        const multiData = {
+          title: title.trim(),
+          description: description.trim(),
+          for_user_id: forUserId || user.id,
+          scheduled_time: scheduledTime || null,
+          difficulty,
+          blocks: blocks.filter((b) => b.exercises.length > 0).map((b) => ({
+            block_type: b.block_type,
+            exercises: b.exercises,
+          })),
+          schedule_mode: scheduleMode,
+          dates: scheduleMode === 'multiple' ? multipleDates.map((d) => format(d, 'yyyy-MM-dd')) : [],
+          week_days: scheduleMode === 'weekly' ? weekDays : [],
+          start_date: scheduleMode === 'weekly' ? startDate : null,
+          end_date: scheduleMode === 'weekly' ? endDate : null,
+          repeat_weeks: scheduleMode === 'weekly' ? repeatWeeks : null,
+        };
+
+        const { data } = await workoutsApi.createMulti(multiData);
+        toast.success(`${data.created} séances créées !`);
+        navigate('/workouts');
+      }
+    } catch (error) {
+      toast.error('Erreur lors de la sauvegarde');
+      console.error(error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    if (!title.trim()) {
+      toast.error('Donne un titre à ta séance');
+      return;
+    }
+
+    try {
+      await templatesApi.create({
+        title: title.trim(),
+        description: description.trim(),
+        difficulty,
+        blocks: blocks.filter((b) => b.exercises.length > 0).map((b) => ({
+          block_type: b.block_type,
+          exercises: b.exercises,
+        })),
+      });
+      toast.success('Modèle sauvegardé !');
+    } catch (error) {
+      toast.error('Erreur lors de la sauvegarde du modèle');
+    }
+  };
+
+  const filteredExercises = exercises.filter(
+    (e) =>
+      e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      e.category?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const getTotalDuration = () => {
+    let total = 0;
+    blocks.forEach((block) => {
+      block.exercises.forEach((ex) => {
+        total += (ex.duration || 0) + (ex.rest_after || 0);
+      });
+    });
+    return Math.ceil(total / 60);
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+      </div>
+    );
+  }
+
+  return (
+    <div data-testid="create-workout-page" className="pb-8 animate-fade-in">
+      {/* Header */}
+      <header className="sticky top-0 z-40 bg-[#0A0A0A]/80 backdrop-blur-xl border-b border-white/10 p-4">
+        <div className="flex items-center justify-between">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2">
+            <ArrowLeft size={22} className="text-white" />
+          </button>
+          <h1 className="text-lg font-semibold text-white">Créer une séance</h1>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="text-white border-white/10"
+            >
+              <Save size={16} />
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <div className="p-5 space-y-6">
+        {/* Templates */}
+        {templates.length > 0 && (
+          <div>
+            <Label className="text-zinc-400 text-sm mb-2 block">Depuis un modèle</Label>
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-5 px-5">
+              {templates.map((template) => (
+                <button
+                  key={template.id}
+                  onClick={() => loadFromTemplate(template)}
+                  className="flex-shrink-0 px-4 py-2 bg-[#141414] border border-white/10 rounded-xl text-sm text-white hover:bg-white/5 transition-colors"
+                >
+                  {template.title}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Basic Info */}
+        <div className="space-y-4">
+          <div>
+            <Label htmlFor="title" className="text-zinc-400 text-sm">
+              Titre *
+            </Label>
+            <Input
+              id="title"
+              data-testid="workout-title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Ex: Full Body Intense"
+              className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white"
+            />
+          </div>
+
+          <div>
+            <Label htmlFor="description" className="text-zinc-400 text-sm">
+              Description (optionnel)
+            </Label>
+            <Textarea
+              id="description"
+              data-testid="workout-description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Notes sur cette séance..."
+              className="mt-2 rounded-xl bg-[#141414] border-white/10 text-white min-h-[80px]"
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label className="text-zinc-400 text-sm">Pour qui</Label>
+              <Select value={forUserId || user?.id} onValueChange={setForUserId}>
+                <SelectTrigger className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  <SelectItem value={user?.id} className="text-white">Moi</SelectItem>
+                  {user?.partner_id && (
+                    <SelectItem value={user.partner_id} className="text-white">
+                      {user.partner_username}
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label className="text-zinc-400 text-sm">Difficulté</Label>
+              <Select value={difficulty} onValueChange={setDifficulty}>
+                <SelectTrigger className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  {DIFFICULTIES.map((d) => (
+                    <SelectItem key={d.value} value={d.value} className="text-white">
+                      {d.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div>
+            <Label className="text-zinc-400 text-sm">Heure (optionnel)</Label>
+            <Input
+              type="time"
+              data-testid="workout-time"
+              value={scheduledTime}
+              onChange={(e) => setScheduledTime(e.target.value)}
+              className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white"
+            />
+          </div>
+        </div>
+
+        {/* SCHEDULING SECTION */}
+        <div className="card p-4 space-y-4">
+          <div className="flex items-center gap-2 mb-2">
+            <CalendarDays className="text-[var(--theme-primary)]" size={20} />
+            <h3 className="text-white font-semibold">Planification</h3>
+          </div>
+
+          {/* Schedule Mode Tabs */}
+          <div className="flex gap-2">
+            {[
+              { value: 'single', label: 'Date unique' },
+              { value: 'multiple', label: 'Plusieurs dates' },
+              { value: 'weekly', label: 'Répétition' },
+            ].map((mode) => (
+              <button
+                key={mode.value}
+                onClick={() => setScheduleMode(mode.value)}
+                className={`flex-1 py-2 px-3 rounded-xl text-sm font-medium transition-all ${
+                  scheduleMode === mode.value
+                    ? 'bg-[var(--theme-primary)] text-white'
+                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
+          {/* Single Date */}
+          {scheduleMode === 'single' && (
+            <div className="flex justify-center">
+              <Calendar
+                mode="single"
+                selected={singleDate}
+                onSelect={(date) => date && setSingleDate(date)}
+                locale={fr}
+                className="rounded-xl bg-white/5 p-3"
+              />
+            </div>
+          )}
+
+          {/* Multiple Dates */}
+          {scheduleMode === 'multiple' && (
+            <div>
+              <Calendar
+                mode="multiple"
+                selected={multipleDates}
+                onSelect={(dates) => dates && setMultipleDates(dates)}
+                locale={fr}
+                className="rounded-xl bg-white/5 p-3"
+              />
+              {multipleDates.length > 0 && (
+                <p className="text-zinc-400 text-sm mt-3 text-center">
+                  {multipleDates.length} date(s) sélectionnée(s)
+                </p>
+              )}
+            </div>
+          )}
+
+          {/* Weekly Repeat */}
+          {scheduleMode === 'weekly' && (
+            <div className="space-y-4">
+              {/* Week days selector */}
+              <div>
+                <Label className="text-zinc-400 text-sm mb-2 block">Jours de la semaine</Label>
+                <div className="flex gap-2">
+                  {WEEK_DAYS.map((day) => (
+                    <button
+                      key={day.value}
+                      onClick={() => toggleWeekDay(day.value)}
+                      className={`flex-1 py-2 rounded-lg text-sm font-medium transition-all ${
+                        weekDays.includes(day.value)
+                          ? 'bg-[var(--theme-primary)] text-white'
+                          : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Date range */}
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-zinc-400 text-sm">Date de début</Label>
+                  <Input
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-zinc-400 text-sm">Date de fin</Label>
+                  <Input
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                  />
+                </div>
+              </div>
+
+              {/* Quick duration buttons */}
+              <div>
+                <Label className="text-zinc-400 text-sm mb-2 block">Durée rapide</Label>
+                <div className="flex gap-2">
+                  {[
+                    { weeks: 2, label: '2 sem' },
+                    { weeks: 4, label: '1 mois' },
+                    { weeks: 8, label: '2 mois' },
+                  ].map((opt) => (
+                    <button
+                      key={opt.weeks}
+                      onClick={() => {
+                        setRepeatWeeks(opt.weeks);
+                        setEndDate(format(addWeeks(new Date(startDate), opt.weeks), 'yyyy-MM-dd'));
+                      }}
+                      className="flex-1 py-2 rounded-lg bg-white/5 text-zinc-400 hover:bg-white/10 text-sm transition-colors"
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Preview */}
+          {previewDates.length > 0 && (
+            <div className="pt-4 border-t border-white/10">
+              <button
+                onClick={() => setShowSchedulePreview(!showSchedulePreview)}
+                className="flex items-center justify-between w-full text-left"
+              >
+                <span className="text-[var(--theme-primary)] text-sm font-medium">
+                  {previewDates.length} séance(s) à créer
+                </span>
+                <ChevronDown
+                  size={16}
+                  className={`text-zinc-400 transition-transform ${showSchedulePreview ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {showSchedulePreview && (
+                <div className="mt-3 max-h-40 overflow-y-auto space-y-1">
+                  {previewDates.map((date) => (
+                    <div key={date} className="text-zinc-400 text-sm py-1">
+                      {format(new Date(date), 'EEEE d MMMM yyyy', { locale: fr })}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Blocks */}
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white font-['Outfit']">Exercices</h2>
+            <span className="text-sm text-zinc-500">~{getTotalDuration()} min</span>
+          </div>
+
+          {blocks.map((block, blockIndex) => (
+            <div
+              key={block.block_type}
+              className="card overflow-hidden"
+            >
+              <button
+                onClick={() => toggleBlockExpanded(blockIndex)}
+                className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-white font-medium">
+                    {BLOCK_TYPES.find((b) => b.value === block.block_type)?.label}
+                  </span>
+                  <span className="text-zinc-500 text-sm">
+                    {block.exercises.length} exercice(s)
+                  </span>
+                </div>
+                {block.expanded ? (
+                  <ChevronUp size={18} className="text-zinc-400" />
+                ) : (
+                  <ChevronDown size={18} className="text-zinc-400" />
+                )}
+              </button>
+
+              {block.expanded && (
+                <div className="border-t border-white/5 p-4 space-y-3">
+                  {block.exercises.map((exercise, exerciseIndex) => (
+                    <div
+                      key={exerciseIndex}
+                      className="p-3 bg-white/5 rounded-xl space-y-3"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="flex flex-col gap-1">
+                          <button
+                            onClick={() => moveExercise(blockIndex, exerciseIndex, -1)}
+                            disabled={exerciseIndex === 0}
+                            className="p-1 hover:bg-white/10 rounded disabled:opacity-30"
+                          >
+                            <ChevronUp size={14} className="text-zinc-400" />
+                          </button>
+                          <button
+                            onClick={() => moveExercise(blockIndex, exerciseIndex, 1)}
+                            disabled={exerciseIndex === block.exercises.length - 1}
+                            className="p-1 hover:bg-white/10 rounded disabled:opacity-30"
+                          >
+                            <ChevronDown size={14} className="text-zinc-400" />
+                          </button>
+                        </div>
+                        {exercise.image_url && (
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
+                            <img
+                              src={exercise.image_url}
+                              alt=""
+                              className="w-full h-full object-cover"
+                              onError={(e) => e.target.parentElement.style.display = 'none'}
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1">
+                          <p className="text-white font-medium">{exercise.name}</p>
+                          {exercise.description && (
+                            <p className="text-zinc-500 text-xs truncate">{exercise.description}</p>
+                          )}
+                        </div>
+                        <button
+                          onClick={() => removeExercise(blockIndex, exerciseIndex)}
+                          className="p-2 hover:bg-white/10 rounded-lg text-red-400"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-3 gap-2">
+                        {exercise.exercise_type === 'duration' ? (
+                          <div>
+                            <Label className="text-[10px] text-zinc-500 uppercase">Durée (s)</Label>
+                            <Input
+                              type="number"
+                              value={exercise.duration || ''}
+                              onChange={(e) =>
+                                updateExercise(blockIndex, exerciseIndex, 'duration', parseInt(e.target.value) || 0)
+                              }
+                              className="h-10 mt-1 rounded-lg bg-[#141414] border-white/10 text-white text-center"
+                            />
+                          </div>
+                        ) : (
+                          <div>
+                            <Label className="text-[10px] text-zinc-500 uppercase">Répétitions</Label>
+                            <Input
+                              type="number"
+                              value={exercise.reps || ''}
+                              onChange={(e) =>
+                                updateExercise(blockIndex, exerciseIndex, 'reps', parseInt(e.target.value) || 0)
+                              }
+                              className="h-10 mt-1 rounded-lg bg-[#141414] border-white/10 text-white text-center"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <Label className="text-[10px] text-zinc-500 uppercase">Repos (s)</Label>
+                          <Input
+                            type="number"
+                            value={exercise.rest_after || ''}
+                            onChange={(e) =>
+                              updateExercise(blockIndex, exerciseIndex, 'rest_after', parseInt(e.target.value) || 0)
+                            }
+                            className="h-10 mt-1 rounded-lg bg-[#141414] border-white/10 text-white text-center"
+                          />
+                        </div>
+                        <div className="flex items-end">
+                          <button
+                            onClick={() =>
+                              updateExercise(blockIndex, exerciseIndex, 'tts_enabled', !exercise.tts_enabled)
+                            }
+                            className={`w-full h-10 rounded-lg text-sm transition-colors ${
+                              exercise.tts_enabled
+                                ? 'bg-[var(--theme-primary)] text-white'
+                                : 'bg-white/5 text-zinc-500'
+                            }`}
+                          >
+                            🔊
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+
+                  <Dialog open={exerciseDialogOpen && currentBlockIndex === blockIndex} onOpenChange={(open) => {
+                    setExerciseDialogOpen(open);
+                    if (!open) setCurrentBlockIndex(null);
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          setCurrentBlockIndex(blockIndex);
+                          setExerciseDialogOpen(true);
+                        }}
+                        className="w-full border-dashed border-white/20 text-zinc-400 hover:text-white hover:border-white/40"
+                      >
+                        <Plus size={18} className="mr-2" /> Ajouter un exercice
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="bg-[#141414] border-white/10 max-h-[80vh]">
+                      <DialogHeader>
+                        <DialogTitle className="text-white">Choisir un exercice</DialogTitle>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div className="relative">
+                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                          <Input
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            placeholder="Rechercher..."
+                            className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                          />
+                        </div>
+                        <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                          {filteredExercises.map((exercise) => (
+                            <button
+                              key={exercise.id}
+                              onClick={() => addExerciseToBlock(exercise)}
+                              className="w-full p-3 text-left bg-white/5 hover:bg-white/10 rounded-xl transition-colors flex items-center gap-3"
+                            >
+                              {exercise.image_url ? (
+                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
+                                  <img
+                                    src={exercise.image_url}
+                                    alt=""
+                                    className="w-full h-full object-cover"
+                                    onError={(e) => {
+                                      e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-zinc-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
+                                    }}
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                                  <ImageIcon size={20} className="text-zinc-600" />
+                                </div>
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white font-medium">{exercise.name}</p>
+                                <p className="text-zinc-500 text-sm flex items-center gap-2">
+                                  <span className="capitalize">{exercise.category}</span>
+                                  <span>•</span>
+                                  {exercise.exercise_type === 'duration' ? (
+                                    <span className="flex items-center gap-1">
+                                      <Clock size={12} /> {exercise.default_duration}s
+                                    </span>
+                                  ) : (
+                                    <span className="flex items-center gap-1">
+                                      <Hash size={12} /> {exercise.default_reps} reps
+                                    </span>
+                                  )}
+                                </p>
+                              </div>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Actions */}
+        <div className="space-y-3 pt-4">
+          <Button
+            onClick={() => handleSave(false)}
+            disabled={saving || previewDates.length === 0}
+            data-testid="save-workout-btn"
+            className="w-full h-14 rounded-xl font-bold text-white btn-primary"
+          >
+            {saving ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <>
+                Planifier {previewDates.length > 1 ? `${previewDates.length} séances` : 'la séance'}
+              </>
+            )}
+          </Button>
+
+          <div className="flex gap-3">
+            <Button
+              variant="outline"
+              onClick={() => handleSave(true)}
+              disabled={saving}
+              className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
+            >
+              <Save size={18} className="mr-2" /> Brouillon
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleSaveAsTemplate}
+              disabled={saving}
+              className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
+            >
+              <Copy size={18} className="mr-2" /> Modèle
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
