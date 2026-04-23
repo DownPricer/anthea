@@ -167,9 +167,17 @@ export function WorkoutPlayerPage() {
     };
   }, [isPaused, phase]);
 
-  // Main timer
+  const isDurationExercise =
+    phase === 'exercise' && currentExercise?.exercise_type === 'duration';
+
+  // Main timer (repos + exercices en durée uniquement — pas de chrono pour les séries en reps)
   useEffect(() => {
     if (isPaused || phase === 'preparation' || phase === 'finished') {
+      if (timerRef.current) clearInterval(timerRef.current);
+      return;
+    }
+
+    if (phase === 'exercise' && !isDurationExercise) {
       if (timerRef.current) clearInterval(timerRef.current);
       return;
     }
@@ -193,22 +201,32 @@ export function WorkoutPlayerPage() {
     return () => {
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isPaused, phase, currentExerciseIndex]);
+  }, [isPaused, phase, currentExerciseIndex, isDurationExercise]);
+
+  const finishExercisePhase = () => {
+    if (currentExercise?.rest_after > 0) {
+      setPhase('rest');
+      setTimeRemaining(currentExercise.rest_after);
+      speak('Repos');
+    } else {
+      moveToNextExercise();
+    }
+  };
 
   const handleTimerComplete = () => {
     if (phase === 'countdown') {
       startExercise();
-    } else if (phase === 'exercise') {
-      if (currentExercise?.rest_after > 0) {
-        setPhase('rest');
-        setTimeRemaining(currentExercise.rest_after);
-        speak('Repos');
-      } else {
-        moveToNextExercise();
-      }
+    } else if (phase === 'exercise' && currentExercise?.exercise_type === 'duration') {
+      finishExercisePhase();
     } else if (phase === 'rest') {
       moveToNextExercise();
     }
+  };
+
+  const completeRepExercise = () => {
+    if (phase !== 'exercise') return;
+    if (currentExercise?.exercise_type === 'duration') return;
+    finishExercisePhase();
   };
 
   const startWorkout = () => {
@@ -224,12 +242,11 @@ export function WorkoutPlayerPage() {
     }
 
     setPhase('exercise');
-    
+
     if (currentExercise.exercise_type === 'duration') {
       setTimeRemaining(currentExercise.duration || 30);
     } else {
-      // For reps, give them time to complete
-      setTimeRemaining(60);
+      setTimeRemaining(0);
     }
 
     if (currentExercise.tts_enabled) {
@@ -631,11 +648,13 @@ export function WorkoutPlayerPage() {
         {/* Exercise image/GIF */}
         {currentExercise?.image_url && phase === 'exercise' && (
           <div className="w-full max-w-xs h-40 rounded-2xl overflow-hidden mb-6 bg-white/5">
-            <img 
-              src={currentExercise.image_url} 
+            <img
+              src={currentExercise.image_url}
               alt={currentExercise.name}
               className="w-full h-full object-cover"
-              onError={(e) => e.target.parentElement.style.display = 'none'}
+              onError={(e) => {
+                e.target.parentElement.style.display = 'none';
+              }}
             />
           </div>
         )}
@@ -649,8 +668,13 @@ export function WorkoutPlayerPage() {
           )}
           {phase === 'exercise' && (
             <span className="px-4 py-1 rounded-full bg-[var(--theme-surface-active)] text-[var(--theme-primary)] text-sm uppercase tracking-wider">
-              {currentExercise?.blockType === 'warmup' ? 'Échauffement' : 
-               currentExercise?.blockType === 'cooldown' ? 'Récupération' : 'Exercice'}
+              {currentExercise?.blockType === 'warmup'
+                ? 'Échauffement'
+                : currentExercise?.blockType === 'cooldown'
+                  ? 'Récupération'
+                  : currentExercise?.exercise_type === 'duration'
+                    ? 'Chrono'
+                    : 'Série'}
             </span>
           )}
           {phase === 'rest' && (
@@ -660,30 +684,49 @@ export function WorkoutPlayerPage() {
           )}
         </div>
 
-        {/* Timer */}
-        <div
-          className={`text-8xl font-mono font-bold tracking-tighter mb-4 ${
-            phase === 'countdown' ? 'animate-pulse text-yellow-500' : 'text-white'
-          }`}
-          style={{
-            textShadow: phase !== 'countdown' ? '0 0 30px var(--theme-primary-glow)' : undefined,
-          }}
-        >
-          {phase === 'countdown' ? timeRemaining : formatTime(timeRemaining)}
-        </div>
+        {phase === 'exercise' && currentExercise && (
+          <div className="mb-3 max-w-md px-2 text-center">
+            <h2 className="text-2xl font-bold text-white font-['Outfit']">{currentExercise.name}</h2>
+            {currentExercise.description && (
+              <p className="mt-1 text-sm text-zinc-500">{currentExercise.description}</p>
+            )}
+          </div>
+        )}
 
-        {/* Current exercise */}
-        {currentExercise && phase !== 'countdown' && (
-          <div className="text-center mb-8">
-            <h2 className="text-2xl font-bold text-white font-['Outfit']">
-              {phase === 'rest' ? 'Repos' : currentExercise.name}
-            </h2>
-            {phase === 'exercise' && currentExercise.description && (
-              <p className="text-zinc-500 text-sm mt-1">{currentExercise.description}</p>
-            )}
-            {phase === 'exercise' && currentExercise.exercise_type === 'reps' && (
-              <p className="text-zinc-400 mt-2 text-lg">{currentExercise.reps} répétitions</p>
-            )}
+        {/* Chrono (durée / repos) ou objectif reps sans chrono */}
+        {phase === 'countdown' && (
+          <div
+            className="mb-4 text-8xl font-mono font-bold tracking-tighter animate-pulse text-yellow-500"
+            style={{ textShadow: undefined }}
+          >
+            {timeRemaining}
+          </div>
+        )}
+        {phase === 'rest' && (
+          <div
+            className="mb-4 text-8xl font-mono font-bold tracking-tighter text-white"
+            style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
+          >
+            {formatTime(timeRemaining)}
+          </div>
+        )}
+        {phase === 'exercise' && currentExercise?.exercise_type === 'duration' && (
+          <div
+            className="mb-4 text-8xl font-mono font-bold tracking-tighter text-white"
+            style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
+          >
+            {formatTime(timeRemaining)}
+          </div>
+        )}
+        {phase === 'exercise' && currentExercise?.exercise_type !== 'duration' && (
+          <div className="mb-2 text-center">
+            <div
+              className="text-8xl font-bold leading-none text-white font-['Outfit']"
+              style={{ textShadow: '0 0 28px var(--theme-primary-glow)' }}
+            >
+              {currentExercise.reps ?? '—'}
+            </div>
+            <p className="mt-3 text-lg text-zinc-400">répétitions à faire</p>
           </div>
         )}
 
@@ -699,20 +742,41 @@ export function WorkoutPlayerPage() {
 
       {/* Controls */}
       <div className="p-5 space-y-4">
-        {/* Main controls */}
-        <div className="flex items-center justify-center gap-6">
-          <button
-            onClick={() => addTime(15)}
-            className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors relative"
+        {phase === 'exercise' && currentExercise?.exercise_type !== 'duration' && (
+          <Button
+            type="button"
+            onClick={completeRepExercise}
+            className="mx-auto block h-14 w-full max-w-sm rounded-xl text-base font-bold text-white btn-primary"
           >
-            <Plus size={20} className="text-white" />
-            <span className="text-[10px] text-zinc-400 absolute -bottom-5">+15s</span>
-          </button>
+            J&apos;ai terminé la série
+          </Button>
+        )}
+
+        {/* Main controls — grille 3 colonnes pour garder Pause centré */}
+        <div className="mx-auto grid w-full max-w-sm grid-cols-3 place-items-center gap-1">
+          <div className="flex h-[4.5rem] items-center justify-center">
+            {phase === 'rest' ||
+            (phase === 'exercise' && currentExercise?.exercise_type === 'duration') ? (
+              <button
+                type="button"
+                onClick={() => addTime(15)}
+                className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
+              >
+                <Plus size={20} className="text-white" />
+                <span className="absolute -bottom-5 whitespace-nowrap text-[10px] text-zinc-400">
+                  +15s
+                </span>
+              </button>
+            ) : (
+              <span className="inline-block h-14 w-14" aria-hidden />
+            )}
+          </div>
 
           <button
+            type="button"
             onClick={() => setIsPaused(!isPaused)}
             data-testid="pause-btn"
-            className="w-20 h-20 rounded-full flex items-center justify-center text-white animate-pulse-glow"
+            className="flex h-20 w-20 items-center justify-center rounded-full text-white animate-pulse-glow"
             style={{
               background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
             }}
@@ -720,13 +784,16 @@ export function WorkoutPlayerPage() {
             {isPaused ? <Play size={32} fill="currentColor" /> : <Pause size={32} />}
           </button>
 
-          <button
-            onClick={skipExercise}
-            className="w-14 h-14 rounded-full bg-white/5 border border-white/10 flex items-center justify-center hover:bg-white/10 transition-colors relative"
-          >
-            <SkipForward size={20} className="text-white" />
-            <span className="text-[10px] text-zinc-400 absolute -bottom-5">Skip</span>
-          </button>
+          <div className="flex h-[4.5rem] items-center justify-center">
+            <button
+              type="button"
+              onClick={skipExercise}
+              className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
+            >
+              <SkipForward size={20} className="text-white" />
+              <span className="absolute -bottom-5 text-[10px] text-zinc-400">Passer</span>
+            </button>
+          </div>
         </div>
 
         {/* Stop button */}

@@ -21,6 +21,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '../components/ui/alert-dialog';
 import { Calendar } from '../components/ui/calendar';
 import {
   ArrowLeft,
@@ -108,6 +118,8 @@ export function CreateWorkoutPage() {
   
   const [exercises, setExercises] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [templatePendingDelete, setTemplatePendingDelete] = useState(null);
+  const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
@@ -358,7 +370,7 @@ export function CreateWorkoutPage() {
     setTitle(template.title);
     setDescription(template.description || '');
     setDifficulty(template.difficulty || 'medium');
-    
+
     if (template.blocks) {
       setBlocks(
         template.blocks.map((b) => ({
@@ -368,8 +380,23 @@ export function CreateWorkoutPage() {
         }))
       );
     }
-    
+
     toast.success('Modèle chargé');
+  };
+
+  const confirmDeleteTemplate = async () => {
+    if (!templatePendingDelete) return;
+    setDeletingTemplate(true);
+    try {
+      await templatesApi.delete(templatePendingDelete.id);
+      setTemplates((prev) => prev.filter((t) => t.id !== templatePendingDelete.id));
+      toast.success('Modèle supprimé');
+      setTemplatePendingDelete(null);
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setDeletingTemplate(false);
+    }
   };
 
   const toggleWeekDay = (day) => {
@@ -554,23 +581,60 @@ export function CreateWorkoutPage() {
       </header>
 
       <div className="p-5 space-y-6">
-        {/* Templates */}
-        {templates.length > 0 && (
-          <div>
-            <Label className="text-zinc-400 text-sm mb-2 block">Depuis un modèle</Label>
-            <div className="flex gap-2 overflow-x-auto pb-2 -mx-5 px-5">
+        {/* Modèles — liste + actions claires */}
+        <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
+          <Label className="mb-3 block text-sm font-medium text-zinc-300">Modèles enregistrés</Label>
+          {templates.length === 0 ? (
+            <p className="text-sm text-zinc-500">
+              Aucun modèle pour l’instant. Remplis ta séance puis touche « Modèle » en bas pour en
+              enregistrer un.
+            </p>
+          ) : (
+            <ul className="space-y-2">
               {templates.map((template) => (
-                <button
+                <li
                   key={template.id}
-                  onClick={() => loadFromTemplate(template)}
-                  className="flex-shrink-0 px-4 py-2 bg-[#141414] border border-white/10 rounded-xl text-sm text-white hover:bg-white/5 transition-colors"
+                  className="flex items-center gap-2 rounded-lg border border-white/5 bg-[#0A0A0A] p-3"
                 >
-                  {template.title}
-                </button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate font-medium text-white">{template.title}</p>
+                      {template.is_system && (
+                        <span className="shrink-0 rounded-md bg-[var(--theme-primary)]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--theme-primary)]">
+                          Anthea
+                        </span>
+                      )}
+                    </div>
+                    {template.difficulty && (
+                      <p className="text-xs capitalize text-zinc-500">{template.difficulty}</p>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => loadFromTemplate(template)}
+                    className="shrink-0 border-white/15 bg-white/5 text-white hover:bg-white/10"
+                  >
+                    Charger
+                  </Button>
+                  {!template.is_system && (
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      title="Supprimer ce modèle"
+                      className="h-9 w-9 shrink-0 text-zinc-500 hover:bg-red-500/15 hover:text-red-400"
+                      onClick={() => setTemplatePendingDelete(template)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  )}
+                </li>
               ))}
-            </div>
-          </div>
-        )}
+            </ul>
+          )}
+        </div>
 
         {/* Basic Info */}
         <div className="space-y-4">
@@ -1313,6 +1377,39 @@ export function CreateWorkoutPage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog
+        open={!!templatePendingDelete}
+        onOpenChange={(open) => {
+          if (!open) setTemplatePendingDelete(null);
+        }}
+      >
+        <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer ce modèle ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              {templatePendingDelete
+                ? `« ${templatePendingDelete.title} » sera définitivement supprimé.`
+                : ''}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDeleteTemplate();
+              }}
+              disabled={deletingTemplate}
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+            >
+              {deletingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

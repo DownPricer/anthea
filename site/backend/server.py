@@ -19,6 +19,8 @@ import secrets
 from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 
+from program_volume_seed import ensure_program_volume_templates
+
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
 client = AsyncIOMotorClient(mongo_url)
@@ -342,6 +344,7 @@ async def lifespan(app: FastAPI):
     await db.streak_days.create_index([("user_id", 1), ("date", 1)], unique=True)
     
     await seed_system_exercises()
+    await ensure_program_volume_templates(db, logger)
     await seed_test_user()
     
     logger.info("Database indexes created and seed data loaded")
@@ -657,8 +660,22 @@ async def delete_exercise(exercise_id: str, user: dict = Depends(get_current_use
 
 @api_router.get("/templates")
 async def get_templates(user: dict = Depends(get_current_user)):
-    templates = await db.workout_templates.find({"user_id": user["id"]}).to_list(1000)
-    return [{"id": str(t["_id"]), **{k: v for k, v in t.items() if k != "_id"}} for t in templates]
+    system = await db.workout_templates.find({"is_system": True}).sort("program_order", 1).to_list(50)
+    mine = await db.workout_templates.find({"user_id": user["id"]}).to_list(1000)
+    out: List[dict] = []
+    for t in system:
+        out.append(
+            {
+                "id": str(t["_id"]),
+                **{k: v for k, v in t.items() if k != "_id"},
+                "is_system": True,
+            }
+        )
+    for t in mine:
+        row = {"id": str(t["_id"]), **{k: v for k, v in t.items() if k != "_id"}}
+        row.setdefault("is_system", False)
+        out.append(row)
+    return out
 
 @api_router.post("/templates")
 async def create_template(data: WorkoutTemplateCreate, user: dict = Depends(get_current_user)):
@@ -677,8 +694,12 @@ async def create_template(data: WorkoutTemplateCreate, user: dict = Depends(get_
 
 @api_router.put("/templates/{template_id}")
 async def update_template(template_id: str, data: WorkoutTemplateCreate, user: dict = Depends(get_current_user)):
-    template = await db.workout_templates.find_one({"_id": ObjectId(template_id), "user_id": user["id"]})
+    template = await db.workout_templates.find_one({"_id": ObjectId(template_id)})
     if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if template.get("is_system"):
+        raise HTTPException(status_code=403, detail="Cannot modify system templates")
+    if template.get("user_id") != user["id"]:
         raise HTTPException(status_code=404, detail="Template not found")
     
     update_data = data.model_dump()
@@ -692,6 +713,13 @@ async def update_template(template_id: str, data: WorkoutTemplateCreate, user: d
 
 @api_router.delete("/templates/{template_id}")
 async def delete_template(template_id: str, user: dict = Depends(get_current_user)):
+    template = await db.workout_templates.find_one({"_id": ObjectId(template_id)})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if template.get("is_system"):
+        raise HTTPException(status_code=403, detail="Cannot delete system templates")
+    if template.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Template not found")
     result = await db.workout_templates.delete_one({"_id": ObjectId(template_id), "user_id": user["id"]})
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Template not found")
