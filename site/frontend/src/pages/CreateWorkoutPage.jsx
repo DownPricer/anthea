@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
@@ -37,6 +37,8 @@ import {
   CalendarDays,
   Repeat,
   Image as ImageIcon,
+  Upload,
+  Pencil,
 } from 'lucide-react';
 import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -76,6 +78,9 @@ const DEFAULT_NEW_EXERCISE = {
   image_url: '',
 };
 
+/** Taille max d’un GIF importé en local (avant encodage base64 dans l’API). */
+const MAX_GIF_FILE_BYTES = 2 * 1024 * 1024;
+
 export function CreateWorkoutPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -111,7 +116,9 @@ export function CreateWorkoutPage() {
   const [showSchedulePreview, setShowSchedulePreview] = useState(false);
   const [exerciseTab, setExerciseTab] = useState('library');
   const [creatingExercise, setCreatingExercise] = useState(false);
+  const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [newExercise, setNewExercise] = useState(DEFAULT_NEW_EXERCISE);
+  const newExerciseGifInputRef = useRef(null);
 
   useEffect(() => {
     loadData();
@@ -167,12 +174,84 @@ export function CreateWorkoutPage() {
     }));
   };
 
+  const handleNewExerciseGifFile = (event) => {
+    const input = event.target;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    if (file.type !== 'image/gif') {
+      toast.error('Choisis un fichier au format GIF');
+      return;
+    }
+    if (file.size > MAX_GIF_FILE_BYTES) {
+      const maxMb = Math.round(MAX_GIF_FILE_BYTES / 1024 / 1024);
+      toast.error(`GIF trop volumineux (maximum ${maxMb} Mo)`);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = () => {
+      const result = reader.result;
+      if (typeof result === 'string') {
+        updateNewExerciseField('image_url', result);
+        toast.success('GIF importé');
+      }
+    };
+    reader.onerror = () => toast.error('Impossible de lire ce fichier');
+    reader.readAsDataURL(file);
+  };
+
   const resetExerciseDialogState = () => {
     setCurrentBlockIndex(null);
     setSearchQuery('');
     setExerciseTab('library');
     setCreatingExercise(false);
+    setEditingExerciseId(null);
     setNewExercise(DEFAULT_NEW_EXERCISE);
+  };
+
+  const libraryExerciseToForm = (exercise) => ({
+    name: exercise.name || '',
+    description: exercise.description || '',
+    category: exercise.category || 'general',
+    exercise_type: exercise.exercise_type || 'reps',
+    default_duration:
+      exercise.default_duration != null ? String(exercise.default_duration) : '',
+    default_reps: exercise.default_reps != null ? String(exercise.default_reps) : '',
+    default_rest: exercise.default_rest != null ? exercise.default_rest : 30,
+    image_url: exercise.image_url || '',
+  });
+
+  const startEditExercise = (exercise, event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (exercise.is_system) return;
+    setEditingExerciseId(exercise.id);
+    setNewExercise(libraryExerciseToForm(exercise));
+    setExerciseTab('create');
+  };
+
+  const applyUpdatedExerciseToBlocks = (exerciseId, lib) => {
+    setBlocks((prev) =>
+      prev.map((block) => ({
+        ...block,
+        exercises: block.exercises.map((ex) => {
+          if (ex.exercise_id !== exerciseId) return ex;
+          return {
+            ...ex,
+            name: lib.name,
+            description: lib.description,
+            exercise_type: lib.exercise_type,
+            duration:
+              lib.exercise_type === 'duration' ? lib.default_duration ?? 0 : null,
+            reps: lib.exercise_type === 'reps' ? lib.default_reps ?? 0 : null,
+            rest_after: lib.default_rest ?? ex.rest_after,
+            image_url: lib.image_url,
+          };
+        }),
+      }))
+    );
   };
 
   const handleCreateExercise = async (event) => {
@@ -212,11 +291,21 @@ export function CreateWorkoutPage() {
         image_url: newExercise.image_url.trim() || null,
       };
 
-      const { data } = await exercisesApi.create(payload);
-      setExercises((prev) => [data, ...prev]);
-      addExerciseToBlock(data);
-      setNewExercise(DEFAULT_NEW_EXERCISE);
-      toast.success('Exercice créé et ajouté à la séance');
+      if (editingExerciseId) {
+        const { data } = await exercisesApi.update(editingExerciseId, payload);
+        setExercises((prev) => prev.map((e) => (e.id === editingExerciseId ? data : e)));
+        applyUpdatedExerciseToBlocks(editingExerciseId, data);
+        setEditingExerciseId(null);
+        setNewExercise(DEFAULT_NEW_EXERCISE);
+        setExerciseTab('library');
+        toast.success('Exercice mis à jour');
+      } else {
+        const { data } = await exercisesApi.create(payload);
+        setExercises((prev) => [data, ...prev]);
+        addExerciseToBlock(data);
+        setNewExercise(DEFAULT_NEW_EXERCISE);
+        toast.success('Exercice créé et ajouté à la séance');
+      }
     } catch (error) {
       toast.error(formatApiError(error));
     } finally {
@@ -868,7 +957,13 @@ export function CreateWorkoutPage() {
                     </DialogTrigger>
                     <DialogContent className="bg-[#141414] border-white/10 max-h-[80vh]">
                       <DialogHeader>
-                        <DialogTitle className="text-white">Choisir un exercice</DialogTitle>
+                        <DialogTitle className="text-white">
+                          {exerciseTab === 'create'
+                            ? editingExerciseId
+                              ? 'Modifier l’exercice'
+                              : 'Créer un exercice'
+                            : 'Choisir un exercice'}
+                        </DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
                         <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#0A0A0A] p-1">
@@ -885,7 +980,11 @@ export function CreateWorkoutPage() {
                           </button>
                           <button
                             type="button"
-                            onClick={() => setExerciseTab('create')}
+                            onClick={() => {
+                              setEditingExerciseId(null);
+                              setNewExercise(DEFAULT_NEW_EXERCISE);
+                              setExerciseTab('create');
+                            }}
                             className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                               exerciseTab === 'create'
                                 ? 'bg-[var(--theme-primary)] text-white'
@@ -908,44 +1007,61 @@ export function CreateWorkoutPage() {
                             </div>
                             <div className="max-h-[50vh] overflow-y-auto space-y-2">
                               {filteredExercises.map((exercise) => (
-                                <button
+                                <div
                                   key={exercise.id}
-                                  onClick={() => addExerciseToBlock(exercise)}
-                                  className="w-full p-3 text-left bg-white/5 hover:bg-white/10 rounded-xl transition-colors flex items-center gap-3"
+                                  className="flex items-stretch gap-1 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
                                 >
-                                  {exercise.image_url ? (
-                                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
-                                      <img
-                                        src={exercise.image_url}
-                                        alt=""
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => {
-                                          e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-zinc-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
-                                        }}
-                                      />
+                                  <button
+                                    type="button"
+                                    onClick={() => addExerciseToBlock(exercise)}
+                                    className="flex-1 min-w-0 p-3 text-left flex items-center gap-3 rounded-xl"
+                                  >
+                                    {exercise.image_url ? (
+                                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
+                                        <img
+                                          src={exercise.image_url}
+                                          alt=""
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => {
+                                            e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-zinc-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
+                                          }}
+                                        />
+                                      </div>
+                                    ) : (
+                                      <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                                        <ImageIcon size={20} className="text-zinc-600" />
+                                      </div>
+                                    )}
+                                    <div className="flex-1 min-w-0">
+                                      <p className="text-white font-medium">{exercise.name}</p>
+                                      <p className="text-zinc-500 text-sm flex items-center gap-2">
+                                        <span className="capitalize">{exercise.category}</span>
+                                        <span>•</span>
+                                        {exercise.exercise_type === 'duration' ? (
+                                          <span className="flex items-center gap-1">
+                                            <Clock size={12} /> {exercise.default_duration}s
+                                          </span>
+                                        ) : (
+                                          <span className="flex items-center gap-1">
+                                            <Hash size={12} /> {exercise.default_reps} reps
+                                          </span>
+                                        )}
+                                      </p>
                                     </div>
-                                  ) : (
-                                    <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                                      <ImageIcon size={20} className="text-zinc-600" />
-                                    </div>
+                                  </button>
+                                  {!exercise.is_system && (
+                                    <Button
+                                      type="button"
+                                      variant="ghost"
+                                      size="icon"
+                                      title="Modifier"
+                                      className="shrink-0 self-center mr-1 h-10 w-10 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10"
+                                      onClick={(e) => startEditExercise(exercise, e)}
+                                    >
+                                      <Pencil size={18} />
+                                    </Button>
                                   )}
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-white font-medium">{exercise.name}</p>
-                                    <p className="text-zinc-500 text-sm flex items-center gap-2">
-                                      <span className="capitalize">{exercise.category}</span>
-                                      <span>•</span>
-                                      {exercise.exercise_type === 'duration' ? (
-                                        <span className="flex items-center gap-1">
-                                          <Clock size={12} /> {exercise.default_duration}s
-                                        </span>
-                                      ) : (
-                                        <span className="flex items-center gap-1">
-                                          <Hash size={12} /> {exercise.default_reps} reps
-                                        </span>
-                                      )}
-                                    </p>
-                                  </div>
-                                </button>
+                                </div>
                               ))}
                               {filteredExercises.length === 0 && (
                                 <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-sm text-zinc-500">
@@ -1036,17 +1152,83 @@ export function CreateWorkoutPage() {
                               </div>
                             </div>
                             <div>
-                              <Label className="text-zinc-400 text-sm">Image ou GIF (URL)</Label>
-                              <Input
-                                value={newExercise.image_url}
-                                onChange={(e) => updateNewExerciseField('image_url', e.target.value)}
-                                placeholder="https://..."
-                                className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                              <Label className="text-zinc-400 text-sm">Image ou GIF</Label>
+                              <input
+                                ref={newExerciseGifInputRef}
+                                type="file"
+                                accept="image/gif,.gif"
+                                className="sr-only"
+                                onChange={handleNewExerciseGifFile}
                               />
+                              {newExercise.image_url.startsWith('data:') ? (
+                                <div className="mt-2 space-y-2">
+                                  <div className="rounded-xl overflow-hidden border border-white/10 bg-black max-h-40 flex items-center justify-center">
+                                    <img
+                                      src={newExercise.image_url}
+                                      alt=""
+                                      className="max-h-40 w-full object-contain"
+                                    />
+                                  </div>
+                                  <div className="flex gap-2">
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => updateNewExerciseField('image_url', '')}
+                                      className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
+                                    >
+                                      <Trash2 className="w-4 h-4 mr-2" />
+                                      Retirer le fichier
+                                    </Button>
+                                    <Button
+                                      type="button"
+                                      variant="outline"
+                                      onClick={() => newExerciseGifInputRef.current?.click()}
+                                      className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
+                                    >
+                                      <Upload className="w-4 h-4 mr-2" />
+                                      Autre GIF
+                                    </Button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-2 space-y-2">
+                                  <Input
+                                    value={newExercise.image_url}
+                                    onChange={(e) => updateNewExerciseField('image_url', e.target.value)}
+                                    placeholder="https://... (optionnel)"
+                                    className="h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                                  />
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={() => newExerciseGifInputRef.current?.click()}
+                                    className="w-full h-12 rounded-xl bg-white/5 border-white/10 text-white"
+                                  >
+                                    <Upload className="w-4 h-4 mr-2" />
+                                    Importer un GIF depuis l&apos;ordinateur
+                                  </Button>
+                                </div>
+                              )}
                               <p className="mt-2 text-xs text-zinc-500">
-                                Tu peux coller une URL d’image statique ou de GIF.
+                                Soit une URL, soit un GIF local intégré à l&apos;exercice (sans hébergement
+                                externe), jusqu&apos;à environ {Math.round(MAX_GIF_FILE_BYTES / 1024 / 1024)}{' '}
+                                Mo.
                               </p>
                             </div>
+                            {editingExerciseId && (
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => {
+                                  setEditingExerciseId(null);
+                                  setNewExercise(DEFAULT_NEW_EXERCISE);
+                                  setExerciseTab('library');
+                                }}
+                                className="w-full h-11 rounded-xl bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+                              >
+                                Annuler la modification
+                              </Button>
+                            )}
                             <Button
                               type="submit"
                               disabled={creatingExercise}
@@ -1054,6 +1236,8 @@ export function CreateWorkoutPage() {
                             >
                               {creatingExercise ? (
                                 <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : editingExerciseId ? (
+                                'Enregistrer'
                               ) : (
                                 'Créer et ajouter'
                               )}
