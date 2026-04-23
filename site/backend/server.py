@@ -658,24 +658,32 @@ async def delete_exercise(exercise_id: str, user: dict = Depends(get_current_use
 
 # ============ WORKOUT TEMPLATE ROUTES ============
 
+def serialize_template(template: dict, include_blocks: bool = True) -> dict:
+    row = {"id": str(template["_id"]), **{k: v for k, v in template.items() if k != "_id"}}
+    row.setdefault("is_system", False)
+    if not include_blocks:
+        row.pop("blocks", None)
+    return row
+
 @api_router.get("/templates")
-async def get_templates(user: dict = Depends(get_current_user)):
+async def get_templates(summary: bool = False, user: dict = Depends(get_current_user)):
     system = await db.workout_templates.find({"is_system": True}).sort("program_order", 1).to_list(50)
     mine = await db.workout_templates.find({"user_id": user["id"]}).to_list(1000)
     out: List[dict] = []
     for t in system:
-        out.append(
-            {
-                "id": str(t["_id"]),
-                **{k: v for k, v in t.items() if k != "_id"},
-                "is_system": True,
-            }
-        )
+        out.append(serialize_template(t, include_blocks=not summary))
     for t in mine:
-        row = {"id": str(t["_id"]), **{k: v for k, v in t.items() if k != "_id"}}
-        row.setdefault("is_system", False)
-        out.append(row)
+        out.append(serialize_template(t, include_blocks=not summary))
     return out
+
+@api_router.get("/templates/{template_id}")
+async def get_template(template_id: str, user: dict = Depends(get_current_user)):
+    template = await db.workout_templates.find_one({"_id": ObjectId(template_id)})
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if not template.get("is_system") and template.get("user_id") != user["id"]:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return serialize_template(template, include_blocks=True)
 
 @api_router.post("/templates")
 async def create_template(data: WorkoutTemplateCreate, user: dict = Depends(get_current_user)):
@@ -870,14 +878,20 @@ async def create_multi_schedule(data: MultiScheduleCreate, user: dict = Depends(
             for_username = partner["username"]
     
     dates_to_create = []
-    
-    if data.schedule_mode == "single" and data.dates:
+    # Alias historiques / front plus court
+    mode = data.schedule_mode
+    if mode == "multiple":
+        mode = "multiple_dates"
+    elif mode == "weekly":
+        mode = "weekly_repeat"
+
+    if mode == "single" and data.dates:
         dates_to_create = [data.dates[0]]
-    
-    elif data.schedule_mode == "multiple_dates":
+
+    elif mode == "multiple_dates":
         dates_to_create = data.dates
-    
-    elif data.schedule_mode == "weekly_repeat":
+
+    elif mode == "weekly_repeat":
         if not data.start_date:
             raise HTTPException(status_code=400, detail="Start date required for weekly repeat")
         

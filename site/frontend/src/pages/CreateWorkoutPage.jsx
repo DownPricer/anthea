@@ -120,6 +120,8 @@ export function CreateWorkoutPage() {
   const [templates, setTemplates] = useState([]);
   const [templatePendingDelete, setTemplatePendingDelete] = useState(null);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [exerciseLibraryLoading, setExerciseLibraryLoading] = useState(false);
+  const [exerciseLibraryLoaded, setExerciseLibraryLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
@@ -131,6 +133,7 @@ export function CreateWorkoutPage() {
   const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [newExercise, setNewExercise] = useState(DEFAULT_NEW_EXERCISE);
   const newExerciseGifInputRef = useRef(null);
+  const templateCacheRef = useRef(new Map());
 
   useEffect(() => {
     loadData();
@@ -138,16 +141,26 @@ export function CreateWorkoutPage() {
 
   const loadData = async () => {
     try {
-      const [exercisesRes, templatesRes] = await Promise.all([
-        exercisesApi.getAll(),
-        templatesApi.getAll(),
-      ]);
-      setExercises(exercisesRes.data || []);
-      setTemplates(templatesRes.data || []);
+      const { data } = await templatesApi.getAll({ summary: true });
+      setTemplates(data || []);
     } catch (error) {
       console.error('Failed to load data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadExerciseLibrary = async () => {
+    if (exerciseLibraryLoaded || exerciseLibraryLoading) return;
+    setExerciseLibraryLoading(true);
+    try {
+      const { data } = await exercisesApi.getAll();
+      setExercises(data || []);
+      setExerciseLibraryLoaded(true);
+    } catch (error) {
+      toast.error("Impossible de charger la bibliothèque d'exercices");
+    } finally {
+      setExerciseLibraryLoading(false);
     }
   };
 
@@ -366,22 +379,37 @@ export function CreateWorkoutPage() {
     });
   };
 
-  const loadFromTemplate = (template) => {
-    setTitle(template.title);
-    setDescription(template.description || '');
-    setDifficulty(template.difficulty || 'medium');
+  const loadFromTemplate = async (template) => {
+    try {
+      let templateData = template;
+      if (!templateData.blocks) {
+        if (templateCacheRef.current.has(template.id)) {
+          templateData = templateCacheRef.current.get(template.id);
+        } else {
+          const { data } = await templatesApi.getOne(template.id);
+          templateData = data;
+          templateCacheRef.current.set(template.id, data);
+        }
+      }
 
-    if (template.blocks) {
-      setBlocks(
-        template.blocks.map((b) => ({
-          ...b,
-          expanded: true,
-          exercises: b.exercises || [],
-        }))
-      );
+      setTitle(templateData.title);
+      setDescription(templateData.description || '');
+      setDifficulty(templateData.difficulty || 'medium');
+
+      if (templateData.blocks) {
+        setBlocks(
+          templateData.blocks.map((b) => ({
+            ...b,
+            expanded: true,
+            exercises: b.exercises || [],
+          }))
+        );
+      }
+
+      toast.success('Modèle chargé');
+    } catch (error) {
+      toast.error('Impossible de charger ce modèle');
     }
-
-    toast.success('Modèle chargé');
   };
 
   const confirmDeleteTemplate = async () => {
@@ -491,7 +519,13 @@ export function CreateWorkoutPage() {
             block_type: b.block_type,
             exercises: b.exercises,
           })),
-          schedule_mode: scheduleMode,
+          // API FastAPI : multiple_dates | weekly_repeat (pas "multiple" / "weekly")
+          schedule_mode:
+            scheduleMode === 'multiple'
+              ? 'multiple_dates'
+              : scheduleMode === 'weekly'
+                ? 'weekly_repeat'
+                : 'multiple_dates',
           dates: scheduleMode === 'multiple' ? multipleDates.map((d) => format(d, 'yyyy-MM-dd')) : [],
           week_days: scheduleMode === 'weekly' ? weekDays : [],
           start_date: scheduleMode === 'weekly' ? startDate : null,
@@ -504,7 +538,7 @@ export function CreateWorkoutPage() {
         navigate('/workouts');
       }
     } catch (error) {
-      toast.error('Erreur lors de la sauvegarde');
+      toast.error(formatApiError(error));
       console.error(error);
     } finally {
       setSaving(false);
@@ -1011,6 +1045,7 @@ export function CreateWorkoutPage() {
                       <Button
                         variant="outline"
                         onClick={() => {
+                          loadExerciseLibrary();
                           setCurrentBlockIndex(blockIndex);
                           setExerciseDialogOpen(true);
                         }}
@@ -1033,7 +1068,10 @@ export function CreateWorkoutPage() {
                         <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#0A0A0A] p-1">
                           <button
                             type="button"
-                            onClick={() => setExerciseTab('library')}
+                            onClick={() => {
+                              loadExerciseLibrary();
+                              setExerciseTab('library');
+                            }}
                             className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                               exerciseTab === 'library'
                                 ? 'bg-[var(--theme-primary)] text-white'
@@ -1072,7 +1110,12 @@ export function CreateWorkoutPage() {
                             />
                           </div>
                           <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
-                              {filteredExercises.map((exercise) => (
+                              {exerciseLibraryLoading ? (
+                                <div className="flex items-center justify-center py-10 text-zinc-500">
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  Chargement des exercices...
+                                </div>
+                              ) : filteredExercises.map((exercise) => (
                                 <div
                                   key={exercise.id}
                                   className="flex items-stretch gap-1 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
@@ -1129,7 +1172,7 @@ export function CreateWorkoutPage() {
                                   )}
                                 </div>
                               ))}
-                              {filteredExercises.length === 0 && (
+                              {!exerciseLibraryLoading && filteredExercises.length === 0 && (
                                 <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-sm text-zinc-500">
                                   Aucun exercice trouvé.
                                 </div>

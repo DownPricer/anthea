@@ -64,7 +64,7 @@ export const partnerApi = {
 
 // Exercises API
 export const exercisesApi = {
-  getAll: () => api.get('/exercises'),
+  getAll: (params) => api.get('/exercises', { params }),
   create: (data) => api.post('/exercises', data),
   update: (id, data) => api.put(`/exercises/${id}`, data),
   delete: (id) => api.delete(`/exercises/${id}`),
@@ -72,7 +72,8 @@ export const exercisesApi = {
 
 // Templates API
 export const templatesApi = {
-  getAll: () => api.get('/templates'),
+  getAll: (params) => api.get('/templates', { params }),
+  getOne: (id) => api.get(`/templates/${id}`),
   create: (data) => api.post('/templates', data),
   update: (id, data) => api.put(`/templates/${id}`, data),
   delete: (id) => api.delete(`/templates/${id}`),
