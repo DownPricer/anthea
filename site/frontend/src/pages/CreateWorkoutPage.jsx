@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, exercisesApi, templatesApi } from '../lib/api';
+import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -65,6 +65,17 @@ const WEEK_DAYS = [
   { value: 6, label: 'Dim' },
 ];
 
+const DEFAULT_NEW_EXERCISE = {
+  name: '',
+  description: '',
+  category: 'general',
+  exercise_type: 'reps',
+  default_duration: '',
+  default_reps: '',
+  default_rest: 30,
+  image_url: '',
+};
+
 export function CreateWorkoutPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -98,6 +109,9 @@ export function CreateWorkoutPage() {
   const [currentBlockIndex, setCurrentBlockIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSchedulePreview, setShowSchedulePreview] = useState(false);
+  const [exerciseTab, setExerciseTab] = useState('library');
+  const [creatingExercise, setCreatingExercise] = useState(false);
+  const [newExercise, setNewExercise] = useState(DEFAULT_NEW_EXERCISE);
 
   useEffect(() => {
     loadData();
@@ -143,6 +157,71 @@ export function CreateWorkoutPage() {
     setExerciseDialogOpen(false);
     setCurrentBlockIndex(null);
     setSearchQuery('');
+    setExerciseTab('library');
+  };
+
+  const updateNewExerciseField = (field, value) => {
+    setNewExercise((prev) => ({
+      ...prev,
+      [field]: value,
+    }));
+  };
+
+  const resetExerciseDialogState = () => {
+    setCurrentBlockIndex(null);
+    setSearchQuery('');
+    setExerciseTab('library');
+    setCreatingExercise(false);
+    setNewExercise(DEFAULT_NEW_EXERCISE);
+  };
+
+  const handleCreateExercise = async (event) => {
+    event.preventDefault();
+
+    if (!newExercise.name.trim()) {
+      toast.error("Donne un nom à l'exercice");
+      return;
+    }
+
+    if (newExercise.exercise_type === 'duration' && !newExercise.default_duration) {
+      toast.error('Indique une durée par défaut');
+      return;
+    }
+
+    if (newExercise.exercise_type === 'reps' && !newExercise.default_reps) {
+      toast.error('Indique un nombre de répétitions par défaut');
+      return;
+    }
+
+    setCreatingExercise(true);
+    try {
+      const payload = {
+        name: newExercise.name.trim(),
+        description: newExercise.description.trim() || null,
+        category: newExercise.category.trim() || 'general',
+        exercise_type: newExercise.exercise_type,
+        default_duration:
+          newExercise.exercise_type === 'duration'
+            ? Number(newExercise.default_duration) || 0
+            : null,
+        default_reps:
+          newExercise.exercise_type === 'reps'
+            ? Number(newExercise.default_reps) || 0
+            : null,
+        default_rest: Number(newExercise.default_rest) || 30,
+        image_url: newExercise.image_url.trim() || null,
+      };
+
+      const { data } = await exercisesApi.create(payload);
+      setExercises((prev) => [data, ...prev]);
+      addExerciseToBlock(data);
+      setNewExercise(DEFAULT_NEW_EXERCISE);
+      toast.success('Exercice créé et ajouté à la séance');
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setCreatingExercise(false);
+    }
   };
 
   const removeExercise = (blockIndex, exerciseIndex) => {
@@ -773,7 +852,7 @@ export function CreateWorkoutPage() {
 
                   <Dialog open={exerciseDialogOpen && currentBlockIndex === blockIndex} onOpenChange={(open) => {
                     setExerciseDialogOpen(open);
-                    if (!open) setCurrentBlockIndex(null);
+                    if (!open) resetExerciseDialogState();
                   }}>
                     <DialogTrigger asChild>
                       <Button
@@ -792,57 +871,195 @@ export function CreateWorkoutPage() {
                         <DialogTitle className="text-white">Choisir un exercice</DialogTitle>
                       </DialogHeader>
                       <div className="space-y-4">
-                        <div className="relative">
-                          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                          <Input
-                            value={searchQuery}
-                            onChange={(e) => setSearchQuery(e.target.value)}
-                            placeholder="Rechercher..."
-                            className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
-                          />
+                        <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#0A0A0A] p-1">
+                          <button
+                            type="button"
+                            onClick={() => setExerciseTab('library')}
+                            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                              exerciseTab === 'library'
+                                ? 'bg-[var(--theme-primary)] text-white'
+                                : 'text-zinc-400 hover:bg-white/5'
+                            }`}
+                          >
+                            Bibliothèque
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setExerciseTab('create')}
+                            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                              exerciseTab === 'create'
+                                ? 'bg-[var(--theme-primary)] text-white'
+                                : 'text-zinc-400 hover:bg-white/5'
+                            }`}
+                          >
+                            Nouvel exercice
+                          </button>
                         </div>
-                        <div className="max-h-[50vh] overflow-y-auto space-y-2">
-                          {filteredExercises.map((exercise) => (
-                            <button
-                              key={exercise.id}
-                              onClick={() => addExerciseToBlock(exercise)}
-                              className="w-full p-3 text-left bg-white/5 hover:bg-white/10 rounded-xl transition-colors flex items-center gap-3"
-                            >
-                              {exercise.image_url ? (
-                                <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
-                                  <img
-                                    src={exercise.image_url}
-                                    alt=""
-                                    className="w-full h-full object-cover"
-                                    onError={(e) => {
-                                      e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-zinc-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
-                                    }}
+                        {exerciseTab === 'library' ? (
+                          <>
+                            <div className="relative">
+                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                              <Input
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                placeholder="Rechercher..."
+                                className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                              />
+                            </div>
+                            <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                              {filteredExercises.map((exercise) => (
+                                <button
+                                  key={exercise.id}
+                                  onClick={() => addExerciseToBlock(exercise)}
+                                  className="w-full p-3 text-left bg-white/5 hover:bg-white/10 rounded-xl transition-colors flex items-center gap-3"
+                                >
+                                  {exercise.image_url ? (
+                                    <div className="w-12 h-12 rounded-lg overflow-hidden bg-white/10 flex-shrink-0">
+                                      <img
+                                        src={exercise.image_url}
+                                        alt=""
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => {
+                                          e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-zinc-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
+                                        }}
+                                      />
+                                    </div>
+                                  ) : (
+                                    <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
+                                      <ImageIcon size={20} className="text-zinc-600" />
+                                    </div>
+                                  )}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-white font-medium">{exercise.name}</p>
+                                    <p className="text-zinc-500 text-sm flex items-center gap-2">
+                                      <span className="capitalize">{exercise.category}</span>
+                                      <span>•</span>
+                                      {exercise.exercise_type === 'duration' ? (
+                                        <span className="flex items-center gap-1">
+                                          <Clock size={12} /> {exercise.default_duration}s
+                                        </span>
+                                      ) : (
+                                        <span className="flex items-center gap-1">
+                                          <Hash size={12} /> {exercise.default_reps} reps
+                                        </span>
+                                      )}
+                                    </p>
+                                  </div>
+                                </button>
+                              ))}
+                              {filteredExercises.length === 0 && (
+                                <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-sm text-zinc-500">
+                                  Aucun exercice trouvé.
+                                </div>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <form onSubmit={handleCreateExercise} className="space-y-4">
+                            <div>
+                              <Label className="text-zinc-400 text-sm">Nom *</Label>
+                              <Input
+                                value={newExercise.name}
+                                onChange={(e) => updateNewExerciseField('name', e.target.value)}
+                                placeholder="Ex : Jumping jacks"
+                                className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-zinc-400 text-sm">Description</Label>
+                              <Textarea
+                                value={newExercise.description}
+                                onChange={(e) => updateNewExerciseField('description', e.target.value)}
+                                placeholder="Consignes rapides..."
+                                className="mt-2 rounded-xl bg-[#0A0A0A] border-white/10 text-white min-h-[80px]"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label className="text-zinc-400 text-sm">Catégorie</Label>
+                                <Input
+                                  value={newExercise.category}
+                                  onChange={(e) => updateNewExerciseField('category', e.target.value)}
+                                  placeholder="cardio"
+                                  className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                                />
+                              </div>
+                              <div>
+                                <Label className="text-zinc-400 text-sm">Type</Label>
+                                <Select
+                                  value={newExercise.exercise_type}
+                                  onValueChange={(value) => updateNewExerciseField('exercise_type', value)}
+                                >
+                                  <SelectTrigger className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-[#141414] border-white/10">
+                                    <SelectItem value="reps" className="text-white">Répétitions</SelectItem>
+                                    <SelectItem value="duration" className="text-white">Durée</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              {newExercise.exercise_type === 'duration' ? (
+                                <div>
+                                  <Label className="text-zinc-400 text-sm">Durée par défaut (s) *</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={newExercise.default_duration}
+                                    onChange={(e) => updateNewExerciseField('default_duration', e.target.value)}
+                                    className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
                                   />
                                 </div>
                               ) : (
-                                <div className="w-12 h-12 rounded-lg bg-white/10 flex items-center justify-center flex-shrink-0">
-                                  <ImageIcon size={20} className="text-zinc-600" />
+                                <div>
+                                  <Label className="text-zinc-400 text-sm">Répétitions par défaut *</Label>
+                                  <Input
+                                    type="number"
+                                    min="1"
+                                    value={newExercise.default_reps}
+                                    onChange={(e) => updateNewExerciseField('default_reps', e.target.value)}
+                                    className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                                  />
                                 </div>
                               )}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-white font-medium">{exercise.name}</p>
-                                <p className="text-zinc-500 text-sm flex items-center gap-2">
-                                  <span className="capitalize">{exercise.category}</span>
-                                  <span>•</span>
-                                  {exercise.exercise_type === 'duration' ? (
-                                    <span className="flex items-center gap-1">
-                                      <Clock size={12} /> {exercise.default_duration}s
-                                    </span>
-                                  ) : (
-                                    <span className="flex items-center gap-1">
-                                      <Hash size={12} /> {exercise.default_reps} reps
-                                    </span>
-                                  )}
-                                </p>
+                              <div>
+                                <Label className="text-zinc-400 text-sm">Repos (s)</Label>
+                                <Input
+                                  type="number"
+                                  min="0"
+                                  value={newExercise.default_rest}
+                                  onChange={(e) => updateNewExerciseField('default_rest', e.target.value)}
+                                  className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                                />
                               </div>
-                            </button>
-                          ))}
-                        </div>
+                            </div>
+                            <div>
+                              <Label className="text-zinc-400 text-sm">Image ou GIF (URL)</Label>
+                              <Input
+                                value={newExercise.image_url}
+                                onChange={(e) => updateNewExerciseField('image_url', e.target.value)}
+                                placeholder="https://..."
+                                className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                              />
+                              <p className="mt-2 text-xs text-zinc-500">
+                                Tu peux coller une URL d’image statique ou de GIF.
+                              </p>
+                            </div>
+                            <Button
+                              type="submit"
+                              disabled={creatingExercise}
+                              className="w-full h-12 rounded-xl text-white btn-primary"
+                            >
+                              {creatingExercise ? (
+                                <Loader2 className="w-4 h-4 animate-spin" />
+                              ) : (
+                                'Créer et ajouter'
+                              )}
+                            </Button>
+                          </form>
+                        )}
                       </div>
                     </DialogContent>
                   </Dialog>

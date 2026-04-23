@@ -53,7 +53,7 @@ export function LoginPage() {
             <Dumbbell className="w-8 h-8 text-white" strokeWidth={2} />
           </div>
           <h1 className="text-3xl font-black text-white tracking-tight font-['Outfit']">
-            Anthea
+            FitMatch
           </h1>
           <p className="text-zinc-500 text-sm mt-2">Ensemble, on va plus loin</p>
         </div>

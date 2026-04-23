@@ -1,6 +1,6 @@
 {
-  "name": "Anthea",
-  "short_name": "Anthea",
+  "name": "FitMatch",
+  "short_name": "FitMatch",
   "description": "Application fitness pour couples — Ensemble, on va plus loin",
   "start_url": "/",
   "display": "standalone",
