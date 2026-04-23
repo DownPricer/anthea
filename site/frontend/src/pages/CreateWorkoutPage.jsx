@@ -955,17 +955,17 @@ export function CreateWorkoutPage() {
                         <Plus size={18} className="mr-2" /> Ajouter un exercice
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="bg-[#141414] border-white/10 max-h-[80vh]">
-                      <DialogHeader>
-                        <DialogTitle className="text-white">
-                          {exerciseTab === 'create'
-                            ? editingExerciseId
-                              ? 'Modifier l’exercice'
-                              : 'Créer un exercice'
-                            : 'Choisir un exercice'}
-                        </DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
+                    <DialogContent className="flex max-h-[min(92vh,720px)] w-[calc(100vw-1.25rem)] flex-col gap-0 overflow-hidden border-white/10 bg-[#141414] p-0 sm:max-w-lg left-[50%] top-[max(0.75rem,3vh)] translate-x-[-50%] translate-y-0 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%]">
+                      <div className="shrink-0 space-y-3 border-b border-white/10 px-5 pb-4 pt-5 pr-12">
+                        <DialogHeader className="space-y-1 text-left">
+                          <DialogTitle className="text-white">
+                            {exerciseTab === 'create'
+                              ? editingExerciseId
+                                ? 'Modifier l’exercice'
+                                : 'Créer un exercice'
+                              : 'Choisir un exercice'}
+                          </DialogTitle>
+                        </DialogHeader>
                         <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#0A0A0A] p-1">
                           <button
                             type="button"
@@ -994,18 +994,20 @@ export function CreateWorkoutPage() {
                             Nouvel exercice
                           </button>
                         </div>
-                        {exerciseTab === 'library' ? (
-                          <>
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                              <Input
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                placeholder="Rechercher..."
-                                className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
-                              />
-                            </div>
-                            <div className="max-h-[50vh] overflow-y-auto space-y-2">
+                      </div>
+
+                      {exerciseTab === 'library' ? (
+                        <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
+                          <div className="relative shrink-0">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+                            <Input
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                              placeholder="Rechercher..."
+                              className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                            />
+                          </div>
+                          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
                               {filteredExercises.map((exercise) => (
                                 <div
                                   key={exercise.id}
@@ -1068,10 +1070,16 @@ export function CreateWorkoutPage() {
                                   Aucun exercice trouvé.
                                 </div>
                               )}
-                            </div>
-                          </>
-                        ) : (
-                          <form onSubmit={handleCreateExercise} className="space-y-4">
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex min-h-0 flex-1 flex-col">
+                          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+                            <form
+                              id="create-exercise-form"
+                              onSubmit={handleCreateExercise}
+                              className="space-y-3"
+                            >
                             <div>
                               <Label className="text-zinc-400 text-sm">Nom *</Label>
                               <Input
@@ -1087,7 +1095,7 @@ export function CreateWorkoutPage() {
                                 value={newExercise.description}
                                 onChange={(e) => updateNewExerciseField('description', e.target.value)}
                                 placeholder="Consignes rapides..."
-                                className="mt-2 rounded-xl bg-[#0A0A0A] border-white/10 text-white min-h-[80px]"
+                                className="mt-2 rounded-xl bg-[#0A0A0A] border-white/10 text-white min-h-[72px]"
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
@@ -1151,8 +1159,8 @@ export function CreateWorkoutPage() {
                                 />
                               </div>
                             </div>
-                            <div>
-                              <Label className="text-zinc-400 text-sm">Image ou GIF</Label>
+                            <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
+                              <Label className="text-zinc-300 text-sm font-medium">Média (optionnel)</Label>
                               <input
                                 ref={newExerciseGifInputRef}
                                 type="file"
@@ -1161,60 +1169,74 @@ export function CreateWorkoutPage() {
                                 onChange={handleNewExerciseGifFile}
                               />
                               {newExercise.image_url.startsWith('data:') ? (
-                                <div className="mt-2 space-y-2">
-                                  <div className="rounded-xl overflow-hidden border border-white/10 bg-black max-h-40 flex items-center justify-center">
+                                <div className="mt-3 flex gap-3">
+                                  <div className="relative h-[4.5rem] w-[4.5rem] shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black">
                                     <img
                                       src={newExercise.image_url}
                                       alt=""
-                                      className="max-h-40 w-full object-contain"
+                                      className="h-full w-full object-cover"
                                     />
                                   </div>
-                                  <div className="flex gap-2">
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      onClick={() => updateNewExerciseField('image_url', '')}
-                                      className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
-                                    >
-                                      <Trash2 className="w-4 h-4 mr-2" />
-                                      Retirer le fichier
-                                    </Button>
-                                    <Button
-                                      type="button"
-                                      variant="outline"
-                                      onClick={() => newExerciseGifInputRef.current?.click()}
-                                      className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
-                                    >
-                                      <Upload className="w-4 h-4 mr-2" />
-                                      Autre GIF
-                                    </Button>
+                                  <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
+                                    <p className="text-xs text-zinc-400 leading-snug">
+                                      GIF intégré (fichier local, max{' '}
+                                      {Math.round(MAX_GIF_FILE_BYTES / 1024 / 1024)} Mo).
+                                    </p>
+                                    <div className="flex flex-wrap gap-2">
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => newExerciseGifInputRef.current?.click()}
+                                        className="h-9 shrink-0 rounded-lg border-white/15 bg-white/5 px-3 text-white hover:bg-white/10"
+                                      >
+                                        <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                        Remplacer
+                                      </Button>
+                                      <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => updateNewExerciseField('image_url', '')}
+                                        className="h-9 shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-zinc-400 hover:bg-white/5 hover:text-white"
+                                      >
+                                        <Trash2 className="mr-1.5 h-3.5 w-3.5" />
+                                        Retirer
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               ) : (
-                                <div className="mt-2 space-y-2">
+                                <div className="mt-3 space-y-2">
                                   <Input
                                     value={newExercise.image_url}
                                     onChange={(e) => updateNewExerciseField('image_url', e.target.value)}
-                                    placeholder="https://... (optionnel)"
-                                    className="h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                                    placeholder="URL https://… (GIF ou image)"
+                                    className="h-11 rounded-lg bg-[#141414] border-white/10 text-white text-sm"
                                   />
+                                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-zinc-600">
+                                    <span className="h-px flex-1 bg-white/10" />
+                                    ou fichier
+                                    <span className="h-px flex-1 bg-white/10" />
+                                  </div>
                                   <Button
                                     type="button"
                                     variant="outline"
                                     onClick={() => newExerciseGifInputRef.current?.click()}
-                                    className="w-full h-12 rounded-xl bg-white/5 border-white/10 text-white"
+                                    className="h-10 w-full rounded-lg border-white/15 bg-white/5 text-sm text-white hover:bg-white/10"
                                   >
-                                    <Upload className="w-4 h-4 mr-2" />
-                                    Importer un GIF depuis l&apos;ordinateur
+                                    <Upload className="mr-2 h-4 w-4 shrink-0" />
+                                    Choisir un GIF sur l&apos;appareil
                                   </Button>
                                 </div>
                               )}
-                              <p className="mt-2 text-xs text-zinc-500">
-                                Soit une URL, soit un GIF local intégré à l&apos;exercice (sans hébergement
-                                externe), jusqu&apos;à environ {Math.round(MAX_GIF_FILE_BYTES / 1024 / 1024)}{' '}
-                                Mo.
+                              <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
+                                URL externe ou GIF importé sans hébergement.
                               </p>
                             </div>
+                            </form>
+                          </div>
+                          <div className="shrink-0 space-y-2 border-t border-white/10 bg-[#101010] px-5 py-4">
                             {editingExerciseId && (
                               <Button
                                 type="button"
@@ -1224,27 +1246,28 @@ export function CreateWorkoutPage() {
                                   setNewExercise(DEFAULT_NEW_EXERCISE);
                                   setExerciseTab('library');
                                 }}
-                                className="w-full h-11 rounded-xl bg-white/5 border-white/10 text-zinc-400 hover:text-white"
+                                className="h-11 w-full rounded-xl border-white/15 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
                               >
                                 Annuler la modification
                               </Button>
                             )}
                             <Button
                               type="submit"
+                              form="create-exercise-form"
                               disabled={creatingExercise}
-                              className="w-full h-12 rounded-xl text-white btn-primary"
+                              className="h-12 w-full rounded-xl text-white btn-primary"
                             >
                               {creatingExercise ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="h-4 w-4 animate-spin" />
                               ) : editingExerciseId ? (
                                 'Enregistrer'
                               ) : (
                                 'Créer et ajouter'
                               )}
                             </Button>
-                          </form>
-                        )}
-                      </div>
+                          </div>
+                        </div>
+                      )}
                     </DialogContent>
                   </Dialog>
                 </div>
