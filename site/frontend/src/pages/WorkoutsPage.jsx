@@ -26,6 +26,7 @@ import {
   CheckSquare,
   Square,
   X,
+  RotateCcw,
 } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -72,6 +73,7 @@ export function WorkoutsPage() {
       const { data } = await workoutsApi.getAll({
         start_date: format(start, 'yyyy-MM-dd'),
         end_date: format(end, 'yyyy-MM-dd'),
+        light: true,
       });
       setCalendarWorkouts(data || []);
     } catch (error) {
@@ -186,14 +188,24 @@ export function WorkoutsPage() {
 
       {!showSelect && (
         <>
-          {workout.status === 'pending' && workout.for_user_id === user?.id && (
+          {(workout.status === 'pending' || workout.status === 'in_progress') &&
+            workout.for_user_id === user?.id && (
             <Button
               size="sm"
               onClick={() => navigate(`/player/${workout.id}`)}
               className="bg-[var(--theme-primary)] text-white rounded-lg px-4"
             >
-              <Play size={16} className="mr-1" fill="currentColor" />
-              Go
+              {workout.status === 'in_progress' ? (
+                <>
+                  <RotateCcw size={16} className="mr-1" />
+                  Reprendre
+                </>
+              ) : (
+                <>
+                  <Play size={16} className="mr-1" fill="currentColor" />
+                  Go
+                </>
+              )}
             </Button>
           )}
 

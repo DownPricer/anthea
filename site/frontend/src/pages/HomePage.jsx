@@ -24,6 +24,7 @@ import {
   BedDouble,
   XCircle,
   Undo2,
+  RotateCcw,
 } from 'lucide-react';
 import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -61,7 +62,7 @@ export function HomePage() {
         duoApi.getStats(),
         partnerApi.getInfo(),
         partnerApi.getRequests(),
-        workoutsApi.getAll({ start_date: wsStr, end_date: weStr }),
+        workoutsApi.getAll({ start_date: wsStr, end_date: weStr, light: true }),
         streakApi.getDays(wsStr, weStr),
       ]);
 
@@ -85,12 +86,29 @@ export function HomePage() {
     return 'Bonsoir';
   };
 
-  const getNextWorkout = () => {
+  /** Prochaine action utile : reprendre une séance en cours (toi), sinon première séance pending. */
+  const getPrimaryWorkoutAction = () => {
+    const mineInProg = todayWorkouts.find(
+      (w) => w.for_user_id === user?.id && w.status === 'in_progress'
+    );
+    if (mineInProg) return { workout: mineInProg, resume: true };
     const pending = todayWorkouts.filter((w) => w.status === 'pending');
-    return pending[0];
+    const next = pending[0];
+    if (next) return { workout: next, resume: false };
+    return null;
   };
 
-  const nextWorkout = getNextWorkout();
+  const primaryWorkoutAction = getPrimaryWorkoutAction();
+
+  const workoutHref = (w) => {
+    if (
+      (w.status === 'pending' || w.status === 'in_progress') &&
+      w.for_user_id === user?.id
+    ) {
+      return `/player/${w.id}`;
+    }
+    return `/workouts/${w.id}`;
+  };
 
   const getStreakDayType = (date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
@@ -257,7 +275,7 @@ export function HomePage() {
       )}
 
       {/* Next Workout Card */}
-      {nextWorkout ? (
+      {primaryWorkoutAction ? (
         <div
           data-testid="next-workout-card"
           className="card p-5 relative overflow-hidden"
@@ -270,25 +288,34 @@ export function HomePage() {
           </div>
 
           <p className="text-zinc-400 text-sm uppercase tracking-wider mb-2">
-            Prochaine séance
+            {primaryWorkoutAction.resume ? 'À reprendre' : 'Prochaine séance'}
           </p>
-          <h3 className="text-xl font-bold text-white mb-1">{nextWorkout.title}</h3>
+          <h3 className="text-xl font-bold text-white mb-1">{primaryWorkoutAction.workout.title}</h3>
           <p className="text-zinc-500 text-sm mb-4">
-            {nextWorkout.scheduled_time || 'Pas d\'heure définie'}
-            {nextWorkout.for_user_id !== user?.id && (
+            {primaryWorkoutAction.workout.scheduled_time || 'Pas d\'heure définie'}
+            {primaryWorkoutAction.workout.for_user_id !== user?.id && (
               <span className="ml-2 text-[var(--theme-primary)]">
-                • Pour {nextWorkout.for_username}
+                • Pour {primaryWorkoutAction.workout.for_username}
               </span>
             )}
           </p>
 
           <Button
-            onClick={() => navigate(`/player/${nextWorkout.id}`)}
+            onClick={() => navigate(`/player/${primaryWorkoutAction.workout.id}`)}
             data-testid="start-workout-btn"
             className="w-full h-14 rounded-xl font-bold text-white btn-primary"
           >
-            <Play size={20} className="mr-2" fill="currentColor" />
-            Démarrer
+            {primaryWorkoutAction.resume ? (
+              <>
+                <RotateCcw size={20} className="mr-2" />
+                Reprendre
+              </>
+            ) : (
+              <>
+                <Play size={20} className="mr-2" fill="currentColor" />
+                Démarrer
+              </>
+            )}
           </Button>
         </div>
       ) : (
@@ -380,7 +407,7 @@ export function HomePage() {
             {todayWorkouts.map((workout) => (
               <Link
                 key={workout.id}
-                to={`/workouts/${workout.id}`}
+                to={workoutHref(workout)}
                 data-testid={`workout-card-${workout.id}`}
                 className="card p-4 flex items-center gap-4 hover:-translate-y-0.5 transition-all"
               >
@@ -402,7 +429,9 @@ export function HomePage() {
                 <div className="flex-1 min-w-0">
                   <h4 className="text-white font-medium truncate">{workout.title}</h4>
                   <p className="text-zinc-500 text-sm">
-                    {workout.scheduled_time || 'Flexible'}
+                    {workout.status === 'in_progress' && workout.for_user_id === user?.id
+                      ? 'En pause — lecteur'
+                      : workout.scheduled_time || 'Flexible'}
                     {workout.for_user_id !== user?.id && ` • Pour ${workout.for_username}`}
                   </p>
                 </div>

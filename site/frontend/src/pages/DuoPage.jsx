@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { sessionsApi, duoApi, partnerApi } from '../lib/api';
+import { sessionsApi, duoApi, partnerApi, streakApi, formatApiError } from '../lib/api';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -58,6 +58,10 @@ export function DuoPage() {
   const [statsPeriod, setStatsPeriod] = useState('30');
   const [statsTarget, setStatsTarget] = useState('partner'); // 'me' or 'partner'
   const [statsLoading, setStatsLoading] = useState(false);
+  const [canModerateStreak, setCanModerateStreak] = useState(false);
+  const [coachStreakInput, setCoachStreakInput] = useState('');
+  const [exemptDateStr, setExemptDateStr] = useState(() => format(new Date(), 'yyyy-MM-dd'));
+  const [exemptWho, setExemptWho] = useState('partner'); // 'me' | 'partner'
 
   useEffect(() => {
     loadData();
@@ -71,18 +75,64 @@ export function DuoPage() {
 
   const loadData = async () => {
     try {
-      const [sessionsRes, statsRes, partnerRes] = await Promise.all([
+      const [sessionsRes, statsRes, partnerRes, coachRes] = await Promise.all([
         sessionsApi.getAll(20),
         duoApi.getStats(),
         partnerApi.getInfo(),
+        streakApi.getCoachStatus().catch(() => ({ data: { can_moderate: false } })),
       ]);
       setSessions(sessionsRes.data || []);
       setDuoStats(statsRes.data);
       setPartner(partnerRes.data);
+      setCanModerateStreak(!!coachRes.data?.can_moderate);
     } catch (error) {
       console.error('Failed to load duo data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCoachSetStreak = async () => {
+    const n = parseInt(coachStreakInput, 10);
+    if (Number.isNaN(n) || n < 0) {
+      toast.error('Nombre invalide');
+      return;
+    }
+    if (!window.confirm(`Afficher la streak à ${n} pour ce duo ?`)) return;
+    try {
+      await streakApi.coachSetManualStreak(n);
+      toast.success('Streak mise à jour');
+      const { data } = await duoApi.getStats();
+      setDuoStats(data);
+      setCoachStreakInput('');
+    } catch (e) {
+      toast.error(formatApiError(e));
+    }
+  };
+
+  const handleCoachClearStreak = async () => {
+    if (!window.confirm('Revenir au calcul automatique de la streak ?')) return;
+    try {
+      await streakApi.coachSetManualStreak(null);
+      toast.success('Valeur manuelle supprimée');
+      const { data } = await duoApi.getStats();
+      setDuoStats(data);
+    } catch (e) {
+      toast.error(formatApiError(e));
+    }
+  };
+
+  const handleCoachExemptDay = async () => {
+    const uid = exemptWho === 'me' ? user?.id : partner?.id;
+    if (!uid || !exemptDateStr) return;
+    if (!window.confirm(`Traiter ${exemptDateStr} comme jour exempt pour la streak ?`)) return;
+    try {
+      await streakApi.coachExemptDay(exemptDateStr, uid);
+      toast.success('Jour exempt enregistré');
+      const { data } = await duoApi.getStats();
+      setDuoStats(data);
+    } catch (e) {
+      toast.error(formatApiError(e));
     }
   };
 
@@ -296,6 +346,78 @@ export function DuoPage() {
                     {partner.display_name?.split(' ')[0] || partner.username}
                   </p>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {canModerateStreak && duoStats && partner && (
+            <div className="card p-4 border border-dashed border-white/15">
+              <p className="text-zinc-500 text-xs uppercase tracking-wider mb-3">Streak — réglages coach</p>
+              {duoStats.streak_manual_override != null && (
+                <p className="text-zinc-400 text-xs mb-3">
+                  Manuel : <span className="text-white">{duoStats.streak_manual_override}</span>
+                  {' · '}
+                  Calcul auto : <span className="text-white">{duoStats.streak_calculated ?? '—'}</span>
+                </p>
+              )}
+              <div className="flex gap-2 mb-3">
+                <Input
+                  type="number"
+                  min={0}
+                  placeholder="ex. 7"
+                  value={coachStreakInput}
+                  onChange={(e) => setCoachStreakInput(e.target.value)}
+                  className="flex-1 bg-[#0A0A0A] border-white/10 text-white rounded-xl"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="border-white/15 text-white shrink-0"
+                  onClick={handleCoachSetStreak}
+                >
+                  Appliquer
+                </Button>
+              </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="text-zinc-400 hover:text-white mb-4 p-0 h-auto"
+                onClick={handleCoachClearStreak}
+              >
+                Revenir au calcul auto
+              </Button>
+              <p className="text-zinc-500 text-xs mb-2">Exemption jour (comme repos pour la streak)</p>
+              <div className="flex flex-wrap gap-2 items-center">
+                <Input
+                  type="date"
+                  value={exemptDateStr}
+                  onChange={(e) => setExemptDateStr(e.target.value)}
+                  className="bg-[#0A0A0A] border-white/10 text-white rounded-xl w-[160px]"
+                />
+                <Select value={exemptWho} onValueChange={setExemptWho}>
+                  <SelectTrigger className="w-[140px] bg-[#0A0A0A] border-white/10 text-white rounded-xl">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#141414] border-white/10">
+                    <SelectItem value="partner" className="text-white">
+                      {partner.display_name || partner.username}
+                    </SelectItem>
+                    <SelectItem value="me" className="text-white">
+                      Moi
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="border-white/15 text-white"
+                  onClick={handleCoachExemptDay}
+                >
+                  Exempter
+                </Button>
               </div>
             </div>
           )}

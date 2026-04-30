@@ -12,6 +12,7 @@ import os
 import logging
 from pydantic import BaseModel, Field, ConfigDict
 from typing import List, Optional
+from collections import defaultdict
 import uuid
 import bcrypt
 import jwt
@@ -257,6 +258,13 @@ class DuoStatsResponse(BaseModel):
 class StreakDayCreate(BaseModel):
     date: str  # YYYY-MM-DD
 
+class StreakManualUpdate(BaseModel):
+    streak: Optional[int] = None  # None = supprimer l'override coach
+
+class StreakCoachExemptBody(BaseModel):
+    date: str
+    user_id: str  # doit être l'utilisateur courant ou son partenaire
+
 # ============ HELPERS ============
 
 def hash_password(password: str) -> str:
@@ -342,6 +350,8 @@ async def lifespan(app: FastAPI):
     await db.partner_requests.create_index("from_user_id")
     await db.partner_requests.create_index("to_user_id")
     await db.streak_days.create_index([("user_id", 1), ("date", 1)], unique=True)
+    await db.duo_streak_overrides.create_index("pair_key", unique=True)
+    await db.scheduled_workouts.create_index([("for_user_id", 1), ("scheduled_date", 1)])
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -740,6 +750,7 @@ async def get_workouts(
     start_date: Optional[str] = None,
     end_date: Optional[str] = None,
     for_user: Optional[str] = None,
+    light: Optional[bool] = False,
     user: dict = Depends(get_current_user)
 ):
     query = {
@@ -766,7 +777,23 @@ async def get_workouts(
     if for_user:
         query["for_user_id"] = for_user
     
-    workouts = await db.scheduled_workouts.find(query).sort("scheduled_date", 1).to_list(1000)
+    projection = None
+    if light:
+        projection = {
+            "title": 1,
+            "scheduled_date": 1,
+            "status": 1,
+            "scheduled_time": 1,
+            "for_user_id": 1,
+            "for_username": 1,
+            "creator_id": 1,
+            "creator_username": 1,
+            "created_at": 1,
+            "updated_at": 1,
+            "is_draft": 1,
+        }
+    
+    workouts = await db.scheduled_workouts.find(query, projection).sort("scheduled_date", 1).to_list(1000)
     return [{"id": str(w["_id"]), **{k: v for k, v in w.items() if k != "_id"}} for w in workouts]
 
 @api_router.get("/workouts/today")
@@ -1193,6 +1220,163 @@ async def add_comment(session_id: str, data: CommentCreate, user: dict = Depends
 
 # ============ DUO STATS ROUTES ============
 
+def _duo_pair_key(user_id: str, partner_id: str) -> str:
+    return "_".join(sorted([user_id, partner_id]))
+
+
+async def _get_manual_streak_override(user_id: str, partner_id: str) -> Optional[int]:
+    doc = await db.duo_streak_overrides.find_one({"pair_key": _duo_pair_key(user_id, partner_id)})
+    if not doc:
+        return None
+    if doc.get("manual_streak") is None:
+        return None
+    return int(doc["manual_streak"])
+
+
+def _admin_usernames() -> set:
+    raw = os.environ.get("ADMIN_USERNAMES", "")
+    return {x.strip().lower() for x in raw.split(",") if x.strip()}
+
+
+async def _can_moderate_streak(user: dict) -> bool:
+    if user.get("username") and user["username"].lower() in _admin_usernames():
+        return True
+    if not user.get("partner_id"):
+        return False
+    rel = user.get("relation_type") or ""
+    if rel not in ("coach", "coach_partner"):
+        return False
+    pid = user["partner_id"]
+    me_for_partner = await db.scheduled_workouts.count_documents({
+        "creator_id": user["id"],
+        "for_user_id": pid,
+    })
+    partner_for_me = await db.scheduled_workouts.count_documents({
+        "creator_id": pid,
+        "for_user_id": user["id"],
+    })
+    # Le coach assigne typiquement les séances à l'élève : plus de créations « pour » le partenaire.
+    return me_for_partner > partner_for_me
+
+
+def _user_day_outcome(
+    planned: List[dict],
+    rest_or_exempt: bool,
+    day_index: int,
+) -> str:
+    """Retourne neutral | ok | today_pending | fail"""
+    if rest_or_exempt:
+        return "ok"
+    active = [w for w in planned if not w.get("is_draft")]
+    if not active:
+        return "neutral"
+    all_completed = all(w.get("status") == "completed" for w in active)
+    if all_completed:
+        return "ok"
+    if day_index == 0:
+        return "today_pending"
+    return "fail"
+
+
+def _combine_duo_outcomes(a: str, b: Optional[str]) -> str:
+    order = {"fail": 0, "today_pending": 1, "ok": 2, "neutral": 3}
+    if b is None:
+        return a
+    rank_a = order.get(a, 99)
+    rank_b = order.get(b, 99)
+    if rank_a <= rank_b:
+        first = a
+        second = b
+    else:
+        first = b
+        second = a
+    if first == "fail" or second == "fail":
+        return "fail"
+    if first == "today_pending" or second == "today_pending":
+        return "today_pending"
+    return "ok"
+
+
+async def calculate_streak(user_id: str, partner_id: Optional[str]) -> int:
+    """
+    Streak sur les jours où au moins une séance était attendue (scheduled non brouillon).
+    Les jours sans rien de planifié ne brisent pas la streak et comptent comme OK en remontant.
+    """
+    streak = 0
+    current_date = datetime.now(timezone.utc).date()
+    start_s = (current_date - timedelta(days=364)).isoformat()
+
+    users_in_pair = [user_id]
+    if partner_id:
+        users_in_pair.append(partner_id)
+
+    markers = await db.streak_days.find({
+        "user_id": {"$in": users_in_pair},
+        "date": {"$gte": start_s},
+    }).to_list(4000)
+
+    skip_pairs = set()
+    rest_pairs = set()
+    for m in markers:
+        uid, d, t = m["user_id"], m["date"], m.get("type")
+        if t == "skip":
+            skip_pairs.add((uid, d))
+        elif t in ("rest", "exempt"):
+            rest_pairs.add((uid, d))
+
+    planned_raw = await db.scheduled_workouts.find({
+        "scheduled_date": {"$gte": start_s},
+        "for_user_id": {"$in": users_in_pair},
+    }).to_list(8000)
+
+    planned_by_user_date = defaultdict(list)
+    for w in planned_raw:
+        fu = w.get("for_user_id")
+        sd = w.get("scheduled_date")
+        if fu and sd:
+            planned_by_user_date[(fu, sd)].append(w)
+
+    for i in range(365):
+        check_date = (current_date - timedelta(days=i)).isoformat()
+
+        if partner_id:
+            if (user_id, check_date) in skip_pairs or (partner_id, check_date) in skip_pairs:
+                if i > 0:
+                    break
+                continue
+        else:
+            if (user_id, check_date) in skip_pairs:
+                if i > 0:
+                    break
+                continue
+
+        u_rest = (user_id, check_date) in rest_pairs
+        p_rest = (partner_id, check_date) in rest_pairs if partner_id else False
+
+        u_planned = planned_by_user_date.get((user_id, check_date), [])
+        p_planned = planned_by_user_date.get((partner_id, check_date), []) if partner_id else []
+
+        uo = _user_day_outcome(u_planned, u_rest, i)
+        po = _user_day_outcome(p_planned, p_rest, i) if partner_id else None
+
+        combined = _combine_duo_outcomes(
+            uo,
+            po if partner_id else None,
+        )
+
+        if combined == "neutral":
+            combined = "ok"
+
+        if combined == "fail" and i > 0:
+            break
+        if combined == "today_pending":
+            continue
+        if combined == "ok":
+            streak += 1
+
+    return streak
+
+
 @api_router.get("/duo/stats")
 async def get_duo_stats(user: dict = Depends(get_current_user)):
     if not user.get("partner_id"):
@@ -1228,12 +1412,16 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "status": "completed"
     })
     
-    streak = await calculate_streak(user["id"], user["partner_id"])
-    badges = await get_duo_badges(user["id"], user["partner_id"])
+    calculated = await calculate_streak(user["id"], user["partner_id"])
+    manual = await _get_manual_streak_override(user["id"], user["partner_id"])
+    streak = manual if manual is not None else calculated
+    badges = await get_duo_badges(user["id"], user["partner_id"], streak_value=streak)
     challenge = await get_current_challenge(user["id"])
     
     return {
         "streak": streak,
+        "streak_calculated": calculated,
+        "streak_manual_override": manual,
         "total_workouts_together": total_together,
         "this_week_user": user_sessions,
         "this_week_partner": partner_sessions,
@@ -1241,64 +1429,7 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "current_challenge": challenge
     }
 
-async def calculate_streak(user_id: str, partner_id: str) -> int:
-    streak = 0
-    current_date = datetime.now(timezone.utc).date()
-    
-    for i in range(365):
-        check_date = (current_date - timedelta(days=i)).isoformat()
-        
-        # Check for skip days (breaks streak)
-        user_skip = await db.streak_days.find_one({
-            "user_id": user_id, "date": check_date, "type": "skip"
-        })
-        partner_skip = await db.streak_days.find_one({
-            "user_id": partner_id, "date": check_date, "type": "skip"
-        }) if partner_id else None
-        
-        if user_skip or partner_skip:
-            if i > 0:
-                break
-            else:
-                continue  # today skip = streak is 0 but keep checking
-        
-        # Check for rest days (preserves streak)
-        user_rest = await db.streak_days.find_one({
-            "user_id": user_id, "date": check_date, "type": "rest"
-        })
-        partner_rest = await db.streak_days.find_one({
-            "user_id": partner_id, "date": check_date, "type": "rest"
-        }) if partner_id else None
-        
-        # If both have rest day, streak continues
-        if user_rest and (partner_rest or not partner_id):
-            streak += 1
-            continue
-        
-        user_workout = await db.workout_sessions.find_one({
-            "user_id": user_id,
-            "status": "completed",
-            "created_at": {"$regex": f"^{check_date}"}
-        })
-        
-        partner_workout = await db.workout_sessions.find_one({
-            "user_id": partner_id,
-            "status": "completed",
-            "created_at": {"$regex": f"^{check_date}"}
-        }) if partner_id else None
-        
-        # User has rest day OR completed workout  
-        user_ok = bool(user_rest or user_workout)
-        partner_ok = bool(partner_rest or partner_workout) if partner_id else True
-        
-        if user_ok and partner_ok:
-            streak += 1
-        elif i > 0:
-            break
-    
-    return streak
-
-async def get_duo_badges(user_id: str, partner_id: str) -> List[dict]:
+async def get_duo_badges(user_id: str, partner_id: str, streak_value: Optional[int] = None) -> List[dict]:
     badges = []
     
     total = await db.workout_sessions.count_documents({
@@ -1313,7 +1444,7 @@ async def get_duo_badges(user_id: str, partner_id: str) -> List[dict]:
     if total >= 50:
         badges.append({"id": "fifty_workouts", "name": "Athlètes", "icon": "medal"})
     
-    streak = await calculate_streak(user_id, partner_id)
+    streak = streak_value if streak_value is not None else await calculate_streak(user_id, partner_id)
     if streak >= 7:
         badges.append({"id": "week_streak", "name": "Semaine parfaite", "icon": "zap"})
     if streak >= 30:
@@ -1545,6 +1676,77 @@ async def remove_streak_day(date: str, user: dict = Depends(get_current_user)):
     if result.deleted_count == 0:
         raise HTTPException(status_code=404, detail="Day marker not found")
     return {"status": "ok", "date": date}
+
+
+@api_router.post("/streak/coach/manual-streak")
+async def coach_set_manual_streak(body: StreakManualUpdate, user: dict = Depends(get_current_user)):
+    """Override streak affichée pour le duo (coach / admin uniquement). streak=null supprime l'override."""
+    if not await _can_moderate_streak(user):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    pid = user.get("partner_id")
+    if not pid:
+        raise HTTPException(status_code=400, detail="No duo partner")
+    key = _duo_pair_key(user["id"], pid)
+    now = datetime.now(timezone.utc).isoformat()
+    if body.streak is None:
+        await db.duo_streak_overrides.delete_one({"pair_key": key})
+        await db.streak_audit_log.insert_one({
+            "actor_id": user["id"],
+            "action": "clear_manual_streak",
+            "pair_key": key,
+            "created_at": now,
+        })
+        return {"status": "ok", "manual_streak": None}
+    await db.duo_streak_overrides.update_one(
+        {"pair_key": key},
+        {"$set": {
+            "pair_key": key,
+            "manual_streak": body.streak,
+            "updated_by": user["id"],
+            "updated_at": now,
+        }},
+        upsert=True,
+    )
+    await db.streak_audit_log.insert_one({
+        "actor_id": user["id"],
+        "action": "set_manual_streak",
+        "pair_key": key,
+        "value": body.streak,
+        "created_at": now,
+    })
+    return {"status": "ok", "manual_streak": body.streak}
+
+
+@api_router.post("/streak/coach/exempt-day")
+async def coach_exempt_day(body: StreakCoachExemptBody, user: dict = Depends(get_current_user)):
+    """Marque un jour comme exempt (comme repos) pour un membre du duo — coach / admin."""
+    if not await _can_moderate_streak(user):
+        raise HTTPException(status_code=403, detail="Not authorized")
+    pid = user.get("partner_id")
+    if not pid or body.user_id not in (user["id"], pid):
+        raise HTTPException(status_code=400, detail="Invalid target user")
+    now = datetime.now(timezone.utc).isoformat()
+    await db.streak_days.delete_one({"user_id": body.user_id, "date": body.date})
+    await db.streak_days.insert_one({
+        "user_id": body.user_id,
+        "date": body.date,
+        "type": "exempt",
+        "created_at": now,
+        "set_by": user["id"],
+    })
+    await db.streak_audit_log.insert_one({
+        "actor_id": user["id"],
+        "action": "exempt_day",
+        "target_user_id": body.user_id,
+        "date": body.date,
+        "created_at": now,
+    })
+    return {"status": "ok", "date": body.date, "type": "exempt"}
+
+
+@api_router.get("/streak/coach/status")
+async def streak_coach_status(user: dict = Depends(get_current_user)):
+    return {"can_moderate": await _can_moderate_streak(user)}
 
 # ============ MAIN ============
 

@@ -81,7 +81,7 @@ export const templatesApi = {
 
 // Workouts API
 export const workoutsApi = {
-  getAll: (params) => api.get('/workouts', { params }),
+  getAll: (params) => api.get('/workouts', { params }), // params.light=true : sans blocs (léger)
   getToday: () => api.get('/workouts/today'),
   getOne: (id) => api.get(`/workouts/${id}`),
   create: (data) => api.post('/workouts', data),
@@ -119,6 +119,9 @@ export const streakApi = {
   markSkipDay: (date) => api.post('/streak/skip-day', { date }),
   getDays: (startDate, endDate) => api.get('/streak/days', { params: { start_date: startDate, end_date: endDate } }),
   removeDay: (date) => api.delete(`/streak/day/${date}`),
+  getCoachStatus: () => api.get('/streak/coach/status'),
+  coachSetManualStreak: (streak) => api.post('/streak/coach/manual-streak', { streak }),
+  coachExemptDay: (date, userId) => api.post('/streak/coach/exempt-day', { date, user_id: userId }),
 };
 
 export default api;
