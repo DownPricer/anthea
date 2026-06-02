@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
 import { Button } from '../components/ui/button';
@@ -50,7 +50,7 @@ import {
   Upload,
   Pencil,
 } from 'lucide-react';
-import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay } from 'date-fns';
+import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 
@@ -94,6 +94,8 @@ const MAX_GIF_FILE_BYTES = 2 * 1024 * 1024;
 export function CreateWorkoutPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { workoutId: editWorkoutId } = useParams();
+  const isEditMode = Boolean(editWorkoutId);
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -137,14 +139,44 @@ export function CreateWorkoutPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [editWorkoutId]);
 
   const loadData = async () => {
     try {
-      const { data } = await templatesApi.getAll({ summary: true });
-      setTemplates(data || []);
+      const tasks = [templatesApi.getAll({ summary: true })];
+      if (isEditMode) {
+        tasks.push(workoutsApi.getOne(editWorkoutId));
+      }
+      const results = await Promise.all(tasks);
+      setTemplates(results[0].data || []);
+
+      if (isEditMode && results[1]?.data) {
+        const w = results[1].data;
+        setTitle(w.title || '');
+        setDescription(w.description || '');
+        setForUserId(w.for_user_id || user?.id || '');
+        setScheduledTime(w.scheduled_time || '');
+        setDifficulty(w.difficulty || 'medium');
+        setScheduleMode('single');
+        if (w.scheduled_date) {
+          setSingleDate(parseISO(w.scheduled_date));
+        }
+        if (w.blocks?.length) {
+          setBlocks(
+            w.blocks.map((b) => ({
+              block_type: b.block_type,
+              exercises: b.exercises || [],
+              expanded: true,
+            }))
+          );
+        }
+      }
     } catch (error) {
       console.error('Failed to load data:', error);
+      if (isEditMode) {
+        toast.error('Séance introuvable');
+        navigate('/workouts');
+      }
     } finally {
       setLoading(false);
     }
@@ -485,8 +517,12 @@ export function CreateWorkoutPage() {
 
     setSaving(true);
     try {
-      if (scheduleMode === 'single') {
-        // Single workout creation (original behavior)
+      const blocksPayload = blocks.filter((b) => b.exercises.length > 0).map((b) => ({
+        block_type: b.block_type,
+        exercises: b.exercises,
+      }));
+
+      if (isEditMode) {
         const workoutData = {
           title: title.trim(),
           description: description.trim(),
@@ -494,17 +530,35 @@ export function CreateWorkoutPage() {
           scheduled_date: format(singleDate, 'yyyy-MM-dd'),
           scheduled_time: scheduledTime || null,
           difficulty,
-          blocks: blocks.filter((b) => b.exercises.length > 0).map((b) => ({
-            block_type: b.block_type,
-            exercises: b.exercises,
-          })),
+          blocks: blocksPayload,
+          is_draft: asDraft,
+        };
+        await workoutsApi.update(editWorkoutId, workoutData);
+        toast.success(asDraft ? 'Brouillon mis à jour' : 'Séance mise à jour !');
+        if (!asDraft) {
+          navigate('/workouts');
+        }
+        return;
+      }
+
+      if (scheduleMode === 'single') {
+        const workoutData = {
+          title: title.trim(),
+          description: description.trim(),
+          for_user_id: forUserId || user.id,
+          scheduled_date: format(singleDate, 'yyyy-MM-dd'),
+          scheduled_time: scheduledTime || null,
+          difficulty,
+          blocks: blocksPayload,
           is_draft: asDraft,
         };
 
         const { data } = await workoutsApi.create(workoutData);
         toast.success(asDraft ? 'Brouillon sauvegardé' : 'Séance créée !');
         
-        if (!asDraft) {
+        if (asDraft) {
+          navigate(`/workouts/${data.id}`);
+        } else {
           navigate('/workouts');
         }
       } else {
@@ -599,7 +653,9 @@ export function CreateWorkoutPage() {
           <button onClick={() => navigate(-1)} className="p-2 -ml-2">
             <ArrowLeft size={22} className="text-white" />
           </button>
-          <h1 className="text-lg font-semibold text-white">Créer une séance</h1>
+          <h1 className="text-lg font-semibold text-white">
+            {isEditMode ? 'Modifier la séance' : 'Créer une séance'}
+          </h1>
           <div className="flex gap-2">
             <Button
               size="sm"
@@ -618,6 +674,25 @@ export function CreateWorkoutPage() {
         {/* Modèles — liste + actions claires */}
         <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
           <Label className="mb-3 block text-sm font-medium text-zinc-300">Modèles enregistrés</Label>
+          {templates.length > 0 && (
+            <Select
+              onValueChange={(id) => {
+                const t = templates.find((x) => x.id === id);
+                if (t) loadFromTemplate(t);
+              }}
+            >
+              <SelectTrigger className="mb-3 h-12 w-full rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+                <SelectValue placeholder="Charger un modèle…" />
+              </SelectTrigger>
+              <SelectContent className="bg-[#141414] border-white/10 max-h-64">
+                {templates.map((t) => (
+                  <SelectItem key={t.id} value={t.id} className="text-white">
+                    {t.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {templates.length === 0 ? (
             <p className="text-sm text-zinc-500">
               Aucun modèle pour l’instant. Remplis ta séance puis touche « Modèle » en bas pour en
@@ -753,7 +828,8 @@ export function CreateWorkoutPage() {
             <h3 className="text-white font-semibold">Planification</h3>
           </div>
 
-          {/* Schedule Mode Tabs */}
+          {/* Schedule Mode Tabs — masqués en édition */}
+          {!isEditMode && (
           <div className="flex gap-2">
             {[
               { value: 'single', label: 'Date unique' },
@@ -773,9 +849,10 @@ export function CreateWorkoutPage() {
               </button>
             ))}
           </div>
+          )}
 
           {/* Single Date */}
-          {scheduleMode === 'single' && (
+          {(isEditMode || scheduleMode === 'single') && (
             <div className="flex justify-center">
               <Calendar
                 mode="single"
@@ -788,7 +865,7 @@ export function CreateWorkoutPage() {
           )}
 
           {/* Multiple Dates */}
-          {scheduleMode === 'multiple' && (
+          {!isEditMode && scheduleMode === 'multiple' && (
             <div>
               <Calendar
                 mode="multiple"
@@ -806,7 +883,7 @@ export function CreateWorkoutPage() {
           )}
 
           {/* Weekly Repeat */}
-          {scheduleMode === 'weekly' && (
+          {!isEditMode && scheduleMode === 'weekly' && (
             <div className="space-y-4">
               {/* Week days selector */}
               <div>
@@ -1389,7 +1466,7 @@ export function CreateWorkoutPage() {
             onClick={() => handleSave(false)}
             disabled={saving || previewDates.length === 0}
             data-testid="save-workout-btn"
-            className="w-full h-14 rounded-xl font-bold text-white btn-primary"
+            className="w-full h-14 rounded-2xl font-bold text-white btn-primary"
           >
             {saving ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -1405,7 +1482,7 @@ export function CreateWorkoutPage() {
               variant="outline"
               onClick={() => handleSave(true)}
               disabled={saving}
-              className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
+              className="flex-1 h-12 rounded-2xl bg-white/5 border-white/10 text-white"
             >
               <Save size={18} className="mr-2" /> Brouillon
             </Button>
@@ -1413,7 +1490,7 @@ export function CreateWorkoutPage() {
               variant="outline"
               onClick={handleSaveAsTemplate}
               disabled={saving}
-              className="flex-1 h-12 rounded-xl bg-white/5 border-white/10 text-white"
+              className="flex-1 h-12 rounded-2xl bg-white/5 border-white/10 text-white"
             >
               <Copy size={18} className="mr-2" /> Modèle
             </Button>

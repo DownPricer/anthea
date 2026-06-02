@@ -5,7 +5,11 @@ ROOT_DIR = Path(__file__).parent
 load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
+from fastapi.responses import StreamingResponse
 from starlette.middleware.cors import CORSMiddleware
+import csv
+import io
+import json
 from motor.motor_asyncio import AsyncIOMotorClient
 from bson import ObjectId
 import os
@@ -21,6 +25,8 @@ from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 
 from program_volume_seed import ensure_program_volume_templates
+from badges import evaluate_all_badges
+from challenges import pick_weekly_challenge, compute_challenge_progress
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -56,6 +62,7 @@ class UserUpdate(BaseModel):
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
     theme: Optional[str] = "default"
+    accent_color: Optional[str] = None
     tts_enabled: Optional[bool] = True
     tts_voice: Optional[str] = None
     timer_sound: Optional[str] = "beep"
@@ -70,7 +77,9 @@ class UserResponse(BaseModel):
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
     theme: str = "default"
+    accent_color: Optional[str] = None
     tts_enabled: bool = True
+    last_seen_at: Optional[str] = None
     tts_voice: Optional[str] = None
     timer_sound: str = "beep"
     partner_id: Optional[str] = None
@@ -247,6 +256,14 @@ class CommentCreate(BaseModel):
     session_id: str
     text: str
 
+class SessionTimeAdjust(BaseModel):
+    total_time: int
+    reason: Optional[str] = None
+
+class PushSubscriptionCreate(BaseModel):
+    endpoint: str
+    keys: dict
+
 class DuoStatsResponse(BaseModel):
     streak: int
     total_workouts_together: int
@@ -327,7 +344,9 @@ def serialize_user(user: dict) -> dict:
         "fitness_level": user.get("fitness_level"),
         "main_goal": user.get("main_goal"),
         "theme": user.get("theme", "default"),
+        "accent_color": user.get("accent_color"),
         "tts_enabled": user.get("tts_enabled", True),
+        "last_seen_at": user.get("last_seen_at"),
         "tts_voice": user.get("tts_voice"),
         "timer_sound": user.get("timer_sound", "beep"),
         "partner_id": user.get("partner_id"),
@@ -352,6 +371,9 @@ async def lifespan(app: FastAPI):
     await db.streak_days.create_index([("user_id", 1), ("date", 1)], unique=True)
     await db.duo_streak_overrides.create_index("pair_key", unique=True)
     await db.scheduled_workouts.create_index([("for_user_id", 1), ("scheduled_date", 1)])
+    await db.workout_sessions.create_index([("user_id", 1), ("created_at", -1)])
+    await db.challenge_completions.create_index([("user_id", 1), ("week_key", 1)], unique=True)
+    await db.session_time_audit.create_index("session_id")
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -465,6 +487,10 @@ async def login(data: UserLogin, response: Response):
     response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
     response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=2592000, path="/")
     
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"_id": user["_id"]}, {"$set": {"last_seen_at": now}})
+    user["last_seen_at"] = now
+    
     return serialize_user(user)
 
 @api_router.post("/auth/logout")
@@ -475,7 +501,10 @@ async def logout(response: Response):
 
 @api_router.get("/auth/me")
 async def get_me(user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"last_seen_at": now}})
     full_user = await db.users.find_one({"_id": ObjectId(user["id"])})
+    full_user["last_seen_at"] = now
     return serialize_user(full_user)
 
 @api_router.put("/auth/profile")
@@ -608,12 +637,21 @@ async def get_partner_info(user: dict = Depends(get_current_user)):
     if not partner:
         return None
     
+    today_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    last_seen = partner.get("last_seen_at") or ""
+    connected_today = last_seen[:10] == today_str if last_seen else False
+    is_coach = user.get("relation_type") in ("coach", "trainer") or user["username"] in _admin_usernames()
+
     return {
         "id": str(partner["_id"]),
         "username": partner["username"],
         "display_name": partner.get("display_name"),
         "avatar_url": partner.get("avatar_url"),
-        "relation_type": user.get("relation_type")
+        "accent_color": partner.get("accent_color"),
+        "relation_type": user.get("relation_type"),
+        "last_seen_at": last_seen,
+        "connected_today": connected_today,
+        "show_presence": is_coach,
     }
 
 # ============ EXERCISE ROUTES ============
@@ -1142,14 +1180,133 @@ async def create_session(data: WorkoutSessionCreate, user: dict = Depends(get_cu
     return session_doc
 
 @api_router.get("/sessions")
-async def get_sessions(limit: int = 20, user: dict = Depends(get_current_user)):
+async def get_sessions(
+    limit: int = 20,
+    offset: int = 0,
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
     query = {"$or": [{"user_id": user["id"]}]}
     
     if user.get("partner_id"):
         query["$or"].append({"user_id": user["partner_id"]})
+    if status:
+        query["status"] = status
     
-    sessions = await db.workout_sessions.find(query).sort("created_at", -1).to_list(limit)
+    cursor = db.workout_sessions.find(query).sort("created_at", -1).skip(offset).limit(min(limit, 200))
+    sessions = await cursor.to_list(min(limit, 200))
     return [{"id": str(s["_id"]), **{k: v for k, v in s.items() if k != "_id"}} for s in sessions]
+
+
+@api_router.get("/sessions/history")
+async def get_sessions_history(
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    """Historique détaillé pour duo / coach."""
+    return await get_sessions(limit=limit, offset=offset, status=status, user=user)
+
+
+@api_router.get("/sessions/export")
+async def export_sessions_csv(
+    target_user: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    """Export CSV complet — coach / duo autorisé uniquement."""
+    stats_user_id = target_user or user.get("partner_id") or user["id"]
+    allowed = [user["id"]]
+    if user.get("partner_id"):
+        allowed.append(user["partner_id"])
+    if stats_user_id not in allowed:
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    is_coach = user.get("relation_type") in ("coach", "trainer") or user["username"] in _admin_usernames()
+    if stats_user_id != user["id"] and not is_coach and stats_user_id == user.get("partner_id"):
+        pass  # duo peut exporter partenaire
+    elif stats_user_id != user["id"] and not is_coach:
+        raise HTTPException(status_code=403, detail="Coach access required for this export")
+
+    sessions = await db.workout_sessions.find(
+        {"user_id": stats_user_id}
+    ).sort("created_at", -1).to_list(5000)
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow([
+        "date", "workout_title", "username", "status", "total_time_sec",
+        "exercises_completed", "exercises_total", "difficulty_felt",
+        "fatigue_before", "fatigue_after", "notes",
+    ])
+    for s in sessions:
+        writer.writerow([
+            s.get("created_at", ""),
+            s.get("workout_title", ""),
+            s.get("username", ""),
+            s.get("status", ""),
+            s.get("total_time", 0),
+            s.get("exercises_completed", 0),
+            s.get("exercises_total", 0),
+            s.get("difficulty_felt", ""),
+            s.get("fatigue_before", ""),
+            s.get("fatigue_after", ""),
+            s.get("notes", ""),
+        ])
+
+    output.seek(0)
+    filename = f"anthea_historique_{stats_user_id[:8]}.csv"
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@api_router.put("/sessions/{session_id}/adjust-time")
+async def adjust_session_time(
+    session_id: str,
+    body: SessionTimeAdjust,
+    user: dict = Depends(get_current_user),
+):
+    """Correction manuelle du temps — admin / coach uniquement."""
+    if not await _can_moderate_streak(user):
+        raise HTTPException(status_code=403, detail="Not authorized")
+
+    session = await db.workout_sessions.find_one({"_id": ObjectId(session_id)})
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+
+    old_time = session.get("total_time", 0)
+    await db.workout_sessions.update_one(
+        {"_id": ObjectId(session_id)},
+        {"$set": {"total_time": body.total_time}},
+    )
+    await db.session_time_audit.insert_one({
+        "session_id": session_id,
+        "actor_id": user["id"],
+        "old_time": old_time,
+        "new_time": body.total_time,
+        "reason": body.reason,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    })
+    return {"status": "ok", "total_time": body.total_time}
+
+
+@api_router.post("/push/subscribe")
+async def subscribe_push(data: PushSubscriptionCreate, user: dict = Depends(get_current_user)):
+    await db.push_subscriptions.update_one(
+        {"user_id": user["id"], "endpoint": data.endpoint},
+        {"$set": {
+            "user_id": user["id"],
+            "endpoint": data.endpoint,
+            "keys": data.keys,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+        }},
+        upsert=True,
+    )
+    return {"status": "ok"}
+
 
 @api_router.get("/sessions/{session_id}")
 async def get_session(session_id: str, user: dict = Depends(get_current_user)):
@@ -1297,15 +1454,10 @@ def _combine_duo_outcomes(a: str, b: Optional[str]) -> str:
     return "ok"
 
 
-async def calculate_streak(user_id: str, partner_id: Optional[str]) -> int:
-    """
-    Streak sur les jours où au moins une séance était attendue (scheduled non brouillon).
-    Les jours sans rien de planifié ne brisent pas la streak et comptent comme OK en remontant.
-    """
-    streak = 0
+async def _load_streak_context(user_id: str, partner_id: Optional[str], lookback_days: int = 364):
+    """Charge marqueurs et séances planifiées pour le calcul streak / calendrier."""
     current_date = datetime.now(timezone.utc).date()
-    start_s = (current_date - timedelta(days=364)).isoformat()
-
+    start_s = (current_date - timedelta(days=lookback_days)).isoformat()
     users_in_pair = [user_id]
     if partner_id:
         users_in_pair.append(partner_id)
@@ -1336,37 +1488,80 @@ async def calculate_streak(user_id: str, partner_id: Optional[str]) -> int:
         if fu and sd:
             planned_by_user_date[(fu, sd)].append(w)
 
+    return current_date, skip_pairs, rest_pairs, planned_by_user_date
+
+
+def _combined_for_date(
+    user_id: str,
+    partner_id: Optional[str],
+    check_date: str,
+    day_index: int,
+    skip_pairs: set,
+    rest_pairs: set,
+    planned_by_user_date: dict,
+) -> dict:
+    """État d'un jour pour le calendrier (aligné sur calculate_streak)."""
+    if partner_id:
+        if (user_id, check_date) in skip_pairs or (partner_id, check_date) in skip_pairs:
+            return {"combined": "skip", "skip": True}
+    elif (user_id, check_date) in skip_pairs:
+        return {"combined": "skip", "skip": True}
+
+    u_rest = (user_id, check_date) in rest_pairs
+    p_rest = (partner_id, check_date) in rest_pairs if partner_id else False
+
+    u_planned = planned_by_user_date.get((user_id, check_date), [])
+    p_planned = planned_by_user_date.get((partner_id, check_date), []) if partner_id else []
+
+    uo = _user_day_outcome(u_planned, u_rest, day_index)
+    po = _user_day_outcome(p_planned, p_rest, day_index) if partner_id else None
+    combined = _combine_duo_outcomes(uo, po if partner_id else None)
+    if combined == "neutral":
+        combined = "ok"
+
+    active_u = [w for w in u_planned if not w.get("is_draft")]
+    active_p = [w for w in p_planned if not w.get("is_draft")] if partner_id else []
+
+    my_completed = any(w.get("status") == "completed" for w in active_u)
+    partner_completed = any(w.get("status") == "completed" for w in active_p) if partner_id else False
+    both_completed = my_completed and partner_completed and partner_id is not None
+    has_planned = len(active_u) > 0 or len(active_p) > 0
+
+    missed = day_index > 0 and combined == "fail"
+
+    return {
+        "combined": combined,
+        "skip": False,
+        "rest": u_rest or p_rest,
+        "my_completed": my_completed,
+        "partner_completed": partner_completed,
+        "both_completed": both_completed,
+        "has_planned": has_planned,
+        "missed": missed,
+        "today_pending": combined == "today_pending",
+    }
+
+
+async def calculate_streak(user_id: str, partner_id: Optional[str]) -> int:
+    """
+    Streak sur les jours où au moins une séance était attendue (scheduled non brouillon).
+    Les jours sans rien de planifié ne brisent pas la streak et comptent comme OK en remontant.
+    """
+    streak = 0
+    current_date, skip_pairs, rest_pairs, planned_by_user_date = await _load_streak_context(
+        user_id, partner_id
+    )
+
     for i in range(365):
         check_date = (current_date - timedelta(days=i)).isoformat()
-
-        if partner_id:
-            if (user_id, check_date) in skip_pairs or (partner_id, check_date) in skip_pairs:
-                if i > 0:
-                    break
-                continue
-        else:
-            if (user_id, check_date) in skip_pairs:
-                if i > 0:
-                    break
-                continue
-
-        u_rest = (user_id, check_date) in rest_pairs
-        p_rest = (partner_id, check_date) in rest_pairs if partner_id else False
-
-        u_planned = planned_by_user_date.get((user_id, check_date), [])
-        p_planned = planned_by_user_date.get((partner_id, check_date), []) if partner_id else []
-
-        uo = _user_day_outcome(u_planned, u_rest, i)
-        po = _user_day_outcome(p_planned, p_rest, i) if partner_id else None
-
-        combined = _combine_duo_outcomes(
-            uo,
-            po if partner_id else None,
+        info = _combined_for_date(
+            user_id, partner_id, check_date, i, skip_pairs, rest_pairs, planned_by_user_date
         )
-
-        if combined == "neutral":
-            combined = "ok"
-
+        if info["skip"]:
+            if i > 0:
+                break
+            continue
+        combined = info["combined"]
         if combined == "fail" and i > 0:
             break
         if combined == "today_pending":
@@ -1377,16 +1572,96 @@ async def calculate_streak(user_id: str, partner_id: Optional[str]) -> int:
     return streak
 
 
+async def build_streak_calendar(
+    user_id: str,
+    partner_id: Optional[str],
+    start_date: str,
+    end_date: str,
+) -> List[dict]:
+    """Calendrier jour par jour avec flammes de streak (logique serveur = calculate_streak)."""
+    current_date, skip_pairs, rest_pairs, planned_by_user_date = await _load_streak_context(
+        user_id, partner_id
+    )
+
+    # Chaîne de streak active (dates consécutives depuis aujourd'hui)
+    in_streak_set = set()
+    for i in range(365):
+        check_date = (current_date - timedelta(days=i)).isoformat()
+        info = _combined_for_date(
+            user_id, partner_id, check_date, i, skip_pairs, rest_pairs, planned_by_user_date
+        )
+        if info["skip"]:
+            if i > 0:
+                break
+            continue
+        combined = info["combined"]
+        if combined == "fail" and i > 0:
+            break
+        if combined == "today_pending":
+            continue
+        if combined == "ok":
+            in_streak_set.add(check_date)
+
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    days_out = []
+    cursor = start
+    today_str = current_date.isoformat()
+
+    while cursor <= end:
+        ds = cursor.isoformat()
+        day_index = (current_date - cursor).days
+        if day_index < 0:
+            cursor += timedelta(days=1)
+            continue
+
+        info = _combined_for_date(
+            user_id, partner_id, ds, day_index, skip_pairs, rest_pairs, planned_by_user_date
+        )
+        days_out.append({
+            "date": ds,
+            "in_streak": ds in in_streak_set,
+            "combined": info["combined"],
+            "my_completed": info["my_completed"],
+            "partner_completed": info["partner_completed"],
+            "both_completed": info["both_completed"],
+            "has_planned": info["has_planned"],
+            "missed": info["missed"] and ds < today_str,
+            "rest": info["rest"],
+            "skip": info["skip"],
+            "today_pending": info["today_pending"],
+            "is_future": ds > today_str,
+        })
+        cursor += timedelta(days=1)
+
+    return days_out
+
+
 @api_router.get("/duo/stats")
 async def get_duo_stats(user: dict = Depends(get_current_user)):
+    calculated = await calculate_streak(user["id"], user.get("partner_id"))
+    manual = await _get_manual_streak_override(user["id"], user.get("partner_id")) if user.get("partner_id") else None
+    streak = manual if manual is not None else calculated
+    badges = await get_duo_badges(user["id"], user.get("partner_id"), streak_value=streak)
+    challenge = await get_current_challenge(user["id"], user.get("partner_id"), streak_value=streak)
+
     if not user.get("partner_id"):
+        user_sessions = await db.workout_sessions.count_documents({
+            "user_id": user["id"],
+            "status": "completed",
+            "created_at": {"$gte": (datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())).strftime("%Y-%m-%d")},
+        })
         return {
-            "streak": 0,
-            "total_workouts_together": 0,
-            "this_week_user": 0,
+            "streak": streak,
+            "streak_calculated": calculated,
+            "streak_manual_override": manual,
+            "total_workouts_together": user_sessions,
+            "this_week_user": user_sessions,
             "this_week_partner": 0,
-            "badges": [],
-            "current_challenge": None
+            "badges": badges,
+            "current_challenge": challenge,
+            "badges_unlocked": len([b for b in badges if b.get("unlocked")]),
+            "badges_total": len(badges),
         }
     
     today = datetime.now(timezone.utc)
@@ -1412,12 +1687,6 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "status": "completed"
     })
     
-    calculated = await calculate_streak(user["id"], user["partner_id"])
-    manual = await _get_manual_streak_override(user["id"], user["partner_id"])
-    streak = manual if manual is not None else calculated
-    badges = await get_duo_badges(user["id"], user["partner_id"], streak_value=streak)
-    challenge = await get_current_challenge(user["id"])
-    
     return {
         "streak": streak,
         "streak_calculated": calculated,
@@ -1426,44 +1695,24 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "this_week_user": user_sessions,
         "this_week_partner": partner_sessions,
         "badges": badges,
-        "current_challenge": challenge
+        "current_challenge": challenge,
+        "badges_unlocked": len([b for b in badges if b.get("unlocked")]),
+        "badges_total": len(badges),
     }
 
-async def get_duo_badges(user_id: str, partner_id: str, streak_value: Optional[int] = None) -> List[dict]:
-    badges = []
-    
-    total = await db.workout_sessions.count_documents({
-        "$or": [{"user_id": user_id}, {"user_id": partner_id}],
-        "status": "completed"
-    })
-    
-    if total >= 1:
-        badges.append({"id": "first_workout", "name": "Premiers pas", "icon": "trophy"})
-    if total >= 10:
-        badges.append({"id": "ten_workouts", "name": "En forme", "icon": "flame"})
-    if total >= 50:
-        badges.append({"id": "fifty_workouts", "name": "Athlètes", "icon": "medal"})
-    
-    streak = streak_value if streak_value is not None else await calculate_streak(user_id, partner_id)
-    if streak >= 7:
-        badges.append({"id": "week_streak", "name": "Semaine parfaite", "icon": "zap"})
-    if streak >= 30:
-        badges.append({"id": "month_streak", "name": "Mois légendaire", "icon": "crown"})
-    
-    return badges
+async def get_duo_badges(user_id: str, partner_id: Optional[str], streak_value: Optional[int] = None) -> List[dict]:
+    if streak_value is None and partner_id:
+        streak_value = await calculate_streak(user_id, partner_id)
+    elif streak_value is None:
+        streak_value = 0
+    return await evaluate_all_badges(db, user_id, partner_id, streak_value)
 
-async def get_current_challenge(user_id: str) -> Optional[dict]:
-    today = datetime.now(timezone.utc)
-    week_start = (today - timedelta(days=today.weekday())).strftime("%Y-%m-%d")
-    week_end = (today + timedelta(days=6-today.weekday())).strftime("%Y-%m-%d")
-    
-    return {
-        "id": "weekly_3_each",
-        "title": "3 séances chacun cette semaine",
-        "target": 6,
-        "current": 0,
-        "end_date": week_end
-    }
+
+async def get_current_challenge(
+    user_id: str, partner_id: Optional[str] = None, streak_value: int = 0
+) -> Optional[dict]:
+    challenge_def = pick_weekly_challenge()
+    return await compute_challenge_progress(db, challenge_def, user_id, partner_id, streak_value)
 
 @api_router.get("/duo/activity")
 async def get_duo_activity(limit: int = 10, user: dict = Depends(get_current_user)):
@@ -1535,9 +1784,16 @@ async def get_detailed_stats(
     week_start = (today - timedelta(days=today.weekday())).replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
     this_week = [s for s in sessions if s.get("created_at", "") >= week_start]
     
-    # This month stats
+    # This month stats — requête dédiée (indépendante du filtre period)
     month_start = today.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-    this_month = [s for s in sessions if s.get("created_at", "") >= month_start]
+    month_query = {"user_id": stats_user_id, "created_at": {"$gte": month_start}}
+    this_month_count = await db.workout_sessions.count_documents(month_query)
+    this_week_count = await db.workout_sessions.count_documents({
+        "user_id": stats_user_id,
+        "created_at": {"$gte": (today - timedelta(days=today.weekday())).replace(
+            hour=0, minute=0, second=0, microsecond=0
+        ).isoformat()},
+    })
     
     # Daily breakdown for graph (last 7 days)
     daily_stats = []
@@ -1614,8 +1870,8 @@ async def get_detailed_stats(
             "completion_rate": completion_rate,
             "total_time": total_time,
             "avg_time": avg_time,
-            "this_week": len(this_week),
-            "this_month": len(this_month)
+            "this_week": this_week_count,
+            "this_month": this_month_count
         },
         "averages": {
             "fatigue_before": avg_fatigue_before,
@@ -1668,6 +1924,23 @@ async def get_streak_days(
         "date": {"$gte": start_date, "$lte": end_date}
     }).to_list(100)
     return [{"date": d["date"], "type": d["type"]} for d in days]
+
+
+@api_router.get("/streak/calendar")
+async def get_streak_calendar(
+    start_date: str,
+    end_date: str,
+    user: dict = Depends(get_current_user),
+):
+    """État visuel jour par jour pour l'agenda (streak, repos, duo, manqués)."""
+    partner_id = user.get("partner_id")
+    days = await build_streak_calendar(user["id"], partner_id, start_date, end_date)
+    streak = await calculate_streak(user["id"], partner_id)
+    manual = await _get_manual_streak_override(user["id"], partner_id) if partner_id else None
+    return {
+        "streak": manual if manual is not None else streak,
+        "days": days,
+    }
 
 @api_router.delete("/streak/day/{date}")
 async def remove_streak_day(date: str, user: dict = Depends(get_current_user)):

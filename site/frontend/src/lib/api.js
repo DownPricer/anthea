@@ -97,12 +97,24 @@ export const workoutsApi = {
 
 // Sessions API
 export const sessionsApi = {
-  getAll: (limit = 20) => api.get('/sessions', { params: { limit } }),
+  getAll: (params = {}) => api.get('/sessions', { params: { limit: 20, ...params } }),
+  getHistory: (params = {}) => api.get('/sessions/history', { params: { limit: 50, ...params } }),
+  exportCsv: (targetUser) =>
+    api.get('/sessions/export', {
+      params: { target_user: targetUser },
+      responseType: 'blob',
+    }),
   getOne: (id) => api.get(`/sessions/${id}`),
   create: (data) => api.post('/sessions', data),
+  adjustTime: (id, data) => api.put(`/sessions/${id}/adjust-time`, data),
   toggleLike: (id) => api.post(`/sessions/${id}/like`),
   addReaction: (id, data) => api.post(`/sessions/${id}/react`, data),
   addComment: (id, data) => api.post(`/sessions/${id}/comment`, data),
+};
+
+// Push API (PWA)
+export const pushApi = {
+  subscribe: (data) => api.post('/push/subscribe', data),
 };
 
 // Duo API
@@ -111,6 +123,7 @@ export const duoApi = {
   getActivity: (limit = 10) => api.get('/duo/activity', { params: { limit } }),
   getDetailedStats: (period = '30', targetUser = null) => 
     api.get('/duo/detailed-stats', { params: { period, target_user: targetUser } }),
+  getBadges: () => api.get('/duo/stats').then((r) => r.data?.badges || []),
 };
 
 // Streak API
@@ -118,6 +131,8 @@ export const streakApi = {
   markRestDay: (date) => api.post('/streak/rest-day', { date }),
   markSkipDay: (date) => api.post('/streak/skip-day', { date }),
   getDays: (startDate, endDate) => api.get('/streak/days', { params: { start_date: startDate, end_date: endDate } }),
+  getCalendar: (startDate, endDate) =>
+    api.get('/streak/calendar', { params: { start_date: startDate, end_date: endDate } }),
   removeDay: (date) => api.delete(`/streak/day/${date}`),
   getCoachStatus: () => api.get('/streak/coach/status'),
   coachSetManualStreak: (streak) => api.post('/streak/coach/manual-streak', { streak }),

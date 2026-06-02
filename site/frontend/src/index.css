@@ -99,6 +99,59 @@ h1, h2, h3, h4, h5, h6 {
   animation: countdown 1s ease-out forwards;
 }
 
+@keyframes agendaFlamePulse {
+  0%, 100% { opacity: 0.85; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.08); }
+}
+
+.agenda-flame-pulse {
+  animation: agendaFlamePulse 1.8s ease-in-out infinite;
+}
+
+.agenda-calendar-root .agenda-mod-mine {
+  background-color: color-mix(in srgb, var(--agenda-mine) 35%, transparent) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agenda-mine) 70%, transparent);
+}
+
+.agenda-calendar-root .agenda-mod-partner {
+  background-color: color-mix(in srgb, var(--agenda-partner) 35%, transparent) !important;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--agenda-partner) 70%, transparent);
+}
+
+.agenda-calendar-root .agenda-mod-both {
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--agenda-mine) 50%, transparent),
+    color-mix(in srgb, var(--agenda-partner) 50%, transparent)
+  ) !important;
+  box-shadow:
+    0 0 0 2px rgba(251, 191, 36, 0.75),
+    0 0 14px rgba(251, 191, 36, 0.25) !important;
+}
+
+.agenda-calendar-root .agenda-mod-missed {
+  background-color: rgba(239, 68, 68, 0.12) !important;
+  box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.55) !important;
+}
+
+.agenda-calendar-root .agenda-mod-rest-streak {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35) !important;
+}
+
+.agenda-calendar-root .agenda-mod-rest {
+  background-color: rgba(59, 130, 246, 0.06) !important;
+}
+
+.agenda-calendar-root .agenda-mod-streak:not(.agenda-mod-missed) {
+  position: relative;
+}
+
+.agenda-legend-duo-swatch {
+  background: linear-gradient(135deg, var(--agenda-mine), var(--agenda-partner));
+  box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.5);
+}
+
 /* Glass effect */
 .glass {
   background: rgba(10, 10, 10, 0.6);

@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, formatApiError } from '../lib/api';
+import { BadgesGrid } from '../components/BadgesGrid';
+import { getAccentForUser } from '../hooks/useUserAccent';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -28,6 +30,9 @@ import {
   TrendingUp,
   Calendar,
   Activity,
+  Download,
+  History,
+  CheckCircle2,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -62,6 +67,10 @@ export function DuoPage() {
   const [coachStreakInput, setCoachStreakInput] = useState('');
   const [exemptDateStr, setExemptDateStr] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [exemptWho, setExemptWho] = useState('partner'); // 'me' | 'partner'
+  const [historySessions, setHistorySessions] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [historyFilter, setHistoryFilter] = useState('all');
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -71,7 +80,43 @@ export function DuoPage() {
     if (activeTab === 'stats' && partner) {
       loadDetailedStats();
     }
-  }, [activeTab, statsPeriod, statsTarget, partner]);
+    if (activeTab === 'history' && partner) {
+      loadHistory();
+    }
+  }, [activeTab, statsPeriod, statsTarget, partner, historyFilter]);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const params = { limit: 100 };
+      if (historyFilter !== 'all') params.status = historyFilter;
+      const { data } = await sessionsApi.getHistory(params);
+      setHistorySessions(data || []);
+    } catch {
+      toast.error('Impossible de charger l\'historique');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleExportCsv = async () => {
+    setExporting(true);
+    try {
+      const targetId = statsTarget === 'me' ? user.id : partner?.id;
+      const { data } = await sessionsApi.exportCsv(targetId);
+      const url = window.URL.createObjectURL(new Blob([data]));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `anthea_historique_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.click();
+      window.URL.revokeObjectURL(url);
+      toast.success('Export téléchargé');
+    } catch {
+      toast.error('Export non autorisé ou indisponible');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -292,24 +337,36 @@ export function DuoPage() {
             <p className="text-zinc-500 text-sm">
               {user?.relation_type === 'coach' ? 'Coach & Élève' : 'Partenaires'}
             </p>
+            {partner?.show_presence && partner.connected_today && (
+              <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
+                <CheckCircle2 size={12} /> Connecté aujourd&apos;hui
+              </p>
+            )}
           </div>
         </div>
       </header>
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full bg-[#141414] p-1 rounded-xl border border-white/10">
+        <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">
           <TabsTrigger
             value="activity"
             data-testid="tab-activity"
-            className="flex-1 rounded-lg data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
             Activité
           </TabsTrigger>
           <TabsTrigger
+            value="history"
+            data-testid="tab-history"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+          >
+            Historique
+          </TabsTrigger>
+          <TabsTrigger
             value="stats"
             data-testid="tab-stats"
-            className="flex-1 rounded-lg data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
             Stats
           </TabsTrigger>
@@ -447,18 +504,14 @@ export function DuoPage() {
           {/* Badges */}
           {duoStats?.badges?.length > 0 && (
             <div>
-              <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">Badges</h2>
-              <div className="flex gap-2 overflow-x-auto pb-2 -mx-5 px-5">
-                {duoStats.badges.map((badge) => (
-                  <div
-                    key={badge.id}
-                    className="flex-shrink-0 px-3 py-2 bg-[#141414] border border-white/10 rounded-full flex items-center gap-2"
-                  >
-                    <Trophy className="text-[var(--theme-primary)]" size={14} />
-                    <span className="text-white text-sm whitespace-nowrap">{badge.name}</span>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-3">
+                <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Badges</h2>
+                <span className="text-xs text-zinc-500">
+                  {duoStats.badges_unlocked ?? duoStats.badges.filter((b) => b.unlocked).length}
+                  /{duoStats.badges_total ?? duoStats.badges.length}
+                </span>
               </div>
+              <BadgesGrid badges={duoStats.badges} />
             </div>
           )}
 
@@ -491,6 +544,111 @@ export function DuoPage() {
               </div>
             )}
           </div>
+        </TabsContent>
+
+        {/* History Tab */}
+        <TabsContent value="history" className="space-y-4">
+          <div className="flex gap-2 flex-wrap">
+            {['all', 'completed', 'abandoned'].map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => setHistoryFilter(f)}
+                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                  historyFilter === f
+                    ? 'bg-[var(--theme-primary)] text-white'
+                    : 'bg-white/5 text-zinc-400'
+                }`}
+              >
+                {f === 'all' ? 'Toutes' : f === 'completed' ? 'Terminées' : 'Abandonnées'}
+              </button>
+            ))}
+            {(user?.relation_type === 'coach' || canModerateStreak) && (
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={exporting}
+                onClick={handleExportCsv}
+                className="ml-auto rounded-full border-white/15 text-white"
+              >
+                {exporting ? <Loader2 className="animate-spin mr-1" size={14} /> : <Download size={14} className="mr-1" />}
+                Export CSV
+              </Button>
+            )}
+          </div>
+          {historyLoading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+            </div>
+          ) : historySessions.length === 0 ? (
+            <div className="card p-8 text-center">
+              <History className="mx-auto text-zinc-500 mb-3" size={28} />
+              <p className="text-zinc-500">Aucune séance dans l&apos;historique</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {historySessions.map((session) => (
+                <div key={session.id} className="card p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <p className="text-white font-medium">{session.workout_title}</p>
+                      <p className="text-zinc-500 text-xs mt-1">
+                        {session.username} •{' '}
+                        {session.created_at && format(parseISO(session.created_at), 'd MMM yyyy HH:mm', { locale: fr })}
+                      </p>
+                    </div>
+                    <span
+                      className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] uppercase font-semibold ${
+                        session.status === 'completed'
+                          ? 'bg-green-500/20 text-green-400'
+                          : 'bg-red-500/20 text-red-400'
+                      }`}
+                    >
+                      {session.status === 'completed' ? 'Terminée' : 'Abandonnée'}
+                    </span>
+                  </div>
+                  <p className="text-zinc-400 text-sm mt-2">
+                    {formatDuration(session.total_time)} • {session.exercises_completed}/{session.exercises_total} exos
+                    {session.difficulty_felt != null && ` • Difficulté ${session.difficulty_felt}/10`}
+                  </p>
+                  {session.notes && (
+                    <p className="text-zinc-500 text-xs mt-2 italic">&quot;{session.notes}&quot;</p>
+                  )}
+                  {canModerateStreak && (
+                    <button
+                      type="button"
+                      className="mt-2 text-[10px] text-zinc-600 hover:text-zinc-400"
+                      onClick={async () => {
+                        const mins = window.prompt(
+                          'Corriger le temps (minutes réelles) — réservé coach/admin',
+                          String(Math.round((session.total_time || 0) / 60))
+                        );
+                        if (mins == null) return;
+                        const sec = parseInt(mins, 10) * 60;
+                        if (Number.isNaN(sec) || sec < 0) {
+                          toast.error('Valeur invalide');
+                          return;
+                        }
+                        if (!window.confirm('Confirmer la correction du temps ?')) return;
+                        try {
+                          await sessionsApi.adjustTime(session.id, {
+                            total_time: sec,
+                            reason: 'coach_manual',
+                          });
+                          toast.success('Temps corrigé');
+                          loadHistory();
+                        } catch {
+                          toast.error('Correction refusée');
+                        }
+                      }}
+                    >
+                      Corriger le temps
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         {/* Stats Tab */}

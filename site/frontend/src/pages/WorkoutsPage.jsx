@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi } from '../lib/api';
+import { workoutsApi, streakApi, partnerApi } from '../lib/api';
+import { getAccentForUser } from '../hooks/useUserAccent';
+import { useTheme } from '../context/ThemeContext';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
-import { Calendar } from '../components/ui/calendar';
+import { AgendaCalendar } from '../components/agenda/AgendaCalendar';
+import { calendarDaysToMap } from '../lib/agendaDayMap';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,9 +37,14 @@ import { toast } from 'sonner';
 
 export function WorkoutsPage() {
   const { user } = useAuth();
+  const { theme } = useTheme();
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState('today');
+  const [calendarDayMap, setCalendarDayMap] = useState({});
+  const [duoStreak, setDuoStreak] = useState(0);
+  const [partner, setPartner] = useState(null);
+  const [agendaLoading, setAgendaLoading] = useState(false);
   const [todayWorkouts, setTodayWorkouts] = useState([]);
   const [calendarWorkouts, setCalendarWorkouts] = useState([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -52,8 +60,30 @@ export function WorkoutsPage() {
   useEffect(() => {
     if (activeTab === 'agenda') {
       loadCalendarWorkouts();
+      loadAgendaMeta();
     }
   }, [activeTab, currentMonth]);
+
+  const loadAgendaMeta = async () => {
+    setAgendaLoading(true);
+    try {
+      const start = startOfMonth(currentMonth);
+      const end = endOfMonth(currentMonth);
+      const ws = format(start, 'yyyy-MM-dd');
+      const we = format(end, 'yyyy-MM-dd');
+      const [calRes, partnerRes] = await Promise.all([
+        streakApi.getCalendar(ws, we),
+        partnerApi.getInfo().catch(() => ({ data: null })),
+      ]);
+      setCalendarDayMap(calendarDaysToMap(calRes.data?.days || []));
+      setDuoStreak(calRes.data?.streak || 0);
+      setPartner(partnerRes.data);
+    } catch {
+      console.error('Agenda calendar load failed');
+    } finally {
+      setAgendaLoading(false);
+    }
+  };
 
   const loadTodayWorkouts = async () => {
     try {
@@ -124,6 +154,10 @@ export function WorkoutsPage() {
   };
 
   const selectedDateWorkouts = getWorkoutsForDate(selectedDate);
+  const draftWorkouts = todayWorkouts.filter((w) => w.is_draft);
+  const publishedToday = todayWorkouts.filter((w) => !w.is_draft);
+  const myAccent = getAccentForUser(user, theme);
+  const partnerAccent = partner ? getAccentForUser(partner, theme) : '#10B981';
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -172,12 +206,19 @@ export function WorkoutsPage() {
         </button>
       )}
 
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${getStatusColor(workout.status)}`}>
+      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${getStatusColor(workout.status)}`}>
         {getStatusIcon(workout.status)}
       </div>
 
       <div className="flex-1 min-w-0">
-        <h4 className="text-white font-medium truncate">{workout.title}</h4>
+        <h4 className="text-white font-medium truncate flex items-center gap-2">
+          {workout.title}
+          {workout.is_draft && (
+            <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400">
+              Brouillon
+            </span>
+          )}
+        </h4>
         <p className="text-zinc-500 text-sm">
           {workout.scheduled_time || 'Flexible'}
           {workout.for_user_id !== user?.id && (
@@ -193,7 +234,7 @@ export function WorkoutsPage() {
             <Button
               size="sm"
               onClick={() => navigate(`/player/${workout.id}`)}
-              className="bg-[var(--theme-primary)] text-white rounded-lg px-4"
+              className="bg-[var(--theme-primary)] text-white rounded-full px-5"
             >
               {workout.status === 'in_progress' ? (
                 <>
@@ -211,7 +252,7 @@ export function WorkoutsPage() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 hover:bg-white/10 rounded-lg transition-colors">
+              <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
                 <MoreVertical size={18} className="text-zinc-400" />
               </button>
             </DropdownMenuTrigger>
@@ -256,32 +297,38 @@ export function WorkoutsPage() {
         <Button
           onClick={() => navigate('/create')}
           size="sm"
-          className="bg-[var(--theme-primary)] text-white rounded-lg"
+          className="bg-[var(--theme-primary)] text-white rounded-full px-4"
         >
           <Plus size={18} className="mr-1" /> Nouvelle
         </Button>
       </header>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full bg-[#141414] p-1 rounded-xl border border-white/10">
+        <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">
           <TabsTrigger
             value="today"
             data-testid="tab-today"
-            className="flex-1 rounded-lg data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
             Aujourd'hui
           </TabsTrigger>
           <TabsTrigger
             value="agenda"
             data-testid="tab-agenda"
-            className="flex-1 rounded-lg data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
             Agenda
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="today" className="space-y-4">
-          {todayWorkouts.length === 0 ? (
+          {draftWorkouts.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="text-xs font-medium uppercase tracking-wider text-amber-400/90">Brouillons</h3>
+              {draftWorkouts.map((workout) => renderWorkoutCard(workout))}
+            </div>
+          )}
+          {publishedToday.length === 0 && draftWorkouts.length === 0 ? (
             <div className="card p-8 text-center">
               <div className="w-16 h-16 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-4">
                 <CalendarIcon className="text-zinc-500" size={28} />
@@ -294,34 +341,31 @@ export function WorkoutsPage() {
                 Planifier une séance
               </Button>
             </div>
-          ) : (
+          ) : publishedToday.length > 0 ? (
             <div className="space-y-3">
-              {todayWorkouts.map((workout) => renderWorkoutCard(workout))}
+              {publishedToday.map((workout) => renderWorkoutCard(workout))}
             </div>
-          )}
+          ) : null}
         </TabsContent>
 
         <TabsContent value="agenda" className="space-y-4">
-          {/* Calendar */}
           <div className="card p-4">
-            <Calendar
-              mode="single"
-              selected={selectedDate}
-              onSelect={(date) => date && setSelectedDate(date)}
-              month={currentMonth}
-              onMonthChange={setCurrentMonth}
-              locale={fr}
-              className="rounded-md"
-              modifiers={{
-                hasWorkout: (date) => getWorkoutsForDate(date).length > 0,
-              }}
-              modifiersStyles={{
-                hasWorkout: {
-                  backgroundColor: 'var(--theme-surface-active)',
-                  borderRadius: '8px',
-                },
-              }}
-            />
+            {agendaLoading ? (
+              <div className="flex justify-center py-16">
+                <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+              </div>
+            ) : (
+              <AgendaCalendar
+                month={currentMonth}
+                selected={selectedDate}
+                onSelect={setSelectedDate}
+                onMonthChange={setCurrentMonth}
+                dayMap={calendarDayMap}
+                myAccent={myAccent}
+                partnerAccent={partnerAccent}
+                streak={duoStreak}
+              />
+            )}
           </div>
 
           {/* Selection mode toolbar */}
@@ -360,7 +404,14 @@ export function WorkoutsPage() {
             </div>
           )}
 
-          {/* Selected date workouts */}
+          {calendarDayMap[format(selectedDate, 'yyyy-MM-dd')] && (
+            <SelectedDaySummary
+              state={calendarDayMap[format(selectedDate, 'yyyy-MM-dd')]}
+              myAccent={myAccent}
+              partnerAccent={partnerAccent}
+            />
+          )}
+
           <div>
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-white font-medium">
@@ -390,6 +441,36 @@ export function WorkoutsPage() {
           </div>
         </TabsContent>
       </Tabs>
+    </div>
+  );
+}
+
+function SelectedDaySummary({ state, myAccent, partnerAccent }) {
+  const labels = [];
+  if (state.both_completed) labels.push('Duo ✓');
+  else {
+    if (state.my_completed) labels.push('Toi ✓');
+    if (state.partner_completed) labels.push('Partenaire ✓');
+  }
+  if (state.missed) labels.push('Séance manquée');
+  if (state.rest) labels.push('Repos (streak préservée)');
+  if (state.in_streak) labels.push('Dans la streak');
+
+  if (labels.length === 0 && !state.has_planned) return null;
+
+  return (
+    <div
+      className="mb-3 flex flex-wrap gap-2 p-3 rounded-2xl border border-white/10 bg-[#141414]/80"
+      style={{ borderLeftColor: state.both_completed ? '#fbbf24' : myAccent, borderLeftWidth: 3 }}
+    >
+      {labels.map((l) => (
+        <span
+          key={l}
+          className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-zinc-300"
+        >
+          {l}
+        </span>
+      ))}
     </div>
   );
 }

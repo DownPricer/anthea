@@ -306,7 +306,8 @@ export function WorkoutPlayerPage() {
     setShowStopModal(true);
   };
 
-  const handleResumeLater = async () => {
+  const persistProgress = useCallback(async () => {
+    if (!workout || phase === 'preparation' || phase === 'finished') return;
     try {
       await workoutsApi.saveProgress(workoutId, {
         workout_id: workoutId,
@@ -316,6 +317,47 @@ export function WorkoutPlayerPage() {
         pause_time: pauseTime,
         exercises_completed: exercisesCompleted,
       });
+    } catch {
+      /* sauvegarde silencieuse */
+    }
+  }, [
+    workout,
+    phase,
+    workoutId,
+    currentExerciseIndex,
+    currentBlockIndex,
+    totalTime,
+    pauseTime,
+    exercisesCompleted,
+  ]);
+
+  useEffect(() => {
+    const interval = setInterval(persistProgress, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [persistProgress]);
+
+  useEffect(() => {
+    const onHide = () => {
+      if (document.visibilityState === 'hidden') persistProgress();
+    };
+    const onUnload = () => persistProgress();
+    document.addEventListener('visibilitychange', onHide);
+    window.addEventListener('beforeunload', onUnload);
+    return () => {
+      document.removeEventListener('visibilitychange', onHide);
+      window.removeEventListener('beforeunload', onUnload);
+    };
+  }, [persistProgress]);
+
+  useEffect(() => {
+    if (phase !== 'preparation' && phase !== 'finished') {
+      persistProgress();
+    }
+  }, [currentExerciseIndex, currentBlockIndex, isPaused, phase]);
+
+  const handleResumeLater = async () => {
+    try {
+      await persistProgress();
       toast.success('Progression sauvegardée');
       navigate('/workouts');
     } catch (error) {

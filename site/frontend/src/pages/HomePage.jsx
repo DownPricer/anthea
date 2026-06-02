@@ -29,6 +29,10 @@ import {
 import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useTheme } from '../context/ThemeContext';
+import { BadgesGrid } from '../components/BadgesGrid';
+import { WeekAgendaStrip } from '../components/agenda/WeekAgendaStrip';
+import { getAccentForUser } from '../hooks/useUserAccent';
+import { calendarDaysToMap } from '../lib/agendaDayMap';
 import { toast } from 'sonner';
 
 export function HomePage() {
@@ -37,7 +41,7 @@ export function HomePage() {
   const navigate = useNavigate();
   
   const [todayWorkouts, setTodayWorkouts] = useState([]);
-  const [weekWorkouts, setWeekWorkouts] = useState([]);
+  const [calendarDayMap, setCalendarDayMap] = useState({});
   const [duoStats, setDuoStats] = useState(null);
   const [partner, setPartner] = useState(null);
   const [partnerRequests, setPartnerRequests] = useState([]);
@@ -57,12 +61,12 @@ export function HomePage() {
       const wsStr = format(weekStartDate, 'yyyy-MM-dd');
       const weStr = format(weekEndDate, 'yyyy-MM-dd');
 
-      const [todayRes, duoRes, partnerRes, requestsRes, weekRes, streakRes] = await Promise.all([
+      const [todayRes, duoRes, partnerRes, requestsRes, calRes, streakRes] = await Promise.all([
         workoutsApi.getToday(),
         duoApi.getStats(),
         partnerApi.getInfo(),
         partnerApi.getRequests(),
-        workoutsApi.getAll({ start_date: wsStr, end_date: weStr, light: true }),
+        streakApi.getCalendar(wsStr, weStr),
         streakApi.getDays(wsStr, weStr),
       ]);
 
@@ -70,7 +74,7 @@ export function HomePage() {
       setDuoStats(duoRes.data);
       setPartner(partnerRes.data);
       setPartnerRequests(requestsRes.data || []);
-      setWeekWorkouts(weekRes.data || []);
+      setCalendarDayMap(calendarDaysToMap(calRes.data?.days || []));
       setStreakDays(streakRes.data || []);
     } catch (error) {
       console.error('Failed to load home data:', error);
@@ -164,10 +168,8 @@ export function HomePage() {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const getWorkoutsForDay = (date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return weekWorkouts.filter((w) => w.scheduled_date === dateStr);
-  };
+  const myAccent = getAccentForUser(user, theme);
+  const partnerAccent = partner ? getAccentForUser(partner, theme) : '#10B981';
 
   if (loading) {
     return (
@@ -251,14 +253,21 @@ export function HomePage() {
           </div>
 
           <div className="grid grid-cols-3 gap-3">
-            <div className="text-center p-3 rounded-xl bg-white/5">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                {theme === 'girly' ? (
-                  <Heart className="text-pink-500" size={16} fill="currentColor" />
-                ) : (
-                  <Flame className="text-orange-500" size={16} />
+            <div className="text-center p-3 rounded-xl bg-white/5 col-span-3 sm:col-span-1">
+              <div className="flex items-center justify-center gap-0.5 mb-1 flex-wrap">
+                {Array.from({ length: Math.min(duoStats.streak || 0, 7) }).map((_, i) => (
+                  <Flame
+                    key={i}
+                    size={duoStats.streak > 3 ? 18 : 16}
+                    className="text-orange-500 animate-pulse"
+                    style={{ animationDelay: `${i * 0.1}s` }}
+                    fill="currentColor"
+                  />
+                ))}
+                {(duoStats.streak || 0) === 0 && (
+                  <Flame className="text-zinc-600" size={16} />
                 )}
-                <span className="text-xl font-bold text-white">{duoStats.streak}</span>
+                <span className="text-xl font-bold text-white ml-1">{duoStats.streak}</span>
               </div>
               <p className="text-zinc-500 text-xs">Streak</p>
             </div>
@@ -303,7 +312,7 @@ export function HomePage() {
           <Button
             onClick={() => navigate(`/player/${primaryWorkoutAction.workout.id}`)}
             data-testid="start-workout-btn"
-            className="w-full h-14 rounded-xl font-bold text-white btn-primary"
+            className="w-full h-14 rounded-2xl font-bold text-white btn-primary"
           >
             {primaryWorkoutAction.resume ? (
               <>
@@ -343,60 +352,17 @@ export function HomePage() {
           </Link>
         </div>
 
-        <div className="flex gap-2">
-          {weekDays.map((day) => {
-            const dayWorkouts = getWorkoutsForDay(day);
-            const hasWorkout = dayWorkouts.length > 0;
-            const isCurrentDay = isToday(day);
-            const streakType = getStreakDayType(day);
-
-            return (
-              <button
-                key={day.toISOString()}
-                onClick={() => {
-                  setSelectedDay(day);
-                  setShowStreakModal(true);
-                }}
-                data-testid={`week-day-${format(day, 'yyyy-MM-dd')}`}
-                className={`flex-1 p-3 rounded-xl text-center transition-all ${
-                  streakType === 'skip'
-                    ? 'bg-red-500/15 border border-red-500/30'
-                    : streakType === 'rest'
-                    ? 'bg-blue-500/15 border border-blue-500/30'
-                    : isCurrentDay
-                    ? 'bg-[var(--theme-primary)] text-white'
-                    : hasWorkout
-                    ? 'bg-[var(--theme-surface-active)] border border-[var(--theme-primary)]/30'
-                    : 'bg-[#141414] border border-white/5'
-                }`}
-              >
-                <p className={`text-[10px] uppercase ${
-                  streakType === 'skip' ? 'text-red-400' :
-                  streakType === 'rest' ? 'text-blue-400' :
-                  isCurrentDay ? 'text-white/70' : 'text-zinc-500'
-                }`}>
-                  {format(day, 'EEE', { locale: fr })}
-                </p>
-                <p className={`text-lg font-bold ${
-                  streakType === 'skip' ? 'text-red-400' :
-                  streakType === 'rest' ? 'text-blue-400' :
-                  isCurrentDay ? 'text-white' : hasWorkout ? 'text-white' : 'text-zinc-400'
-                }`}>
-                  {format(day, 'd')}
-                </p>
-                {streakType === 'rest' && (
-                  <BedDouble size={12} className="mx-auto mt-1 text-blue-400" />
-                )}
-                {streakType === 'skip' && (
-                  <XCircle size={12} className="mx-auto mt-1 text-red-400" />
-                )}
-                {!streakType && hasWorkout && (
-                  <div className={`w-1.5 h-1.5 mx-auto mt-1 rounded-full ${isCurrentDay ? 'bg-white' : 'bg-[var(--theme-primary)]'}`} />
-                )}
-              </button>
-            );
-          })}
-        </div>
+        <WeekAgendaStrip
+          weekDays={weekDays}
+          dayMap={calendarDayMap}
+          myAccent={myAccent}
+          partnerAccent={partnerAccent}
+          isToday={isToday}
+          onDayClick={(day) => {
+            setSelectedDay(day);
+            setShowStreakModal(true);
+          }}
+        />
       </div>
 
       {/* Today's workouts list */}
@@ -445,20 +411,13 @@ export function HomePage() {
       {/* Badges */}
       {duoStats?.badges?.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold text-white font-['Outfit'] mb-4">Badges</h2>
-          <div className="flex gap-3 overflow-x-auto pb-2 -mx-5 px-5">
-            {duoStats.badges.map((badge) => (
-              <div
-                key={badge.id}
-                className="flex-shrink-0 w-20 text-center"
-              >
-                <div className="w-14 h-14 mx-auto rounded-full bg-[var(--theme-surface-active)] border border-[var(--theme-primary)]/30 flex items-center justify-center mb-2">
-                  <Trophy className="text-[var(--theme-primary)]" size={24} />
-                </div>
-                <p className="text-xs text-zinc-400 truncate">{badge.name}</p>
-              </div>
-            ))}
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-white font-['Outfit']">Badges</h2>
+            <Link to="/duo" className="text-[var(--theme-primary)] text-sm">
+              Tout voir
+            </Link>
           </div>
+          <BadgesGrid badges={duoStats.badges.filter((b) => b.unlocked).slice(0, 8)} compact />
         </div>
       )}
 

@@ -40,6 +40,7 @@ import {
   Bell,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { setupPushNotifications } from '../lib/pushNotifications';
 
 const FITNESS_LEVELS = [
   { value: 'beginner', label: 'Débutant' },
@@ -66,7 +67,18 @@ export function ProfilePage() {
   const [fitnessLevel, setFitnessLevel] = useState(user?.fitness_level || 'beginner');
   const [mainGoal, setMainGoal] = useState(user?.main_goal || '');
   const [ttsEnabled, setTtsEnabled] = useState(user?.tts_enabled !== false);
+  const [accentColor, setAccentColor] = useState(user?.accent_color || '');
   const [saving, setSaving] = useState(false);
+
+  const ACCENT_PRESETS = [
+    { value: '', label: 'Thème par défaut' },
+    { value: '#06B6D4', label: 'Cyan' },
+    { value: '#10B981', label: 'Vert' },
+    { value: '#D946EF', label: 'Rose' },
+    { value: '#F59E0B', label: 'Ambre' },
+    { value: '#6366F1', label: 'Indigo' },
+    { value: '#EF4444', label: 'Rouge' },
+  ];
 
   // Partner state
   const [partner, setPartner] = useState(null);
@@ -85,6 +97,7 @@ export function ProfilePage() {
       setFitnessLevel(user.fitness_level || 'beginner');
       setMainGoal(user.main_goal || '');
       setTtsEnabled(user.tts_enabled !== false);
+      setAccentColor(user.accent_color || '');
     }
     loadPartnerData();
   }, [user]);
@@ -113,6 +126,7 @@ export function ProfilePage() {
       main_goal: mainGoal,
       tts_enabled: ttsEnabled,
       theme,
+      accent_color: accentColor || null,
     });
     setSaving(false);
 
@@ -483,6 +497,43 @@ export function ProfilePage() {
           </div>
         </div>
 
+        {/* Couleur perso */}
+        <div className="p-3 bg-white/5 rounded-xl space-y-3">
+          <div className="flex items-center gap-3">
+            <Palette className="text-zinc-400" size={20} />
+            <span className="text-white">Couleur perso</span>
+          </div>
+          <p className="text-zinc-500 text-xs">
+            Indépendante du thème — utilisée dans l&apos;agenda et les repères visuels.
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {ACCENT_PRESETS.map((preset) => (
+              <button
+                key={preset.value || 'default'}
+                type="button"
+                onClick={() => setAccentColor(preset.value)}
+                className={`w-9 h-9 rounded-full border-2 transition-all ${
+                  accentColor === preset.value
+                    ? 'border-white scale-110'
+                    : 'border-transparent'
+                }`}
+                style={{
+                  background: preset.value
+                    ? preset.value
+                    : 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
+                }}
+                title={preset.label}
+              />
+            ))}
+          </div>
+          <Input
+            type="color"
+            value={accentColor || '#06B6D4'}
+            onChange={(e) => setAccentColor(e.target.value)}
+            className="h-10 w-full rounded-xl cursor-pointer"
+          />
+        </div>
+
         {/* TTS */}
         <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
           <div className="flex items-center gap-3">
@@ -494,6 +545,31 @@ export function ProfilePage() {
             onCheckedChange={setTtsEnabled}
             data-testid="tts-toggle"
           />
+        </div>
+
+        {/* Notifications push */}
+        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+          <div className="flex items-center gap-3">
+            <Bell className="text-zinc-400" size={20} />
+            <div>
+              <span className="text-white block">Notifications</span>
+              <span className="text-zinc-500 text-xs">Séances, streak, badges</span>
+            </div>
+          </div>
+          <Button
+            type="button"
+            size="sm"
+            variant="outline"
+            className="rounded-full border-white/15 text-white"
+            onClick={async () => {
+              const r = await setupPushNotifications();
+              if (r.ok) toast.success('Notifications activées');
+              else if (r.reason === 'no_vapid_key') toast.info('Clé VAPID non configurée (REACT_APP_VAPID_PUBLIC_KEY)');
+              else toast.error('Notifications non disponibles sur cet appareil');
+            }}
+          >
+            Activer
+          </Button>
         </div>
       </div>
 
