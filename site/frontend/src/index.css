@@ -129,11 +129,6 @@ h1, h2, h3, h4, h5, h6 {
     0 0 14px rgba(251, 191, 36, 0.25) !important;
 }
 
-.agenda-calendar-root .agenda-mod-missed {
-  background-color: rgba(239, 68, 68, 0.12) !important;
-  box-shadow: inset 0 0 0 2px rgba(239, 68, 68, 0.55) !important;
-}
-
 .agenda-calendar-root .agenda-mod-rest-streak {
   background-color: rgba(59, 130, 246, 0.1) !important;
   box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35) !important;
@@ -141,10 +136,6 @@ h1, h2, h3, h4, h5, h6 {
 
 .agenda-calendar-root .agenda-mod-rest {
   background-color: rgba(59, 130, 246, 0.06) !important;
-}
-
-.agenda-calendar-root .agenda-mod-streak:not(.agenda-mod-missed) {
-  position: relative;
 }
 
 .agenda-legend-duo-swatch {

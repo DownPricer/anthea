@@ -381,6 +381,15 @@ export function WorkoutPlayerPage() {
       // Clear any saved progress
       await workoutsApi.clearProgress(workoutId).catch(() => {});
       
+      const exerciseLog = allExercises.slice(0, exercisesCompleted).map((ex) => ({
+        name: ex.name,
+        exercise_type: ex.exercise_type,
+        reps: ex.reps,
+        duration: ex.duration,
+        block_type: ex.blockType,
+        completed: true,
+      }));
+
       await sessionsApi.create({
         workout_id: workoutId,
         total_time: totalTime,
@@ -392,6 +401,7 @@ export function WorkoutPlayerPage() {
         fatigue_after: fatigueAfter,
         difficulty_felt: difficultyFelt,
         notes: notes.trim() || null,
+        exercise_log: exerciseLog,
       });
       toast.success('Séance enregistrée !');
       navigate('/duo');

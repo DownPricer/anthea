@@ -99,9 +99,9 @@ export const workoutsApi = {
 export const sessionsApi = {
   getAll: (params = {}) => api.get('/sessions', { params: { limit: 20, ...params } }),
   getHistory: (params = {}) => api.get('/sessions/history', { params: { limit: 50, ...params } }),
-  exportCsv: (targetUser) =>
+  export: (params = {}) =>
     api.get('/sessions/export', {
-      params: { target_user: targetUser },
+      params,
       responseType: 'blob',
     }),
   getOne: (id) => api.get(`/sessions/${id}`),

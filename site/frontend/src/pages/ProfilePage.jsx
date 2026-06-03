@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { partnerApi, usersApi } from '../lib/api';
+import { partnerApi, usersApi, duoApi } from '../lib/api';
+import { BadgesGrid } from '../components/BadgesGrid';
+import { isPushConfigured } from '../lib/env';
+import { applyAccentToDocument, THEME_DEFAULTS } from '../lib/userAccent';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -38,6 +41,7 @@ import {
   Palette,
   Volume2,
   Bell,
+  Trophy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { setupPushNotifications } from '../lib/pushNotifications';
@@ -69,6 +73,8 @@ export function ProfilePage() {
   const [ttsEnabled, setTtsEnabled] = useState(user?.tts_enabled !== false);
   const [accentColor, setAccentColor] = useState(user?.accent_color || '');
   const [saving, setSaving] = useState(false);
+  const [badges, setBadges] = useState([]);
+  const [badgesExpanded, setBadgesExpanded] = useState(false);
 
   const ACCENT_PRESETS = [
     { value: '', label: 'Thème par défaut' },
@@ -100,7 +106,22 @@ export function ProfilePage() {
       setAccentColor(user.accent_color || '');
     }
     loadPartnerData();
+    loadBadges();
   }, [user]);
+
+  const loadBadges = async () => {
+    try {
+      const { data } = await duoApi.getStats();
+      setBadges(data?.badges || []);
+    } catch {
+      setBadges([]);
+    }
+  };
+
+  const setAccentPreview = (color) => {
+    setAccentColor(color);
+    applyAccentToDocument(color || THEME_DEFAULTS[theme] || THEME_DEFAULTS.default);
+  };
 
   const loadPartnerData = async () => {
     try {
@@ -511,7 +532,7 @@ export function ProfilePage() {
               <button
                 key={preset.value || 'default'}
                 type="button"
-                onClick={() => setAccentColor(preset.value)}
+                onClick={() => setAccentPreview(preset.value)}
                 className={`w-9 h-9 rounded-full border-2 transition-all ${
                   accentColor === preset.value
                     ? 'border-white scale-110'
@@ -529,7 +550,7 @@ export function ProfilePage() {
           <Input
             type="color"
             value={accentColor || '#06B6D4'}
-            onChange={(e) => setAccentColor(e.target.value)}
+            onChange={(e) => setAccentPreview(e.target.value)}
             className="h-10 w-full rounded-xl cursor-pointer"
           />
         </div>
@@ -547,31 +568,76 @@ export function ProfilePage() {
           />
         </div>
 
-        {/* Notifications push */}
-        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-          <div className="flex items-center gap-3">
-            <Bell className="text-zinc-400" size={20} />
-            <div>
-              <span className="text-white block">Notifications</span>
-              <span className="text-zinc-500 text-xs">Séances, streak, badges</span>
+        {isPushConfigured() ? (
+          <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+            <div className="flex items-center gap-3">
+              <Bell className="text-zinc-400" size={20} />
+              <div>
+                <span className="text-white block">Notifications</span>
+                <span className="text-zinc-500 text-xs">Séances, streak, badges</span>
+              </div>
             </div>
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              className="rounded-full border-white/15 text-white"
+              onClick={async () => {
+                const r = await setupPushNotifications();
+                if (r.ok) toast.success('Notifications activées');
+                else if (r.reason === 'denied') toast.info('Autorise les notifications dans les réglages du navigateur');
+                else toast.error('Impossible d\'activer les notifications');
+              }}
+            >
+              Activer
+            </Button>
           </div>
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            className="rounded-full border-white/15 text-white"
-            onClick={async () => {
-              const r = await setupPushNotifications();
-              if (r.ok) toast.success('Notifications activées');
-              else if (r.reason === 'no_vapid_key') toast.info('Clé VAPID non configurée (REACT_APP_VAPID_PUBLIC_KEY)');
-              else toast.error('Notifications non disponibles sur cet appareil');
-            }}
-          >
-            Activer
-          </Button>
-        </div>
+        ) : (
+          <p className="text-zinc-500 text-xs p-3 rounded-xl bg-white/5 border border-white/5">
+            Les notifications push ne sont pas encore activées sur ce serveur.
+          </p>
+        )}
       </div>
+
+      {/* Badges */}
+      {badges.length > 0 && (
+        <div className="card p-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-lg font-semibold text-white font-['Outfit'] flex items-center gap-2">
+              <Trophy size={18} className="text-[var(--theme-primary)]" />
+              Badges
+            </h3>
+            <span className="text-xs text-zinc-500">
+              {badges.filter((b) => b.unlocked).length}/{badges.length}
+            </span>
+          </div>
+          <BadgesGrid
+            badges={badgesExpanded ? badges : badges.filter((b) => b.unlocked).slice(0, 6)}
+            compact
+          />
+          <div className="flex gap-2 mt-4">
+            {badges.length > 6 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="flex-1 rounded-full border-white/15 text-white"
+                onClick={() => setBadgesExpanded(!badgesExpanded)}
+              >
+                {badgesExpanded ? 'Réduire' : 'Voir tous'}
+              </Button>
+            )}
+            <Button
+              asChild
+              variant="outline"
+              size="sm"
+              className="flex-1 rounded-full border-white/15 text-white"
+            >
+              <Link to="/duo">Duo & détails</Link>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Logout */}
       <Button

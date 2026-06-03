@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, streakApi, partnerApi } from '../lib/api';
-import { getAccentForUser } from '../hooks/useUserAccent';
+import { useUserAccent } from '../hooks/useUserAccent';
+import { getAccentForUser } from '../lib/userAccent';
 import { useTheme } from '../context/ThemeContext';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -57,12 +58,18 @@ export function WorkoutsPage() {
     loadTodayWorkouts();
   }, []);
 
+  const { accent: myAccent } = useUserAccent();
+  const partnerAccent = useMemo(
+    () => (partner ? getAccentForUser(partner, theme) : '#10B981'),
+    [partner?.accent_color, partner?.id, theme]
+  );
+
   useEffect(() => {
     if (activeTab === 'agenda') {
       loadCalendarWorkouts();
       loadAgendaMeta();
     }
-  }, [activeTab, currentMonth]);
+  }, [activeTab, currentMonth, user?.accent_color]);
 
   const loadAgendaMeta = async () => {
     setAgendaLoading(true);
@@ -156,8 +163,6 @@ export function WorkoutsPage() {
   const selectedDateWorkouts = getWorkoutsForDate(selectedDate);
   const draftWorkouts = todayWorkouts.filter((w) => w.is_draft);
   const publishedToday = todayWorkouts.filter((w) => !w.is_draft);
-  const myAccent = getAccentForUser(user, theme);
-  const partnerAccent = partner ? getAccentForUser(partner, theme) : '#10B981';
 
   const getStatusColor = (status) => {
     switch (status) {
@@ -356,6 +361,7 @@ export function WorkoutsPage() {
               </div>
             ) : (
               <AgendaCalendar
+                key={`agenda-${myAccent}-${partnerAccent}`}
                 month={currentMonth}
                 selected={selectedDate}
                 onSelect={setSelectedDate}
@@ -408,7 +414,6 @@ export function WorkoutsPage() {
             <SelectedDaySummary
               state={calendarDayMap[format(selectedDate, 'yyyy-MM-dd')]}
               myAccent={myAccent}
-              partnerAccent={partnerAccent}
             />
           )}
 
@@ -445,14 +450,15 @@ export function WorkoutsPage() {
   );
 }
 
-function SelectedDaySummary({ state, myAccent, partnerAccent }) {
+function SelectedDaySummary({ state, myAccent }) {
   const labels = [];
   if (state.both_completed) labels.push('Duo ✓');
   else {
     if (state.my_completed) labels.push('Toi ✓');
     if (state.partner_completed) labels.push('Partenaire ✓');
   }
-  if (state.missed) labels.push('Séance manquée');
+  if (state.partner_missed) labels.push('Partenaire : non fait');
+  if (state.my_missed) labels.push('Toi : non fait');
   if (state.rest) labels.push('Repos (streak préservée)');
   if (state.in_streak) labels.push('Dans la streak');
 

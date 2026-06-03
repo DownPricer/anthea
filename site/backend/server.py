@@ -225,6 +225,7 @@ class WorkoutSessionCreate(BaseModel):
     soreness: Optional[int] = None
     mood: Optional[str] = None
     notes: Optional[str] = None
+    exercise_log: Optional[List[dict]] = None
 
 class WorkoutSessionResponse(BaseModel):
     id: str
@@ -509,11 +510,25 @@ async def get_me(user: dict = Depends(get_current_user)):
 
 @api_router.put("/auth/profile")
 async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user)):
-    update_data = {k: v for k, v in data.model_dump().items() if v is not None}
-    if update_data:
-        update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-        await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": update_data})
-    
+    payload = data.model_dump(exclude_unset=True)
+    set_data = {}
+    unset_data = {}
+
+    for key, value in payload.items():
+        if key == "accent_color" and (value is None or value == ""):
+            unset_data["accent_color"] = ""
+        elif value is not None:
+            set_data[key] = value
+
+    if set_data or unset_data:
+        op = {}
+        if set_data:
+            set_data["updated_at"] = datetime.now(timezone.utc).isoformat()
+            op["$set"] = set_data
+        if unset_data:
+            op["$unset"] = unset_data
+        await db.users.update_one({"_id": ObjectId(user["id"])}, op)
+
     updated_user = await db.users.find_one({"_id": ObjectId(user["id"])})
     return serialize_user(updated_user)
 
@@ -1198,69 +1213,198 @@ async def get_sessions(
     return [{"id": str(s["_id"]), **{k: v for k, v in s.items() if k != "_id"}} for s in sessions]
 
 
-@api_router.get("/sessions/history")
-async def get_sessions_history(
-    limit: int = 50,
-    offset: int = 0,
-    status: Optional[str] = None,
-    user: dict = Depends(get_current_user),
-):
-    """Historique détaillé pour duo / coach."""
-    return await get_sessions(limit=limit, offset=offset, status=status, user=user)
-
-
-@api_router.get("/sessions/export")
-async def export_sessions_csv(
-    target_user: Optional[str] = None,
-    user: dict = Depends(get_current_user),
-):
-    """Export CSV complet — coach / duo autorisé uniquement."""
+def _session_export_auth(target_user: Optional[str], user: dict) -> str:
     stats_user_id = target_user or user.get("partner_id") or user["id"]
     allowed = [user["id"]]
     if user.get("partner_id"):
         allowed.append(user["partner_id"])
     if stats_user_id not in allowed:
         raise HTTPException(status_code=403, detail="Not authorized")
-
     is_coach = user.get("relation_type") in ("coach", "trainer") or user["username"] in _admin_usernames()
-    if stats_user_id != user["id"] and not is_coach and stats_user_id == user.get("partner_id"):
-        pass  # duo peut exporter partenaire
-    elif stats_user_id != user["id"] and not is_coach:
+    if stats_user_id != user["id"] and not is_coach and stats_user_id != user.get("partner_id"):
         raise HTTPException(status_code=403, detail="Coach access required for this export")
+    return stats_user_id
 
-    sessions = await db.workout_sessions.find(
-        {"user_id": stats_user_id}
-    ).sort("created_at", -1).to_list(5000)
+
+def _period_to_dates(period: str, start_date: Optional[str], end_date: Optional[str]) -> tuple:
+    today = datetime.now(timezone.utc).date()
+    if period == "7d":
+        start = (today - timedelta(days=6)).isoformat()
+        end = today.isoformat()
+    elif period == "30d":
+        start = (today - timedelta(days=29)).isoformat()
+        end = today.isoformat()
+    elif period == "month":
+        start = today.replace(day=1).isoformat()
+        end = today.isoformat()
+    elif period == "custom" and start_date and end_date:
+        start, end = start_date, end_date
+    else:
+        start = (today - timedelta(days=29)).isoformat()
+        end = today.isoformat()
+    return start, end
+
+
+async def _enrich_session(s: dict) -> dict:
+    out = {"id": str(s["_id"]), **{k: v for k, v in s.items() if k != "_id"}}
+    workout = None
+    wid = s.get("workout_id")
+    if wid:
+        try:
+            workout = await db.scheduled_workouts.find_one({"_id": ObjectId(wid)})
+        except Exception:
+            workout = None
+    if workout:
+        out["scheduled_date"] = workout.get("scheduled_date")
+        out["workout_status"] = workout.get("status")
+        if not out.get("exercise_log"):
+            log = []
+            for block in workout.get("blocks", []):
+                for ex in block.get("exercises", []):
+                    log.append({
+                        "name": ex.get("name"),
+                        "exercise_type": ex.get("exercise_type"),
+                        "reps": ex.get("reps"),
+                        "duration": ex.get("duration"),
+                        "block_type": block.get("block_type"),
+                    })
+            out["exercise_log"] = log
+    if out.get("status") == "completed":
+        out["display_status"] = "completed"
+    elif out.get("status") == "abandoned":
+        out["display_status"] = "abandoned"
+    else:
+        out["display_status"] = out.get("status")
+    if workout and workout.get("status") == "pending" and out.get("status") != "completed":
+        sd = workout.get("scheduled_date", "")
+        if sd and sd < datetime.now(timezone.utc).strftime("%Y-%m-%d"):
+            out["display_status"] = "missed"
+    return out
+
+
+@api_router.get("/sessions/history")
+async def get_sessions_history(
+    limit: int = 50,
+    offset: int = 0,
+    status: Optional[str] = None,
+    target_user: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    """Historique détaillé pour duo / coach."""
+    if target_user:
+        stats_user_id = _session_export_auth(target_user, user)
+        query = {"user_id": stats_user_id}
+    else:
+        query = {"$or": [{"user_id": user["id"]}]}
+        if user.get("partner_id"):
+            query["$or"].append({"user_id": user["partner_id"]})
+
+    if start_date or end_date:
+        date_q = {}
+        if start_date:
+            date_q["$gte"] = start_date
+        if end_date:
+            date_q["$lte"] = end_date + "T23:59:59"
+        query["created_at"] = date_q
+
+    if status:
+        query["status"] = status
+
+    sessions = await db.workout_sessions.find(query).sort("created_at", -1).skip(offset).limit(min(limit, 200)).to_list(min(limit, 200))
+    enriched = []
+    for s in sessions:
+        enriched.append(await _enrich_session(s))
+    return enriched
+
+
+@api_router.get("/sessions/export")
+async def export_sessions_csv(
+    target_user: Optional[str] = None,
+    period: str = "30d",
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    export_format: str = "csv",
+    user: dict = Depends(get_current_user),
+):
+    """Export CSV (ou HTML imprimable) sur une période."""
+    stats_user_id = _session_export_auth(target_user, user)
+    p_start, p_end = _period_to_dates(period, start_date, end_date)
+
+    sessions = await db.workout_sessions.find({
+        "user_id": stats_user_id,
+        "created_at": {"$gte": p_start, "$lte": p_end + "T23:59:59"},
+    }).sort("created_at", -1).to_list(5000)
+
+    rows = []
+    for s in sessions:
+        enriched = await _enrich_session(s)
+        log_str = "; ".join(
+            f"{e.get('name')}: "
+            + (f"{e.get('reps')} reps" if e.get('exercise_type') == 'reps' else f"{e.get('duration')}s")
+            for e in (enriched.get("exercise_log") or [])
+        )
+        rows.append({
+            "date": enriched.get("created_at", ""),
+            "workout_title": enriched.get("workout_title", ""),
+            "username": enriched.get("username", ""),
+            "status": enriched.get("display_status", enriched.get("status", "")),
+            "total_time_sec": enriched.get("total_time", 0),
+            "exercises_completed": enriched.get("exercises_completed", 0),
+            "exercises_total": enriched.get("exercises_total", 0),
+            "difficulty_felt": enriched.get("difficulty_felt", ""),
+            "fatigue_before": enriched.get("fatigue_before", ""),
+            "fatigue_after": enriched.get("fatigue_after", ""),
+            "notes": enriched.get("notes", ""),
+            "exercises_detail": log_str,
+        })
+
+    if export_format == "html":
+        html = _sessions_to_html(rows, p_start, p_end)
+        return StreamingResponse(
+            iter([html]),
+            media_type="text/html",
+            headers={"Content-Disposition": f'attachment; filename="anthea_export_{p_start}_{p_end}.html"'},
+        )
 
     output = io.StringIO()
     writer = csv.writer(output)
     writer.writerow([
         "date", "workout_title", "username", "status", "total_time_sec",
         "exercises_completed", "exercises_total", "difficulty_felt",
-        "fatigue_before", "fatigue_after", "notes",
+        "fatigue_before", "fatigue_after", "notes", "exercises_detail",
     ])
-    for s in sessions:
+    for r in rows:
         writer.writerow([
-            s.get("created_at", ""),
-            s.get("workout_title", ""),
-            s.get("username", ""),
-            s.get("status", ""),
-            s.get("total_time", 0),
-            s.get("exercises_completed", 0),
-            s.get("exercises_total", 0),
-            s.get("difficulty_felt", ""),
-            s.get("fatigue_before", ""),
-            s.get("fatigue_after", ""),
-            s.get("notes", ""),
+            r["date"], r["workout_title"], r["username"], r["status"],
+            r["total_time_sec"], r["exercises_completed"], r["exercises_total"],
+            r["difficulty_felt"], r["fatigue_before"], r["fatigue_after"],
+            r["notes"], r["exercises_detail"],
         ])
-
     output.seek(0)
-    filename = f"anthea_historique_{stats_user_id[:8]}.csv"
+    filename = f"anthea_export_{p_start}_{p_end}.csv"
     return StreamingResponse(
         iter([output.getvalue()]),
         media_type="text/csv",
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+def _sessions_to_html(rows: list, start: str, end: str) -> str:
+    body = "".join(
+        f"<tr><td>{r['date']}</td><td>{r['workout_title']}</td><td>{r['username']}</td>"
+        f"<td>{r['status']}</td><td>{r['total_time_sec']}</td><td>{r['exercises_detail']}</td>"
+        f"<td>{r.get('notes') or ''}</td></tr>"
+        for r in rows
+    )
+    return f"""<!DOCTYPE html><html><head><meta charset="utf-8"><title>Export Anthea</title>
+    <style>body{{font-family:sans-serif;padding:24px}}table{{border-collapse:collapse;width:100%}}
+    th,td{{border:1px solid #ccc;padding:8px;font-size:12px}}th{{background:#f4f4f4}}</style></head>
+    <body><h1>Historique séances</h1><p>Période : {start} → {end}</p>
+    <table><thead><tr><th>Date</th><th>Séance</th><th>Personne</th><th>Statut</th>
+    <th>Temps (s)</th><th>Exercices</th><th>Notes</th></tr></thead><tbody>{body}</tbody></table>
+    <p><small>Export Anthea — imprimer en PDF depuis le navigateur si besoin.</small></p></body></html>"""
 
 
 @api_router.put("/sessions/{session_id}/adjust-time")
@@ -1527,7 +1671,11 @@ def _combined_for_date(
     both_completed = my_completed and partner_completed and partner_id is not None
     has_planned = len(active_u) > 0 or len(active_p) > 0
 
-    missed = day_index > 0 and combined == "fail"
+    is_past = day_index > 0
+    partner_missed = bool(
+        partner_id and is_past and len(active_p) > 0 and not partner_completed
+    )
+    my_missed = bool(is_past and len(active_u) > 0 and not my_completed)
 
     return {
         "combined": combined,
@@ -1537,7 +1685,9 @@ def _combined_for_date(
         "partner_completed": partner_completed,
         "both_completed": both_completed,
         "has_planned": has_planned,
-        "missed": missed,
+        "partner_missed": partner_missed,
+        "my_missed": my_missed,
+        "missed": False,
         "today_pending": combined == "today_pending",
     }
 
@@ -1626,7 +1776,9 @@ async def build_streak_calendar(
             "partner_completed": info["partner_completed"],
             "both_completed": info["both_completed"],
             "has_planned": info["has_planned"],
-            "missed": info["missed"] and ds < today_str,
+            "partner_missed": info["partner_missed"] and ds < today_str,
+            "my_missed": info["my_missed"] and ds < today_str,
+            "missed": False,
             "rest": info["rest"],
             "skip": info["skip"],
             "today_pending": info["today_pending"],

@@ -3,7 +3,8 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, formatApiError } from '../lib/api';
 import { BadgesGrid } from '../components/BadgesGrid';
-import { getAccentForUser } from '../hooks/useUserAccent';
+import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
+import { getAccentForUser } from '../lib/userAccent';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -71,6 +72,9 @@ export function DuoPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyFilter, setHistoryFilter] = useState('all');
   const [exporting, setExporting] = useState(false);
+  const [exportPeriod, setExportPeriod] = useState('30d');
+  const [exportStartDate, setExportStartDate] = useState('');
+  const [exportEndDate, setExportEndDate] = useState('');
 
   useEffect(() => {
     loadData();
@@ -88,7 +92,7 @@ export function DuoPage() {
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const params = { limit: 100 };
+      const params = { limit: 100, target_user: statsTarget === 'me' ? user.id : partner?.id };
       if (historyFilter !== 'all') params.status = historyFilter;
       const { data } = await sessionsApi.getHistory(params);
       setHistorySessions(data || []);
@@ -99,15 +103,32 @@ export function DuoPage() {
     }
   };
 
-  const handleExportCsv = async () => {
+  const handleExport = async (exportFormat = 'csv') => {
     setExporting(true);
     try {
-      const targetId = statsTarget === 'me' ? user.id : partner?.id;
-      const { data } = await sessionsApi.exportCsv(targetId);
-      const url = window.URL.createObjectURL(new Blob([data]));
+      const targetUser = statsTarget === 'me' ? user.id : partner?.id;
+      const params = {
+        target_user: targetUser,
+        period: exportPeriod,
+        export_format: exportFormat,
+      };
+      if (exportPeriod === 'custom') {
+        if (!exportStartDate || !exportEndDate) {
+          toast.error('Choisis une date de début et de fin');
+          setExporting(false);
+          return;
+        }
+        params.start_date = exportStartDate;
+        params.end_date = exportEndDate;
+      }
+      const { data } = await sessionsApi.export(params);
+      const isHtml = exportFormat === 'html';
+      const url = window.URL.createObjectURL(
+        new Blob([data], { type: isHtml ? 'text/html' : 'text/csv' })
+      );
       const a = document.createElement('a');
       a.href = url;
-      a.download = `anthea_historique_${format(new Date(), 'yyyy-MM-dd')}.csv`;
+      a.download = `anthea_export_${format(new Date(), 'yyyy-MM-dd')}.${isHtml ? 'html' : 'csv'}`;
       a.click();
       window.URL.revokeObjectURL(url);
       toast.success('Export téléchargé');
@@ -115,6 +136,27 @@ export function DuoPage() {
       toast.error('Export non autorisé ou indisponible');
     } finally {
       setExporting(false);
+    }
+  };
+
+  const handleAdjustSessionTime = async (session) => {
+    const mins = window.prompt(
+      'Corriger le temps (minutes réelles) — réservé coach/admin',
+      String(Math.round((session.total_time || 0) / 60))
+    );
+    if (mins == null) return;
+    const sec = parseInt(mins, 10) * 60;
+    if (Number.isNaN(sec) || sec < 0) {
+      toast.error('Valeur invalide');
+      return;
+    }
+    if (!window.confirm('Confirmer la correction du temps ?')) return;
+    try {
+      await sessionsApi.adjustTime(session.id, { total_time: sec, reason: 'coach_manual' });
+      toast.success('Temps corrigé');
+      loadHistory();
+    } catch {
+      toast.error('Correction refusée');
     }
   };
 
@@ -548,13 +590,24 @@ export function DuoPage() {
 
         {/* History Tab */}
         <TabsContent value="history" className="space-y-4">
-          <div className="flex gap-2 flex-wrap">
+          <div className="flex gap-2 flex-wrap items-center">
+            <Select value={statsTarget} onValueChange={setStatsTarget}>
+              <SelectTrigger className="w-[130px] h-9 rounded-full bg-[#141414] border-white/10 text-white text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#141414] border-white/10">
+                <SelectItem value="partner" className="text-white">
+                  {partner?.display_name || partner?.username || 'Partenaire'}
+                </SelectItem>
+                <SelectItem value="me" className="text-white">Moi</SelectItem>
+              </SelectContent>
+            </Select>
             {['all', 'completed', 'abandoned'].map((f) => (
               <button
                 key={f}
                 type="button"
                 onClick={() => setHistoryFilter(f)}
-                className={`px-4 py-2 rounded-full text-sm font-medium transition-all ${
+                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
                   historyFilter === f
                     ? 'bg-[var(--theme-primary)] text-white'
                     : 'bg-white/5 text-zinc-400'
@@ -563,19 +616,57 @@ export function DuoPage() {
                 {f === 'all' ? 'Toutes' : f === 'completed' ? 'Terminées' : 'Abandonnées'}
               </button>
             ))}
-            {(user?.relation_type === 'coach' || canModerateStreak) && (
+          </div>
+          {(user?.relation_type === 'coach' || canModerateStreak) && (
+            <div className="flex flex-wrap gap-2 items-center p-3 rounded-2xl bg-[#141414] border border-white/10">
+              <Select value={exportPeriod} onValueChange={setExportPeriod}>
+                <SelectTrigger className="h-9 w-[140px] rounded-full bg-[#0A0A0A] border-white/10 text-white text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  <SelectItem value="7d" className="text-white">7 jours</SelectItem>
+                  <SelectItem value="30d" className="text-white">30 jours</SelectItem>
+                  <SelectItem value="month" className="text-white">Mois courant</SelectItem>
+                  <SelectItem value="custom" className="text-white">Personnalisée</SelectItem>
+                </SelectContent>
+              </Select>
+              {exportPeriod === 'custom' && (
+                <>
+                  <Input
+                    type="date"
+                    value={exportStartDate}
+                    onChange={(e) => setExportStartDate(e.target.value)}
+                    className="h-9 w-[140px] rounded-full bg-[#0A0A0A] border-white/10 text-white text-sm"
+                  />
+                  <Input
+                    type="date"
+                    value={exportEndDate}
+                    onChange={(e) => setExportEndDate(e.target.value)}
+                    className="h-9 w-[140px] rounded-full bg-[#0A0A0A] border-white/10 text-white text-sm"
+                  />
+                </>
+              )}
               <Button
                 size="sm"
                 variant="outline"
                 disabled={exporting}
-                onClick={handleExportCsv}
-                className="ml-auto rounded-full border-white/15 text-white"
+                onClick={() => handleExport('csv')}
+                className="rounded-full border-white/15 text-white"
               >
                 {exporting ? <Loader2 className="animate-spin mr-1" size={14} /> : <Download size={14} className="mr-1" />}
-                Export CSV
+                CSV
               </Button>
-            )}
-          </div>
+              <Button
+                size="sm"
+                variant="outline"
+                disabled={exporting}
+                onClick={() => handleExport('html')}
+                className="rounded-full border-white/15 text-white"
+              >
+                HTML / PDF
+              </Button>
+            </div>
+          )}
           {historyLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
@@ -587,66 +678,19 @@ export function DuoPage() {
             </div>
           ) : (
             <div className="space-y-2">
-              {historySessions.map((session) => (
-                <div key={session.id} className="card p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-white font-medium">{session.workout_title}</p>
-                      <p className="text-zinc-500 text-xs mt-1">
-                        {session.username} •{' '}
-                        {session.created_at && format(parseISO(session.created_at), 'd MMM yyyy HH:mm', { locale: fr })}
-                      </p>
-                    </div>
-                    <span
-                      className={`shrink-0 px-2 py-0.5 rounded-full text-[10px] uppercase font-semibold ${
-                        session.status === 'completed'
-                          ? 'bg-green-500/20 text-green-400'
-                          : 'bg-red-500/20 text-red-400'
-                      }`}
-                    >
-                      {session.status === 'completed' ? 'Terminée' : 'Abandonnée'}
-                    </span>
-                  </div>
-                  <p className="text-zinc-400 text-sm mt-2">
-                    {formatDuration(session.total_time)} • {session.exercises_completed}/{session.exercises_total} exos
-                    {session.difficulty_felt != null && ` • Difficulté ${session.difficulty_felt}/10`}
-                  </p>
-                  {session.notes && (
-                    <p className="text-zinc-500 text-xs mt-2 italic">&quot;{session.notes}&quot;</p>
-                  )}
-                  {canModerateStreak && (
-                    <button
-                      type="button"
-                      className="mt-2 text-[10px] text-zinc-600 hover:text-zinc-400"
-                      onClick={async () => {
-                        const mins = window.prompt(
-                          'Corriger le temps (minutes réelles) — réservé coach/admin',
-                          String(Math.round((session.total_time || 0) / 60))
-                        );
-                        if (mins == null) return;
-                        const sec = parseInt(mins, 10) * 60;
-                        if (Number.isNaN(sec) || sec < 0) {
-                          toast.error('Valeur invalide');
-                          return;
-                        }
-                        if (!window.confirm('Confirmer la correction du temps ?')) return;
-                        try {
-                          await sessionsApi.adjustTime(session.id, {
-                            total_time: sec,
-                            reason: 'coach_manual',
-                          });
-                          toast.success('Temps corrigé');
-                          loadHistory();
-                        } catch {
-                          toast.error('Correction refusée');
-                        }
-                      }}
-                    >
-                      Corriger le temps
-                    </button>
-                  )}
-                </div>
-              ))}
+              {historySessions
+                .filter((s) => {
+                  if (statsTarget === 'me') return s.user_id === user?.id;
+                  return s.user_id === partner?.id;
+                })
+                .map((session) => (
+                  <SessionHistoryCard
+                    key={session.id}
+                    session={session}
+                    canAdjustTime={canModerateStreak}
+                    onAdjustTime={handleAdjustSessionTime}
+                  />
+                ))}
             </div>
           )}
         </TabsContent>

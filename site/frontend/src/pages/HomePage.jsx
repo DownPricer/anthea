@@ -31,7 +31,8 @@ import { fr } from 'date-fns/locale';
 import { useTheme } from '../context/ThemeContext';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { WeekAgendaStrip } from '../components/agenda/WeekAgendaStrip';
-import { getAccentForUser } from '../hooks/useUserAccent';
+import { useUserAccent } from '../hooks/useUserAccent';
+import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
 import { toast } from 'sonner';
 
@@ -168,7 +169,7 @@ export function HomePage() {
   const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
-  const myAccent = getAccentForUser(user, theme);
+  const { accent: myAccent } = useUserAccent();
   const partnerAccent = partner ? getAccentForUser(partner, theme) : '#10B981';
 
   if (loading) {

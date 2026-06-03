@@ -1,14 +1,14 @@
 import { pushApi } from './api';
+import { isPushConfigured } from './env';
 
-const VAPID_PUBLIC = process.env.REACT_APP_VAPID_PUBLIC_KEY;
-
-/** Enregistre le SW et l'abonnement push si le navigateur le permet. */
+/** Enregistre le SW et l'abonnement push si configuré côté serveur. */
 export async function setupPushNotifications() {
+  if (!isPushConfigured()) {
+    return { ok: false, reason: 'not_configured' };
+  }
+
   if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
     return { ok: false, reason: 'unsupported' };
-  }
-  if (!VAPID_PUBLIC) {
-    return { ok: false, reason: 'no_vapid_key' };
   }
 
   try {
@@ -20,7 +20,10 @@ export async function setupPushNotifications() {
 
     const sub = await reg.pushManager.subscribe({
       userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(VAPID_PUBLIC),
+      applicationServerKey: urlBase64ToUint8Array(
+        process.env.REACT_APP_VAPID_PUBLIC_KEY ||
+          (typeof import.meta !== 'undefined' && import.meta.env?.VITE_VAPID_PUBLIC_KEY)
+      ),
     });
 
     await pushApi.subscribe(sub.toJSON());

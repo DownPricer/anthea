@@ -20,12 +20,24 @@ export function AgendaCalendar({
   const modifiers = useMemo(
     () => ({
       bothDone: (d) => get(d).both_completed,
-      mineOnly: (d) => get(d).my_completed && !get(d).partner_completed && !get(d).both_completed,
-      partnerOnly: (d) => get(d).partner_completed && !get(d).my_completed && !get(d).both_completed,
-      missed: (d) => get(d).missed,
+      mineOnly: (d) => {
+        const s = get(d);
+        return s.my_completed && !s.both_completed && !s.partner_completed;
+      },
+      partnerOnly: (d) => {
+        const s = get(d);
+        return s.partner_completed && !s.both_completed && !s.my_completed;
+      },
+      mineWithPartnerMiss: (d) => {
+        const s = get(d);
+        return s.my_completed && s.partner_missed && !s.both_completed;
+      },
+      partnerWithMyMiss: (d) => {
+        const s = get(d);
+        return s.partner_completed && s.my_missed && !s.both_completed;
+      },
       restStreak: (d) => get(d).rest && get(d).in_streak,
       restDay: (d) => get(d).rest && !get(d).in_streak,
-      streakDay: (d) => get(d).in_streak && !get(d).missed,
     }),
     [dayMap]
   );
@@ -35,10 +47,10 @@ export function AgendaCalendar({
       bothDone: 'agenda-mod-both',
       mineOnly: 'agenda-mod-mine',
       partnerOnly: 'agenda-mod-partner',
-      missed: 'agenda-mod-missed',
+      mineWithPartnerMiss: 'agenda-mod-mine',
+      partnerWithMyMiss: 'agenda-mod-partner',
       restStreak: 'agenda-mod-rest-streak',
       restDay: 'agenda-mod-rest',
-      streakDay: 'agenda-mod-streak',
     }),
     []
   );
@@ -52,21 +64,10 @@ export function AgendaCalendar({
       }}
     >
       {streak > 0 && (
-        <div className="flex items-center justify-center gap-1 mb-4 py-2.5 px-3 rounded-2xl bg-gradient-to-r from-orange-500/15 via-amber-500/8 to-transparent border border-orange-500/25">
-          {Array.from({ length: Math.min(streak, 5) }).map((_, i) => (
-            <Flame
-              key={i}
-              size={14 + Math.min(i, 3)}
-              className="text-orange-400 agenda-flame-pulse"
-              style={{ animationDelay: `${i * 0.1}s` }}
-              fill="currentColor"
-            />
-          ))}
-          {streak > 5 && (
-            <span className="text-orange-300 text-xs font-bold ml-0.5">+{streak - 5}</span>
-          )}
-          <span className="text-zinc-400 text-xs ml-2 tabular-nums">
-            {streak} j. de streak
+        <div className="flex items-center justify-center gap-0.5 mb-3 py-2 px-3 rounded-2xl bg-orange-500/8 border border-orange-500/15">
+          <Flame size={14} className="text-orange-400/90" fill="currentColor" />
+          <span className="text-zinc-400 text-xs ml-1.5 tabular-nums">
+            Streak <strong className="text-orange-300/90 font-semibold">{streak}</strong> j.
           </span>
         </div>
       )}
@@ -100,8 +101,7 @@ export function AgendaCalendar({
             'relative h-11 w-11 mx-auto rounded-xl p-0 font-medium text-white',
             'hover:bg-white/10 transition-all hover:scale-105 active:scale-95'
           ),
-          day_selected:
-            '!ring-2 !ring-white/90 !scale-105 z-10 bg-white/10',
+          day_selected: '!ring-2 !ring-white/80 !scale-105 z-10',
           day_today: '!ring-1 !ring-[var(--theme-primary)]',
           day_outside: 'text-zinc-600 opacity-35',
           day_disabled: 'text-zinc-700 opacity-30',
@@ -124,21 +124,21 @@ function AgendaDayContent({ date, state }) {
     my_completed: myDone,
     partner_completed: partnerDone,
     both_completed: bothDone,
-    missed,
+    partner_missed: partnerMissed,
+    my_missed: myMissed,
     rest,
   } = state;
 
   return (
     <span className="relative flex flex-col items-center justify-center w-full h-full min-h-[2rem]">
-      {inStreak && !missed && (
+      {inStreak && (
         <Flame
-          size={11}
-          className="absolute -top-0.5 left-1/2 -translate-x-1/2 text-orange-400 z-[1]"
+          size={8}
+          className="absolute top-0 left-1/2 -translate-x-1/2 text-orange-400/70 z-[1]"
           fill="currentColor"
-          style={{ filter: 'drop-shadow(0 0 3px rgba(251,146,60,0.9))' }}
         />
       )}
-      <span className={cn('text-sm leading-none z-[2]', inStreak && !missed ? 'mt-2' : '')}>
+      <span className={cn('text-sm leading-none z-[2]', inStreak ? 'mt-1' : '')}>
         {date.getDate()}
       </span>
       <span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5 z-[2]">
@@ -148,44 +148,55 @@ function AgendaDayContent({ date, state }) {
         {partnerDone && !bothDone && (
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--agenda-partner)]" />
         )}
-        {bothDone && <span className="w-2 h-1 rounded-sm bg-amber-400" />}
+        {bothDone && <span className="w-2 h-1 rounded-sm bg-amber-400/90" />}
       </span>
-      {missed && (
-        <span className="absolute inset-0 flex items-center justify-center z-[3] pointer-events-none">
-          <X size={15} className="text-red-400 stroke-[2.5]" />
+      {partnerMissed && (
+        <span
+          className="absolute top-0.5 right-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#0A0A0A]/90 ring-1 ring-red-500/40"
+          title="Séance partenaire non faite"
+        >
+          <X size={8} className="text-red-400 stroke-[3]" />
         </span>
       )}
-      {rest && inStreak && !missed && (
-        <BedDouble size={8} className="absolute top-0.5 right-0.5 text-blue-400/90 z-[2]" />
+      {myMissed && !partnerMissed && (
+        <span
+          className="absolute top-0.5 left-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#0A0A0A]/90 ring-1 ring-red-500/40"
+          title="Ma séance non faite"
+        >
+          <X size={8} className="text-red-400 stroke-[3]" />
+        </span>
+      )}
+      {rest && inStreak && (
+        <BedDouble size={7} className="absolute bottom-0 right-0.5 text-blue-400/70 z-[2]" />
       )}
     </span>
   );
 }
 
 function AgendaLegend({ myAccent, partnerAccent }) {
-  const items = [
-    { color: myAccent, label: 'Moi' },
-    { color: partnerAccent, label: 'Partenaire' },
-    { label: 'Duo', className: 'agenda-legend-duo' },
-    { icon: X, label: 'Manquée', className: 'text-red-400' },
-    { icon: Flame, label: 'Streak', className: 'text-orange-400' },
-    { icon: BedDouble, label: 'Repos OK', className: 'text-blue-400' },
-  ];
-
   return (
-    <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 sm:grid-cols-3 gap-2">
-      {items.map((item) => (
-        <span key={item.label} className="flex items-center gap-1.5 text-[10px] text-zinc-500">
-          {item.color && (
-            <span className="w-3 h-3 rounded-full shrink-0" style={{ background: item.color }} />
-          )}
-          {item.className === 'agenda-legend-duo' && (
-            <span className="w-3 h-3 rounded-md shrink-0 agenda-legend-duo-swatch" />
-          )}
-          {item.icon && <item.icon size={11} className={item.className} fill={item.icon === Flame ? 'currentColor' : undefined} />}
-          {item.label}
+    <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-2 text-[10px] text-zinc-500">
+      <span className="flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-full" style={{ background: myAccent }} /> Moi
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-full" style={{ background: partnerAccent }} /> Partenaire
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="w-3 h-3 rounded-md agenda-legend-duo-swatch" /> Duo (contour doré)
+      </span>
+      <span className="flex items-center gap-1.5">
+        <span className="relative w-3 h-3 rounded-full bg-[#141414] ring-1 ring-red-500/30">
+          <X size={7} className="absolute inset-0 m-auto text-red-400" />
         </span>
-      ))}
+        Non fait (autre)
+      </span>
+      <span className="flex items-center gap-1.5">
+        <Flame size={10} className="text-orange-400/80" fill="currentColor" /> Streak
+      </span>
+      <span className="flex items-center gap-1.5">
+        <BedDouble size={10} className="text-blue-400/80" /> Repos OK
+      </span>
     </div>
   );
 }
