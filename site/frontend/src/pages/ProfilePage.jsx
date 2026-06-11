@@ -5,7 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { partnerApi, usersApi, duoApi } from '../lib/api';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { isPushConfigured } from '../lib/env';
-import { applyAccentToDocument, THEME_DEFAULTS } from '../lib/userAccent';
+import { applyAccentToDocument, THEME_DEFAULTS, normalizeAccentColor, resolveUserAccent } from '../lib/userAccent';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -42,6 +42,7 @@ import {
   Volume2,
   Bell,
   Trophy,
+  Music,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { setupPushNotifications } from '../lib/pushNotifications';
@@ -71,6 +72,8 @@ export function ProfilePage() {
   const [fitnessLevel, setFitnessLevel] = useState(user?.fitness_level || 'beginner');
   const [mainGoal, setMainGoal] = useState(user?.main_goal || '');
   const [ttsEnabled, setTtsEnabled] = useState(user?.tts_enabled !== false);
+  const [musicMode, setMusicMode] = useState(!!user?.music_mode);
+  const [spotifyPlaylistUrl, setSpotifyPlaylistUrl] = useState(user?.spotify_playlist_url || '');
   const [accentColor, setAccentColor] = useState(user?.accent_color || '');
   const [saving, setSaving] = useState(false);
   const [badges, setBadges] = useState([]);
@@ -103,6 +106,8 @@ export function ProfilePage() {
       setFitnessLevel(user.fitness_level || 'beginner');
       setMainGoal(user.main_goal || '');
       setTtsEnabled(user.tts_enabled !== false);
+      setMusicMode(!!user.music_mode);
+      setSpotifyPlaylistUrl(user.spotify_playlist_url || '');
       setAccentColor(user.accent_color || '');
     }
     loadPartnerData();
@@ -119,8 +124,11 @@ export function ProfilePage() {
   };
 
   const setAccentPreview = (color) => {
-    setAccentColor(color);
-    applyAccentToDocument(color || THEME_DEFAULTS[theme] || THEME_DEFAULTS.default);
+    const normalized = normalizeAccentColor(color) || '';
+    setAccentColor(normalized);
+    applyAccentToDocument(
+      resolveUserAccent({ accent_color: normalized || null }, theme)
+    );
   };
 
   const loadPartnerData = async () => {
@@ -140,18 +148,24 @@ export function ProfilePage() {
 
   const handleSave = async () => {
     setSaving(true);
+    const normalizedAccent = normalizeAccentColor(accentColor);
     const result = await updateProfile({
       display_name: displayName.trim(),
       bio: bio.trim(),
       fitness_level: fitnessLevel,
       main_goal: mainGoal,
       tts_enabled: ttsEnabled,
+      music_mode: musicMode,
+      spotify_playlist_url: spotifyPlaylistUrl.trim() || null,
       theme,
-      accent_color: accentColor || null,
+      accent_color: normalizedAccent || null,
     });
     setSaving(false);
 
     if (result.success) {
+      const saved = result.user || user;
+      applyAccentToDocument(resolveUserAccent(saved, theme));
+      if (normalizedAccent) setAccentColor(normalizedAccent);
       toast.success('Profil mis à jour !');
     } else {
       toast.error(result.error);
@@ -565,6 +579,32 @@ export function ProfilePage() {
             checked={ttsEnabled}
             onCheckedChange={setTtsEnabled}
             data-testid="tts-toggle"
+          />
+        </div>
+
+        {/* Mode musique */}
+        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+          <div className="flex items-center gap-3">
+            <Music className="text-zinc-400" size={20} />
+            <div>
+              <span className="text-white block">Mode musique</span>
+              <span className="text-zinc-500 text-xs">Bips courts, compatible Spotify</span>
+            </div>
+          </div>
+          <Switch
+            checked={musicMode}
+            onCheckedChange={setMusicMode}
+            data-testid="music-mode-toggle"
+          />
+        </div>
+
+        <div className="p-3 bg-white/5 rounded-xl space-y-2">
+          <Label className="text-zinc-400 text-sm">Lien playlist Spotify (optionnel)</Label>
+          <Input
+            value={spotifyPlaylistUrl}
+            onChange={(e) => setSpotifyPlaylistUrl(e.target.value)}
+            placeholder="https://open.spotify.com/playlist/..."
+            className="h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white text-sm"
           />
         </div>
 

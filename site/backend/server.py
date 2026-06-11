@@ -64,6 +64,8 @@ class UserUpdate(BaseModel):
     theme: Optional[str] = "default"
     accent_color: Optional[str] = None
     tts_enabled: Optional[bool] = True
+    music_mode: Optional[bool] = None
+    spotify_playlist_url: Optional[str] = None
     tts_voice: Optional[str] = None
     timer_sound: Optional[str] = "beep"
 
@@ -79,6 +81,8 @@ class UserResponse(BaseModel):
     theme: str = "default"
     accent_color: Optional[str] = None
     tts_enabled: bool = True
+    music_mode: bool = False
+    spotify_playlist_url: Optional[str] = None
     last_seen_at: Optional[str] = None
     tts_voice: Optional[str] = None
     timer_sound: str = "beep"
@@ -192,6 +196,11 @@ class WorkoutProgressSave(BaseModel):
     time_elapsed: int
     pause_time: int
     exercises_completed: int
+    workout_title: Optional[str] = None
+    phase: Optional[str] = None
+
+class LiveWorkoutMessageCreate(BaseModel):
+    message: str
 
 class ScheduledWorkoutResponse(BaseModel):
     id: str
@@ -333,6 +342,36 @@ async def get_current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+def normalize_accent_color(value: Optional[str]) -> Optional[str]:
+    if not value or not str(value).strip():
+        return None
+    color = str(value).strip()
+    if not color.startswith("#"):
+        color = f"#{color}"
+    if len(color) == 4:
+        color = "#" + "".join(c * 2 for c in color[1:])
+    return color.upper() if len(color) == 7 else color
+
+def duo_pair_key(user_id_a: str, user_id_b: str) -> str:
+    return "_".join(sorted([user_id_a, user_id_b]))
+
+def estimate_calories(total_time_seconds: int, difficulty: Optional[int] = None) -> int:
+    minutes = max(0, (total_time_seconds or 0) / 60)
+    if difficulty is None:
+        rate = 5
+    elif difficulty <= 3:
+        rate = 3
+    elif difficulty <= 6:
+        rate = 5
+    elif difficulty <= 8:
+        rate = 7
+    else:
+        rate = 8
+    return round(minutes * rate)
+
+LIVE_SESSION_MAX_AGE_SECONDS = 120
+LIVE_ACTIVE_PHASES = ("countdown", "exercise", "rest")
+
 def serialize_user(user: dict) -> dict:
     partner_link = None
     return {
@@ -347,6 +386,8 @@ def serialize_user(user: dict) -> dict:
         "theme": user.get("theme", "default"),
         "accent_color": user.get("accent_color"),
         "tts_enabled": user.get("tts_enabled", True),
+        "music_mode": user.get("music_mode", False),
+        "spotify_playlist_url": user.get("spotify_playlist_url"),
         "last_seen_at": user.get("last_seen_at"),
         "tts_voice": user.get("tts_voice"),
         "timer_sound": user.get("timer_sound", "beep"),
@@ -375,6 +416,8 @@ async def lifespan(app: FastAPI):
     await db.workout_sessions.create_index([("user_id", 1), ("created_at", -1)])
     await db.challenge_completions.create_index([("user_id", 1), ("week_key", 1)], unique=True)
     await db.session_time_audit.create_index("session_id")
+    await db.workout_progress.create_index([("user_id", 1), ("saved_at", -1)])
+    await db.live_workout_messages.create_index([("pair_key", 1), ("created_at", -1)])
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -517,6 +560,10 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
     for key, value in payload.items():
         if key == "accent_color" and (value is None or value == ""):
             unset_data["accent_color"] = ""
+        elif key == "accent_color" and value is not None:
+            set_data[key] = normalize_accent_color(value)
+        elif key == "spotify_playlist_url" and (value is None or value == ""):
+            unset_data["spotify_playlist_url"] = ""
         elif value is not None:
             set_data[key] = value
 
@@ -668,6 +715,107 @@ async def get_partner_info(user: dict = Depends(get_current_user)):
         "connected_today": connected_today,
         "show_presence": is_coach,
     }
+
+async def _get_live_session_for_user(user_id: str) -> Optional[dict]:
+    progress = await db.workout_progress.find_one(
+        {"user_id": user_id},
+        sort=[("saved_at", -1)]
+    )
+    if not progress or not progress.get("saved_at"):
+        return None
+
+    try:
+        saved_at = datetime.fromisoformat(progress["saved_at"].replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    age = (datetime.now(timezone.utc) - saved_at).total_seconds()
+    if age > LIVE_SESSION_MAX_AGE_SECONDS:
+        return None
+
+    phase = progress.get("phase")
+    if phase in ("finished", "preparation", "paused") or phase not in LIVE_ACTIVE_PHASES:
+        return None
+
+    workout_title = progress.get("workout_title")
+    if not workout_title and progress.get("workout_id"):
+        workout = await db.scheduled_workouts.find_one({"_id": ObjectId(progress["workout_id"])})
+        workout_title = workout.get("title") if workout else None
+
+    return {
+        "active": True,
+        "user_id": user_id,
+        "workout_id": progress.get("workout_id"),
+        "workout_title": workout_title,
+        "elapsed_seconds": progress.get("time_elapsed", 0),
+        "phase": progress.get("phase"),
+        "saved_at": progress.get("saved_at"),
+    }
+
+@api_router.get("/partner/live-session")
+async def get_partner_live_session(user: dict = Depends(get_current_user)):
+    if not user.get("partner_id"):
+        return {"active": False}
+
+    partner = await db.users.find_one({"_id": ObjectId(user["partner_id"])})
+    if not partner:
+        return {"active": False}
+
+    live = await _get_live_session_for_user(user["partner_id"])
+    if not live:
+        return {"active": False}
+
+    my_live = await _get_live_session_for_user(user["id"])
+    return {
+        **live,
+        "username": partner.get("username"),
+        "display_name": partner.get("display_name"),
+        "duo_live": my_live is not None,
+    }
+
+@api_router.get("/live-workout/messages")
+async def get_live_workout_messages(user: dict = Depends(get_current_user)):
+    if not user.get("partner_id"):
+        return []
+
+    pair_key = duo_pair_key(user["id"], user["partner_id"])
+    since = (datetime.now(timezone.utc) - timedelta(hours=6)).isoformat()
+    messages = await db.live_workout_messages.find({
+        "pair_key": pair_key,
+        "created_at": {"$gte": since},
+    }).sort("created_at", 1).to_list(100)
+
+    return [
+        {
+            "id": str(m["_id"]),
+            "from_user_id": m.get("from_user_id"),
+            "from_username": m.get("from_username"),
+            "message": m.get("message"),
+            "created_at": m.get("created_at"),
+            "is_mine": m.get("from_user_id") == user["id"],
+        }
+        for m in messages
+    ]
+
+@api_router.post("/live-workout/messages")
+async def post_live_workout_message(body: LiveWorkoutMessageCreate, user: dict = Depends(get_current_user)):
+    if not user.get("partner_id"):
+        raise HTTPException(status_code=400, detail="No partner linked")
+
+    message = body.message.strip()
+    if not message or len(message) > 120:
+        raise HTTPException(status_code=400, detail="Invalid message")
+
+    pair_key = duo_pair_key(user["id"], user["partner_id"])
+    doc = {
+        "pair_key": pair_key,
+        "from_user_id": user["id"],
+        "from_username": user.get("display_name") or user.get("username"),
+        "message": message,
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+    result = await db.live_workout_messages.insert_one(doc)
+    return {"id": str(result.inserted_id), **doc, "is_mine": True}
 
 # ============ EXERCISE ROUTES ============
 
@@ -1037,6 +1185,8 @@ async def save_workout_progress(workout_id: str, data: WorkoutProgressSave, user
         "time_elapsed": data.time_elapsed,
         "pause_time": data.pause_time,
         "exercises_completed": data.exercises_completed,
+        "workout_title": data.workout_title or workout.get("title"),
+        "phase": data.phase,
         "saved_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -1082,6 +1232,10 @@ async def clear_workout_progress(workout_id: str, user: dict = Depends(get_curre
         "workout_id": workout_id,
         "user_id": user["id"]
     })
+    await db.scheduled_workouts.update_one(
+        {"_id": ObjectId(workout_id), "status": "in_progress"},
+        {"$set": {"status": "pending"}, "$unset": {"completed_at": ""}},
+    )
     return {"message": "Progress cleared"}
 
 @api_router.post("/workouts/duplicate")
@@ -1279,6 +1433,9 @@ async def _enrich_session(s: dict) -> dict:
         sd = workout.get("scheduled_date", "")
         if sd and sd < datetime.now(timezone.utc).strftime("%Y-%m-%d"):
             out["display_status"] = "missed"
+    out["estimated_calories"] = estimate_calories(
+        out.get("total_time", 0), out.get("difficulty_felt")
+    )
     return out
 
 
@@ -1946,6 +2103,20 @@ async def get_detailed_stats(
             hour=0, minute=0, second=0, microsecond=0
         ).isoformat()},
     })
+
+    total_calories = sum(
+        estimate_calories(s.get("total_time", 0), s.get("difficulty_felt"))
+        for s in sessions
+    )
+    week_calories = sum(
+        estimate_calories(s.get("total_time", 0), s.get("difficulty_felt"))
+        for s in this_week
+    )
+    month_sessions = await db.workout_sessions.find(month_query).to_list(1000)
+    month_calories = sum(
+        estimate_calories(s.get("total_time", 0), s.get("difficulty_felt"))
+        for s in month_sessions
+    )
     
     # Daily breakdown for graph (last 7 days)
     daily_stats = []
@@ -1993,7 +2164,8 @@ async def get_detailed_stats(
             "fatigue_before": s.get("fatigue_before"),
             "fatigue_after": s.get("fatigue_after"),
             "notes": s.get("notes"),
-            "created_at": s.get("created_at")
+            "created_at": s.get("created_at"),
+            "estimated_calories": estimate_calories(s.get("total_time", 0), s.get("difficulty_felt")),
         }
         for s in sessions[:10]
     ]
@@ -2023,7 +2195,10 @@ async def get_detailed_stats(
             "total_time": total_time,
             "avg_time": avg_time,
             "this_week": this_week_count,
-            "this_month": this_month_count
+            "this_month": this_month_count,
+            "total_calories": total_calories,
+            "week_calories": week_calories,
+            "month_calories": month_calories,
         },
         "averages": {
             "fatigue_before": avg_fatigue_before,

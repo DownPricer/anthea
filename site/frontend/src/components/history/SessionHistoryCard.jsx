@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { ChevronDown, ChevronUp, Clock, User } from 'lucide-react';
+import { ChevronDown, ChevronUp, Clock, User, Flame } from 'lucide-react';
+import { formatCalories, estimateCalories } from '../../lib/calories';
 import { cn } from '@/lib/utils';
 
 const STATUS_LABELS = {
@@ -13,6 +14,7 @@ const STATUS_LABELS = {
 export function SessionHistoryCard({ session, canAdjustTime, onAdjustTime }) {
   const [open, setOpen] = useState(false);
   const st = STATUS_LABELS[session.display_status || session.status] || STATUS_LABELS.completed;
+  const calories = session.estimated_calories ?? estimateCalories(session.total_time, session.difficulty_felt);
 
   const formatDuration = (sec) => {
     const m = Math.floor((sec || 0) / 60);
@@ -52,6 +54,9 @@ export function SessionHistoryCard({ session, canAdjustTime, onAdjustTime }) {
           </p>
           <p className="text-zinc-500 text-[10px]">
             {session.exercises_completed}/{session.exercises_total} exos
+          </p>
+          <p className="text-orange-400/80 text-[10px] flex items-center justify-end gap-0.5 mt-0.5">
+            <Flame size={9} /> {formatCalories(calories)}
           </p>
           {open ? <ChevronUp size={16} className="text-zinc-500 ml-auto mt-1" /> : <ChevronDown size={16} className="text-zinc-500 ml-auto mt-1" />}
         </div>

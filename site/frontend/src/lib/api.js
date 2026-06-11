@@ -60,6 +60,13 @@ export const partnerApi = {
   reject: (requestId) => api.post(`/partner/reject/${requestId}`),
   unlink: () => api.delete('/partner/unlink'),
   getInfo: () => api.get('/partner/info'),
+  getLiveSession: () => api.get('/partner/live-session'),
+};
+
+// Live workout (duo en direct)
+export const liveWorkoutApi = {
+  getMessages: () => api.get('/live-workout/messages'),
+  sendMessage: (data) => api.post('/live-workout/messages', data),
 };
 
 // Exercises API

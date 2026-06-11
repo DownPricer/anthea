@@ -1,8 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, sessionsApi } from '../lib/api';
+import { workoutsApi, sessionsApi, streakApi, partnerApi } from '../lib/api';
+import { useWakeLock } from '../hooks/useWakeLock';
+import { estimateCalories, formatCalories } from '../lib/calories';
+import { playShortBeep, vibrateShort, openSpotify } from '../lib/workoutFeedback';
+import { LiveWorkoutChat } from '../components/LiveWorkoutChat';
 import { Button } from '../components/ui/button';
+import { Input } from '../components/ui/input';
 import { Slider } from '../components/ui/slider';
 import { Textarea } from '../components/ui/textarea';
 import {
@@ -27,6 +32,9 @@ import {
   ChevronRight,
   Clock,
   Save,
+  Music,
+  Sun,
+  Radio,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -46,7 +54,12 @@ export function WorkoutPlayerPage() {
   const [pauseTime, setPauseTime] = useState(0);
   const [exercisesCompleted, setExercisesCompleted] = useState(0);
   const [ttsEnabled, setTtsEnabled] = useState(true);
+  const [musicMode, setMusicMode] = useState(false);
+  const [partnerLive, setPartnerLive] = useState(null);
+  const [duoLive, setDuoLive] = useState(false);
+  const [liveChatOpen, setLiveChatOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const { supported: wakeLockSupported, active: wakeLockActive, error: wakeLockError, requestWakeLock, releaseWakeLock } = useWakeLock();
   const [showStopModal, setShowStopModal] = useState(false);
   const [savedProgress, setSavedProgress] = useState(null);
 
@@ -56,11 +69,18 @@ export function WorkoutPlayerPage() {
   const [difficultyFelt, setDifficultyFelt] = useState(5);
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [canAdjustTime, setCanAdjustTime] = useState(false);
+  const [showTimeAdjust, setShowTimeAdjust] = useState(false);
+  const [adjustTotalMin, setAdjustTotalMin] = useState('0');
+  const [adjustTotalSec, setAdjustTotalSec] = useState('0');
+  const [adjustPauseMin, setAdjustPauseMin] = useState('0');
+  const [adjustPauseSec, setAdjustPauseSec] = useState('0');
 
   const timerRef = useRef(null);
   const totalTimeRef = useRef(null);
   const pauseTimeRef = useRef(null);
   const pauseStartRef = useRef(null);
+  const longPressTimerRef = useRef(null);
 
   // Flatten exercises
   const getAllExercises = useCallback(() => {
@@ -75,21 +95,45 @@ export function WorkoutPlayerPage() {
   const totalExercises = allExercises.length;
   const progress = totalExercises > 0 ? ((exercisesCompleted / totalExercises) * 100) : 0;
 
-  // TTS function
-  const speak = useCallback((text) => {
-    if (!ttsEnabled || !('speechSynthesis' in window)) return;
-    
-    window.speechSynthesis.cancel();
+  const isLongMessage = (text) => (text || '').length > 12 || (text || '').includes(' ');
+
+  // TTS / feedback — mode musique : bips courts, pas de longues annonces
+  const speak = useCallback((text, { forceShort = false } = {}) => {
+    const useMusicFeedback = musicMode || !ttsEnabled;
+
+    if (useMusicFeedback) {
+      if (forceShort || !isLongMessage(text)) {
+        playShortBeep(880, 60);
+        vibrateShort(30);
+      } else {
+        vibrateShort(50);
+      }
+      return;
+    }
+
+    if (!('speechSynthesis' in window)) return;
+
+    // Ne pas appeler cancel() systématiquement — évite de couper Spotify hors mode TTS long
+    if (window.speechSynthesis.speaking) {
+      window.speechSynthesis.cancel();
+    }
     const utterance = new SpeechSynthesisUtterance(text);
     utterance.lang = 'fr-FR';
     utterance.rate = 1;
+    utterance.volume = 0.85;
     window.speechSynthesis.speak(utterance);
-  }, [ttsEnabled]);
+  }, [ttsEnabled, musicMode]);
 
   // Load workout and check for saved progress
   useEffect(() => {
     loadWorkout();
   }, [workoutId]);
+
+  useEffect(() => {
+    streakApi.getCoachStatus()
+      .then((res) => setCanAdjustTime(!!res.data?.can_moderate))
+      .catch(() => setCanAdjustTime(false));
+  }, []);
 
   const loadWorkout = async () => {
     try {
@@ -100,6 +144,7 @@ export function WorkoutPlayerPage() {
       
       setWorkout(workoutRes.data);
       setTtsEnabled(user?.tts_enabled !== false);
+      setMusicMode(!!user?.music_mode);
       
       if (progressRes.data) {
         setSavedProgress(progressRes.data);
@@ -293,11 +338,19 @@ export function WorkoutPlayerPage() {
   const finishWorkout = (status = 'completed') => {
     setPhase('finished');
     setShowFeedback(true);
+    releaseWakeLock();
+    setPartnerLive(null);
+    setDuoLive(false);
+    workoutsApi.clearProgress(workoutId).catch(() => {});
     if (status === 'completed') {
       speak('Séance terminée. Bravo !');
     }
     if (timerRef.current) clearInterval(timerRef.current);
     if (totalTimeRef.current) clearInterval(totalTimeRef.current);
+  };
+
+  const handleOpenMusic = () => {
+    openSpotify(user?.spotify_playlist_url);
   };
 
   // STOP MODAL HANDLERS
@@ -316,6 +369,8 @@ export function WorkoutPlayerPage() {
         time_elapsed: totalTime,
         pause_time: pauseTime,
         exercises_completed: exercisesCompleted,
+        workout_title: workout.title,
+        phase: isPaused ? 'paused' : phase,
       });
     } catch {
       /* sauvegarde silencieuse */
@@ -329,12 +384,54 @@ export function WorkoutPlayerPage() {
     totalTime,
     pauseTime,
     exercisesCompleted,
+    isPaused,
   ]);
+
+  const sessionIsActive = phase !== 'preparation' && phase !== 'finished' && !isPaused;
+
+  useEffect(() => {
+    if (sessionIsActive) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+  }, [sessionIsActive, requestWakeLock, releaseWakeLock]);
+
+  useEffect(() => {
+    if (phase === 'finished' || phase === 'preparation' || !user?.partner_id) return undefined;
+
+    const pollPartner = async () => {
+      try {
+        const { data } = await partnerApi.getLiveSession();
+        if (data?.active) {
+          setPartnerLive(data);
+          setDuoLive(!!data.duo_live);
+        } else {
+          setPartnerLive(null);
+          setDuoLive(false);
+        }
+      } catch {
+        setPartnerLive(null);
+        setDuoLive(false);
+      }
+    };
+
+    pollPartner();
+    const id = setInterval(pollPartner, 12000);
+    return () => clearInterval(id);
+  }, [phase, user?.partner_id]);
 
   useEffect(() => {
     const interval = setInterval(persistProgress, 5 * 60 * 1000);
     return () => clearInterval(interval);
   }, [persistProgress]);
+
+  // Heartbeat pour statut « en direct » partenaire (saved_at récent)
+  useEffect(() => {
+    if (!sessionIsActive) return undefined;
+    const heartbeat = setInterval(persistProgress, 30000);
+    return () => clearInterval(heartbeat);
+  }, [sessionIsActive, persistProgress]);
 
   useEffect(() => {
     const onHide = () => {
@@ -358,6 +455,7 @@ export function WorkoutPlayerPage() {
   const handleResumeLater = async () => {
     try {
       await persistProgress();
+      releaseWakeLock();
       toast.success('Progression sauvegardée');
       navigate('/workouts');
     } catch (error) {
@@ -418,6 +516,114 @@ export function WorkoutPlayerPage() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const openTimeAdjust = () => {
+    setAdjustTotalMin(String(Math.floor(totalTime / 60)));
+    setAdjustTotalSec(String(totalTime % 60));
+    setAdjustPauseMin(String(Math.floor(pauseTime / 60)));
+    setAdjustPauseSec(String(pauseTime % 60));
+    setShowTimeAdjust(true);
+  };
+
+  const startLongPress = () => {
+    if (!canAdjustTime) return;
+    longPressTimerRef.current = setTimeout(openTimeAdjust, 700);
+  };
+
+  const cancelLongPress = () => {
+    if (longPressTimerRef.current) {
+      clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+  };
+
+  const applyTimeAdjust = () => {
+    const totalSec =
+      (parseInt(adjustTotalMin, 10) || 0) * 60 + (parseInt(adjustTotalSec, 10) || 0);
+    const pauseSec =
+      (parseInt(adjustPauseMin, 10) || 0) * 60 + (parseInt(adjustPauseSec, 10) || 0);
+    if (totalSec < 0 || pauseSec < 0) {
+      toast.error('Valeur invalide');
+      return;
+    }
+    setTotalTime(totalSec);
+    setPauseTime(pauseSec);
+    setShowTimeAdjust(false);
+    toast.success('Temps ajusté');
+  };
+
+  const secretTimeProps = canAdjustTime
+    ? {
+        onPointerDown: startLongPress,
+        onPointerUp: cancelLongPress,
+        onPointerLeave: cancelLongPress,
+        onContextMenu: (e) => e.preventDefault(),
+        className: 'select-none touch-manipulation',
+        title: '',
+      }
+    : {};
+
+  const timeAdjustDialog = (
+    <Dialog open={showTimeAdjust} onOpenChange={setShowTimeAdjust}>
+      <DialogContent className="bg-[#141414] border-white/10 max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="text-white">Ajuster le temps</DialogTitle>
+          <DialogDescription className="text-zinc-500 text-sm">
+            Réservé coach / admin — maintenir le temps affiché pour ouvrir ce menu.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div>
+            <p className="text-zinc-400 text-xs mb-2">Temps total</p>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={0}
+                value={adjustTotalMin}
+                onChange={(e) => setAdjustTotalMin(e.target.value)}
+                className="bg-[#0A0A0A] border-white/10 text-white"
+                placeholder="min"
+              />
+              <Input
+                type="number"
+                min={0}
+                max={59}
+                value={adjustTotalSec}
+                onChange={(e) => setAdjustTotalSec(e.target.value)}
+                className="bg-[#0A0A0A] border-white/10 text-white"
+                placeholder="sec"
+              />
+            </div>
+          </div>
+          <div>
+            <p className="text-zinc-400 text-xs mb-2">Temps de pause</p>
+            <div className="flex gap-2">
+              <Input
+                type="number"
+                min={0}
+                value={adjustPauseMin}
+                onChange={(e) => setAdjustPauseMin(e.target.value)}
+                className="bg-[#0A0A0A] border-white/10 text-white"
+                placeholder="min"
+              />
+              <Input
+                type="number"
+                min={0}
+                max={59}
+                value={adjustPauseSec}
+                onChange={(e) => setAdjustPauseSec(e.target.value)}
+                className="bg-[#0A0A0A] border-white/10 text-white"
+                placeholder="sec"
+              />
+            </div>
+          </div>
+          <Button onClick={applyTimeAdjust} className="w-full btn-primary text-white">
+            Appliquer
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+
   const getNextExercise = () => {
     if (currentExerciseIndex >= allExercises.length - 1) return null;
     return allExercises[currentExerciseIndex + 1];
@@ -448,8 +654,8 @@ export function WorkoutPlayerPage() {
           </div>
 
           {/* Stats */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="card p-4 text-center">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="card p-4 text-center" {...secretTimeProps}>
               <p className="text-2xl font-bold text-white font-mono">{formatTime(totalTime)}</p>
               <p className="text-zinc-500 text-xs mt-1">Temps total</p>
             </div>
@@ -460,6 +666,12 @@ export function WorkoutPlayerPage() {
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-white font-mono">{formatTime(pauseTime)}</p>
               <p className="text-zinc-500 text-xs mt-1">Pauses</p>
+            </div>
+            <div className="card p-4 text-center">
+              <p className="text-2xl font-bold text-orange-400">
+                {formatCalories(estimateCalories(totalTime, difficultyFelt))}
+              </p>
+              <p className="text-zinc-500 text-xs mt-1">Estimation approx.</p>
             </div>
           </div>
 
@@ -526,7 +738,11 @@ export function WorkoutPlayerPage() {
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enregistrer'}
             </Button>
             <Button
-              onClick={() => navigate('/workouts')}
+              onClick={async () => {
+                await workoutsApi.clearProgress(workoutId).catch(() => {});
+                releaseWakeLock();
+                navigate('/workouts');
+              }}
               variant="outline"
               className="w-full h-12 rounded-xl bg-white/5 border-white/10 text-white"
             >
@@ -534,6 +750,7 @@ export function WorkoutPlayerPage() {
             </Button>
           </div>
         </div>
+        {timeAdjustDialog}
       </div>
     );
   }
@@ -622,9 +839,15 @@ export function WorkoutPlayerPage() {
     );
   }
 
+  const partnerName = partnerLive?.display_name || partnerLive?.username;
+
   // Main player UI
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col">
+    <div
+      className={`min-h-screen bg-[#0A0A0A] flex flex-col transition-shadow ${
+        duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
+      }`}
+    >
       {/* Stop Modal */}
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
         <DialogContent className="bg-[#141414] border-white/10 max-w-sm mx-4">
@@ -663,37 +886,86 @@ export function WorkoutPlayerPage() {
       {/* Progress bar */}
       <div className="h-1 bg-[#141414]">
         <div
-          className="h-full bg-[var(--theme-primary)] transition-all duration-300"
+          className={`h-full transition-all duration-300 ${duoLive ? 'bg-amber-400' : 'bg-[var(--theme-primary)]'}`}
           style={{ width: `${progress}%` }}
         />
       </div>
 
+      {duoLive && (
+        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center">
+          <p className="text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5">
+            <Radio size={12} className="animate-pulse" />
+            Séance en direct avec {partnerName}
+          </p>
+          <p className="text-amber-400/70 text-[10px] mt-0.5">
+            Votre partenaire a lancé une séance en même temps que toi
+          </p>
+        </div>
+      )}
+
       {/* Header */}
-      <div className="p-4 flex items-center justify-between">
+      <div className="p-4 flex items-center justify-between gap-2">
         <button
           onClick={handleStopClick}
           data-testid="stop-workout-btn"
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          className="p-2 hover:bg-white/10 rounded-lg transition-colors shrink-0"
         >
           <X size={24} className="text-white" />
         </button>
-        <div className="text-center">
-          <p className="text-zinc-500 text-sm">{workout?.title}</p>
+        <div className="text-center flex-1 min-w-0">
+          <p className="text-zinc-500 text-sm truncate">{workout?.title}</p>
           <p className="text-white text-xs">
             {exercisesCompleted + 1}/{totalExercises}
           </p>
-        </div>
-        <button
-          onClick={() => setTtsEnabled(!ttsEnabled)}
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-        >
-          {ttsEnabled ? (
-            <Volume2 size={24} className="text-white" />
-          ) : (
-            <VolumeX size={24} className="text-zinc-500" />
+          {wakeLockSupported && wakeLockActive && (
+            <p className="text-[10px] text-zinc-500 flex items-center justify-center gap-1 mt-0.5">
+              <Sun size={10} className="text-yellow-500/80" /> Écran gardé allumé
+            </p>
           )}
-        </button>
+          {wakeLockSupported && wakeLockError && !wakeLockActive && sessionIsActive && (
+            <p className="text-[10px] text-zinc-600 mt-0.5">Veille non bloquée</p>
+          )}
+        </div>
+        <div className="flex items-center gap-1 shrink-0">
+          <button
+            type="button"
+            onClick={handleOpenMusic}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            title="Ouvrir Spotify"
+          >
+            <Music size={22} className={musicMode ? 'text-green-400' : 'text-white'} />
+          </button>
+          <button
+            type="button"
+            onClick={() => setMusicMode(!musicMode)}
+            className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-colors ${
+              musicMode ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-zinc-400'
+            }`}
+          >
+            {musicMode ? 'Musique' : 'TTS'}
+          </button>
+          <button
+            onClick={() => setTtsEnabled(!ttsEnabled)}
+            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+          >
+            {ttsEnabled && !musicMode ? (
+              <Volume2 size={22} className="text-white" />
+            ) : (
+              <VolumeX size={22} className="text-zinc-500" />
+            )}
+          </button>
+        </div>
       </div>
+
+      {duoLive && (
+        <div className="px-4 pb-2">
+          <LiveWorkoutChat
+            partnerName={partnerName}
+            open={liveChatOpen}
+            onOpenChange={setLiveChatOpen}
+          />
+        </div>
+      )}
 
       {/* Main content */}
       <div className="flex-1 flex flex-col items-center justify-center p-5">
@@ -860,11 +1132,12 @@ export function WorkoutPlayerPage() {
           </button>
         </div>
 
-        {/* Total time */}
-        <div className="text-center text-zinc-500 text-sm">
+        {/* Total time — appui long (coach/admin) pour ajuster */}
+        <div className="text-center text-zinc-500 text-sm" {...secretTimeProps}>
           Temps total: {formatTime(totalTime)}
           {pauseTime > 0 && ` • Pause: ${formatTime(pauseTime)}`}
         </div>
+        {timeAdjustDialog}
       </div>
     </div>
   );

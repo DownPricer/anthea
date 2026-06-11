@@ -1,4 +1,12 @@
 import { useState, useEffect } from 'react';
+import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
+import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
+import { formatCalories } from '../lib/calories';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '../components/ui/collapsible';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, formatApiError } from '../lib/api';
@@ -34,6 +42,8 @@ import {
   Download,
   History,
   CheckCircle2,
+  ChevronDown,
+  Flame as FlameIcon,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -75,6 +85,9 @@ export function DuoPage() {
   const [exportPeriod, setExportPeriod] = useState('30d');
   const [exportStartDate, setExportStartDate] = useState('');
   const [exportEndDate, setExportEndDate] = useState('');
+  const [badgesOpen, setBadgesOpen] = useState(false);
+
+  const { liveSession } = usePartnerLiveSession(!!partner);
 
   useEffect(() => {
     loadData();
@@ -388,6 +401,10 @@ export function DuoPage() {
         </div>
       </header>
 
+      {liveSession && (
+        <PartnerLiveStatus liveSession={liveSession} className="mb-4" />
+      )}
+
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">
@@ -543,18 +560,29 @@ export function DuoPage() {
             </div>
           )}
 
-          {/* Badges */}
+          {/* Badges — accordéon */}
           {duoStats?.badges?.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-3">
-                <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Badges</h2>
-                <span className="text-xs text-zinc-500">
-                  {duoStats.badges_unlocked ?? duoStats.badges.filter((b) => b.unlocked).length}
-                  /{duoStats.badges_total ?? duoStats.badges.length}
-                </span>
+            <Collapsible open={badgesOpen} onOpenChange={setBadgesOpen}>
+              <div className="card overflow-hidden">
+                <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
+                  <div className="flex items-center gap-2">
+                    <Trophy size={16} className="text-[var(--theme-primary)]" />
+                    <h2 className="text-sm font-medium text-white">Badges</h2>
+                    <span className="text-xs text-zinc-500 px-2 py-0.5 rounded-full bg-white/5">
+                      {duoStats.badges_unlocked ?? duoStats.badges.filter((b) => b.unlocked).length}
+                      /{duoStats.badges_total ?? duoStats.badges.length}
+                    </span>
+                  </div>
+                  <ChevronDown
+                    size={18}
+                    className={`text-zinc-400 transition-transform ${badgesOpen ? 'rotate-180' : ''}`}
+                  />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="px-4 pb-4 border-t border-white/5">
+                  <BadgesGrid badges={duoStats.badges} />
+                </CollapsibleContent>
               </div>
-              <BadgesGrid badges={duoStats.badges} />
-            </div>
+            </Collapsible>
           )}
 
           {/* Activity feed */}
@@ -687,7 +715,11 @@ export function DuoPage() {
                   <SessionHistoryCard
                     key={session.id}
                     session={session}
-                    canAdjustTime={canModerateStreak}
+                    canAdjustTime={
+                      canModerateStreak
+                      || user?.relation_type === 'coach'
+                      || user?.relation_type === 'coach_partner'
+                    }
                     onAdjustTime={handleAdjustSessionTime}
                   />
                 ))}
@@ -768,6 +800,36 @@ export function DuoPage() {
                   <p className="text-zinc-500 text-xs mt-1">séances</p>
                 </div>
               </div>
+
+              {detailedStats.summary.total_calories != null && (
+                <div className="card p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FlameIcon className="text-orange-400" size={16} />
+                    <span className="text-white font-medium text-sm">Calories estimées</span>
+                    <span className="text-zinc-600 text-[10px]">(approximatif)</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-center">
+                    <div className="p-2 rounded-xl bg-white/5">
+                      <p className="text-lg font-bold text-orange-300">
+                        {formatCalories(detailedStats.summary.week_calories)}
+                      </p>
+                      <p className="text-zinc-500 text-[10px]">Semaine</p>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/5">
+                      <p className="text-lg font-bold text-orange-300">
+                        {formatCalories(detailedStats.summary.month_calories)}
+                      </p>
+                      <p className="text-zinc-500 text-[10px]">Mois</p>
+                    </div>
+                    <div className="p-2 rounded-xl bg-white/5">
+                      <p className="text-lg font-bold text-orange-300">
+                        {formatCalories(detailedStats.summary.total_calories)}
+                      </p>
+                      <p className="text-zinc-500 text-[10px]">Total</p>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Averages */}
               {(detailedStats.averages.fatigue_before != null || detailedStats.averages.difficulty != null) && (
@@ -874,6 +936,7 @@ export function DuoPage() {
                             {' • '}
                             {formatDuration(session.total_time)}
                             {session.difficulty_felt && ` • Diff: ${session.difficulty_felt}/10`}
+                            {session.estimated_calories != null && ` • ${formatCalories(session.estimated_calories)}`}
                           </p>
                         </div>
                         <div className="text-right">

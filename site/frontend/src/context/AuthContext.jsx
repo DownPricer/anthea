@@ -61,7 +61,8 @@ export function AuthProvider({ children }) {
     try {
       const { data: updated } = await authApi.updateProfile(data);
       setUser(updated);
-      return { success: true };
+      window.dispatchEvent(new CustomEvent('user:profile-updated', { detail: updated }));
+      return { success: true, user: updated };
     } catch (error) {
       return { success: false, error: formatApiError(error) };
     }

@@ -8,6 +8,8 @@ import { useTheme } from '../context/ThemeContext';
 import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { AgendaCalendar } from '../components/agenda/AgendaCalendar';
+import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
+import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
 import {
   DropdownMenu,
@@ -56,8 +58,20 @@ export function WorkoutsPage() {
 
   useEffect(() => {
     loadTodayWorkouts();
+    partnerApi.getInfo()
+      .then((res) => setPartner(res.data))
+      .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    const onProfileUpdate = () => {
+      if (activeTab === 'agenda') loadAgendaMeta();
+    };
+    window.addEventListener('user:profile-updated', onProfileUpdate);
+    return () => window.removeEventListener('user:profile-updated', onProfileUpdate);
+  }, [activeTab, currentMonth]);
+
+  const { liveSession } = usePartnerLiveSession(!!partner);
   const { accent: myAccent } = useUserAccent();
   const partnerAccent = useMemo(
     () => (partner ? getAccentForUser(partner, theme) : '#10B981'),
@@ -307,6 +321,8 @@ export function WorkoutsPage() {
           <Plus size={18} className="mr-1" /> Nouvelle
         </Button>
       </header>
+
+      {liveSession && <PartnerLiveStatus liveSession={liveSession} className="mb-4" />}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">

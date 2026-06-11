@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, duoApi, partnerApi, streakApi } from '../lib/api';
@@ -31,7 +31,9 @@ import { fr } from 'date-fns/locale';
 import { useTheme } from '../context/ThemeContext';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { WeekAgendaStrip } from '../components/agenda/WeekAgendaStrip';
+import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { useUserAccent } from '../hooks/useUserAccent';
+import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
 import { toast } from 'sonner';
@@ -51,8 +53,16 @@ export function HomePage() {
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
 
+  const { liveSession } = usePartnerLiveSession(!!partner);
+
   useEffect(() => {
     loadData();
+  }, []);
+
+  useEffect(() => {
+    const onProfileUpdate = () => loadData();
+    window.addEventListener('user:profile-updated', onProfileUpdate);
+    return () => window.removeEventListener('user:profile-updated', onProfileUpdate);
   }, []);
 
   const loadData = async () => {
@@ -170,7 +180,10 @@ export function HomePage() {
   const weekDays = Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
 
   const { accent: myAccent } = useUserAccent();
-  const partnerAccent = partner ? getAccentForUser(partner, theme) : '#10B981';
+  const partnerAccent = useMemo(
+    () => (partner ? getAccentForUser(partner, theme) : '#10B981'),
+    [partner?.accent_color, partner?.id, theme]
+  );
 
   if (loading) {
     return (
@@ -226,6 +239,10 @@ export function HomePage() {
             <ChevronRight className="text-zinc-400" size={18} />
           </div>
         </Link>
+      )}
+
+      {partner && liveSession && (
+        <PartnerLiveStatus liveSession={liveSession} />
       )}
 
       {/* Duo Stats Card */}
@@ -354,6 +371,7 @@ export function HomePage() {
         </div>
 
         <WeekAgendaStrip
+          key={`week-${myAccent}-${partnerAccent}`}
           weekDays={weekDays}
           dayMap={calendarDayMap}
           myAccent={myAccent}
