@@ -246,14 +246,16 @@ export function ProfilePage() {
   };
 
   return (
-    <div data-testid="profile-page" className="p-5 pb-32 animate-fade-in">
+    <div data-testid="profile-page" className="p-5 pb-32 md:pb-8 animate-fade-in">
       {/* Header */}
       <header className="mb-6">
         <h1 className="text-2xl font-bold text-white font-['Outfit']">Profil</h1>
       </header>
 
-      {/* User info card */}
-      <div className="card p-5 mb-6">
+      <div className="grid gap-6 lg:grid-cols-12">
+        <div className="space-y-6 lg:col-span-7">
+          {/* User info card */}
+          <div className="card p-5">
         <div className="flex items-center gap-4 mb-4">
           <div className="w-16 h-16 rounded-full bg-[var(--theme-primary)] flex items-center justify-center">
             {user?.avatar_url ? (
@@ -331,10 +333,157 @@ export function ProfilePage() {
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enregistrer'}
           </Button>
         </div>
-      </div>
+          </div>
 
-      {/* Partner section */}
-      <div className="card p-5 mb-6">
+          {/* Settings */}
+          <div className="card p-5 space-y-4">
+            <h3 className="text-lg font-semibold text-white font-['Outfit']">Paramètres</h3>
+
+            {/* Theme */}
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+              <div className="flex items-center gap-3">
+                <Palette className="text-zinc-400" size={20} />
+                <span className="text-white">Thème</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setTheme('default')}
+                  data-testid="theme-default"
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    theme === 'default'
+                      ? 'ring-2 ring-cyan-500 ring-offset-2 ring-offset-[#141414]'
+                      : ''
+                  }`}
+                  style={{ background: 'linear-gradient(135deg, #06B6D4, #10B981)' }}
+                >
+                  {theme === 'default' && <Check size={14} className="text-white" />}
+                </button>
+                <button
+                  onClick={() => setTheme('girly')}
+                  data-testid="theme-girly"
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
+                    theme === 'girly'
+                      ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-[#141414]'
+                      : ''
+                  }`}
+                  style={{ background: 'linear-gradient(135deg, #D946EF, #8B5CF6)' }}
+                >
+                  {theme === 'girly' && <Heart size={14} className="text-white" fill="currentColor" />}
+                </button>
+              </div>
+            </div>
+
+            {/* Couleur perso */}
+            <div className="p-3 bg-white/5 rounded-xl space-y-3">
+              <div className="flex items-center gap-3">
+                <Palette className="text-zinc-400" size={20} />
+                <span className="text-white">Couleur perso</span>
+              </div>
+              <p className="text-zinc-500 text-xs">
+                Indépendante du thème — utilisée dans l&apos;agenda et les repères visuels.
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {ACCENT_PRESETS.map((preset) => (
+                  <button
+                    key={preset.value || 'default'}
+                    type="button"
+                    onClick={() => setAccentPreview(preset.value)}
+                    className={`w-9 h-9 rounded-full border-2 transition-all ${
+                      accentColor === preset.value
+                        ? 'border-white scale-110'
+                        : 'border-transparent'
+                    }`}
+                    style={{
+                      background: preset.value
+                        ? preset.value
+                        : 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
+                    }}
+                    title={preset.label}
+                  />
+                ))}
+              </div>
+              <Input
+                type="color"
+                value={accentColor || '#06B6D4'}
+                onChange={(e) => setAccentPreview(e.target.value)}
+                className="h-10 w-full rounded-xl cursor-pointer"
+              />
+            </div>
+
+            {/* TTS */}
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+              <div className="flex items-center gap-3">
+                <Volume2 className="text-zinc-400" size={20} />
+                <span className="text-white">Annonces vocales</span>
+              </div>
+              <Switch
+                checked={ttsEnabled}
+                onCheckedChange={setTtsEnabled}
+                data-testid="tts-toggle"
+              />
+            </div>
+
+            {/* Mode musique */}
+            <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+              <div className="flex items-center gap-3">
+                <Music className="text-zinc-400" size={20} />
+                <div>
+                  <span className="text-white block">Mode musique</span>
+                  <span className="text-zinc-500 text-xs">Bips courts, compatible Spotify</span>
+                </div>
+              </div>
+              <Switch
+                checked={musicMode}
+                onCheckedChange={setMusicMode}
+                data-testid="music-mode-toggle"
+              />
+            </div>
+
+            <div className="p-3 bg-white/5 rounded-xl space-y-2">
+              <Label className="text-zinc-400 text-sm">Lien playlist Spotify (optionnel)</Label>
+              <Input
+                value={spotifyPlaylistUrl}
+                onChange={(e) => setSpotifyPlaylistUrl(e.target.value)}
+                placeholder="https://open.spotify.com/playlist/..."
+                className="h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white text-sm"
+              />
+            </div>
+
+            {isPushConfigured() ? (
+              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
+                <div className="flex items-center gap-3">
+                  <Bell className="text-zinc-400" size={20} />
+                  <div>
+                    <span className="text-white block">Notifications</span>
+                    <span className="text-zinc-500 text-xs">Séances, streak, badges</span>
+                  </div>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="rounded-full border-white/15 text-white"
+                  onClick={async () => {
+                    const r = await setupPushNotifications();
+                    if (r.ok) toast.success('Notifications activées');
+                    else if (r.reason === 'denied') toast.info('Autorise les notifications dans les réglages du navigateur');
+                    else toast.error('Impossible d\'activer les notifications');
+                  }}
+                >
+                  Activer
+                </Button>
+              </div>
+            ) : (
+              <p className="text-zinc-500 text-xs p-3 rounded-xl bg-white/5 border border-white/5">
+                Les notifications push ne sont pas encore activées sur ce serveur.
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div className="space-y-6 lg:col-span-5">
+          {/* Partner section */}
+          <div className="card p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-semibold text-white font-['Outfit']">Partenaire</h3>
           {!partner && (
@@ -494,200 +643,59 @@ export function ProfilePage() {
         )}
       </div>
 
-      {/* Settings */}
-      <div className="card p-5 mb-6 space-y-4">
-        <h3 className="text-lg font-semibold text-white font-['Outfit']">Paramètres</h3>
-
-        {/* Theme */}
-        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-          <div className="flex items-center gap-3">
-            <Palette className="text-zinc-400" size={20} />
-            <span className="text-white">Thème</span>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTheme('default')}
-              data-testid="theme-default"
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                theme === 'default'
-                  ? 'ring-2 ring-cyan-500 ring-offset-2 ring-offset-[#141414]'
-                  : ''
-              }`}
-              style={{ background: 'linear-gradient(135deg, #06B6D4, #10B981)' }}
-            >
-              {theme === 'default' && <Check size={14} className="text-white" />}
-            </button>
-            <button
-              onClick={() => setTheme('girly')}
-              data-testid="theme-girly"
-              className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                theme === 'girly'
-                  ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-[#141414]'
-                  : ''
-              }`}
-              style={{ background: 'linear-gradient(135deg, #D946EF, #8B5CF6)' }}
-            >
-              {theme === 'girly' && <Heart size={14} className="text-white" fill="currentColor" />}
-            </button>
-          </div>
-        </div>
-
-        {/* Couleur perso */}
-        <div className="p-3 bg-white/5 rounded-xl space-y-3">
-          <div className="flex items-center gap-3">
-            <Palette className="text-zinc-400" size={20} />
-            <span className="text-white">Couleur perso</span>
-          </div>
-          <p className="text-zinc-500 text-xs">
-            Indépendante du thème — utilisée dans l&apos;agenda et les repères visuels.
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {ACCENT_PRESETS.map((preset) => (
-              <button
-                key={preset.value || 'default'}
-                type="button"
-                onClick={() => setAccentPreview(preset.value)}
-                className={`w-9 h-9 rounded-full border-2 transition-all ${
-                  accentColor === preset.value
-                    ? 'border-white scale-110'
-                    : 'border-transparent'
-                }`}
-                style={{
-                  background: preset.value
-                    ? preset.value
-                    : 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
-                }}
-                title={preset.label}
+          {/* Badges */}
+          {badges.length > 0 && (
+            <div className="card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-lg font-semibold text-white font-['Outfit'] flex items-center gap-2">
+                  <Trophy size={18} className="text-[var(--theme-primary)]" />
+                  Badges
+                </h3>
+                <span className="text-xs text-zinc-500">
+                  {badges.filter((b) => b.unlocked).length}/{badges.length}
+                </span>
+              </div>
+              <BadgesGrid
+                badges={badgesExpanded ? badges : badges.filter((b) => b.unlocked).slice(0, 6)}
+                compact
               />
-            ))}
-          </div>
-          <Input
-            type="color"
-            value={accentColor || '#06B6D4'}
-            onChange={(e) => setAccentPreview(e.target.value)}
-            className="h-10 w-full rounded-xl cursor-pointer"
-          />
-        </div>
-
-        {/* TTS */}
-        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-          <div className="flex items-center gap-3">
-            <Volume2 className="text-zinc-400" size={20} />
-            <span className="text-white">Annonces vocales</span>
-          </div>
-          <Switch
-            checked={ttsEnabled}
-            onCheckedChange={setTtsEnabled}
-            data-testid="tts-toggle"
-          />
-        </div>
-
-        {/* Mode musique */}
-        <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-          <div className="flex items-center gap-3">
-            <Music className="text-zinc-400" size={20} />
-            <div>
-              <span className="text-white block">Mode musique</span>
-              <span className="text-zinc-500 text-xs">Bips courts, compatible Spotify</span>
-            </div>
-          </div>
-          <Switch
-            checked={musicMode}
-            onCheckedChange={setMusicMode}
-            data-testid="music-mode-toggle"
-          />
-        </div>
-
-        <div className="p-3 bg-white/5 rounded-xl space-y-2">
-          <Label className="text-zinc-400 text-sm">Lien playlist Spotify (optionnel)</Label>
-          <Input
-            value={spotifyPlaylistUrl}
-            onChange={(e) => setSpotifyPlaylistUrl(e.target.value)}
-            placeholder="https://open.spotify.com/playlist/..."
-            className="h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white text-sm"
-          />
-        </div>
-
-        {isPushConfigured() ? (
-          <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-            <div className="flex items-center gap-3">
-              <Bell className="text-zinc-400" size={20} />
-              <div>
-                <span className="text-white block">Notifications</span>
-                <span className="text-zinc-500 text-xs">Séances, streak, badges</span>
+              <div className="flex gap-2 mt-4">
+                {badges.length > 6 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 rounded-full border-white/15 text-white"
+                    onClick={() => setBadgesExpanded(!badgesExpanded)}
+                  >
+                    {badgesExpanded ? 'Réduire' : 'Voir tous'}
+                  </Button>
+                )}
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 rounded-full border-white/15 text-white"
+                >
+                  <Link to="/duo">Duo & détails</Link>
+                </Button>
               </div>
             </div>
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="rounded-full border-white/15 text-white"
-              onClick={async () => {
-                const r = await setupPushNotifications();
-                if (r.ok) toast.success('Notifications activées');
-                else if (r.reason === 'denied') toast.info('Autorise les notifications dans les réglages du navigateur');
-                else toast.error('Impossible d\'activer les notifications');
-              }}
-            >
-              Activer
-            </Button>
-          </div>
-        ) : (
-          <p className="text-zinc-500 text-xs p-3 rounded-xl bg-white/5 border border-white/5">
-            Les notifications push ne sont pas encore activées sur ce serveur.
-          </p>
-        )}
+          )}
+        </div>
       </div>
 
-      {/* Badges */}
-      {badges.length > 0 && (
-        <div className="card p-5 mb-6">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-semibold text-white font-['Outfit'] flex items-center gap-2">
-              <Trophy size={18} className="text-[var(--theme-primary)]" />
-              Badges
-            </h3>
-            <span className="text-xs text-zinc-500">
-              {badges.filter((b) => b.unlocked).length}/{badges.length}
-            </span>
-          </div>
-          <BadgesGrid
-            badges={badgesExpanded ? badges : badges.filter((b) => b.unlocked).slice(0, 6)}
-            compact
-          />
-          <div className="flex gap-2 mt-4">
-            {badges.length > 6 && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="flex-1 rounded-full border-white/15 text-white"
-                onClick={() => setBadgesExpanded(!badgesExpanded)}
-              >
-                {badgesExpanded ? 'Réduire' : 'Voir tous'}
-              </Button>
-            )}
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className="flex-1 rounded-full border-white/15 text-white"
-            >
-              <Link to="/duo">Duo & détails</Link>
-            </Button>
-          </div>
-        </div>
-      )}
-
       {/* Logout */}
-      <Button
-        onClick={handleLogout}
-        variant="outline"
-        data-testid="logout-btn"
-        className="w-full h-12 rounded-xl bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
-      >
-        <LogOut size={18} className="mr-2" /> Se déconnecter
-      </Button>
+      <div className="mt-6">
+        <Button
+          onClick={handleLogout}
+          variant="outline"
+          data-testid="logout-btn"
+          className="w-full h-12 rounded-xl bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
+        >
+          <LogOut size={18} className="mr-2" /> Se déconnecter
+        </Button>
+      </div>
     </div>
   );
 }

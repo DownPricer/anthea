@@ -877,14 +877,13 @@ export function WorkoutPlayerPage() {
 
   // Main player UI
   return (
-    <div
-      className="min-h-screen bg-[#0A0A0A]"
-    >
+    <div className="min-h-screen bg-[#0A0A0A]">
       <div
-        className={`mx-auto w-full min-h-screen flex flex-col transition-shadow max-w-md sm:max-w-lg md:max-w-3xl lg:max-w-4xl xl:max-w-5xl ${
+        className={`min-h-screen flex flex-col transition-shadow ${
           duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
         }`}
       >
+        <div className="w-full max-w-6xl mx-auto min-h-screen flex flex-col">
       {/* Stop Modal */}
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
         <DialogContent className="bg-[#141414] border-white/10 max-w-sm mx-4">
@@ -1006,10 +1005,13 @@ export function WorkoutPlayerPage() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 flex flex-col items-center justify-center p-5">
+      <div className="flex-1 w-full px-5 pb-6 md:px-8">
+        <div className="h-full md:grid md:grid-cols-12 md:gap-6">
+          <div className="md:col-span-8 flex flex-col">
+            <div className="flex-1 flex flex-col items-center justify-center py-6">
         {/* Exercise image/GIF */}
         {currentExercise?.image_url && phase === 'exercise' && (
-          <div className="w-full max-w-xs h-40 rounded-2xl overflow-hidden mb-6 bg-white/5">
+          <div className="w-full max-w-xs md:max-w-md h-40 md:h-56 rounded-2xl overflow-hidden mb-6 bg-white/5">
             <img
               src={currentExercise.image_url}
               alt={currentExercise.name}
@@ -1047,8 +1049,8 @@ export function WorkoutPlayerPage() {
         </div>
 
         {phase === 'exercise' && currentExercise && (
-          <div className="mb-3 max-w-md px-2 text-center">
-            <h2 className="text-2xl font-bold text-white font-['Outfit']">{currentExercise.name}</h2>
+          <div className="mb-3 w-full max-w-2xl px-2 text-center">
+            <h2 className="text-2xl md:text-3xl font-bold text-white font-['Outfit']">{currentExercise.name}</h2>
             {currentExercise.description && (
               <p className="mt-1 text-sm text-zinc-500">{currentExercise.description}</p>
             )}
@@ -1092,30 +1094,30 @@ export function WorkoutPlayerPage() {
           </div>
         )}
 
-        {/* Next exercise preview */}
+        {/* Next exercise preview (mobile) */}
         {getNextExercise() && (
-          <div className="flex items-center gap-2 text-zinc-500 text-sm">
+          <div className="md:hidden flex items-center gap-2 text-zinc-500 text-sm">
             <span>Suivant:</span>
             <span className="text-white">{getNextExercise().name}</span>
             <ChevronRight size={16} />
           </div>
         )}
-      </div>
+            </div>
 
-      {/* Controls */}
-      <div className="p-5 space-y-4">
+            {/* Controls */}
+            <div className="space-y-4 pb-2">
         {phase === 'exercise' && currentExercise && (
           <Button
             type="button"
             onClick={completeCurrentExercise}
-            className="mx-auto block h-14 w-full max-w-sm rounded-xl text-base font-bold text-white btn-primary"
+            className="mx-auto block h-14 w-full max-w-sm md:max-w-md rounded-xl text-base font-bold text-white btn-primary"
           >
             J&apos;ai fini cet exercice
           </Button>
         )}
 
         {/* Main controls — grille 3 colonnes pour garder Pause centré */}
-        <div className="mx-auto grid w-full max-w-sm grid-cols-3 place-items-center gap-1">
+        <div className="mx-auto grid w-full max-w-sm md:max-w-md grid-cols-3 place-items-center gap-1">
           <div className="flex h-[4.5rem] items-center justify-center">
             {phase === 'rest' ||
             (phase === 'exercise' && currentExercise?.exercise_type === 'duration') ? (
@@ -1177,8 +1179,39 @@ export function WorkoutPlayerPage() {
           {pauseTime > 0 && ` • Pause: ${formatTime(pauseTime)}`}
         </div>
         {timeAdjustDialog}
+            </div>
+          </div>
+
+          <aside className="hidden md:block md:col-span-4 pt-6">
+            <div className="space-y-4 sticky top-6">
+              {getNextExercise() && (
+                <div className="card p-4">
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Suivant</p>
+                  <p className="text-white font-semibold">{getNextExercise().name}</p>
+                </div>
+              )}
+
+              {duoLive && (
+                <div className="card p-4">
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Duo</p>
+                  <p className="text-white text-sm">
+                    En direct avec <span className="text-amber-300">{partnerName}</span>
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setLiveChatOpen(true)}
+                    className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm py-2"
+                  >
+                    Ouvrir le chat
+                  </button>
+                </div>
+              )}
+            </div>
+          </aside>
+        </div>
       </div>
       </div>
+    </div>
     </div>
   );
 }

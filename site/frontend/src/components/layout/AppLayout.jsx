@@ -1,15 +1,21 @@
 import { Outlet } from 'react-router-dom';
 import { BottomNav } from './BottomNav';
+import { DesktopNav } from './DesktopNav';
 import { Toaster } from '../ui/sonner';
 import { useUserAccent } from '../../hooks/useUserAccent';
 
 export function AppLayout() {
   useUserAccent();
   return (
-    <div className="min-h-[100dvh] bg-[#0A0A0A]">
-      <div className="mx-auto w-full min-h-[100dvh] relative pb-24 overflow-x-hidden max-w-md sm:max-w-lg md:max-w-3xl lg:max-w-4xl xl:max-w-5xl lg:shadow-2xl">
-        <Outlet />
-        <BottomNav />
+    <div className="min-h-[100dvh] bg-[#0A0A0A] overflow-x-hidden">
+      <div className="min-h-[100dvh] flex">
+        <DesktopNav />
+        <div className="flex-1 min-w-0">
+          <div className="min-h-[100dvh] pb-24 md:pb-0">
+            <Outlet />
+          </div>
+          <BottomNav />
+        </div>
       </div>
       <Toaster position="top-center" />
     </div>

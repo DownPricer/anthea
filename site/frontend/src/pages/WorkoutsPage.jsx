@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, streakApi, partnerApi } from '../lib/api';
@@ -56,20 +56,15 @@ export function WorkoutsPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selectedWorkouts, setSelectedWorkouts] = useState([]);
 
+  const agendaMetaCacheRef = useRef(new Map());
+  const calendarWorkoutsCacheRef = useRef(new Map());
+
   useEffect(() => {
     loadTodayWorkouts();
     partnerApi.getInfo()
       .then((res) => setPartner(res.data))
       .catch(() => {});
   }, []);
-
-  useEffect(() => {
-    const onProfileUpdate = () => {
-      if (activeTab === 'agenda') loadAgendaMeta();
-    };
-    window.addEventListener('user:profile-updated', onProfileUpdate);
-    return () => window.removeEventListener('user:profile-updated', onProfileUpdate);
-  }, [activeTab, currentMonth]);
 
   const { liveSession } = usePartnerLiveSession(!!partner);
   const { accent: myAccent } = useUserAccent();
@@ -88,22 +83,29 @@ export function WorkoutsPage() {
       loadCalendarWorkouts();
       loadAgendaMeta();
     }
-  }, [activeTab, currentMonth, user?.accent_color]);
+  }, [activeTab, currentMonth]);
 
   const loadAgendaMeta = async () => {
+    const monthKey = `${format(currentMonth, 'yyyy-MM')}:${user?.id || ''}`;
+    const cached = agendaMetaCacheRef.current.get(monthKey);
+    if (cached) {
+      setCalendarDayMap(cached.dayMap);
+      setDuoStreak(cached.streak);
+      return;
+    }
+
     setAgendaLoading(true);
     try {
       const start = startOfMonth(currentMonth);
       const end = endOfMonth(currentMonth);
       const ws = format(start, 'yyyy-MM-dd');
       const we = format(end, 'yyyy-MM-dd');
-      const [calRes, partnerRes] = await Promise.all([
-        streakApi.getCalendar(ws, we),
-        partnerApi.getInfo().catch(() => ({ data: null })),
-      ]);
-      setCalendarDayMap(calendarDaysToMap(calRes.data?.days || []));
-      setDuoStreak(calRes.data?.streak || 0);
-      setPartner(partnerRes.data);
+      const calRes = await streakApi.getCalendar(ws, we);
+      const dayMap = calendarDaysToMap(calRes.data?.days || []);
+      const streak = calRes.data?.streak || 0;
+      agendaMetaCacheRef.current.set(monthKey, { dayMap, streak });
+      setCalendarDayMap(dayMap);
+      setDuoStreak(streak);
     } catch {
       console.error('Agenda calendar load failed');
     } finally {
@@ -123,6 +125,13 @@ export function WorkoutsPage() {
   };
 
   const loadCalendarWorkouts = async () => {
+    const monthKey = `${format(currentMonth, 'yyyy-MM')}:${user?.id || ''}`;
+    const cached = calendarWorkoutsCacheRef.current.get(monthKey);
+    if (cached) {
+      setCalendarWorkouts(cached);
+      return;
+    }
+
     try {
       const start = startOfMonth(currentMonth);
       const end = endOfMonth(currentMonth);
@@ -131,7 +140,9 @@ export function WorkoutsPage() {
         end_date: format(end, 'yyyy-MM-dd'),
         light: true,
       });
-      setCalendarWorkouts(data || []);
+      const rows = data || [];
+      calendarWorkoutsCacheRef.current.set(monthKey, rows);
+      setCalendarWorkouts(rows);
     } catch (error) {
       console.error('Failed to load calendar workouts:', error);
     }
@@ -351,7 +362,9 @@ export function WorkoutsPage() {
           {draftWorkouts.length > 0 && (
             <div className="space-y-2">
               <h3 className="text-xs font-medium uppercase tracking-wider text-amber-400/90">Brouillons</h3>
-              {draftWorkouts.map((workout) => renderWorkoutCard(workout))}
+              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                {draftWorkouts.map((workout) => renderWorkoutCard(workout))}
+              </div>
             </div>
           )}
           {publishedToday.length === 0 && draftWorkouts.length === 0 ? (
@@ -368,102 +381,109 @@ export function WorkoutsPage() {
               </Button>
             </div>
           ) : publishedToday.length > 0 ? (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
               {publishedToday.map((workout) => renderWorkoutCard(workout))}
             </div>
           ) : null}
         </TabsContent>
 
         <TabsContent value="agenda" className="space-y-4">
-          <div className="card p-4">
-            {agendaLoading ? (
-              <div className="flex justify-center py-16">
-                <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+          <div className="grid gap-4 lg:grid-cols-12">
+            <div className="space-y-4 lg:col-span-7">
+              <div className="card p-4">
+                {agendaLoading ? (
+                  <div className="space-y-4 py-6">
+                    <div className="h-5 w-40 rounded bg-white/5 animate-pulse mx-auto" />
+                    <div className="h-[320px] w-full rounded-xl bg-white/5 animate-pulse" />
+                  </div>
+                ) : (
+                  <AgendaCalendar
+                    key={`agenda-${myAccent}-${partnerAccent}`}
+                    month={currentMonth}
+                    selected={selectedDate}
+                    onSelect={setSelectedDate}
+                    onMonthChange={setCurrentMonth}
+                    dayMap={calendarDayMap}
+                    myAccent={myAccent}
+                    partnerAccent={partnerAccent}
+                    streak={duoStreak}
+                  />
+                )}
               </div>
-            ) : (
-              <AgendaCalendar
-                key={`agenda-${myAccent}-${partnerAccent}`}
-                month={currentMonth}
-                selected={selectedDate}
-                onSelect={setSelectedDate}
-                onMonthChange={setCurrentMonth}
-                dayMap={calendarDayMap}
-                myAccent={myAccent}
-                partnerAccent={partnerAccent}
-                streak={duoStreak}
-              />
-            )}
-          </div>
 
-          {/* Selection mode toolbar */}
-          {selectMode && (
-            <div className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-white/10">
-              <span className="text-sm text-zinc-400 flex-1">
-                {selectedWorkouts.length} sélectionné(s)
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleDuplicate(selectedWorkouts, 7)}
-                disabled={selectedWorkouts.length === 0}
-                className="text-white border-white/10"
-              >
-                +7 jours
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => handleDuplicate(selectedWorkouts, 14)}
-                disabled={selectedWorkouts.length === 0}
-                className="text-white border-white/10"
-              >
-                +14 jours
-              </Button>
-              <button
-                onClick={() => {
-                  setSelectMode(false);
-                  setSelectedWorkouts([]);
-                }}
-                className="p-2 hover:bg-white/10 rounded-lg"
-              >
-                <X size={18} className="text-zinc-400" />
-              </button>
-            </div>
-          )}
-
-          {calendarDayMap[format(selectedDate, 'yyyy-MM-dd')] && (
-            <SelectedDaySummary
-              state={calendarDayMap[format(selectedDate, 'yyyy-MM-dd')]}
-              myAccent={myAccent}
-            />
-          )}
-
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-white font-medium">
-                {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
-              </h3>
-              {selectedDateWorkouts.length > 0 && (
-                <button
-                  onClick={() => setSelectMode(!selectMode)}
-                  className="text-sm text-[var(--theme-primary)]"
-                >
-                  {selectMode ? 'Annuler' : 'Sélectionner'}
-                </button>
+              {calendarDayMap[format(selectedDate, 'yyyy-MM-dd')] && (
+                <SelectedDaySummary
+                  state={calendarDayMap[format(selectedDate, 'yyyy-MM-dd')]}
+                  myAccent={myAccent}
+                />
               )}
             </div>
 
-            {selectedDateWorkouts.length === 0 ? (
-              <div className="card p-6 text-center">
-                <p className="text-zinc-500 text-sm">Aucune séance ce jour</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {selectedDateWorkouts.map((workout) =>
-                  renderWorkoutCard(workout, selectMode)
+            <div className="space-y-4 lg:col-span-5">
+              {/* Selection mode toolbar */}
+              {selectMode && (
+                <div className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-white/10">
+                  <span className="text-sm text-zinc-400 flex-1">
+                    {selectedWorkouts.length} sélectionné(s)
+                  </span>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDuplicate(selectedWorkouts, 7)}
+                    disabled={selectedWorkouts.length === 0}
+                    className="text-white border-white/10"
+                  >
+                    +7 jours
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => handleDuplicate(selectedWorkouts, 14)}
+                    disabled={selectedWorkouts.length === 0}
+                    className="text-white border-white/10"
+                  >
+                    +14 jours
+                  </Button>
+                  <button
+                    onClick={() => {
+                      setSelectMode(false);
+                      setSelectedWorkouts([]);
+                    }}
+                    className="p-2 hover:bg-white/10 rounded-lg"
+                  >
+                    <X size={18} className="text-zinc-400" />
+                  </button>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-medium">
+                    {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
+                  </h3>
+                  {selectedDateWorkouts.length > 0 && (
+                    <button
+                      onClick={() => setSelectMode(!selectMode)}
+                      className="text-sm text-[var(--theme-primary)]"
+                    >
+                      {selectMode ? 'Annuler' : 'Sélectionner'}
+                    </button>
+                  )}
+                </div>
+
+                {selectedDateWorkouts.length === 0 ? (
+                  <div className="card p-6 text-center">
+                    <p className="text-zinc-500 text-sm">Aucune séance ce jour</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {selectedDateWorkouts.map((workout) =>
+                      renderWorkoutCard(workout, selectMode)
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
           </div>
         </TabsContent>
       </Tabs>

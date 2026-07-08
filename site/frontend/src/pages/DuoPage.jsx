@@ -434,187 +434,193 @@ export function DuoPage() {
         </TabsList>
 
         {/* Activity Tab */}
-        <TabsContent value="activity" className="space-y-6">
-          {/* Duo Stats Card */}
-          {duoStats && (
-            <div className="card p-4">
-              <div className="grid grid-cols-4 gap-2">
-                <div className="text-center">
-                  <div className="flex items-center justify-center gap-1">
-                    {theme === 'girly' ? (
-                      <Heart className="text-pink-500" size={16} fill="currentColor" />
-                    ) : (
-                      <Flame className="text-orange-500" size={16} />
-                    )}
-                    <span className="text-xl font-bold text-white">{duoStats.streak}</span>
+        <TabsContent value="activity">
+          <div className="grid gap-6 lg:grid-cols-12">
+            <div className="space-y-6 lg:col-span-7">
+              {/* Weekly challenge */}
+              {duoStats?.current_challenge && (
+                <div className="card p-4 border-[var(--theme-primary)]/30">
+                  <div className="flex items-center gap-3 mb-2">
+                    <Zap className="text-[var(--theme-primary)]" size={18} />
+                    <span className="text-white font-medium">Défi de la semaine</span>
                   </div>
-                  <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Streak</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold text-white">{duoStats.total_workouts_together}</p>
-                  <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Total</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold text-white">{duoStats.this_week_user}</p>
-                  <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Toi</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-xl font-bold text-white">{duoStats.this_week_partner}</p>
-                  <p className="text-zinc-500 text-[10px] uppercase tracking-wider">
-                    {partner.display_name?.split(' ')[0] || partner.username}
+                  <p className="text-zinc-400 text-sm mb-3">{duoStats.current_challenge.title}</p>
+                  <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-[var(--theme-primary)] transition-all"
+                      style={{
+                        width: `${Math.min(100, (duoStats.current_challenge.current / duoStats.current_challenge.target) * 100)}%`,
+                      }}
+                    />
+                  </div>
+                  <p className="text-zinc-500 text-xs mt-2">
+                    {duoStats.current_challenge.current}/{duoStats.current_challenge.target}
                   </p>
                 </div>
-              </div>
-            </div>
-          )}
-
-          {canModerateStreak && duoStats && partner && (
-            <div className="card p-4 border border-dashed border-white/15">
-              <p className="text-zinc-500 text-xs uppercase tracking-wider mb-3">Streak — réglages coach</p>
-              {duoStats.streak_manual_override != null && (
-                <p className="text-zinc-400 text-xs mb-3">
-                  Manuel : <span className="text-white">{duoStats.streak_manual_override}</span>
-                  {' · '}
-                  Calcul auto : <span className="text-white">{duoStats.streak_calculated ?? '—'}</span>
-                </p>
               )}
-              <div className="flex gap-2 mb-3">
-                <Input
-                  type="number"
-                  min={0}
-                  placeholder="ex. 7"
-                  value={coachStreakInput}
-                  onChange={(e) => setCoachStreakInput(e.target.value)}
-                  className="flex-1 bg-[#0A0A0A] border-white/10 text-white rounded-xl"
-                />
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="border-white/15 text-white shrink-0"
-                  onClick={handleCoachSetStreak}
-                >
-                  Appliquer
-                </Button>
-              </div>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="text-zinc-400 hover:text-white mb-4 p-0 h-auto"
-                onClick={handleCoachClearStreak}
-              >
-                Revenir au calcul auto
-              </Button>
-              <p className="text-zinc-500 text-xs mb-2">Exemption jour (comme repos pour la streak)</p>
-              <div className="flex flex-wrap gap-2 items-center">
-                <Input
-                  type="date"
-                  value={exemptDateStr}
-                  onChange={(e) => setExemptDateStr(e.target.value)}
-                  className="bg-[#0A0A0A] border-white/10 text-white rounded-xl w-[160px]"
-                />
-                <Select value={exemptWho} onValueChange={setExemptWho}>
-                  <SelectTrigger className="w-[140px] bg-[#0A0A0A] border-white/10 text-white rounded-xl">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#141414] border-white/10">
-                    <SelectItem value="partner" className="text-white">
-                      {partner.display_name || partner.username}
-                    </SelectItem>
-                    <SelectItem value="me" className="text-white">
-                      Moi
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="border-white/15 text-white"
-                  onClick={handleCoachExemptDay}
-                >
-                  Exempter
-                </Button>
-              </div>
-            </div>
-          )}
 
-          {/* Weekly challenge */}
-          {duoStats?.current_challenge && (
-            <div className="card p-4 border-[var(--theme-primary)]/30">
-              <div className="flex items-center gap-3 mb-2">
-                <Zap className="text-[var(--theme-primary)]" size={18} />
-                <span className="text-white font-medium">Défi de la semaine</span>
-              </div>
-              <p className="text-zinc-400 text-sm mb-3">{duoStats.current_challenge.title}</p>
-              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-[var(--theme-primary)] transition-all"
-                  style={{
-                    width: `${Math.min(100, (duoStats.current_challenge.current / duoStats.current_challenge.target) * 100)}%`,
-                  }}
-                />
-              </div>
-              <p className="text-zinc-500 text-xs mt-2">
-                {duoStats.current_challenge.current}/{duoStats.current_challenge.target}
-              </p>
-            </div>
-          )}
-
-          {/* Badges — accordéon */}
-          {duoStats?.badges?.length > 0 && (
-            <Collapsible open={badgesOpen} onOpenChange={setBadgesOpen}>
-              <div className="card overflow-hidden">
-                <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <Trophy size={16} className="text-[var(--theme-primary)]" />
-                    <h2 className="text-sm font-medium text-white">Badges</h2>
-                    <span className="text-xs text-zinc-500 px-2 py-0.5 rounded-full bg-white/5">
-                      {duoStats.badges_unlocked ?? duoStats.badges.filter((b) => b.unlocked).length}
-                      /{duoStats.badges_total ?? duoStats.badges.length}
-                    </span>
+              {canModerateStreak && duoStats && partner && (
+                <div className="card p-4 border border-dashed border-white/15">
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-3">Streak — réglages coach</p>
+                  {duoStats.streak_manual_override != null && (
+                    <p className="text-zinc-400 text-xs mb-3">
+                      Manuel : <span className="text-white">{duoStats.streak_manual_override}</span>
+                      {' · '}
+                      Calcul auto : <span className="text-white">{duoStats.streak_calculated ?? '—'}</span>
+                    </p>
+                  )}
+                  <div className="flex gap-2 mb-3">
+                    <Input
+                      type="number"
+                      min={0}
+                      placeholder="ex. 7"
+                      value={coachStreakInput}
+                      onChange={(e) => setCoachStreakInput(e.target.value)}
+                      className="flex-1 bg-[#0A0A0A] border-white/10 text-white rounded-xl"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-white/15 text-white shrink-0"
+                      onClick={handleCoachSetStreak}
+                    >
+                      Appliquer
+                    </Button>
                   </div>
-                  <ChevronDown
-                    size={18}
-                    className={`text-zinc-400 transition-transform ${badgesOpen ? 'rotate-180' : ''}`}
-                  />
-                </CollapsibleTrigger>
-                <CollapsibleContent className="px-4 pb-4 border-t border-white/5">
-                  <BadgesGrid badges={duoStats.badges} />
-                </CollapsibleContent>
-              </div>
-            </Collapsible>
-          )}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-zinc-400 hover:text-white mb-4 p-0 h-auto"
+                    onClick={handleCoachClearStreak}
+                  >
+                    Revenir au calcul auto
+                  </Button>
+                  <p className="text-zinc-500 text-xs mb-2">Exemption jour (comme repos pour la streak)</p>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    <Input
+                      type="date"
+                      value={exemptDateStr}
+                      onChange={(e) => setExemptDateStr(e.target.value)}
+                      className="bg-[#0A0A0A] border-white/10 text-white rounded-xl w-[160px]"
+                    />
+                    <Select value={exemptWho} onValueChange={setExemptWho}>
+                      <SelectTrigger className="w-[140px] bg-[#0A0A0A] border-white/10 text-white rounded-xl">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-[#141414] border-white/10">
+                        <SelectItem value="partner" className="text-white">
+                          {partner.display_name || partner.username}
+                        </SelectItem>
+                        <SelectItem value="me" className="text-white">
+                          Moi
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-white/15 text-white"
+                      onClick={handleCoachExemptDay}
+                    >
+                      Exempter
+                    </Button>
+                  </div>
+                </div>
+              )}
 
-          {/* Activity feed */}
-          <div>
-            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">Activité récente</h2>
-            {sessions.length === 0 ? (
-              <div className="card p-6 text-center">
-                <p className="text-zinc-500">Pas encore d'activité</p>
+              {/* Activity feed */}
+              <div>
+                <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">Activité récente</h2>
+                {sessions.length === 0 ? (
+                  <div className="card p-6 text-center">
+                    <p className="text-zinc-500">Pas encore d'activité</p>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {sessions.map((session) => (
+                      <SessionCard
+                        key={session.id}
+                        session={session}
+                        user={user}
+                        partner={partner}
+                        theme={theme}
+                        isLikedByMe={isLikedByMe(session)}
+                        onLike={handleLike}
+                        onReaction={handleReaction}
+                        activeCommentSession={activeCommentSession}
+                        setActiveCommentSession={setActiveCommentSession}
+                        commentText={commentText}
+                        setCommentText={setCommentText}
+                        onComment={handleComment}
+                      />
+                    ))}
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="space-y-4">
-                {sessions.map((session) => (
-                  <SessionCard
-                    key={session.id}
-                    session={session}
-                    user={user}
-                    partner={partner}
-                    theme={theme}
-                    isLikedByMe={isLikedByMe(session)}
-                    onLike={handleLike}
-                    onReaction={handleReaction}
-                    activeCommentSession={activeCommentSession}
-                    setActiveCommentSession={setActiveCommentSession}
-                    commentText={commentText}
-                    setCommentText={setCommentText}
-                    onComment={handleComment}
-                  />
-                ))}
-              </div>
-            )}
+            </div>
+
+            <div className="space-y-6 lg:col-span-5">
+              {/* Duo Stats Card */}
+              {duoStats && (
+                <div className="card p-4">
+                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-2">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center gap-1">
+                        {theme === 'girly' ? (
+                          <Heart className="text-pink-500" size={16} fill="currentColor" />
+                        ) : (
+                          <Flame className="text-orange-500" size={16} />
+                        )}
+                        <span className="text-xl font-bold text-white">{duoStats.streak}</span>
+                      </div>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Streak</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-white">{duoStats.total_workouts_together}</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Total</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-white">{duoStats.this_week_user}</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Toi</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-xl font-bold text-white">{duoStats.this_week_partner}</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">
+                        {partner.display_name?.split(' ')[0] || partner.username}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Badges — accordéon */}
+              {duoStats?.badges?.length > 0 && (
+                <Collapsible open={badgesOpen} onOpenChange={setBadgesOpen}>
+                  <div className="card overflow-hidden">
+                    <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
+                      <div className="flex items-center gap-2">
+                        <Trophy size={16} className="text-[var(--theme-primary)]" />
+                        <h2 className="text-sm font-medium text-white">Badges</h2>
+                        <span className="text-xs text-zinc-500 px-2 py-0.5 rounded-full bg-white/5">
+                          {duoStats.badges_unlocked ?? duoStats.badges.filter((b) => b.unlocked).length}
+                          /{duoStats.badges_total ?? duoStats.badges.length}
+                        </span>
+                      </div>
+                      <ChevronDown
+                        size={18}
+                        className={`text-zinc-400 transition-transform ${badgesOpen ? 'rotate-180' : ''}`}
+                      />
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="px-4 pb-4 border-t border-white/5">
+                      <BadgesGrid badges={duoStats.badges} />
+                    </CollapsibleContent>
+                  </div>
+                </Collapsible>
+              )}
+            </div>
           </div>
         </TabsContent>
 
@@ -707,7 +713,7 @@ export function DuoPage() {
               <p className="text-zinc-500">Aucune séance dans l&apos;historique</p>
             </div>
           ) : (
-            <div className="space-y-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {historySessions
                 .filter((s) => {
                   if (historyTarget === 'me') return s.user_id === user?.id;
@@ -764,7 +770,7 @@ export function DuoPage() {
           ) : detailedStats ? (
             <>
               {/* Summary Cards */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Target className="text-[var(--theme-primary)]" size={16} />

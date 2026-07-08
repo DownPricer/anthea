@@ -672,9 +672,11 @@ export function CreateWorkoutPage() {
         </div>
       </header>
 
-      <div className="p-5 space-y-6">
-        {/* Modèles — liste + actions claires */}
-        <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
+      <div className="p-5">
+        <div className="grid gap-6 lg:grid-cols-12">
+          <div className="space-y-6 order-1 lg:order-2 lg:col-span-4 lg:sticky lg:top-24 h-fit">
+            {/* Modèles — liste + actions claires */}
+            <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
             <Label className="block text-sm font-medium text-zinc-300">Modèles enregistrés</Label>
             {templates.length > 0 && (
@@ -756,10 +758,12 @@ export function CreateWorkoutPage() {
               ))}
             </ul>
           ) : null}
-        </div>
+            </div>
+          </div>
 
-        {/* Basic Info */}
-        <div className="space-y-4">
+          <div className="space-y-6 order-2 lg:order-1 lg:col-span-8">
+            {/* Basic Info */}
+            <div className="space-y-4">
           <div>
             <Label htmlFor="title" className="text-zinc-400 text-sm">
               Titre *
@@ -832,10 +836,10 @@ export function CreateWorkoutPage() {
               className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white"
             />
           </div>
-        </div>
+            </div>
 
-        {/* SCHEDULING SECTION */}
-        <div className="card p-4 space-y-4">
+            {/* SCHEDULING SECTION */}
+            <div className="card p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <CalendarDays className="text-[var(--theme-primary)]" size={20} />
             <h3 className="text-white font-semibold">Planification</h3>
@@ -1473,8 +1477,8 @@ export function CreateWorkoutPage() {
           ))}
         </div>
 
-        {/* Actions */}
-        <div className="space-y-3 pt-4">
+            {/* Actions */}
+            <div className="space-y-3 pt-4">
           <Button
             onClick={() => handleSave(false)}
             disabled={saving || previewDates.length === 0}
@@ -1509,6 +1513,8 @@ export function CreateWorkoutPage() {
               <span className="sm:hidden">Comme modèle</span>
               <span className="hidden sm:inline">Sauvegarder comme modèle</span>
             </Button>
+          </div>
+        </div>
           </div>
         </div>
       </div>
