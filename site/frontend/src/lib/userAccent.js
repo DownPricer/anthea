@@ -6,12 +6,17 @@ export const THEME_DEFAULTS = {
 /** Normalise une couleur hex (#RRGGBB). */
 export function normalizeAccentColor(value) {
   if (!value || !String(value).trim()) return null;
-  let color = String(value).trim();
-  if (!color.startsWith('#')) color = `#${color}`;
-  if (color.length === 4) {
-    color = `#${color[1]}${color[1]}${color[2]}${color[2]}${color[3]}${color[3]}`;
+  let raw = String(value).trim();
+  if (raw.startsWith('#')) raw = raw.slice(1);
+
+  // Supporte #RGB -> #RRGGBB
+  if (raw.length === 3) {
+    raw = `${raw[0]}${raw[0]}${raw[1]}${raw[1]}${raw[2]}${raw[2]}`;
   }
-  return color;
+
+  if (raw.length !== 6) return null;
+  if (!/^[0-9a-fA-F]{6}$/.test(raw)) return null;
+  return `#${raw.toUpperCase()}`;
 }
 
 /** Source unique pour la couleur d'accent affichée (profil → agenda → duo). */

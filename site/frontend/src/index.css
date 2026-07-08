@@ -138,6 +138,19 @@ h1, h2, h3, h4, h5, h6 {
   background-color: rgba(59, 130, 246, 0.06) !important;
 }
 
+.agenda-calendar-root .rdp {
+  --rdp-accent-color: var(--agenda-mine) !important;
+  --rdp-background-color: color-mix(in srgb, var(--agenda-mine) 12%, transparent) !important;
+}
+
+.agenda-calendar-root .rdp-day_selected {
+  background-color: color-mix(in srgb, var(--agenda-mine) 22%, transparent) !important;
+}
+
+.agenda-calendar-root .rdp-day_selected:hover {
+  background-color: color-mix(in srgb, var(--agenda-mine) 28%, transparent) !important;
+}
+
 .agenda-legend-duo-swatch {
   background: linear-gradient(135deg, var(--agenda-mine), var(--agenda-partner));
   box-shadow: 0 0 0 1px rgba(251, 191, 36, 0.5);

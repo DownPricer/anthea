@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, duoApi, partnerApi, streakApi } from '../lib/api';
@@ -49,50 +49,122 @@ export function HomePage() {
   const [partner, setPartner] = useState(null);
   const [partnerRequests, setPartnerRequests] = useState([]);
   const [streakDays, setStreakDays] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [streakDaysLoading, setStreakDaysLoading] = useState(false);
+  const [todayLoading, setTodayLoading] = useState(true);
+  const [weekLoading, setWeekLoading] = useState(true);
+  const [sidebarLoading, setSidebarLoading] = useState(true);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
 
   const { liveSession } = usePartnerLiveSession(!!partner);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  const reqIdRef = useRef(0);
+  const didInitRef = useRef(false);
+  const weekRangeRef = useRef({ start: null, end: null });
+  const streakDaysRangeRef = useRef({ start: null, end: null, loaded: false });
 
-  useEffect(() => {
-    const onProfileUpdate = () => loadData();
-    window.addEventListener('user:profile-updated', onProfileUpdate);
-    return () => window.removeEventListener('user:profile-updated', onProfileUpdate);
-  }, []);
-
-  const loadData = async () => {
-    try {
-      const weekStartDate = startOfWeek(new Date(), { weekStartsOn: 1 });
-      const weekEndDate = addDays(weekStartDate, 6);
-      const wsStr = format(weekStartDate, 'yyyy-MM-dd');
-      const weStr = format(weekEndDate, 'yyyy-MM-dd');
-
-      const [todayRes, duoRes, partnerRes, requestsRes, calRes, streakRes] = await Promise.all([
-        workoutsApi.getToday(),
-        duoApi.getStats(),
-        partnerApi.getInfo(),
-        partnerApi.getRequests(),
-        streakApi.getCalendar(wsStr, weStr),
-        streakApi.getDays(wsStr, weStr),
-      ]);
-
-      setTodayWorkouts(todayRes.data || []);
-      setDuoStats(duoRes.data);
-      setPartner(partnerRes.data);
-      setPartnerRequests(requestsRes.data || []);
-      setCalendarDayMap(calendarDaysToMap(calRes.data?.days || []));
-      setStreakDays(streakRes.data || []);
-    } catch (error) {
-      console.error('Failed to load home data:', error);
-    } finally {
-      setLoading(false);
+  const scheduleNonBlocking = (fn) => {
+    if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+      window.requestIdleCallback(fn, { timeout: 1200 });
+    } else {
+      setTimeout(fn, 0);
     }
   };
+
+  const loadData = useCallback(() => {
+    const reqId = ++reqIdRef.current;
+    const isActive = () => reqIdRef.current === reqId;
+
+    const weekStartDate = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weekEndDate = addDays(weekStartDate, 6);
+    const wsStr = format(weekStartDate, 'yyyy-MM-dd');
+    const weStr = format(weekEndDate, 'yyyy-MM-dd');
+    weekRangeRef.current = { start: wsStr, end: weStr };
+
+    setTodayLoading(true);
+    setWeekLoading(true);
+    setSidebarLoading(true);
+    setStreakDays([]);
+    setStreakDaysLoading(false);
+    streakDaysRangeRef.current = { start: null, end: null, loaded: false };
+
+    workoutsApi
+      .getToday()
+      .then((todayRes) => {
+        if (!isActive()) return;
+        setTodayWorkouts(todayRes.data || []);
+      })
+      .catch((error) => {
+        console.error('Failed to load today workouts:', error);
+      })
+      .finally(() => {
+        if (!isActive()) return;
+        setTodayLoading(false);
+      });
+
+    streakApi
+      .getCalendar(wsStr, weStr)
+      .then((calRes) => {
+        if (!isActive()) return;
+        setCalendarDayMap(calendarDaysToMap(calRes.data?.days || []));
+      })
+      .catch((error) => {
+        console.error('Failed to load week agenda:', error);
+      })
+      .finally(() => {
+        if (!isActive()) return;
+        setWeekLoading(false);
+      });
+
+    // Sections secondaires : ne doivent pas bloquer l'affichage initial.
+    scheduleNonBlocking(async () => {
+      try {
+        const [duoRes, partnerRes, requestsRes] = await Promise.all([
+          duoApi.getStats(),
+          partnerApi.getInfo(),
+          partnerApi.getRequests(),
+        ]);
+        if (!isActive()) return;
+        setDuoStats(duoRes.data);
+        setPartner(partnerRes.data);
+        setPartnerRequests(requestsRes.data || []);
+      } catch (error) {
+        console.error('Failed to load home secondary data:', error);
+      } finally {
+        if (!isActive()) return;
+        setSidebarLoading(false);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+    loadData();
+  }, [loadData]);
+
+  const ensureStreakDaysLoaded = useCallback(async () => {
+    const { start, end } = weekRangeRef.current || {};
+    if (!start || !end) return;
+    if (
+      streakDaysRangeRef.current?.start === start &&
+      streakDaysRangeRef.current?.end === end &&
+      streakDaysRangeRef.current?.loaded
+    ) {
+      return;
+    }
+
+    setStreakDaysLoading(true);
+    try {
+      const streakRes = await streakApi.getDays(start, end);
+      setStreakDays(streakRes.data || []);
+      streakDaysRangeRef.current = { start, end, loaded: true };
+    } catch (error) {
+      console.error('Failed to load streak days:', error);
+    } finally {
+      setStreakDaysLoading(false);
+    }
+  }, []);
 
   const getGreeting = () => {
     const hour = new Date().getHours();
@@ -190,14 +262,6 @@ export function HomePage() {
     [partner, theme]
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
-      </div>
-    );
-  }
-
   return (
     <div data-testid="home-page" className="p-5 animate-fade-in">
       <div className="space-y-6">
@@ -255,7 +319,16 @@ export function HomePage() {
       <div className="mt-6 grid gap-6 lg:grid-cols-12">
         <div className="space-y-6 lg:col-span-7">
           {/* Next Workout Card */}
-          {primaryWorkoutAction ? (
+          {todayLoading ? (
+            <div className="card p-5 relative overflow-hidden">
+              <div className="space-y-3">
+                <div className="h-4 w-40 rounded bg-white/5 animate-pulse" />
+                <div className="h-7 w-64 rounded bg-white/5 animate-pulse" />
+                <div className="h-4 w-44 rounded bg-white/5 animate-pulse" />
+                <div className="h-14 w-full rounded-2xl bg-white/5 animate-pulse" />
+              </div>
+            </div>
+          ) : primaryWorkoutAction ? (
             <div
               data-testid="next-workout-card"
               className="card p-5 relative overflow-hidden"
@@ -323,18 +396,29 @@ export function HomePage() {
               </Link>
             </div>
 
-            <WeekAgendaStrip
-              key={`week-${myAccent}-${partnerAccent}`}
-              weekDays={weekDays}
-              dayMap={calendarDayMap}
-              myAccent={myAccent}
-              partnerAccent={partnerAccent}
-              isToday={isToday}
-              onDayClick={(day) => {
-                setSelectedDay(day);
-                setShowStreakModal(true);
-              }}
-            />
+            {weekLoading ? (
+              <div className="flex gap-1.5">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 min-w-0 h-[74px] rounded-2xl bg-white/5 animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : (
+              <WeekAgendaStrip
+                weekDays={weekDays}
+                dayMap={calendarDayMap}
+                myAccent={myAccent}
+                partnerAccent={partnerAccent}
+                isToday={isToday}
+                onDayClick={(day) => {
+                  ensureStreakDaysLoaded();
+                  setSelectedDay(day);
+                  setShowStreakModal(true);
+                }}
+              />
+            )}
           </div>
 
           {/* Today's workouts list */}
@@ -383,7 +467,18 @@ export function HomePage() {
 
         <div className="space-y-6 lg:col-span-5">
           {/* Duo Stats Card */}
-          {partner && duoStats && (
+          {sidebarLoading ? (
+            <div className="card p-5">
+              <div className="space-y-4">
+                <div className="h-5 w-52 rounded bg-white/5 animate-pulse" />
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="h-20 rounded-xl bg-white/5 animate-pulse col-span-3 sm:col-span-1" />
+                  <div className="h-20 rounded-xl bg-white/5 animate-pulse" />
+                  <div className="h-20 rounded-xl bg-white/5 animate-pulse" />
+                </div>
+              </div>
+            </div>
+          ) : partner && duoStats && (
             <div className="card p-5">
           <div className="flex items-center gap-3 mb-4">
             <div className="flex -space-x-3">
@@ -409,20 +504,16 @@ export function HomePage() {
 
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-3 rounded-xl bg-white/5 col-span-3 sm:col-span-1">
-              <div className="flex items-center justify-center gap-0.5 mb-1 flex-wrap">
-                {Array.from({ length: Math.min(duoStats.streak || 0, 7) }).map((_, i) => (
-                  <Flame
-                    key={i}
-                    size={duoStats.streak > 3 ? 18 : 16}
-                    className="text-orange-500 animate-pulse"
-                    style={{ animationDelay: `${i * 0.1}s` }}
-                    fill="currentColor"
-                  />
-                ))}
-                {(duoStats.streak || 0) === 0 && (
-                  <Flame className="text-zinc-600" size={16} />
-                )}
-                <span className="text-xl font-bold text-white ml-1">{duoStats.streak}</span>
+              <div className="flex items-center justify-center gap-1 mb-1">
+                <Flame
+                  size={18}
+                  className={(duoStats.streak || 0) > 0 ? 'text-orange-500' : 'text-zinc-600'}
+                  fill="currentColor"
+                />
+                <span className="text-orange-300/80 text-sm font-semibold">×</span>
+                <span className="text-xl font-bold text-white tabular-nums">
+                  {duoStats.streak || 0}
+                </span>
               </div>
               <p className="text-zinc-500 text-xs">Streak</p>
             </div>
@@ -462,6 +553,11 @@ export function HomePage() {
             </DialogTitle>
             <p className="text-zinc-500 text-sm text-center">Gérer le jour pour la streak</p>
           </DialogHeader>
+          {streakDaysLoading && (
+            <div className="flex items-center justify-center py-2 text-zinc-500 text-xs">
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Chargement…
+            </div>
+          )}
           {selectedDay && (() => {
             const dayType = getStreakDayType(selectedDay);
             const dayStr = format(selectedDay, 'yyyy-MM-dd');

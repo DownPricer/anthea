@@ -345,12 +345,18 @@ async def get_current_user(request: Request) -> dict:
 def normalize_accent_color(value: Optional[str]) -> Optional[str]:
     if not value or not str(value).strip():
         return None
-    color = str(value).strip()
-    if not color.startswith("#"):
-        color = f"#{color}"
-    if len(color) == 4:
-        color = "#" + "".join(c * 2 for c in color[1:])
-    return color.upper() if len(color) == 7 else color
+    raw = str(value).strip()
+    if raw.startswith("#"):
+        raw = raw[1:]
+    if len(raw) == 3:
+        raw = "".join(c * 2 for c in raw)
+    if len(raw) != 6:
+        return None
+    try:
+        int(raw, 16)
+    except ValueError:
+        return None
+    return f"#{raw.upper()}"
 
 def duo_pair_key(user_id_a: str, user_id_b: str) -> str:
     return "_".join(sorted([user_id_a, user_id_b]))
@@ -561,7 +567,11 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
         if key == "accent_color" and (value is None or value == ""):
             unset_data["accent_color"] = ""
         elif key == "accent_color" and value is not None:
-            set_data[key] = normalize_accent_color(value)
+            normalized = normalize_accent_color(value)
+            if normalized:
+                set_data[key] = normalized
+            else:
+                unset_data["accent_color"] = ""
         elif key == "spotify_playlist_url" and (value is None or value == ""):
             unset_data["spotify_playlist_url"] = ""
         elif value is not None:

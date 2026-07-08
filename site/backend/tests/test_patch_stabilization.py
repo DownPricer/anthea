@@ -21,12 +21,18 @@ def estimate_calories(total_time_seconds, difficulty=None):
 def normalize_accent_color(value):
     if not value or not str(value).strip():
         return None
-    color = str(value).strip()
-    if not color.startswith("#"):
-        color = f"#{color}"
-    if len(color) == 4:
-        color = "#" + "".join(c * 2 for c in color[1:])
-    return color.upper() if len(color) == 7 else color
+    raw = str(value).strip()
+    if raw.startswith("#"):
+        raw = raw[1:]
+    if len(raw) == 3:
+        raw = "".join(c * 2 for c in raw)
+    if len(raw) != 6:
+        return None
+    try:
+        int(raw, 16)
+    except ValueError:
+        return None
+    return f"#{raw.upper()}"
 
 
 def is_active_live_phase(phase):
@@ -48,6 +54,8 @@ def test_normalize_accent_color():
     assert normalize_accent_color("06B6D4") == "#06B6D4"
     assert normalize_accent_color("#abc") == "#AABBCC"
     assert normalize_accent_color("") is None
+    assert normalize_accent_color("not-a-color") is None
+    assert normalize_accent_color("#12") is None
 
 
 def test_live_phase_gate():

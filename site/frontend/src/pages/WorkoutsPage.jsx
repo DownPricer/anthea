@@ -398,7 +398,6 @@ export function WorkoutsPage() {
                   </div>
                 ) : (
                   <AgendaCalendar
-                    key={`agenda-${myAccent}-${partnerAccent}`}
                     month={currentMonth}
                     selected={selectedDate}
                     onSelect={setSelectedDate}

@@ -877,13 +877,13 @@ export function WorkoutPlayerPage() {
 
   // Main player UI
   return (
-    <div className="min-h-screen bg-[#0A0A0A]">
+    <div className="min-h-[100dvh] bg-[#0A0A0A]">
       <div
-        className={`min-h-screen flex flex-col transition-shadow ${
+        className={`min-h-[100dvh] flex flex-col transition-shadow ${
           duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
         }`}
       >
-        <div className="w-full max-w-6xl mx-auto min-h-screen flex flex-col">
+        <div className="w-full max-w-6xl mx-auto min-h-[100dvh] flex flex-col">
       {/* Stop Modal */}
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
         <DialogContent className="bg-[#141414] border-white/10 max-w-sm mx-4">
@@ -963,7 +963,7 @@ export function WorkoutPlayerPage() {
             <p className="text-[10px] text-zinc-600 mt-0.5">Veille non bloquée</p>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-1 shrink-0 rounded-xl border border-white/10 bg-white/5 p-1">
           <button
             type="button"
             onClick={handleOpenMusic}
@@ -1006,9 +1006,9 @@ export function WorkoutPlayerPage() {
 
       {/* Main content */}
       <div className="flex-1 w-full px-5 pb-6 md:px-8">
-        <div className="h-full md:grid md:grid-cols-12 md:gap-6">
-          <div className="md:col-span-8 flex flex-col">
-            <div className="flex-1 flex flex-col items-center justify-center py-6">
+        <div className="h-full md:grid md:grid-cols-[minmax(0,1fr)_340px] md:gap-6">
+          <div className="flex flex-col">
+            <div className="flex-1 w-full max-w-2xl mx-auto flex flex-col items-center justify-center py-6">
         {/* Exercise image/GIF */}
         {currentExercise?.image_url && phase === 'exercise' && (
           <div className="w-full max-w-xs md:max-w-md h-40 md:h-56 rounded-2xl overflow-hidden mb-6 bg-white/5">
@@ -1060,7 +1060,7 @@ export function WorkoutPlayerPage() {
         {/* Chrono (durée / repos) ou objectif reps sans chrono */}
         {phase === 'countdown' && (
           <div
-            className="mb-4 text-8xl font-mono font-bold tracking-tighter animate-pulse text-yellow-500"
+            className="mb-4 text-6xl sm:text-7xl md:text-8xl font-mono font-bold tracking-tighter animate-pulse text-yellow-500"
             style={{ textShadow: undefined }}
           >
             {timeRemaining}
@@ -1068,7 +1068,7 @@ export function WorkoutPlayerPage() {
         )}
         {phase === 'rest' && (
           <div
-            className="mb-4 text-8xl font-mono font-bold tracking-tighter text-white"
+            className="mb-4 text-6xl sm:text-7xl md:text-8xl font-mono font-bold tracking-tighter text-white"
             style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
           >
             {formatTime(timeRemaining)}
@@ -1076,7 +1076,7 @@ export function WorkoutPlayerPage() {
         )}
         {phase === 'exercise' && currentExercise?.exercise_type === 'duration' && (
           <div
-            className="mb-4 text-8xl font-mono font-bold tracking-tighter text-white"
+            className="mb-4 text-6xl sm:text-7xl md:text-8xl font-mono font-bold tracking-tighter text-white"
             style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
           >
             {formatTime(timeRemaining)}
@@ -1085,7 +1085,7 @@ export function WorkoutPlayerPage() {
         {phase === 'exercise' && currentExercise?.exercise_type !== 'duration' && (
           <div className="mb-2 text-center">
             <div
-              className="text-8xl font-bold leading-none text-white font-['Outfit']"
+              className="text-7xl sm:text-8xl font-bold leading-none text-white font-['Outfit']"
               style={{ textShadow: '0 0 28px var(--theme-primary-glow)' }}
             >
               {currentExercise.reps ?? '—'}
@@ -1105,7 +1105,7 @@ export function WorkoutPlayerPage() {
             </div>
 
             {/* Controls */}
-            <div className="space-y-4 pb-2">
+            <div className="space-y-4 pb-2 w-full max-w-2xl mx-auto">
         {phase === 'exercise' && currentExercise && (
           <Button
             type="button"
@@ -1182,7 +1182,7 @@ export function WorkoutPlayerPage() {
             </div>
           </div>
 
-          <aside className="hidden md:block md:col-span-4 pt-6">
+          <aside className="hidden md:block pt-6">
             <div className="space-y-4 sticky top-6">
               {getNextExercise() && (
                 <div className="card p-4">
