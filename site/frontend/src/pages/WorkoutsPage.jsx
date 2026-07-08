@@ -74,8 +74,13 @@ export function WorkoutsPage() {
   const { liveSession } = usePartnerLiveSession(!!partner);
   const { accent: myAccent } = useUserAccent();
   const partnerAccent = useMemo(
-    () => (partner ? getAccentForUser(partner, theme) : '#10B981'),
-    [partner?.accent_color, partner?.id, theme]
+    () => {
+      if (!partner) return 'var(--theme-secondary)';
+      return partner.accent_color
+        ? getAccentForUser({ accent_color: partner.accent_color }, theme)
+        : 'var(--theme-secondary)';
+    },
+    [partner, theme]
   );
 
   useEffect(() => {
@@ -473,12 +478,10 @@ function SelectedDaySummary({ state, myAccent }) {
     if (state.my_completed) labels.push('Toi ✓');
     if (state.partner_completed) labels.push('Partenaire ✓');
   }
-  if (state.partner_missed) labels.push('Partenaire : non fait');
-  if (state.my_missed) labels.push('Toi : non fait');
-  if (state.rest) labels.push('Repos (streak préservée)');
-  if (state.in_streak) labels.push('Dans la streak');
+  if (state.rest) labels.push('Repos');
+  if (labels.length === 0 && state.has_planned) labels.push('Prévu');
 
-  if (labels.length === 0 && !state.has_planned) return null;
+  if (labels.length === 0) return null;
 
   return (
     <div

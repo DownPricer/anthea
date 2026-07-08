@@ -175,7 +175,7 @@ function AgendaDayContent({ date, state }) {
 
 function AgendaLegend({ myAccent, partnerAccent }) {
   return (
-    <div className="mt-4 pt-4 border-t border-white/10 grid grid-cols-2 gap-2 text-[10px] text-zinc-500">
+    <div className="mt-4 pt-4 border-t border-white/10 flex flex-wrap gap-x-4 gap-y-2 text-[10px] text-zinc-500">
       <span className="flex items-center gap-1.5">
         <span className="w-3 h-3 rounded-full" style={{ background: myAccent }} /> Moi
       </span>
@@ -183,19 +183,10 @@ function AgendaLegend({ myAccent, partnerAccent }) {
         <span className="w-3 h-3 rounded-full" style={{ background: partnerAccent }} /> Partenaire
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="w-3 h-3 rounded-md agenda-legend-duo-swatch" /> Duo (contour doré)
+        <span className="w-3 h-3 rounded-md agenda-legend-duo-swatch" /> Duo
       </span>
       <span className="flex items-center gap-1.5">
-        <span className="relative w-3 h-3 rounded-full bg-[#141414] ring-1 ring-red-500/30">
-          <X size={7} className="absolute inset-0 m-auto text-red-400" />
-        </span>
-        Non fait (autre)
-      </span>
-      <span className="flex items-center gap-1.5">
-        <Flame size={10} className="text-orange-400/80" fill="currentColor" /> Streak
-      </span>
-      <span className="flex items-center gap-1.5">
-        <BedDouble size={10} className="text-blue-400/80" /> Repos OK
+        <BedDouble size={10} className="text-blue-400/80" /> Repos
       </span>
     </div>
   );

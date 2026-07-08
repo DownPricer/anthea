@@ -1,6 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Dumbbell, Plus, Heart, User } from 'lucide-react';
-import { useTheme } from '../../context/ThemeContext';
 
 const navItems = [
   { path: '/', icon: Home, label: 'Accueil' },
@@ -12,7 +11,6 @@ const navItems = [
 
 export function BottomNav() {
   const location = useLocation();
-  const { theme } = useTheme();
 
   // Don't show nav on auth pages or workout player
   if (
@@ -26,7 +24,7 @@ export function BottomNav() {
   return (
     <nav
       data-testid="bottom-nav"
-      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md h-20 bg-[#0A0A0A]/80 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center z-50 safe-bottom"
+      className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full h-20 bg-[#0A0A0A]/80 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center z-50 safe-bottom max-w-md sm:max-w-lg md:max-w-3xl lg:max-w-4xl xl:max-w-5xl"
     >
       {navItems.map((item) => {
         const Icon = item.icon;

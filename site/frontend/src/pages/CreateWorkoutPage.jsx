@@ -120,6 +120,7 @@ export function CreateWorkoutPage() {
   
   const [exercises, setExercises] = useState([]);
   const [templates, setTemplates] = useState([]);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [templatePendingDelete, setTemplatePendingDelete] = useState(null);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [exerciseLibraryLoading, setExerciseLibraryLoading] = useState(false);
@@ -663,6 +664,7 @@ export function CreateWorkoutPage() {
               onClick={() => handleSave(true)}
               disabled={saving}
               className="text-white border-white/10"
+              title="Sauvegarder en brouillon"
             >
               <Save size={16} />
             </Button>
@@ -673,7 +675,19 @@ export function CreateWorkoutPage() {
       <div className="p-5 space-y-6">
         {/* Modèles — liste + actions claires */}
         <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
-          <Label className="mb-3 block text-sm font-medium text-zinc-300">Modèles enregistrés</Label>
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <Label className="block text-sm font-medium text-zinc-300">Modèles enregistrés</Label>
+            {templates.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setTemplatesOpen((v) => !v)}
+                className="text-xs font-medium text-[var(--theme-primary)] hover:opacity-90 flex items-center gap-1"
+              >
+                {templatesOpen ? 'Masquer' : 'Voir'} ({templates.length})
+                {templatesOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
+            )}
+          </div>
           {templates.length > 0 && (
             <Select
               onValueChange={(id) => {
@@ -695,21 +709,20 @@ export function CreateWorkoutPage() {
           )}
           {templates.length === 0 ? (
             <p className="text-sm text-zinc-500">
-              Aucun modèle pour l’instant. Remplis ta séance puis touche « Modèle » en bas pour en
-              enregistrer un.
+              Aucun modèle pour l’instant. Remplis ta séance puis sauvegarde-la comme modèle.
             </p>
-          ) : (
-            <ul className="space-y-2">
+          ) : templatesOpen ? (
+            <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {templates.map((template) => (
                 <li
                   key={template.id}
-                  className="flex items-center gap-2 rounded-lg border border-white/5 bg-[#0A0A0A] p-3"
+                  className="flex items-center gap-2 rounded-xl border border-white/5 bg-[#0A0A0A] p-3"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="truncate font-medium text-white">{template.title}</p>
                       {template.is_system && (
-                        <span className="shrink-0 rounded-md bg-[var(--theme-primary)]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--theme-primary)]">
+                        <span className="shrink-0 rounded-full bg-[var(--theme-primary)]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--theme-primary)]">
                           Anthea
                         </span>
                       )}
@@ -742,7 +755,7 @@ export function CreateWorkoutPage() {
                 </li>
               ))}
             </ul>
-          )}
+          ) : null}
         </div>
 
         {/* Basic Info */}
@@ -1492,7 +1505,9 @@ export function CreateWorkoutPage() {
               disabled={saving}
               className="flex-1 h-12 rounded-2xl bg-white/5 border-white/10 text-white"
             >
-              <Copy size={18} className="mr-2" /> Modèle
+              <Copy size={18} className="mr-2" />
+              <span className="sm:hidden">Comme modèle</span>
+              <span className="hidden sm:inline">Sauvegarder comme modèle</span>
             </Button>
           </div>
         </div>

@@ -53,6 +53,8 @@ export function WorkoutPlayerPage() {
   const [totalTime, setTotalTime] = useState(0);
   const [pauseTime, setPauseTime] = useState(0);
   const [exercisesCompleted, setExercisesCompleted] = useState(0);
+  // Par exercice: 'completed' | 'skipped' (absence = non fait / pas atteint)
+  const [exerciseOutcomes, setExerciseOutcomes] = useState({});
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [musicMode, setMusicMode] = useState(false);
   const [partnerLive, setPartnerLive] = useState(null);
@@ -94,6 +96,8 @@ export function WorkoutPlayerPage() {
   const currentExercise = allExercises[currentExerciseIndex];
   const totalExercises = allExercises.length;
   const progress = totalExercises > 0 ? ((exercisesCompleted / totalExercises) * 100) : 0;
+  const completedCount = Object.values(exerciseOutcomes).filter((v) => v === 'completed').length;
+  const skippedCount = Object.values(exerciseOutcomes).filter((v) => v === 'skipped').length;
 
   const isLongMessage = (text) => (text || '').length > 12 || (text || '').includes(' ');
 
@@ -145,6 +149,16 @@ export function WorkoutPlayerPage() {
       setWorkout(workoutRes.data);
       setTtsEnabled(user?.tts_enabled !== false);
       setMusicMode(!!user?.music_mode);
+      // Reset état du player quand on charge une nouvelle séance
+      setPhase('preparation');
+      setCurrentBlockIndex(0);
+      setCurrentExerciseIndex(0);
+      setTimeRemaining(5);
+      setIsPaused(false);
+      setTotalTime(0);
+      setPauseTime(0);
+      setExercisesCompleted(0);
+      setExerciseOutcomes({});
       
       if (progressRes.data) {
         setSavedProgress(progressRes.data);
@@ -258,20 +272,31 @@ export function WorkoutPlayerPage() {
     }
   };
 
+  const markOutcome = (index, outcome) => {
+    setExerciseOutcomes((prev) => ({ ...prev, [index]: outcome }));
+  };
+
+  const completeCurrentExercise = () => {
+    if (phase !== 'exercise' || !currentExercise) return;
+    markOutcome(currentExerciseIndex, 'completed');
+    finishExercisePhase();
+  };
+
+  const skipCurrentExercise = () => {
+    if (!currentExercise) return;
+    if (phase !== 'exercise' && phase !== 'countdown') return;
+    markOutcome(currentExerciseIndex, 'skipped');
+    skipExercise();
+  };
+
   const handleTimerComplete = () => {
     if (phase === 'countdown') {
       startExercise();
     } else if (phase === 'exercise' && currentExercise?.exercise_type === 'duration') {
-      finishExercisePhase();
+      completeCurrentExercise();
     } else if (phase === 'rest') {
       moveToNextExercise();
     }
-  };
-
-  const completeRepExercise = () => {
-    if (phase !== 'exercise') return;
-    if (currentExercise?.exercise_type === 'duration') return;
-    finishExercisePhase();
   };
 
   const startWorkout = () => {
@@ -479,20 +504,27 @@ export function WorkoutPlayerPage() {
       // Clear any saved progress
       await workoutsApi.clearProgress(workoutId).catch(() => {});
       
-      const exerciseLog = allExercises.slice(0, exercisesCompleted).map((ex) => ({
-        name: ex.name,
-        exercise_type: ex.exercise_type,
-        reps: ex.reps,
-        duration: ex.duration,
-        block_type: ex.blockType,
-        completed: true,
-      }));
+      const exerciseLog = allExercises.map((ex, idx) => {
+        const outcome = exerciseOutcomes[idx];
+        const derived =
+          outcome || (idx < exercisesCompleted ? 'completed' : 'not_done');
+        return {
+          name: ex.name,
+          exercise_type: ex.exercise_type,
+          reps: ex.reps,
+          duration: ex.duration,
+          block_type: ex.blockType,
+          status: derived, // 'completed' | 'skipped' | 'not_done'
+          completed: derived === 'completed',
+          skipped: derived === 'skipped',
+        };
+      });
 
       await sessionsApi.create({
         workout_id: workoutId,
         total_time: totalTime,
         pause_time: pauseTime,
-        exercises_completed: exercisesCompleted,
+        exercises_completed: completedCount,
         exercises_total: totalExercises,
         status,
         fatigue_before: fatigueBefore,
@@ -660,8 +692,10 @@ export function WorkoutPlayerPage() {
               <p className="text-zinc-500 text-xs mt-1">Temps total</p>
             </div>
             <div className="card p-4 text-center">
-              <p className="text-2xl font-bold text-white">{exercisesCompleted}</p>
-              <p className="text-zinc-500 text-xs mt-1">Exercices</p>
+              <p className="text-2xl font-bold text-white">{completedCount}</p>
+              <p className="text-zinc-500 text-xs mt-1">
+                Exercices faits{skippedCount > 0 ? ` • ${skippedCount} sautés` : ''}
+              </p>
             </div>
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-white font-mono">{formatTime(pauseTime)}</p>
@@ -844,17 +878,21 @@ export function WorkoutPlayerPage() {
   // Main player UI
   return (
     <div
-      className={`min-h-screen bg-[#0A0A0A] flex flex-col transition-shadow ${
-        duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
-      }`}
+      className="min-h-screen bg-[#0A0A0A]"
     >
+      <div
+        className={`mx-auto w-full min-h-screen flex flex-col transition-shadow max-w-md sm:max-w-lg md:max-w-3xl lg:max-w-4xl xl:max-w-5xl ${
+          duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
+        }`}
+      >
       {/* Stop Modal */}
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
         <DialogContent className="bg-[#141414] border-white/10 max-w-sm mx-4">
           <DialogHeader>
             <DialogTitle className="text-white text-center">Arrêter la séance ?</DialogTitle>
             <DialogDescription className="text-zinc-400 text-center pt-2">
-              Tu as complété {exercisesCompleted}/{totalExercises} exercices ({formatTime(totalTime)})
+              Tu as fait {completedCount}/{totalExercises} exercices
+              {skippedCount > 0 ? ` • ${skippedCount} sauté(s)` : ''} ({formatTime(totalTime)})
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-4">
@@ -915,7 +953,7 @@ export function WorkoutPlayerPage() {
         <div className="text-center flex-1 min-w-0">
           <p className="text-zinc-500 text-sm truncate">{workout?.title}</p>
           <p className="text-white text-xs">
-            {exercisesCompleted + 1}/{totalExercises}
+            {Math.min(currentExerciseIndex + 1, totalExercises)}/{totalExercises}
           </p>
           {wakeLockSupported && wakeLockActive && (
             <p className="text-[10px] text-zinc-500 flex items-center justify-center gap-1 mt-0.5">
@@ -1066,13 +1104,13 @@ export function WorkoutPlayerPage() {
 
       {/* Controls */}
       <div className="p-5 space-y-4">
-        {phase === 'exercise' && currentExercise?.exercise_type !== 'duration' && (
+        {phase === 'exercise' && currentExercise && (
           <Button
             type="button"
-            onClick={completeRepExercise}
+            onClick={completeCurrentExercise}
             className="mx-auto block h-14 w-full max-w-sm rounded-xl text-base font-bold text-white btn-primary"
           >
-            J&apos;ai terminé la série
+            J&apos;ai fini cet exercice
           </Button>
         )}
 
@@ -1111,11 +1149,12 @@ export function WorkoutPlayerPage() {
           <div className="flex h-[4.5rem] items-center justify-center">
             <button
               type="button"
-              onClick={skipExercise}
+              onClick={skipCurrentExercise}
+              title="Passer cet exercice"
               className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
             >
               <SkipForward size={20} className="text-white" />
-              <span className="absolute -bottom-5 text-[10px] text-zinc-400">Passer</span>
+              <span className="absolute -bottom-5 text-[10px] text-zinc-400">Sauter</span>
             </button>
           </div>
         </div>
@@ -1138,6 +1177,7 @@ export function WorkoutPlayerPage() {
           {pauseTime > 0 && ` • Pause: ${formatTime(pauseTime)}`}
         </div>
         {timeAdjustDialog}
+      </div>
       </div>
     </div>
   );

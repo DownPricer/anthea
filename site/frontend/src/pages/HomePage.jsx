@@ -181,8 +181,13 @@ export function HomePage() {
 
   const { accent: myAccent } = useUserAccent();
   const partnerAccent = useMemo(
-    () => (partner ? getAccentForUser(partner, theme) : '#10B981'),
-    [partner?.accent_color, partner?.id, theme]
+    () => {
+      if (!partner) return 'var(--theme-secondary)';
+      return partner.accent_color
+        ? getAccentForUser({ accent_color: partner.accent_color }, theme)
+        : 'var(--theme-secondary)';
+    },
+    [partner, theme]
   );
 
   if (loading) {

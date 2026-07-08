@@ -80,6 +80,8 @@ export function DuoPage() {
   const [exemptWho, setExemptWho] = useState('partner'); // 'me' | 'partner'
   const [historySessions, setHistorySessions] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
+  // Historique doit s'ouvrir sur "Moi" par défaut (indépendant des Stats)
+  const [historyTarget, setHistoryTarget] = useState('me'); // 'me' | 'partner'
   const [historyFilter, setHistoryFilter] = useState('all');
   const [exporting, setExporting] = useState(false);
   const [exportPeriod, setExportPeriod] = useState('30d');
@@ -100,12 +102,12 @@ export function DuoPage() {
     if (activeTab === 'history' && partner) {
       loadHistory();
     }
-  }, [activeTab, statsPeriod, statsTarget, partner, historyFilter]);
+  }, [activeTab, statsPeriod, statsTarget, partner, historyFilter, historyTarget]);
 
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const params = { limit: 100, target_user: statsTarget === 'me' ? user.id : partner?.id };
+      const params = { limit: 100, target_user: historyTarget === 'me' ? user.id : partner?.id };
       if (historyFilter !== 'all') params.status = historyFilter;
       const { data } = await sessionsApi.getHistory(params);
       setHistorySessions(data || []);
@@ -119,7 +121,7 @@ export function DuoPage() {
   const handleExport = async (exportFormat = 'csv') => {
     setExporting(true);
     try {
-      const targetUser = statsTarget === 'me' ? user.id : partner?.id;
+      const targetUser = historyTarget === 'me' ? user.id : partner?.id;
       const params = {
         target_user: targetUser,
         period: exportPeriod,
@@ -619,7 +621,7 @@ export function DuoPage() {
         {/* History Tab */}
         <TabsContent value="history" className="space-y-4">
           <div className="flex gap-2 flex-wrap items-center">
-            <Select value={statsTarget} onValueChange={setStatsTarget}>
+            <Select value={historyTarget} onValueChange={setHistoryTarget}>
               <SelectTrigger className="w-[130px] h-9 rounded-full bg-[#141414] border-white/10 text-white text-sm">
                 <SelectValue />
               </SelectTrigger>
@@ -708,7 +710,7 @@ export function DuoPage() {
             <div className="space-y-2">
               {historySessions
                 .filter((s) => {
-                  if (statsTarget === 'me') return s.user_id === user?.id;
+                  if (historyTarget === 'me') return s.user_id === user?.id;
                   return s.user_id === partner?.id;
                 })
                 .map((session) => (
