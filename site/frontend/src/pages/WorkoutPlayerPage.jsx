@@ -18,9 +18,15 @@ import {
   DialogDescription,
 } from '../components/ui/dialog';
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu';
+import {
   Play,
   Pause,
-  SkipForward,
   Plus,
   X,
   Volume2,
@@ -29,12 +35,10 @@ import {
   RotateCcw,
   Trophy,
   Loader2,
-  ChevronRight,
-  Clock,
   Save,
   Music,
-  Sun,
   Radio,
+  MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -661,6 +665,25 @@ export function WorkoutPlayerPage() {
     return allExercises[currentExerciseIndex + 1];
   };
 
+  const nextExercise = getNextExercise();
+
+  const getPhaseLabel = () => {
+    if (phase === 'countdown') return 'Prépare-toi';
+    if (phase === 'rest') return 'Repos';
+    if (phase === 'exercise' && currentExercise) {
+      if (currentExercise.blockType === 'warmup') return 'Échauffement';
+      if (currentExercise.blockType === 'cooldown') return 'Récupération';
+      if (currentExercise.exercise_type === 'duration') return 'Chrono';
+      return 'Série';
+    }
+    return null;
+  };
+
+  const phaseLabel = getPhaseLabel();
+  const showAddTime =
+    phase === 'rest' ||
+    (phase === 'exercise' && currentExercise?.exercise_type === 'duration');
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]">
@@ -875,16 +898,39 @@ export function WorkoutPlayerPage() {
 
   const partnerName = partnerLive?.display_name || partnerLive?.username;
 
+  const playerSidebar = (
+    <div className="space-y-4">
+      {nextExercise && (
+        <div className="card p-4">
+          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Suivant</p>
+          <p className="text-white font-semibold">{nextExercise.name}</p>
+        </div>
+      )}
+      {duoLive && (
+        <div className="card p-4">
+          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Duo</p>
+          <p className="text-white text-sm">
+            En direct avec <span className="text-amber-300">{partnerName}</span>
+          </p>
+          <button
+            type="button"
+            onClick={() => setLiveChatOpen(true)}
+            className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm py-2"
+          >
+            Ouvrir le chat
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
   // Main player UI
   return (
-    <div className="min-h-[100dvh] bg-[#0A0A0A]">
-      <div
-        className={`min-h-[100dvh] flex flex-col transition-shadow ${
-          duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
-        }`}
-      >
-        <div className="w-full max-w-6xl mx-auto min-h-[100dvh] flex flex-col">
-      {/* Stop Modal */}
+    <div
+      className={`min-h-[100dvh] bg-[#0A0A0A] flex flex-col transition-shadow ${
+        duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
+      }`}
+    >
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
         <DialogContent className="bg-[#141414] border-white/10 max-w-sm mx-4">
           <DialogHeader>
@@ -920,8 +966,7 @@ export function WorkoutPlayerPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Progress bar */}
-      <div className="h-1 bg-[#141414]">
+      <div className="h-1 bg-[#141414] shrink-0">
         <div
           className={`h-full transition-all duration-300 ${duoLive ? 'bg-amber-400' : 'bg-[var(--theme-primary)]'}`}
           style={{ width: `${progress}%` }}
@@ -929,73 +974,86 @@ export function WorkoutPlayerPage() {
       </div>
 
       {duoLive && (
-        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center">
+        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center shrink-0">
           <p className="text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5">
             <Radio size={12} className="animate-pulse" />
             Séance en direct avec {partnerName}
           </p>
-          <p className="text-amber-400/70 text-[10px] mt-0.5">
-            Votre partenaire a lancé une séance en même temps que toi
-          </p>
         </div>
       )}
 
-      {/* Header */}
-      <div className="p-4 flex items-center justify-between gap-2">
+      <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-white/5 px-4">
         <button
+          type="button"
           onClick={handleStopClick}
           data-testid="stop-workout-btn"
-          className="p-2 hover:bg-white/10 rounded-lg transition-colors shrink-0"
+          className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+          aria-label="Arrêter la séance"
         >
-          <X size={24} className="text-white" />
+          <X size={22} />
         </button>
-        <div className="text-center flex-1 min-w-0">
-          <p className="text-zinc-500 text-sm truncate">{workout?.title}</p>
-          <p className="text-white text-xs">
+
+        <div className="min-w-0 max-w-[55%] text-center">
+          <p className="truncate text-sm text-zinc-400">{workout?.title}</p>
+          <p className="text-xs text-zinc-500 tabular-nums">
             {Math.min(currentExerciseIndex + 1, totalExercises)}/{totalExercises}
           </p>
-          {wakeLockSupported && wakeLockActive && (
-            <p className="text-[10px] text-zinc-500 flex items-center justify-center gap-1 mt-0.5">
-              <Sun size={10} className="text-yellow-500/80" /> Écran gardé allumé
-            </p>
-          )}
-          {wakeLockSupported && wakeLockError && !wakeLockActive && sessionIsActive && (
-            <p className="text-[10px] text-zinc-600 mt-0.5">Veille non bloquée</p>
-          )}
         </div>
-        <div className="flex items-center gap-1 shrink-0 rounded-xl border border-white/10 bg-white/5 p-1">
-          <button
-            type="button"
-            onClick={handleOpenMusic}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-            title="Ouvrir Spotify"
-          >
-            <Music size={22} className={musicMode ? 'text-green-400' : 'text-white'} />
-          </button>
-          <button
-            type="button"
-            onClick={() => setMusicMode(!musicMode)}
-            className={`px-2 py-1 rounded-lg text-[10px] font-medium transition-colors ${
-              musicMode ? 'bg-green-500/20 text-green-400' : 'bg-white/5 text-zinc-400'
-            }`}
-          >
-            {musicMode ? 'Musique' : 'TTS'}
-          </button>
-          <button
-            onClick={() => setTtsEnabled(!ttsEnabled)}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-          >
-            {ttsEnabled && !musicMode ? (
-              <Volume2 size={22} className="text-white" />
-            ) : (
-              <VolumeX size={22} className="text-zinc-500" />
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="absolute right-4 flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              <MoreHorizontal size={16} />
+              <span className="hidden sm:inline">Options</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="bg-[#141414] border-white/10 w-52">
+            <DropdownMenuItem
+              onClick={handleOpenMusic}
+              className="text-white focus:bg-white/10 cursor-pointer"
+            >
+              <Music size={16} className="mr-2" />
+              Ouvrir Spotify
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setMusicMode(!musicMode)}
+              className="text-white focus:bg-white/10 cursor-pointer"
+            >
+              <Music size={16} className="mr-2" />
+              {musicMode ? 'Désactiver mode musique' : 'Activer mode musique'}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => setTtsEnabled(!ttsEnabled)}
+              className="text-white focus:bg-white/10 cursor-pointer"
+            >
+              {ttsEnabled && !musicMode ? (
+                <Volume2 size={16} className="mr-2" />
+              ) : (
+                <VolumeX size={16} className="mr-2" />
+              )}
+              {ttsEnabled ? 'Couper les annonces' : 'Activer les annonces'}
+            </DropdownMenuItem>
+            {wakeLockSupported && (
+              <>
+                <DropdownMenuSeparator className="bg-white/10" />
+                <DropdownMenuItem disabled className="text-zinc-500 text-xs">
+                  {wakeLockActive
+                    ? 'Écran gardé allumé'
+                    : wakeLockError && sessionIsActive
+                      ? 'Veille non bloquée'
+                      : 'Veille automatique active'}
+                </DropdownMenuItem>
+              </>
             )}
-          </button>
-        </div>
-      </div>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </header>
 
       {duoLive && (
-        <div className="px-4 pb-2">
+        <div className="shrink-0 px-4 py-2 xl:hidden">
           <LiveWorkoutChat
             partnerName={partnerName}
             open={liveChatOpen}
@@ -1004,214 +1062,174 @@ export function WorkoutPlayerPage() {
         </div>
       )}
 
-      {/* Main content */}
-      <div className="flex-1 w-full px-5 pb-6 md:px-8">
-        <div className="h-full md:grid md:grid-cols-[minmax(0,1fr)_340px] md:gap-6">
-          <div className="flex flex-col">
-            <div className="flex-1 w-full max-w-2xl mx-auto flex flex-col items-center justify-center py-6">
-        {/* Exercise image/GIF */}
-        {currentExercise?.image_url && phase === 'exercise' && (
-          <div className="w-full max-w-xs md:max-w-md h-40 md:h-56 rounded-2xl overflow-hidden mb-6 bg-white/5">
-            <img
-              src={currentExercise.image_url}
-              alt={currentExercise.name}
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                e.target.parentElement.style.display = 'none';
-              }}
-            />
-          </div>
-        )}
-
-        {/* Phase indicator */}
-        <div className="mb-4">
-          {phase === 'countdown' && (
-            <span className="px-4 py-1 rounded-full bg-yellow-500/20 text-yellow-500 text-sm">
-              Prépare-toi
-            </span>
-          )}
-          {phase === 'exercise' && (
-            <span className="px-4 py-1 rounded-full bg-[var(--theme-surface-active)] text-[var(--theme-primary)] text-sm uppercase tracking-wider">
-              {currentExercise?.blockType === 'warmup'
-                ? 'Échauffement'
-                : currentExercise?.blockType === 'cooldown'
-                  ? 'Récupération'
-                  : currentExercise?.exercise_type === 'duration'
-                    ? 'Chrono'
-                    : 'Série'}
-            </span>
-          )}
-          {phase === 'rest' && (
-            <span className="px-4 py-1 rounded-full bg-green-500/20 text-green-500 text-sm">
-              Repos
-            </span>
-          )}
-        </div>
-
-        {phase === 'exercise' && currentExercise && (
-          <div className="mb-3 w-full max-w-2xl px-2 text-center">
-            <h2 className="text-2xl md:text-3xl font-bold text-white font-['Outfit']">{currentExercise.name}</h2>
-            {currentExercise.description && (
-              <p className="mt-1 text-sm text-zinc-500">{currentExercise.description}</p>
-            )}
-          </div>
-        )}
-
-        {/* Chrono (durée / repos) ou objectif reps sans chrono */}
-        {phase === 'countdown' && (
-          <div
-            className="mb-4 text-6xl sm:text-7xl md:text-8xl font-mono font-bold tracking-tighter animate-pulse text-yellow-500"
-            style={{ textShadow: undefined }}
-          >
-            {timeRemaining}
-          </div>
-        )}
-        {phase === 'rest' && (
-          <div
-            className="mb-4 text-6xl sm:text-7xl md:text-8xl font-mono font-bold tracking-tighter text-white"
-            style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
-          >
-            {formatTime(timeRemaining)}
-          </div>
-        )}
-        {phase === 'exercise' && currentExercise?.exercise_type === 'duration' && (
-          <div
-            className="mb-4 text-6xl sm:text-7xl md:text-8xl font-mono font-bold tracking-tighter text-white"
-            style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
-          >
-            {formatTime(timeRemaining)}
-          </div>
-        )}
-        {phase === 'exercise' && currentExercise?.exercise_type !== 'duration' && (
-          <div className="mb-2 text-center">
-            <div
-              className="text-7xl sm:text-8xl font-bold leading-none text-white font-['Outfit']"
-              style={{ textShadow: '0 0 28px var(--theme-primary-glow)' }}
-            >
-              {currentExercise.reps ?? '—'}
-            </div>
-            <p className="mt-3 text-lg text-zinc-400">répétitions à faire</p>
-          </div>
-        )}
-
-        {/* Next exercise preview (mobile) */}
-        {getNextExercise() && (
-          <div className="md:hidden flex items-center gap-2 text-zinc-500 text-sm">
-            <span>Suivant:</span>
-            <span className="text-white">{getNextExercise().name}</span>
-            <ChevronRight size={16} />
-          </div>
-        )}
-            </div>
-
-            {/* Controls */}
-            <div className="space-y-4 pb-2 w-full max-w-2xl mx-auto">
-        {phase === 'exercise' && currentExercise && (
-          <Button
-            type="button"
-            onClick={completeCurrentExercise}
-            className="mx-auto block h-14 w-full max-w-sm md:max-w-md rounded-xl text-base font-bold text-white btn-primary"
-          >
-            J&apos;ai fini cet exercice
-          </Button>
-        )}
-
-        {/* Main controls — grille 3 colonnes pour garder Pause centré */}
-        <div className="mx-auto grid w-full max-w-sm md:max-w-md grid-cols-3 place-items-center gap-1">
-          <div className="flex h-[4.5rem] items-center justify-center">
-            {phase === 'rest' ||
-            (phase === 'exercise' && currentExercise?.exercise_type === 'duration') ? (
-              <button
-                type="button"
-                onClick={() => addTime(15)}
-                className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
-              >
-                <Plus size={20} className="text-white" />
-                <span className="absolute -bottom-5 whitespace-nowrap text-[10px] text-zinc-400">
-                  +15s
-                </span>
-              </button>
-            ) : (
-              <span className="inline-block h-14 w-14" aria-hidden />
-            )}
-          </div>
-
-          <button
-            type="button"
-            onClick={() => setIsPaused(!isPaused)}
-            data-testid="pause-btn"
-            className="flex h-20 w-20 items-center justify-center rounded-full text-white animate-pulse-glow"
-            style={{
-              background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
-            }}
-          >
-            {isPaused ? <Play size={32} fill="currentColor" /> : <Pause size={32} />}
-          </button>
-
-          <div className="flex h-[4.5rem] items-center justify-center">
-            <button
-              type="button"
-              onClick={skipCurrentExercise}
-              title="Passer cet exercice"
-              className="relative flex h-14 w-14 items-center justify-center rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
-            >
-              <SkipForward size={20} className="text-white" />
-              <span className="absolute -bottom-5 text-[10px] text-zinc-400">Sauter</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Stop button */}
-        <div className="flex justify-center pt-2">
-          <button
-            onClick={handleStopClick}
-            data-testid="stop-btn"
-            className="flex items-center gap-2 px-4 py-2 rounded-full bg-red-500/10 text-red-400 hover:bg-red-500/20 transition-colors"
-          >
-            <StopCircle size={18} />
-            <span className="text-sm font-medium">Arrêter la séance</span>
-          </button>
-        </div>
-
-        {/* Total time — appui long (coach/admin) pour ajuster */}
-        <div className="text-center text-zinc-500 text-sm" {...secretTimeProps}>
-          Temps total: {formatTime(totalTime)}
-          {pauseTime > 0 && ` • Pause: ${formatTime(pauseTime)}`}
-        </div>
-        {timeAdjustDialog}
-            </div>
-          </div>
-
-          <aside className="hidden md:block pt-6">
-            <div className="space-y-4 sticky top-6">
-              {getNextExercise() && (
-                <div className="card p-4">
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Suivant</p>
-                  <p className="text-white font-semibold">{getNextExercise().name}</p>
+      <main className="flex-1 w-full px-4 py-4 md:px-8 md:py-8">
+        <div className="mx-auto grid w-full max-w-7xl gap-6 xl:grid-cols-[1fr_360px]">
+          <section className="flex min-h-[calc(100dvh-180px)] items-center justify-center">
+            <div className="flex w-full max-w-2xl flex-col items-center gap-6 text-center">
+              {currentExercise?.image_url && phase === 'exercise' && (
+                <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white/5 aspect-video">
+                  <img
+                    src={currentExercise.image_url}
+                    alt={currentExercise.name}
+                    className="h-full w-full object-cover"
+                    onError={(e) => {
+                      e.target.parentElement.style.display = 'none';
+                    }}
+                  />
                 </div>
               )}
 
-              {duoLive && (
-                <div className="card p-4">
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Duo</p>
-                  <p className="text-white text-sm">
-                    En direct avec <span className="text-amber-300">{partnerName}</span>
+              <div className="w-full space-y-2">
+                {phaseLabel && (
+                  <p className="inline-flex rounded-full bg-[var(--theme-surface-active)] px-4 py-1 text-sm uppercase tracking-wider text-[var(--theme-primary)]">
+                    {phaseLabel}
                   </p>
+                )}
+                {phase === 'exercise' && currentExercise && (
+                  <>
+                    <h1 className="text-3xl font-bold text-white font-['Outfit'] md:text-5xl">
+                      {currentExercise.name}
+                    </h1>
+                    {currentExercise.description && (
+                      <p className="text-zinc-400">{currentExercise.description}</p>
+                    )}
+                  </>
+                )}
+                {phase === 'countdown' && currentExercise && (
+                  <h1 className="text-2xl font-bold text-white font-['Outfit'] md:text-3xl">
+                    {currentExercise.name}
+                  </h1>
+                )}
+              </div>
+
+              <div className="flex w-full flex-col items-center">
+                {phase === 'countdown' && (
+                  <div className="animate-pulse text-7xl font-mono font-bold leading-none tracking-tighter text-yellow-500 sm:text-8xl md:text-9xl">
+                    {timeRemaining}
+                  </div>
+                )}
+                {phase === 'rest' && (
+                  <div
+                    className="text-7xl font-mono font-bold leading-none tracking-tighter text-white sm:text-8xl md:text-9xl"
+                    style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
+                  >
+                    {formatTime(timeRemaining)}
+                  </div>
+                )}
+                {phase === 'exercise' && currentExercise?.exercise_type === 'duration' && (
+                  <div
+                    className="text-7xl font-mono font-bold leading-none tracking-tighter text-white sm:text-8xl md:text-9xl"
+                    style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
+                  >
+                    {formatTime(timeRemaining)}
+                  </div>
+                )}
+                {phase === 'exercise' && currentExercise?.exercise_type !== 'duration' && (
+                  <>
+                    <div
+                      className="text-7xl font-bold leading-none text-white font-['Outfit'] sm:text-8xl md:text-9xl"
+                      style={{ textShadow: '0 0 28px var(--theme-primary-glow)' }}
+                    >
+                      {currentExercise?.reps ?? '—'}
+                    </div>
+                    <p className="mt-3 text-lg text-zinc-400">répétitions à faire</p>
+                  </>
+                )}
+              </div>
+
+              {phase === 'exercise' && currentExercise && (
+                <Button
+                  type="button"
+                  onClick={completeCurrentExercise}
+                  className="h-16 w-full max-w-md rounded-2xl text-lg font-bold text-white btn-primary"
+                >
+                  J&apos;ai fini cet exercice
+                </Button>
+              )}
+
+              <div className="flex w-full max-w-md flex-col items-center gap-3">
+                <div className="flex items-center justify-center gap-3">
                   <button
                     type="button"
-                    onClick={() => setLiveChatOpen(true)}
-                    className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm py-2"
+                    onClick={() => setIsPaused(!isPaused)}
+                    className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
                   >
-                    Ouvrir le chat
+                    {isPaused ? 'Reprendre' : 'Pause'}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setIsPaused(!isPaused)}
+                    data-testid="pause-btn"
+                    className="flex h-14 w-14 items-center justify-center rounded-full text-white animate-pulse-glow"
+                    style={{
+                      background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
+                    }}
+                    aria-label={isPaused ? 'Reprendre' : 'Pause'}
+                  >
+                    {isPaused ? <Play size={26} fill="currentColor" /> : <Pause size={26} />}
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={skipCurrentExercise}
+                    className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+                  >
+                    Sauter
                   </button>
                 </div>
+
+                {showAddTime && (
+                  <button
+                    type="button"
+                    onClick={() => addTime(15)}
+                    className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
+                  >
+                    <Plus size={14} />
+                    +15 secondes
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col items-center gap-2">
+                <button
+                  type="button"
+                  onClick={handleStopClick}
+                  data-testid="stop-btn"
+                  className="flex items-center gap-2 rounded-full bg-red-500/10 px-4 py-2 text-red-400 transition-colors hover:bg-red-500/20"
+                >
+                  <StopCircle size={16} />
+                  <span className="text-sm font-medium">Arrêter la séance</span>
+                </button>
+
+                <p className="text-sm text-zinc-500 tabular-nums" {...secretTimeProps}>
+                  Temps total: {formatTime(totalTime)}
+                  {pauseTime > 0 && ` • Pause: ${formatTime(pauseTime)}`}
+                </p>
+              </div>
+
+              <div className="w-full max-w-md space-y-4 xl:hidden">
+                {playerSidebar}
+              </div>
+            </div>
+          </section>
+
+          <aside className="hidden xl:block">
+            <div className="sticky top-8 space-y-4">
+              {playerSidebar}
+              {duoLive && (
+                <LiveWorkoutChat
+                  partnerName={partnerName}
+                  open={liveChatOpen}
+                  onOpenChange={setLiveChatOpen}
+                />
               )}
             </div>
           </aside>
         </div>
-      </div>
-      </div>
-    </div>
+      </main>
+
+      {timeAdjustDialog}
     </div>
   );
 }
