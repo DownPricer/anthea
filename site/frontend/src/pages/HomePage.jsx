@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, duoApi, partnerApi, streakApi } from '../lib/api';
+import { workoutsApi, duoApi, partnerApi, streakApi, notificationsApi } from '../lib/api';
 import { Button } from '../components/ui/button';
 import {
   Dialog,
@@ -25,6 +25,7 @@ import {
   XCircle,
   Undo2,
   RotateCcw,
+  Search,
 } from 'lucide-react';
 import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -55,6 +56,7 @@ export function HomePage() {
   const [sidebarLoading, setSidebarLoading] = useState(true);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const { liveSession } = usePartnerLiveSession(!!partner);
 
@@ -143,6 +145,22 @@ export function HomePage() {
     loadData();
   }, [loadData]);
 
+  const refreshUnreadNotifications = useCallback(async () => {
+    try {
+      const { data } = await notificationsApi.unreadCount();
+      setUnreadNotifications(data?.count || 0);
+    } catch {
+      setUnreadNotifications(0);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshUnreadNotifications();
+    const onRead = () => refreshUnreadNotifications();
+    window.addEventListener('notifications:read', onRead);
+    return () => window.removeEventListener('notifications:read', onRead);
+  }, [refreshUnreadNotifications]);
+
   const ensureStreakDaysLoaded = useCallback(async () => {
     const { start, end } = weekRangeRef.current || {};
     if (!start || !end) return;
@@ -166,12 +184,6 @@ export function HomePage() {
     }
   }, []);
 
-  const getGreeting = () => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Bonjour';
-    if (hour < 18) return 'Bon après-midi';
-    return 'Bonsoir';
-  };
 
   /** Prochaine action utile : reprendre une séance en cours (toi), sinon première séance pending. */
   const getPrimaryWorkoutAction = () => {
@@ -268,22 +280,41 @@ export function HomePage() {
         {/* Header */}
         <header className="flex items-center justify-between">
           <div>
-            <p className="text-zinc-500 text-sm">
+            <p className="text-zinc-400 text-sm capitalize">
               {format(new Date(), 'EEEE d MMMM', { locale: fr })}
             </p>
-            <h1 className="text-2xl font-bold text-white font-['Outfit']">
-              {getGreeting()}, {user?.display_name || user?.username}
-            </h1>
           </div>
-          <div className="relative">
-            {partnerRequests.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white">
-                {partnerRequests.length}
-              </span>
-            )}
+          <div className="flex items-center gap-2">
             <button
+              type="button"
+              onClick={() => navigate('/search')}
+              data-testid="home-search-btn"
+              className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+              aria-label="Rechercher"
+            >
+              <Search size={20} />
+            </button>
+            <div className="relative">
+              {(unreadNotifications > 0 || partnerRequests.length > 0) && (
+                <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white">
+                  {unreadNotifications + partnerRequests.length}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={() => navigate('/notifications')}
+                data-testid="home-notifications-btn"
+                className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                aria-label="Notifications"
+              >
+                <Bell size={20} />
+              </button>
+            </div>
+            <button
+              type="button"
               onClick={() => navigate('/profile')}
-              className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center"
+              className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center overflow-hidden"
+              aria-label="Mon profil"
             >
               {user?.avatar_url ? (
                 <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />

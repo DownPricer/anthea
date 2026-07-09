@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { formatCalories } from '../lib/calories';
@@ -12,7 +13,10 @@ import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, formatApiError } from '../lib/api';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
+import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import { getAccentForUser } from '../lib/userAccent';
+import { duoProfilePath } from '../lib/duoProfile';
+import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
@@ -60,6 +64,7 @@ const QUICK_REACTIONS = [
 export function DuoPage() {
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
+  const [searchParams] = useSearchParams();
   
   const [activeTab, setActiveTab] = useState('activity');
   const [sessions, setSessions] = useState([]);
@@ -94,6 +99,13 @@ export function DuoPage() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['activity', 'stats', 'history'].includes(tab)) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     if (activeTab === 'stats' && partner) {
@@ -177,13 +189,13 @@ export function DuoPage() {
 
   const loadData = async () => {
     try {
-      const [sessionsRes, statsRes, partnerRes, coachRes] = await Promise.all([
-        sessionsApi.getAll(20),
+      const [feedRes, statsRes, partnerRes, coachRes] = await Promise.all([
+        duoApi.getActivityFeed(20),
         duoApi.getStats(),
         partnerApi.getInfo(),
         streakApi.getCoachStatus().catch(() => ({ data: { can_moderate: false } })),
       ]);
-      setSessions(sessionsRes.data || []);
+      setSessions(feedRes.data || []);
       setDuoStats(statsRes.data);
       setPartner(partnerRes.data);
       setCanModerateStreak(!!coachRes.data?.can_moderate);
@@ -376,21 +388,39 @@ export function DuoPage() {
       <header className="mb-6">
         <div className="flex items-center gap-4">
           <div className="flex -space-x-3">
-            <div className="w-12 h-12 rounded-full bg-[var(--theme-primary)] flex items-center justify-center border-2 border-[#0A0A0A] z-10">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center border-2 border-[#0A0A0A] z-10"
+              style={{ background: getAccentForUser(user, theme) }}
+            >
               <span className="text-white font-bold">
                 {user?.display_name?.[0] || user?.username?.[0] || 'M'}
               </span>
             </div>
-            <div className="w-12 h-12 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center border-2 border-[#0A0A0A]">
+            <div
+              className="w-12 h-12 rounded-full flex items-center justify-center border-2 border-[#0A0A0A]"
+              style={{ background: getAccentForUser(partner, theme) }}
+            >
               <span className="text-white font-bold">
                 {partner.display_name?.[0] || partner.username?.[0] || 'P'}
               </span>
             </div>
           </div>
-          <div>
-            <h1 className="text-xl font-bold text-white font-['Outfit']">
-              {user?.display_name || user?.username} & {partner.display_name || partner.username}
-            </h1>
+          <div className="flex-1 min-w-0">
+            {duoStats?.duo_profile?.tag ? (
+              <Link
+                to={duoProfilePath(duoStats.duo_profile.tag)}
+                className="group block"
+              >
+                <h1 className="text-xl font-bold text-white font-['Outfit'] group-hover:text-[var(--theme-primary)] transition-colors">
+                  {duoStats.duo_profile.name || `${user?.display_name || user?.username} & ${partner.display_name || partner.username}`}
+                </h1>
+                <p className="text-zinc-500 text-sm font-mono">{duoStats.duo_profile.tag}</p>
+              </Link>
+            ) : (
+              <h1 className="text-xl font-bold text-white font-['Outfit']">
+                {user?.display_name || user?.username} & {partner.display_name || partner.username}
+              </h1>
+            )}
             <p className="text-zinc-500 text-sm">
               {user?.relation_type === 'coach' ? 'Coach & Élève' : 'Partenaires'}
             </p>
@@ -540,23 +570,34 @@ export function DuoPage() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {sessions.map((session) => (
-                      <SessionCard
-                        key={session.id}
-                        session={session}
-                        user={user}
-                        partner={partner}
-                        theme={theme}
-                        isLikedByMe={isLikedByMe(session)}
-                        onLike={handleLike}
-                        onReaction={handleReaction}
-                        activeCommentSession={activeCommentSession}
-                        setActiveCommentSession={setActiveCommentSession}
-                        commentText={commentText}
-                        setCommentText={setCommentText}
-                        onComment={handleComment}
-                      />
-                    ))}
+                    {sessions.map((item) =>
+                      item.type === 'common_session' ? (
+                        <CommonSessionCard
+                          key={`common-${item.date}`}
+                          item={item}
+                          user={user}
+                          partner={partner}
+                          theme={theme}
+                          duoProfile={duoStats?.duo_profile}
+                        />
+                      ) : (
+                        <SessionCard
+                          key={item.id}
+                          session={item}
+                          user={user}
+                          partner={partner}
+                          theme={theme}
+                          isLikedByMe={isLikedByMe(item)}
+                          onLike={handleLike}
+                          onReaction={handleReaction}
+                          activeCommentSession={activeCommentSession}
+                          setActiveCommentSession={setActiveCommentSession}
+                          commentText={commentText}
+                          setCommentText={setCommentText}
+                          onComment={handleComment}
+                        />
+                      )
+                    )}
                   </div>
                 )}
               </div>
@@ -580,7 +621,7 @@ export function DuoPage() {
                     </div>
                     <div className="text-center">
                       <p className="text-xl font-bold text-white">{duoStats.total_workouts_together}</p>
-                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Total</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Ensemble</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xl font-bold text-white">{duoStats.this_week_user}</p>

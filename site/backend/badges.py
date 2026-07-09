@@ -3,6 +3,42 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional
 
 
+BADGE_RARITY_OVERRIDES = {
+    "vol_100": "Diamant",
+    "streak_30": "Diamant",
+    "streak_3_weeks": "Légendaire",
+    "vol_50": "Légendaire",
+    "duo_month": "Légendaire",
+    "coach_25": "Légendaire",
+    "challenge_10": "Légendaire",
+    "vol_25": "Épique",
+    "streak_14": "Épique",
+    "duo_7": "Épique",
+    "coach_10": "Épique",
+    "challenge_3": "Épique",
+    "vol_10": "Rare",
+    "streak_7": "Rare",
+    "duo_3": "Rare",
+    "duo_likes_10": "Rare",
+    "coach_first": "Rare",
+    "challenge_1": "Rare",
+}
+
+
+def badge_rarity_for(badge_id: str, target: int = 1) -> str:
+    if badge_id in BADGE_RARITY_OVERRIDES:
+        return BADGE_RARITY_OVERRIDES[badge_id]
+    if target >= 100:
+        return "Diamant"
+    if target >= 50:
+        return "Légendaire"
+    if target >= 25:
+        return "Épique"
+    if target >= 10:
+        return "Rare"
+    return "Commun"
+
+
 def _badge(
     badge_id: str,
     name: str,
@@ -12,13 +48,16 @@ def _badge(
     unlocked: bool,
     current: int = 0,
     target: int = 1,
+    rarity: Optional[str] = None,
 ) -> dict:
+    resolved_rarity = rarity or badge_rarity_for(badge_id, target)
     return {
         "id": badge_id,
         "name": name,
         "description": description,
         "icon": icon,
         "family": family,
+        "rarity": resolved_rarity,
         "unlocked": unlocked,
         "current": current,
         "target": target,
@@ -314,6 +353,17 @@ async def evaluate_all_badges(db, user_id: str, partner_id: Optional[str], strea
     return badges
 
 
+async def find_badge_for_user(
+    db, user_id: str, partner_id: Optional[str], streak_value: int, badge_id: str
+) -> Optional[dict]:
+    """Retourne un badge du catalogue s'il existe pour l'utilisateur."""
+    badges = await evaluate_all_badges(db, user_id, partner_id, streak_value)
+    for badge in badges:
+        if badge.get("id") == badge_id:
+            return badge
+    return None
+
+
 async def _count_duo_same_days(db, user_id: str, partner_id: str) -> int:
     """Jours où les deux ont au moins une séance terminée."""
     mine = await db.workout_sessions.find(
@@ -327,6 +377,57 @@ async def _count_duo_same_days(db, user_id: str, partner_id: str) -> int:
     my_days = {s.get("created_at", "")[:10] for s in mine if s.get("created_at")}
     partner_days = {s.get("created_at", "")[:10] for s in partner if s.get("created_at")}
     return len(my_days & partner_days)
+
+
+DUO_SOCIAL_BADGE_DEFS = [
+    ("duo_together_first", "Première séance ensemble", "Votre première séance commune", "heart", 1, "Commun"),
+    ("duo_streak_7", "7 jours streak duo", "7 jours consécutifs à vous entraîner ensemble", "flame", 7, "Rare"),
+    ("duo_streak_30", "30 jours streak duo", "30 jours consécutifs ensemble", "zap", 30, "Épique"),
+    ("duo_challenge_week", "Défi semaine duo", "Défi hebdomadaire réussi en duo", "target", 1, "Rare"),
+    ("duo_regular", "Duo régulier", "15 jours d'entraînement ensemble", "users", 15, "Épique"),
+    ("duo_legendary", "Duo légendaire", "50 séances communes", "crown", 50, "Légendaire"),
+]
+
+
+async def evaluate_duo_social_badges(db, user_a_id: str, user_b_id: str, together_stats: dict) -> List[dict]:
+    """Badges duo basés uniquement sur l'activité commune."""
+    from duo_social import compute_together_stats
+
+    stats = together_stats or await compute_together_stats(db, user_a_id, user_b_id)
+    sessions = stats.get("sessions_together", 0)
+    streak = stats.get("duo_streak_current", 0)
+    challenges = stats.get("challenges_completed", 0)
+
+    badges: List[dict] = []
+    for bid, name, desc, icon, target, rarity in DUO_SOCIAL_BADGE_DEFS:
+        if bid == "duo_together_first":
+            current = min(sessions, 1)
+            unlocked = sessions >= 1
+        elif bid == "duo_streak_7":
+            current = streak
+            unlocked = streak >= 7
+        elif bid == "duo_streak_30":
+            current = streak
+            unlocked = streak >= 30
+        elif bid == "duo_challenge_week":
+            current = min(challenges, 1)
+            unlocked = challenges >= 1
+        elif bid == "duo_regular":
+            current = sessions
+            unlocked = sessions >= 15
+        elif bid == "duo_legendary":
+            current = sessions
+            unlocked = sessions >= 50
+        else:
+            current = 0
+            unlocked = False
+        badges.append(
+            _badge(
+                bid, name, desc, icon, "duo_social",
+                unlocked, current, target, rarity=rarity,
+            )
+        )
+    return badges
 
 
 async def _duo_week_both_active(db, user_id: str, partner_id: str) -> bool:

@@ -10,7 +10,12 @@ import { WorkoutsPage } from './pages/WorkoutsPage';
 import { CreateWorkoutPage } from './pages/CreateWorkoutPage';
 import { WorkoutPlayerPage } from './pages/WorkoutPlayerPage';
 import { DuoPage } from './pages/DuoPage';
+import { PublicDuoProfilePage } from './pages/PublicDuoProfilePage';
 import { ProfilePage } from './pages/ProfilePage';
+import { PublicProfilePage } from './pages/PublicProfilePage';
+import { SearchPage } from './pages/SearchPage';
+import { NotificationsPage } from './pages/NotificationsPage';
+import { SettingsPage } from './pages/SettingsPage';
 import './index.css';
 
 function App() {
@@ -37,7 +42,12 @@ function App() {
               <Route path="workouts/:workoutId" element={<CreateWorkoutPage />} />
               <Route path="create" element={<CreateWorkoutPage />} />
               <Route path="duo" element={<DuoPage />} />
+              <Route path="duo/:tag" element={<PublicDuoProfilePage />} />
               <Route path="profile" element={<ProfilePage />} />
+              <Route path="profile/:handle" element={<PublicProfilePage />} />
+              <Route path="search" element={<SearchPage />} />
+              <Route path="notifications" element={<NotificationsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
             </Route>
 
             {/* Player route (outside main layout for fullscreen) */}

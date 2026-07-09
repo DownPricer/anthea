@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Dumbbell, Plus, Heart, User } from 'lucide-react';
+import { Home, Dumbbell, Plus, Heart, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
@@ -55,8 +55,22 @@ export function DesktopNav() {
           })}
         </nav>
 
-        <div className="mt-auto pt-4 text-[10px] text-zinc-600 px-2">
-          v0.x • responsive patch
+        <div className="mt-auto pt-4 space-y-1">
+          <NavLink
+            to="/settings"
+            className={({ isActive }) =>
+              cn(
+                'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
+                isActive
+                  ? 'bg-[var(--theme-surface-active)] text-white border border-[var(--theme-primary)]/20'
+                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+              )
+            }
+          >
+            <Settings size={18} />
+            <span className="text-sm font-medium">Paramètres</span>
+          </NavLink>
+          <p className="text-[10px] text-zinc-600 px-2 pt-2">v0.x • responsive patch</p>
         </div>
       </div>
     </aside>

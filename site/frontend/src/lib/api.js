@@ -48,7 +48,20 @@ export const authApi = {
 
 // Users API
 export const usersApi = {
-  search: (q) => api.get('/users/search', { params: { q } }),
+  search: (q, searchType = 'user') =>
+    api.get('/users/search', { params: { q, search_type: searchType } }),
+  getByHandle: (handle) => api.get(`/users/${encodeURIComponent(handle)}`),
+  follow: (handle) => api.post(`/users/${encodeURIComponent(handle)}/follow`),
+  unfollow: (handle) => api.delete(`/users/${encodeURIComponent(handle)}/follow`),
+  getProfileStats: (handle) => api.get(`/users/${encodeURIComponent(handle)}/profile-stats`),
+};
+
+// Notifications API
+export const notificationsApi = {
+  list: (limit = 30) => api.get('/notifications', { params: { limit } }),
+  unreadCount: () => api.get('/notifications/unread-count'),
+  markRead: (id) => api.post(`/notifications/${id}/read`),
+  markAllRead: () => api.post('/notifications/read-all'),
 };
 
 // Partner API
@@ -119,6 +132,22 @@ export const sessionsApi = {
   addComment: (id, data) => api.post(`/sessions/${id}/comment`, data),
 };
 
+// Posts API (mur social)
+export const postsApi = {
+  create: (data) => api.post('/posts', data),
+  getByHandle: (handle, params = {}) =>
+    api.get(`/users/${encodeURIComponent(handle)}/posts`, { params }),
+  getRepostsByHandle: (handle, params = {}) =>
+    api.get(`/users/${encodeURIComponent(handle)}/reposts`, { params }),
+  getOne: (id) => api.get(`/posts/${id}`),
+  delete: (id) => api.delete(`/posts/${id}`),
+  toggleLike: (id) => api.post(`/posts/${id}/like`),
+  addComment: (id, data) => api.post(`/posts/${id}/comment`, data),
+  getComments: (id) => api.get(`/posts/${id}/comments`),
+  repost: (data) => api.post('/reposts', data),
+  deleteRepost: (id) => api.delete(`/reposts/${id}`),
+};
+
 // Push API (PWA)
 export const pushApi = {
   subscribe: (data) => api.post('/push/subscribe', data),
@@ -128,9 +157,22 @@ export const pushApi = {
 export const duoApi = {
   getStats: () => api.get('/duo/stats'),
   getActivity: (limit = 10) => api.get('/duo/activity', { params: { limit } }),
-  getDetailedStats: (period = '30', targetUser = null) => 
+  getActivityFeed: (limit = 20) => api.get('/duo/activity-feed', { params: { limit } }),
+  getDetailedStats: (period = '30', targetUser = null) =>
     api.get('/duo/detailed-stats', { params: { period, target_user: targetUser } }),
   getBadges: () => api.get('/duo/stats').then((r) => r.data?.badges || []),
+  getProfile: () => api.get('/duo/profile'),
+  updateProfile: (data) => api.put('/duo/profile', data),
+};
+
+// Duo profiles API (public)
+export const duoProfilesApi = {
+  getByTag: (tag) => api.get(`/duos/${encodeURIComponent(tag)}`),
+  getStats: (tag) => api.get(`/duos/${encodeURIComponent(tag)}/stats`),
+  getActivity: (tag, limit = 15) =>
+    api.get(`/duos/${encodeURIComponent(tag)}/activity`, { params: { limit } }),
+  getPosts: (tag, params = {}) =>
+    api.get(`/duos/${encodeURIComponent(tag)}/posts`, { params }),
 };
 
 // Streak API

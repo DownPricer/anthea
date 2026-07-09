@@ -6,6 +6,7 @@ import { useWakeLock } from '../hooks/useWakeLock';
 import { estimateCalories, formatCalories } from '../lib/calories';
 import { playShortBeep, vibrateShort, openSpotify } from '../lib/workoutFeedback';
 import { LiveWorkoutChat } from '../components/LiveWorkoutChat';
+import { ShareWorkoutDialog } from '../components/social/ShareWorkoutDialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Slider } from '../components/ui/slider';
@@ -65,6 +66,8 @@ export function WorkoutPlayerPage() {
   const [duoLive, setDuoLive] = useState(false);
   const [liveChatOpen, setLiveChatOpen] = useState(false);
   const [showFeedback, setShowFeedback] = useState(false);
+  const [createdSession, setCreatedSession] = useState(null);
+  const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const { supported: wakeLockSupported, active: wakeLockActive, error: wakeLockError, requestWakeLock, releaseWakeLock } = useWakeLock();
   const [showStopModal, setShowStopModal] = useState(false);
   const [savedProgress, setSavedProgress] = useState(null);
@@ -524,7 +527,7 @@ export function WorkoutPlayerPage() {
         };
       });
 
-      await sessionsApi.create({
+      const { data: session } = await sessionsApi.create({
         workout_id: workoutId,
         total_time: totalTime,
         pause_time: pauseTime,
@@ -538,7 +541,11 @@ export function WorkoutPlayerPage() {
         exercise_log: exerciseLog,
       });
       toast.success('Séance enregistrée !');
-      navigate('/duo');
+      setCreatedSession({
+        ...session,
+        workout_title: session.workout_title || workout?.title,
+      });
+      setShareDialogOpen(true);
     } catch (error) {
       toast.error('Erreur lors de la sauvegarde');
     } finally {
@@ -808,6 +815,16 @@ export function WorkoutPlayerPage() {
           </div>
         </div>
         {timeAdjustDialog}
+        <ShareWorkoutDialog
+          open={shareDialogOpen}
+          onOpenChange={(open) => {
+            setShareDialogOpen(open);
+            if (!open && createdSession) navigate('/duo');
+          }}
+          session={createdSession}
+          onShared={() => navigate('/duo')}
+          onSkip={() => navigate('/duo')}
+        />
       </div>
     );
   }
@@ -1062,9 +1079,9 @@ export function WorkoutPlayerPage() {
         </div>
       )}
 
-      <main className="relative flex-1 w-full px-4 py-4 md:px-8 md:py-8">
-        <section className="mx-auto flex min-h-[calc(100dvh-180px)] w-full max-w-2xl items-center justify-center">
-          <div className="flex w-full flex-col items-center gap-6 text-center">
+      <main className="relative flex flex-1 flex-col w-full min-h-0">
+        <div className="flex flex-1 w-full items-center justify-center px-4 py-4 md:px-8 md:py-8">
+          <div className="flex w-full max-w-2xl flex-col items-center gap-6 text-center">
               {currentExercise?.image_url && phase === 'exercise' && (
                 <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white/5 aspect-video">
                   <img
@@ -1207,9 +1224,13 @@ export function WorkoutPlayerPage() {
                 </p>
               </div>
           </div>
-        </section>
+        </div>
 
-        <aside className="pointer-events-none hidden 2xl:block absolute right-8 top-8 w-80">
+        <div className="mx-auto w-full max-w-md shrink-0 px-4 pb-6 2xl:hidden">
+          {playerSidebar}
+        </div>
+
+        <aside className="pointer-events-none absolute right-8 top-24 z-10 hidden w-80 2xl:block">
           <div className="pointer-events-auto space-y-4">
             {playerSidebar}
             {duoLive && (
@@ -1221,10 +1242,6 @@ export function WorkoutPlayerPage() {
             )}
           </div>
         </aside>
-
-        <div className="mx-auto mt-6 w-full max-w-md 2xl:hidden">
-          {playerSidebar}
-        </div>
       </main>
 
       {timeAdjustDialog}

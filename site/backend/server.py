@@ -15,9 +15,11 @@ from bson import ObjectId
 import os
 import logging
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional
+from typing import List, Optional, Literal
+import random
 from collections import defaultdict
 import uuid
+import re
 import bcrypt
 import jwt
 import secrets
@@ -25,8 +27,23 @@ from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 
 from program_volume_seed import ensure_program_volume_templates
-from badges import evaluate_all_badges
+from badges import evaluate_all_badges, evaluate_duo_social_badges, find_badge_for_user
 from challenges import pick_weekly_challenge, compute_challenge_progress
+from duo_social import (
+    apply_duo_defaults,
+    build_common_sessions,
+    build_duo_activity,
+    can_view_duo_section,
+    compute_together_stats,
+    duo_tag_from_doc,
+    find_duo_by_tag,
+    get_duo_access_level,
+    get_duo_members,
+    normalize_duo_relation,
+    parse_duo_tag,
+    RELATION_LABELS,
+    resolve_coach_roles,
+)
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -58,6 +75,8 @@ class UserUpdate(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    handle: Optional[str] = None
+    featured_badges: Optional[List[str]] = None
     gender: Optional[str] = None
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
@@ -68,6 +87,12 @@ class UserUpdate(BaseModel):
     spotify_playlist_url: Optional[str] = None
     tts_voice: Optional[str] = None
     timer_sound: Optional[str] = "beep"
+    account_visibility: Optional[str] = None
+    show_stats: Optional[bool] = None
+    show_badges: Optional[bool] = None
+    show_recent_activity: Optional[bool] = None
+    show_sessions: Optional[bool] = None
+    show_posts: Optional[bool] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -75,6 +100,8 @@ class UserResponse(BaseModel):
     display_name: Optional[str] = None
     bio: Optional[str] = None
     avatar_url: Optional[str] = None
+    handle: Optional[str] = None
+    featured_badges: List[str] = Field(default_factory=list)
     gender: Optional[str] = None
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
@@ -86,10 +113,52 @@ class UserResponse(BaseModel):
     last_seen_at: Optional[str] = None
     tts_voice: Optional[str] = None
     timer_sound: str = "beep"
+    account_visibility: str = "private"
+    show_stats: bool = False
+    show_badges: bool = True
+    show_recent_activity: bool = False
+    show_sessions: bool = False
+    show_posts: bool = False
     partner_id: Optional[str] = None
     partner_username: Optional[str] = None
     relation_type: Optional[str] = None
+    followers_count: int = 0
+    following_count: int = 0
+    is_following: bool = False
+    is_followed_by: bool = False
+    is_mutual: bool = False
+    is_own: bool = False
+    is_limited: bool = False
     created_at: str
+
+class NotificationResponse(BaseModel):
+    id: str
+    type: str
+    actor_id: str
+    actor_username: Optional[str] = None
+    actor_handle: Optional[str] = None
+    actor_display_name: Optional[str] = None
+    actor_avatar_url: Optional[str] = None
+    read: bool = False
+    created_at: str
+
+class DuoSearchResult(BaseModel):
+    id: str
+    name: str
+    short_id: int
+    tag: str
+    member_count: int = 2
+    account_visibility: str = "private"
+
+class DuoProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    relation_type: Optional[str] = None
+    avatar_url: Optional[str] = None
+    account_visibility: Optional[Literal["public", "private"]] = None
+    show_stats: Optional[bool] = None
+    show_badges: Optional[bool] = None
+    show_recent_activity: Optional[bool] = None
+    show_posts: Optional[bool] = None
 
 class PartnerRequest(BaseModel):
     target_username: str
@@ -266,6 +335,29 @@ class CommentCreate(BaseModel):
     session_id: str
     text: str
 
+class PostCreate(BaseModel):
+    type: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    image_url: Optional[str] = None
+    workout_session_id: Optional[str] = None
+    partner_session_id: Optional[str] = None
+    badge_id: Optional[str] = None
+    duo_session_id: Optional[str] = None
+    duo_id: Optional[str] = None
+    post_on_duo_wall: bool = False
+    visibility: str = "public"
+
+class PostCommentCreate(BaseModel):
+    text: str
+
+class RepostCreate(BaseModel):
+    post_id: Optional[str] = None
+    workout_session_id: Optional[str] = None
+    partner_session_id: Optional[str] = None
+    duo_id: Optional[str] = None
+    post_on_duo_wall: bool = False
+
 class SessionTimeAdjust(BaseModel):
     total_time: int
     reason: Optional[str] = None
@@ -358,6 +450,17 @@ def normalize_accent_color(value: Optional[str]) -> Optional[str]:
         return None
     return f"#{raw.upper()}"
 
+HANDLE_PATTERN = re.compile(r"^[a-z0-9_]{3,30}$")
+
+def normalize_handle(value: Optional[str]) -> Optional[str]:
+    if not value or not str(value).strip():
+        return None
+    raw = str(value).strip().lower().lstrip("@")
+    raw = re.sub(r"[^a-z0-9_]", "", raw.replace(" ", ""))
+    if not raw or not HANDLE_PATTERN.match(raw):
+        return None
+    return raw
+
 def duo_pair_key(user_id_a: str, user_id_b: str) -> str:
     return "_".join(sorted([user_id_a, user_id_b]))
 
@@ -380,12 +483,19 @@ LIVE_ACTIVE_PHASES = ("countdown", "exercise", "rest")
 
 def serialize_user(user: dict) -> dict:
     partner_link = None
+    handle = user.get("handle") or user.get("username")
+    featured = user.get("featured_badges") or []
+    if not isinstance(featured, list):
+        featured = []
+    featured = [str(b) for b in featured[:3]]
     return {
         "id": str(user["_id"]) if "_id" in user else user.get("id"),
         "username": user.get("username"),
         "display_name": user.get("display_name"),
         "bio": user.get("bio"),
         "avatar_url": user.get("avatar_url"),
+        "handle": handle,
+        "featured_badges": featured,
         "gender": user.get("gender"),
         "fitness_level": user.get("fitness_level"),
         "main_goal": user.get("main_goal"),
@@ -397,17 +507,533 @@ def serialize_user(user: dict) -> dict:
         "last_seen_at": user.get("last_seen_at"),
         "tts_voice": user.get("tts_voice"),
         "timer_sound": user.get("timer_sound", "beep"),
+        "account_visibility": user.get("account_visibility", "private"),
+        "show_stats": user.get("show_stats", False),
+        "show_badges": user.get("show_badges", True),
+        "show_recent_activity": user.get("show_recent_activity", False),
+        "show_sessions": user.get("show_sessions", False),
+        "show_posts": user.get("show_posts", False),
         "partner_id": user.get("partner_id"),
         "partner_username": user.get("partner_username"),
         "relation_type": user.get("relation_type"),
+        "followers_count": int(user.get("followers_count") or 0),
+        "following_count": int(user.get("following_count") or 0),
         "created_at": user.get("created_at", datetime.now(timezone.utc).isoformat())
     }
+
+async def is_following(follower_id: str, following_id: str) -> bool:
+    if not follower_id or not following_id:
+        return False
+    doc = await db.follows.find_one({"follower_id": follower_id, "following_id": following_id})
+    return doc is not None
+
+async def is_mutual_friends(user_a_id: str, user_b_id: str) -> bool:
+    if not user_a_id or not user_b_id or user_a_id == user_b_id:
+        return False
+    a_follows_b = await is_following(user_a_id, user_b_id)
+    b_follows_a = await is_following(user_b_id, user_a_id)
+    return a_follows_b and b_follows_a
+
+async def get_profile_access_level(viewer_id: str, profile_user: dict) -> str:
+    profile_id = str(profile_user.get("_id") or profile_user.get("id"))
+    if viewer_id == profile_id:
+        return "own"
+    if await is_mutual_friends(viewer_id, profile_id):
+        return "friend"
+    if profile_user.get("account_visibility") == "public":
+        return "public"
+    return "limited"
+
+async def find_user_by_handle(handle: str) -> Optional[dict]:
+    normalized = normalize_handle(handle)
+    if not normalized:
+        return None
+    return await db.users.find_one({
+        "$or": [{"handle": normalized}, {"username": normalized}]
+    })
+
+async def get_follow_relation(viewer_id: str, profile_id: str) -> dict:
+    if not viewer_id or not profile_id or viewer_id == profile_id:
+        return {"is_following": False, "is_followed_by": False, "is_mutual": False}
+    following = await is_following(viewer_id, profile_id)
+    followed_by = await is_following(profile_id, viewer_id)
+    return {
+        "is_following": following,
+        "is_followed_by": followed_by,
+        "is_mutual": following and followed_by,
+    }
+
+async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> dict:
+    profile_id = str(profile_user["_id"])
+    access = await get_profile_access_level(viewer_id, profile_user)
+    relation = await get_follow_relation(viewer_id, profile_id)
+    handle = profile_user.get("handle") or profile_user.get("username")
+    featured = profile_user.get("featured_badges") or []
+    if not isinstance(featured, list):
+        featured = []
+    featured = [str(b) for b in featured[:3]]
+
+    base = {
+        "id": profile_id,
+        "username": profile_user.get("username"),
+        "handle": handle,
+        "display_name": profile_user.get("display_name"),
+        "avatar_url": profile_user.get("avatar_url"),
+        "account_visibility": profile_user.get("account_visibility", "private"),
+        "followers_count": int(profile_user.get("followers_count") or 0),
+        "following_count": int(profile_user.get("following_count") or 0),
+        "is_own": access == "own",
+        "is_limited": access == "limited",
+        **relation,
+        "created_at": profile_user.get("created_at", datetime.now(timezone.utc).isoformat()),
+    }
+
+    if access == "limited":
+        base["bio"] = None
+        base["featured_badges"] = []
+        base["show_stats"] = False
+        base["show_badges"] = False
+        base["show_recent_activity"] = False
+        base["show_sessions"] = False
+        base["show_posts"] = False
+        return base
+
+    base["bio"] = profile_user.get("bio")
+    base["featured_badges"] = featured
+    base["show_stats"] = profile_user.get("show_stats", False)
+    base["show_badges"] = profile_user.get("show_badges", True)
+    base["show_recent_activity"] = profile_user.get("show_recent_activity", False)
+    base["show_sessions"] = profile_user.get("show_sessions", False)
+    base["show_posts"] = profile_user.get("show_posts", False)
+    return base
+
+async def serialize_search_user(user_doc: dict, viewer_id: str) -> dict:
+    profile_id = str(user_doc["_id"])
+    relation = await get_follow_relation(viewer_id, profile_id)
+    handle = user_doc.get("handle") or user_doc.get("username")
+    return {
+        "id": profile_id,
+        "username": user_doc.get("username"),
+        "handle": handle,
+        "display_name": user_doc.get("display_name"),
+        "avatar_url": user_doc.get("avatar_url"),
+        "account_visibility": user_doc.get("account_visibility", "private"),
+        **relation,
+    }
+
+async def create_notification(
+    recipient_id: str,
+    notif_type: str,
+    actor: dict,
+    *,
+    skip_if_exists: bool = False,
+    post_id: Optional[str] = None,
+) -> None:
+    actor_id = actor["id"]
+    if recipient_id == actor_id:
+        return
+
+    if skip_if_exists:
+        existing = await db.notifications.find_one({
+            "user_id": recipient_id,
+            "type": notif_type,
+            "actor_id": actor_id,
+            **({"post_id": post_id} if post_id else {}),
+        })
+        if existing:
+            return
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "user_id": recipient_id,
+        "type": notif_type,
+        "actor_id": actor_id,
+        "actor_username": actor.get("username"),
+        "actor_handle": actor.get("handle") or actor.get("username"),
+        "actor_display_name": actor.get("display_name"),
+        "actor_avatar_url": actor.get("avatar_url"),
+        "read": False,
+        "created_at": now,
+    }
+    if post_id:
+        doc["post_id"] = post_id
+    await db.notifications.insert_one(doc)
+
+def serialize_notification(doc: dict) -> dict:
+    out = {
+        "id": str(doc["_id"]),
+        "type": doc.get("type"),
+        "actor_id": doc.get("actor_id"),
+        "actor_username": doc.get("actor_username"),
+        "actor_handle": doc.get("actor_handle"),
+        "actor_display_name": doc.get("actor_display_name"),
+        "actor_avatar_url": doc.get("actor_avatar_url"),
+        "read": bool(doc.get("read")),
+        "created_at": doc.get("created_at"),
+    }
+    if doc.get("post_id"):
+        out["post_id"] = doc.get("post_id")
+    return out
+
+POST_TYPES = {"workout_photo", "workout", "badge", "duo_repost", "duo", "free"}
+POST_VISIBILITY = {"public", "friends", "private"}
+
+
+async def get_user_doc_by_id(user_id: str) -> Optional[dict]:
+    try:
+        return await db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        return None
+
+
+async def can_view_post(viewer_id: str, post: dict, author: dict) -> bool:
+    author_id = str(author.get("_id") or author.get("id"))
+    if viewer_id == author_id:
+        return True
+
+    access = await get_profile_access_level(viewer_id, author)
+    if access == "limited":
+        return False
+
+    if access != "own" and not author.get("show_posts", False):
+        return False
+
+    visibility = post.get("visibility", "public")
+    if visibility == "private":
+        return False
+    if visibility == "friends":
+        return access in ("own", "friend")
+    return True
+
+
+async def can_view_session_in_post(viewer_id: str, author: dict, session: dict) -> bool:
+    if viewer_id == str(session.get("user_id")):
+        return True
+    access = await get_profile_access_level(viewer_id, author)
+    if access == "limited":
+        return False
+    if access == "own":
+        return True
+    return bool(author.get("show_sessions", False))
+
+
+def build_session_snapshot(session: dict, workout: Optional[dict] = None) -> dict:
+    difficulty = session.get("difficulty_felt")
+    return {
+        "workout_title": session.get("workout_title"),
+        "total_time": session.get("total_time", 0),
+        "pause_time": session.get("pause_time", 0),
+        "exercises_completed": session.get("exercises_completed", 0),
+        "exercises_total": session.get("exercises_total", 0),
+        "difficulty_felt": difficulty,
+        "difficulty": workout.get("difficulty") if workout else None,
+        "estimated_calories": estimate_calories(session.get("total_time", 0), difficulty),
+        "status": session.get("status"),
+    }
+
+
+async def _load_workout_for_session(session: dict) -> Optional[dict]:
+    wid = session.get("workout_id")
+    if not wid:
+        return None
+    try:
+        return await db.scheduled_workouts.find_one({"_id": ObjectId(wid)})
+    except Exception:
+        return None
+
+
+def _serialize_post_comment(comment: dict) -> dict:
+    return {
+        "id": comment.get("id"),
+        "user_id": comment.get("user_id"),
+        "username": comment.get("username"),
+        "handle": comment.get("handle"),
+        "display_name": comment.get("display_name"),
+        "avatar_url": comment.get("avatar_url"),
+        "text": comment.get("text"),
+        "created_at": comment.get("created_at"),
+    }
+
+
+async def serialize_post(
+    post: dict,
+    viewer_id: str,
+    author: Optional[dict] = None,
+    *,
+    include_all_comments: bool = False,
+    duo_doc: Optional[dict] = None,
+) -> Optional[dict]:
+    duo_id = post.get("duo_id")
+    if duo_id and not duo_doc:
+        try:
+            duo_doc = await db.duo_profiles.find_one({"_id": ObjectId(duo_id)})
+        except Exception:
+            duo_doc = None
+
+    if duo_id and duo_doc:
+        if not await can_view_duo_post(viewer_id, post, duo_doc):
+            return None
+        author = author or await get_user_doc_by_id(post.get("author_id"))
+    else:
+        if author is None:
+            author = await get_user_doc_by_id(post.get("author_id"))
+        if not author:
+            return None
+        if not await can_view_post(viewer_id, post, author):
+            return None
+
+    author_id = str(author["_id"]) if author else post.get("author_id")
+    likes = post.get("likes") or []
+    comments = post.get("comments") or []
+    serialized_comments = [_serialize_post_comment(c) for c in comments]
+
+    result = {
+        "id": str(post["_id"]),
+        "author_id": author_id,
+        "author_username": post.get("author_username") or (author.get("username") if author else None),
+        "author_handle": post.get("author_handle") or ((author.get("handle") or author.get("username")) if author else None),
+        "author_display_name": post.get("author_display_name") or (author.get("display_name") if author else None),
+        "author_avatar_url": post.get("author_avatar_url") or (author.get("avatar_url") if author else None),
+        "type": post.get("type"),
+        "title": post.get("title"),
+        "description": post.get("description"),
+        "image_url": post.get("image_url"),
+        "workout_session_id": post.get("workout_session_id"),
+        "badge_id": post.get("badge_id"),
+        "badge_name": post.get("badge_name"),
+        "badge_icon": post.get("badge_icon"),
+        "badge_rarity": post.get("badge_rarity") or "Commun",
+        "duo_session_id": post.get("duo_session_id"),
+        "partner_session_id": post.get("partner_session_id"),
+        "duo_id": post.get("duo_id"),
+        "duo_name": duo_doc.get("name") if duo_doc else None,
+        "duo_tag": duo_tag_from_doc(duo_doc) if duo_doc else None,
+        "source_post_id": post.get("source_post_id"),
+        "visibility": post.get("visibility", "public"),
+        "likes_count": len(likes),
+        "comments_count": len(comments),
+        "is_liked": viewer_id in likes,
+        "preview_comment": serialized_comments[-1] if serialized_comments else None,
+        "comments": serialized_comments if include_all_comments else (
+            [serialized_comments[-1]] if serialized_comments else []
+        ),
+        "created_at": post.get("created_at"),
+        "session_snapshot": post.get("session_snapshot"),
+        "can_view_session_details": False,
+        "session_details": None,
+    }
+
+    session_id = post.get("workout_session_id") or post.get("duo_session_id")
+    partner_session_id = post.get("partner_session_id")
+    if session_id:
+        try:
+            session = await db.workout_sessions.find_one({"_id": ObjectId(session_id)})
+        except Exception:
+            session = None
+        if session:
+            if not result.get("session_snapshot"):
+                workout = await _load_workout_for_session(session)
+                result["session_snapshot"] = build_session_snapshot(session, workout)
+
+            can_details = await can_view_session_in_post(viewer_id, author, session) if author else False
+            result["can_view_session_details"] = can_details
+            if can_details:
+                result["session_details"] = {
+                    "exercise_log": session.get("exercise_log") or [],
+                    "fatigue_before": session.get("fatigue_before"),
+                    "fatigue_after": session.get("fatigue_after"),
+                    "difficulty_felt": session.get("difficulty_felt"),
+                    "mood": session.get("mood"),
+                    "notes": session.get("notes"),
+                }
+
+    if partner_session_id:
+        try:
+            partner_session = await db.workout_sessions.find_one({"_id": ObjectId(partner_session_id)})
+        except Exception:
+            partner_session = None
+        if partner_session:
+            partner_author = await get_user_doc_by_id(partner_session.get("user_id"))
+            workout_p = await _load_workout_for_session(partner_session)
+            result["partner_session_snapshot"] = build_session_snapshot(partner_session, workout_p)
+            can_p = await can_view_session_in_post(viewer_id, partner_author, partner_session) if partner_author else False
+            result["can_view_partner_session_details"] = can_p
+            if can_p:
+                result["partner_session_details"] = {
+                    "exercise_log": partner_session.get("exercise_log") or [],
+                    "fatigue_before": partner_session.get("fatigue_before"),
+                    "fatigue_after": partner_session.get("fatigue_after"),
+                    "difficulty_felt": partner_session.get("difficulty_felt"),
+                    "mood": partner_session.get("mood"),
+                    "notes": partner_session.get("notes"),
+                }
+
+    return result
+
+
+async def _get_user_streak_value(user_id: str) -> int:
+    user_doc = await get_user_doc_by_id(user_id)
+    if not user_doc:
+        return 0
+    partner_id = user_doc.get("partner_id")
+    return await calculate_streak(user_id, partner_id)
+
+async def generate_duo_short_id() -> int:
+    for _ in range(50):
+        candidate = random.randint(1000, 9999)
+        exists = await db.duo_profiles.find_one({"short_id": candidate})
+        if not exists:
+            return candidate
+    return random.randint(10000, 99999)
+
+async def ensure_duo_profile(user_id_a: str, user_id_b: str) -> dict:
+    pair_key = duo_pair_key(user_id_a, user_id_b)
+    existing = await db.duo_profiles.find_one({"pair_key": pair_key})
+    if existing:
+        return apply_duo_defaults(existing)
+
+    user_a = await db.users.find_one({"_id": ObjectId(user_id_a)})
+    user_b = await db.users.find_one({"_id": ObjectId(user_id_b)})
+    name_a = re.sub(r"[^a-zA-Z0-9]", "", (user_a.get("display_name") or user_a.get("username") or "A"))
+    name_b = re.sub(r"[^a-zA-Z0-9]", "", (user_b.get("display_name") or user_b.get("username") or "B"))
+    base_name = f"{name_a}{name_b}"[:24] or "Duo"
+
+    rel_a = user_a.get("relation_type") or "partner"
+    rel_b = user_b.get("relation_type") or rel_a
+    relation_type = normalize_duo_relation(rel_a or rel_b)
+    coach_id, student_id = resolve_coach_roles(relation_type, user_a, user_b)
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "name": base_name,
+        "short_id": await generate_duo_short_id(),
+        "member_ids": sorted([user_id_a, user_id_b]),
+        "pair_key": pair_key,
+        "relation_type": relation_type,
+        "coach_member_id": coach_id,
+        "student_member_id": student_id,
+        "avatar_url": None,
+        "account_visibility": "private",
+        "show_stats": False,
+        "show_badges": True,
+        "show_recent_activity": False,
+        "show_posts": False,
+        "created_at": now,
+        "updated_at": now,
+    }
+    result = await db.duo_profiles.insert_one(doc)
+    doc["_id"] = result.inserted_id
+    return doc
+
+def serialize_duo_search(duo_doc: dict) -> dict:
+    duo_doc = apply_duo_defaults(duo_doc)
+    name = duo_doc.get("name") or "Duo"
+    short_id = int(duo_doc.get("short_id") or 0)
+    return {
+        "id": str(duo_doc["_id"]),
+        "name": name,
+        "short_id": short_id,
+        "tag": duo_tag_from_doc(duo_doc),
+        "member_count": len(duo_doc.get("member_ids") or []),
+        "account_visibility": duo_doc.get("account_visibility", "private"),
+    }
+
+async def _get_duo_profile_for_user(user_id: str, partner_id: Optional[str]) -> Optional[dict]:
+    if not partner_id:
+        return None
+    pair_key = duo_pair_key(user_id, partner_id)
+    doc = await db.duo_profiles.find_one({"pair_key": pair_key})
+    if doc:
+        return apply_duo_defaults(doc)
+    return apply_duo_defaults(await ensure_duo_profile(user_id, partner_id))
+
+async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dict:
+    duo_doc = apply_duo_defaults(duo_doc)
+    members = await get_duo_members(db, duo_doc)
+    access = await get_duo_access_level(db, viewer_id, duo_doc, members)
+    duo_id = str(duo_doc["_id"])
+    tag = duo_tag_from_doc(duo_doc)
+    relation_type = normalize_duo_relation(duo_doc.get("relation_type"))
+
+    member_cards = []
+    for m in members:
+        mid = str(m["_id"])
+        access_member = await get_profile_access_level(viewer_id, m)
+        card = {
+            "id": mid,
+            "username": m.get("username"),
+            "handle": m.get("handle") or m.get("username"),
+            "display_name": m.get("display_name"),
+            "avatar_url": m.get("avatar_url"),
+            "accent_color": m.get("accent_color"),
+            "is_coach": mid == duo_doc.get("coach_member_id"),
+            "is_student": mid == duo_doc.get("student_member_id"),
+            "is_limited": access_member == "limited",
+        }
+        if access_member != "limited":
+            card["bio"] = m.get("bio")
+        member_cards.append(card)
+
+    base = {
+        "id": duo_id,
+        "name": duo_doc.get("name") or "Duo",
+        "short_id": int(duo_doc.get("short_id") or 0),
+        "tag": tag,
+        "relation_type": relation_type,
+        "relation_label": RELATION_LABELS.get(relation_type, "Partenaires"),
+        "avatar_url": duo_doc.get("avatar_url"),
+        "account_visibility": duo_doc.get("account_visibility", "private"),
+        "show_stats": duo_doc.get("show_stats", False),
+        "show_badges": duo_doc.get("show_badges", True),
+        "show_recent_activity": duo_doc.get("show_recent_activity", False),
+        "show_posts": duo_doc.get("show_posts", False),
+        "members": member_cards if access != "limited" else [],
+        "is_member": access == "member",
+        "is_limited": access == "limited",
+        "access_level": access,
+        "coach_member_id": duo_doc.get("coach_member_id"),
+        "student_member_id": duo_doc.get("student_member_id"),
+        "created_at": duo_doc.get("created_at"),
+    }
+
+    if access == "limited":
+        base["show_stats"] = False
+        base["show_badges"] = False
+        base["show_recent_activity"] = False
+        base["show_posts"] = False
+    return base
+
+async def can_view_duo_post(viewer_id: str, post: dict, duo_doc: dict) -> bool:
+    duo_doc = apply_duo_defaults(duo_doc)
+    members = await get_duo_members(db, duo_doc)
+    access = await get_duo_access_level(db, viewer_id, duo_doc, members)
+    if access == "limited":
+        return False
+    if access == "member":
+        return True
+    if not duo_doc.get("show_posts", False):
+        return False
+    visibility = post.get("visibility", "public")
+    if visibility == "private":
+        return False
+    if visibility == "friends":
+        return access == "friend"
+    return True
+
+async def can_view_user_stats(viewer_id: str, target_user: dict) -> bool:
+    access = await get_profile_access_level(viewer_id, target_user)
+    if access == "limited":
+        return False
+    if access == "own":
+        return True
+    return bool(target_user.get("show_stats"))
 
 # ============ STARTUP ============
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await db.users.create_index("username", unique=True)
+    await db.users.create_index("handle", unique=True, sparse=True)
     await db.exercises.create_index("user_id")
     await db.exercises.create_index("is_system")
     await db.workout_templates.create_index("user_id")
@@ -424,6 +1050,20 @@ async def lifespan(app: FastAPI):
     await db.session_time_audit.create_index("session_id")
     await db.workout_progress.create_index([("user_id", 1), ("saved_at", -1)])
     await db.live_workout_messages.create_index([("pair_key", 1), ("created_at", -1)])
+    await db.follows.create_index([("follower_id", 1), ("following_id", 1)], unique=True)
+    await db.follows.create_index("following_id")
+    await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
+    await db.notifications.create_index([("user_id", 1), ("read", 1)])
+    await db.duo_profiles.create_index("pair_key", unique=True)
+    await db.duo_profiles.create_index("short_id")
+    await db.duo_profiles.create_index("name")
+
+    await db.posts.create_index([("author_id", 1), ("created_at", -1)])
+    await db.posts.create_index("created_at")
+    await db.posts.create_index([("duo_id", 1), ("created_at", -1)])
+    await db.reposts.create_index([("user_id", 1), ("created_at", -1)])
+    await db.reposts.create_index([("user_id", 1), ("post_id", 1)])
+    await db.reposts.create_index([("user_id", 1), ("workout_session_id", 1)])
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -500,6 +1140,7 @@ async def register(data: UserCreate, response: Response):
     
     user_doc = {
         "username": data.username.lower(),
+        "handle": normalize_handle(data.username) or data.username.lower(),
         "password_hash": hash_password(data.password),
         "display_name": data.display_name or data.username,
         "gender": data.gender,
@@ -508,6 +1149,13 @@ async def register(data: UserCreate, response: Response):
         "theme": "default",
         "tts_enabled": True,
         "timer_sound": "beep",
+        "account_visibility": "private",
+        "show_stats": False,
+        "show_badges": True,
+        "show_recent_activity": False,
+        "show_sessions": False,
+        "show_posts": False,
+        "featured_badges": [],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
     
@@ -563,6 +1211,39 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
     set_data = {}
     unset_data = {}
 
+    if "handle" in payload:
+        normalized_handle = normalize_handle(payload["handle"])
+        if not normalized_handle:
+            raise HTTPException(
+                status_code=400,
+                detail="Arobase invalide (3-30 caractères, lettres, chiffres et _ uniquement)",
+            )
+        existing = await db.users.find_one({
+            "$or": [
+                {"handle": normalized_handle},
+                {"username": normalized_handle},
+            ],
+            "_id": {"$ne": ObjectId(user["id"])},
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="Cet arobase est déjà pris")
+        set_data["handle"] = normalized_handle
+        payload.pop("handle")
+
+    if "featured_badges" in payload:
+        badges = payload.pop("featured_badges") or []
+        if not isinstance(badges, list):
+            raise HTTPException(status_code=400, detail="featured_badges doit être une liste")
+        if len(badges) > 3:
+            raise HTTPException(status_code=400, detail="Maximum 3 badges mis en avant")
+        set_data["featured_badges"] = [str(b) for b in badges[:3]]
+
+    if "account_visibility" in payload:
+        vis = payload.pop("account_visibility")
+        if vis not in ("public", "private"):
+            raise HTTPException(status_code=400, detail="account_visibility invalide")
+        set_data["account_visibility"] = vis
+
     for key, value in payload.items():
         if key == "accent_color" and (value is None or value == ""):
             unset_data["accent_color"] = ""
@@ -592,16 +1273,236 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
 # ============ PARTNER ROUTES ============
 
 @api_router.get("/users/search")
-async def search_users(q: str, user: dict = Depends(get_current_user)):
-    if len(q) < 2:
+async def search_users(
+    q: str,
+    search_type: Literal["user", "duo"] = "user",
+    user: dict = Depends(get_current_user),
+):
+    query = (q or "").strip()
+    if search_type == "duo":
+        return await _search_duos(query)
+
+    if query.startswith("@"):
+        normalized = normalize_handle(query)
+        if not normalized:
+            return []
+        found = await db.users.find_one({
+            "$or": [{"handle": normalized}, {"username": normalized}],
+            "_id": {"$ne": ObjectId(user["id"])},
+        })
+        if not found:
+            return []
+        return [await serialize_search_user(found, user["id"])]
+
+    if len(query) < 2:
         return []
-    
+
+    pattern = re.escape(query.lower())
     users = await db.users.find({
-        "username": {"$regex": q.lower(), "$options": "i"},
-        "_id": {"$ne": ObjectId(user["id"])}
-    }, {"_id": 1, "username": 1, "display_name": 1, "avatar_url": 1}).to_list(10)
-    
-    return [{"id": str(u["_id"]), "username": u["username"], "display_name": u.get("display_name"), "avatar_url": u.get("avatar_url")} for u in users]
+        "_id": {"$ne": ObjectId(user["id"])},
+        "$or": [
+            {"username": {"$regex": pattern, "$options": "i"}},
+            {"handle": {"$regex": pattern, "$options": "i"}},
+            {"display_name": {"$regex": pattern, "$options": "i"}},
+        ],
+    }).limit(20).to_list(20)
+
+    return [await serialize_search_user(u, user["id"]) for u in users]
+
+
+async def _search_duos(query: str) -> List[dict]:
+    if len(query) < 2:
+        return []
+
+    name_part = query
+    short_id = None
+    if "#" in query:
+        parts = query.split("#", 1)
+        name_part = parts[0].strip()
+        try:
+            short_id = int(parts[1].strip())
+        except ValueError:
+            short_id = None
+
+    mongo_query = {}
+    if short_id is not None:
+        mongo_query["short_id"] = short_id
+    if name_part:
+        mongo_query["name"] = {"$regex": re.escape(name_part), "$options": "i"}
+    if not mongo_query:
+        return []
+
+    duos = await db.duo_profiles.find(mongo_query).limit(20).to_list(20)
+    return [serialize_duo_search(d) for d in duos]
+
+
+@api_router.get("/users/{handle}")
+async def get_user_profile(handle: str, user: dict = Depends(get_current_user)):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+    return await serialize_profile_for_viewer(target, user["id"])
+
+
+@api_router.post("/users/{handle}/follow")
+async def follow_user(handle: str, user: dict = Depends(get_current_user)):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    target_id = str(target["_id"])
+    if target_id == user["id"]:
+        raise HTTPException(status_code=400, detail="Impossible de se suivre soi-même")
+
+    existing = await db.follows.find_one({
+        "follower_id": user["id"],
+        "following_id": target_id,
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Vous suivez déjà cet utilisateur")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.follows.insert_one({
+        "follower_id": user["id"],
+        "following_id": target_id,
+        "created_at": now,
+    })
+    await db.users.update_one({"_id": ObjectId(target_id)}, {"$inc": {"followers_count": 1}})
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$inc": {"following_count": 1}})
+
+    await create_notification(target_id, "new_follower", user, skip_if_exists=True)
+
+    if await is_following(target_id, user["id"]):
+        await create_notification(target_id, "follow_back", user, skip_if_exists=True)
+
+    updated = await db.users.find_one({"_id": ObjectId(target_id)})
+    return await serialize_profile_for_viewer(updated, user["id"])
+
+
+@api_router.delete("/users/{handle}/follow")
+async def unfollow_user(handle: str, user: dict = Depends(get_current_user)):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    target_id = str(target["_id"])
+    if target_id == user["id"]:
+        raise HTTPException(status_code=400, detail="Action invalide")
+
+    deleted = await db.follows.delete_one({
+        "follower_id": user["id"],
+        "following_id": target_id,
+    })
+    if deleted.deleted_count == 0:
+        raise HTTPException(status_code=400, detail="Vous ne suivez pas cet utilisateur")
+
+    await db.users.update_one({"_id": ObjectId(target_id)}, {"$inc": {"followers_count": -1}})
+    await db.users.update_one({"_id": ObjectId(user["id"])}, {"$inc": {"following_count": -1}})
+
+    updated = await db.users.find_one({"_id": ObjectId(target_id)})
+    return await serialize_profile_for_viewer(updated, user["id"])
+
+
+@api_router.get("/notifications")
+async def list_notifications(
+    limit: int = 30,
+    user: dict = Depends(get_current_user),
+):
+    limit = max(1, min(limit, 50))
+    docs = await db.notifications.find({"user_id": user["id"]}).sort("created_at", -1).limit(limit).to_list(limit)
+    return [serialize_notification(d) for d in docs]
+
+
+@api_router.get("/notifications/unread-count")
+async def notifications_unread_count(user: dict = Depends(get_current_user)):
+    count = await db.notifications.count_documents({"user_id": user["id"], "read": False})
+    return {"count": count}
+
+
+@api_router.post("/notifications/{notification_id}/read")
+async def mark_notification_read(notification_id: str, user: dict = Depends(get_current_user)):
+    result = await db.notifications.update_one(
+        {"_id": ObjectId(notification_id), "user_id": user["id"]},
+        {"$set": {"read": True}},
+    )
+    if result.matched_count == 0:
+        raise HTTPException(status_code=404, detail="Notification introuvable")
+    return {"status": "ok"}
+
+
+@api_router.post("/notifications/read-all")
+async def mark_all_notifications_read(user: dict = Depends(get_current_user)):
+    await db.notifications.update_many(
+        {"user_id": user["id"], "read": False},
+        {"$set": {"read": True}},
+    )
+    return {"status": "ok"}
+
+
+@api_router.get("/users/{handle}/profile-stats")
+async def get_user_profile_stats(handle: str, user: dict = Depends(get_current_user)):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    target_id = str(target["_id"])
+    access = await get_profile_access_level(user["id"], target)
+    if access == "limited":
+        raise HTTPException(status_code=403, detail="Profil privé")
+
+    can_stats = access == "own" or bool(target.get("show_stats"))
+    can_badges = access == "own" or bool(target.get("show_badges", True))
+    can_sessions = access == "own" or bool(target.get("show_sessions"))
+
+    result = {"duo_stats": None, "detailed_stats": None, "calendar_days": []}
+
+    if can_stats or can_badges:
+        calculated = await calculate_streak(target_id, target.get("partner_id"))
+        manual = await _get_manual_streak_override(target_id, target.get("partner_id")) if target.get("partner_id") else None
+        streak = manual if manual is not None else calculated
+        badges = await get_duo_badges(target_id, target.get("partner_id"), streak_value=streak) if can_badges else []
+        result["duo_stats"] = {
+            "streak": streak,
+            "badges": badges if can_badges else [],
+            "badges_unlocked": len([b for b in badges if b.get("unlocked")]) if can_badges else 0,
+            "badges_total": len(badges) if can_badges else 0,
+        }
+
+    if can_stats:
+        today = datetime.now(timezone.utc)
+        start = (today - timedelta(days=365)).strftime("%Y-%m-%d")
+        end = today.strftime("%Y-%m-%d")
+        sessions = await db.workout_sessions.find({"user_id": target_id}).sort("created_at", -1).to_list(1000)
+        completed = [s for s in sessions if s.get("status") == "completed"]
+        total_sessions = len(sessions)
+        total_completed = len(completed)
+        total_time = sum(s.get("total_time", 0) for s in sessions)
+        result["detailed_stats"] = {
+            "summary": {
+                "total_sessions": total_sessions,
+                "total_completed": total_completed,
+                "completion_rate": round((total_completed / total_sessions * 100) if total_sessions > 0 else 0, 1),
+                "total_time": total_time,
+                "avg_time": round(total_time / total_sessions) if total_sessions > 0 else 0,
+                "total_calories": sum(estimate_calories(s.get("total_time", 0), s.get("difficulty_felt")) for s in completed),
+            },
+            "recent_sessions": [
+                {
+                    "id": str(s["_id"]),
+                    "title": s.get("title", "Séance"),
+                    "status": s.get("status"),
+                    "total_time": s.get("total_time", 0),
+                    "exercises_completed": s.get("exercises_completed", 0),
+                    "created_at": s.get("created_at"),
+                    "username": target.get("display_name") or target.get("username"),
+                }
+                for s in (sessions[:5] if can_sessions else [])
+            ],
+        }
+        cal = await build_streak_calendar(target_id, target.get("partner_id"), start, end)
+        result["calendar_days"] = cal if isinstance(cal, list) else []
+
+    return result
 
 @api_router.post("/partner/request")
 async def send_partner_request(data: PartnerRequest, user: dict = Depends(get_current_user)):
@@ -676,7 +1577,23 @@ async def accept_partner_request(request_id: str, user: dict = Depends(get_curre
         "partner_username": user["username"],
         "relation_type": req["relation_type"]
     }})
-    
+
+    await ensure_duo_profile(user["id"], req["from_user_id"])
+    duo_doc = await _get_duo_profile_for_user(user["id"], req["from_user_id"])
+    if duo_doc:
+        rel = normalize_duo_relation(req.get("relation_type"))
+        members = await get_duo_members(db, duo_doc)
+        coach_id, student_id = resolve_coach_roles(rel, members[0], members[1]) if len(members) >= 2 else (None, None)
+        await db.duo_profiles.update_one(
+            {"_id": duo_doc["_id"]},
+            {"$set": {
+                "relation_type": rel,
+                "coach_member_id": coach_id,
+                "student_member_id": student_id,
+                "updated_at": datetime.now(timezone.utc).isoformat(),
+            }},
+        )
+
     return {"message": "Partner request accepted"}
 
 @api_router.post("/partner/reject/{request_id}")
@@ -724,7 +1641,200 @@ async def get_partner_info(user: dict = Depends(get_current_user)):
         "last_seen_at": last_seen,
         "connected_today": connected_today,
         "show_presence": is_coach,
+        "duo_profile": serialize_duo_search(
+            await _get_duo_profile_for_user(user["id"], user["partner_id"])
+        ) if user.get("partner_id") else None,
     }
+
+# ============ DUO PROFILE ROUTES ============
+
+@api_router.get("/duo/profile")
+async def get_own_duo_profile(user: dict = Depends(get_current_user)):
+    if not user.get("partner_id"):
+        return None
+    duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+    if not duo_doc:
+        return None
+    return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
+
+
+@api_router.put("/duo/profile")
+async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_current_user)):
+    if not user.get("partner_id"):
+        raise HTTPException(status_code=400, detail="Aucun partenaire lié")
+
+    duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Profil duo introuvable")
+
+    updates = {}
+    if data.name is not None:
+        clean = re.sub(r"[^a-zA-Z0-9À-ÿ\s]", "", data.name.strip())[:32]
+        if len(clean) < 2:
+            raise HTTPException(status_code=400, detail="Nom de duo invalide")
+        updates["name"] = clean.replace(" ", "")
+    if data.relation_type is not None:
+        rel = normalize_duo_relation(data.relation_type)
+        updates["relation_type"] = rel
+        members = await get_duo_members(db, duo_doc)
+        if len(members) >= 2:
+            coach_id, student_id = resolve_coach_roles(rel, members[0], members[1])
+            updates["coach_member_id"] = coach_id
+            updates["student_member_id"] = student_id
+        await db.users.update_one(
+            {"_id": ObjectId(user["id"])},
+            {"$set": {"relation_type": rel}},
+        )
+        await db.users.update_one(
+            {"_id": ObjectId(user["partner_id"])},
+            {"$set": {"relation_type": rel}},
+        )
+    if data.avatar_url is not None:
+        updates["avatar_url"] = (data.avatar_url or "").strip()[:500] or None
+    for field in ("account_visibility", "show_stats", "show_badges", "show_recent_activity", "show_posts"):
+        val = getattr(data, field, None)
+        if val is not None:
+            updates[field] = val
+
+    if not updates:
+        return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
+
+    updates["updated_at"] = datetime.now(timezone.utc).isoformat()
+    await db.duo_profiles.update_one({"_id": duo_doc["_id"]}, {"$set": updates})
+    updated = await db.duo_profiles.find_one({"_id": duo_doc["_id"]})
+    return await serialize_duo_profile_for_viewer(updated, user["id"])
+
+
+@api_router.get("/duos/{tag:path}")
+async def get_duo_profile_by_tag(tag: str, user: dict = Depends(get_current_user)):
+    duo_doc = await find_duo_by_tag(db, tag)
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
+
+
+@api_router.get("/duos/{tag:path}/stats")
+async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)):
+    duo_doc = await find_duo_by_tag(db, tag)
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    duo_doc = apply_duo_defaults(duo_doc)
+    members = await get_duo_members(db, duo_doc)
+    access = await get_duo_access_level(db, user["id"], duo_doc, members)
+    if not can_view_duo_section(duo_doc, access, "stats"):
+        raise HTTPException(status_code=403, detail="Statistiques duo masquées")
+
+    if len(members) < 2:
+        return {"sessions_together": 0, "badges": []}
+
+    a_id, b_id = str(members[0]["_id"]), str(members[1]["_id"])
+    together = await compute_together_stats(db, a_id, b_id)
+    badges = await evaluate_duo_social_badges(db, a_id, b_id, together)
+
+    streak = await calculate_streak(a_id, b_id)
+    challenge = await get_current_challenge(a_id, b_id, streak)
+
+    if challenge and challenge.get("status") == "completed":
+        pair_key = duo_pair_key(a_id, b_id)
+        week_key = challenge.get("week_start", "")
+        existing = await db.challenge_completions.find_one({"pair_key": pair_key, "week_key": week_key})
+        if not existing:
+            await db.challenge_completions.insert_one({
+                "pair_key": pair_key,
+                "user_id": a_id,
+                "partner_id": b_id,
+                "week_key": week_key,
+                "week_start": week_key,
+                "challenge_id": challenge.get("id"),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            together["challenges_completed"] = together.get("challenges_completed", 0) + 1
+            badges = await evaluate_duo_social_badges(db, a_id, b_id, together)
+
+    return {
+        **together,
+        "badges": badges,
+        "badges_unlocked": len([b for b in badges if b.get("unlocked")]),
+        "badges_total": len(badges),
+        "current_challenge": challenge,
+    }
+
+
+@api_router.get("/duos/{tag:path}/activity")
+async def get_duo_profile_activity(
+    tag: str,
+    limit: int = 15,
+    user: dict = Depends(get_current_user),
+):
+    duo_doc = await find_duo_by_tag(db, tag)
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    duo_doc = apply_duo_defaults(duo_doc)
+    members = await get_duo_members(db, duo_doc)
+    access = await get_duo_access_level(db, user["id"], duo_doc, members)
+    if not can_view_duo_section(duo_doc, access, "activity"):
+        return []
+    return await build_duo_activity(db, duo_doc, members, user["id"], limit=min(limit, 30))
+
+
+@api_router.get("/duos/{tag:path}/posts")
+async def get_duo_posts(
+    tag: str,
+    limit: int = 20,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+):
+    duo_doc = await find_duo_by_tag(db, tag)
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    duo_doc = apply_duo_defaults(duo_doc)
+    members = await get_duo_members(db, duo_doc)
+    access = await get_duo_access_level(db, user["id"], duo_doc, members)
+    if not can_view_duo_section(duo_doc, access, "posts"):
+        return []
+
+    duo_id = str(duo_doc["_id"])
+    posts = await db.posts.find({"duo_id": duo_id}).sort(
+        "created_at", -1
+    ).skip(offset).limit(min(limit, 50)).to_list(min(limit, 50))
+
+    items = []
+    for post in posts:
+        author = await get_user_doc_by_id(post.get("author_id"))
+        serialized = await serialize_post(post, user["id"], author, duo_doc=duo_doc)
+        if serialized:
+            items.append(serialized)
+    return items
+
+
+@api_router.get("/duo/activity-feed")
+async def get_duo_activity_feed(limit: int = 20, user: dict = Depends(get_current_user)):
+    """Fil d'activité privé avec séances communes regroupées."""
+    from duo_social import _serialize_session_ref
+
+    if not user.get("partner_id"):
+        sessions = await db.workout_sessions.find({"user_id": user["id"]}).sort(
+            "created_at", -1
+        ).limit(limit).to_list(limit)
+        return [
+            {**_serialize_session_ref({**s, "id": str(s["_id"])}, user["id"]), "type": "session"}
+            for s in sessions
+        ]
+
+    sessions_a = await db.workout_sessions.find(
+        {"user_id": user["id"]}
+    ).sort("created_at", -1).limit(100).to_list(100)
+    sessions_b = await db.workout_sessions.find(
+        {"user_id": user["partner_id"]}
+    ).sort("created_at", -1).limit(100).to_list(100)
+
+    for s in sessions_a:
+        s["id"] = str(s["_id"])
+    for s in sessions_b:
+        s["id"] = str(s["_id"])
+
+    items = build_common_sessions(sessions_a, sessions_b, user["id"], user["partner_id"])
+    return items[:min(limit, 50)]
 
 async def _get_live_session_for_user(user_id: str) -> Optional[dict]:
     progress = await db.workout_progress.find_one(
@@ -1686,6 +2796,564 @@ async def add_comment(session_id: str, data: CommentCreate, user: dict = Depends
     updated = await db.workout_sessions.find_one({"_id": ObjectId(session_id)})
     return {"comments": updated.get("comments", [])}
 
+# ============ POSTS / SOCIAL WALL ============
+
+@api_router.post("/posts")
+async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
+    if data.type not in POST_TYPES:
+        raise HTTPException(status_code=400, detail="Type de publication invalide")
+
+    visibility = data.visibility if data.visibility in POST_VISIBILITY else "public"
+    title = (data.title or "").strip()[:120] or None
+    description = (data.description or "").strip()[:500] or None
+    image_url = (data.image_url or "").strip()[:500] or None
+
+    session_snapshot = None
+    badge_name = None
+    badge_icon = None
+    badge_rarity = None
+    workout_session_id = data.workout_session_id
+    duo_session_id = data.duo_session_id
+    partner_session_id = data.partner_session_id
+    duo_id = data.duo_id
+    partner_session_snapshot = None
+
+    if data.duo_id or data.post_on_duo_wall:
+        if not user.get("partner_id"):
+            raise HTTPException(status_code=400, detail="Aucun duo lié")
+        duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+        if not duo_doc:
+            raise HTTPException(status_code=404, detail="Profil duo introuvable")
+        duo_id = str(duo_doc["_id"])
+
+    if data.type in ("workout", "workout_photo", "duo", "duo_repost") and partner_session_id:
+        try:
+            p_session = await db.workout_sessions.find_one({"_id": ObjectId(partner_session_id)})
+        except Exception:
+            p_session = None
+        if not p_session:
+            raise HTTPException(status_code=404, detail="Séance partenaire introuvable")
+        allowed_partner = p_session.get("user_id") == user.get("partner_id")
+        if not allowed_partner and p_session.get("user_id") != user["id"]:
+            raise HTTPException(status_code=403, detail="Séance partenaire non accessible")
+        workout_p = await _load_workout_for_session(p_session)
+        partner_session_snapshot = build_session_snapshot(p_session, workout_p)
+
+    if data.type in ("workout", "workout_photo") and workout_session_id:
+        try:
+            session = await db.workout_sessions.find_one({"_id": ObjectId(workout_session_id)})
+        except Exception:
+            session = None
+        if not session:
+            raise HTTPException(status_code=404, detail="Séance introuvable")
+        if session.get("user_id") != user["id"]:
+            raise HTTPException(status_code=403, detail="Cette séance ne vous appartient pas")
+        workout = await _load_workout_for_session(session)
+        session_snapshot = build_session_snapshot(session, workout)
+        if not title and session_snapshot.get("workout_title"):
+            title = session_snapshot["workout_title"]
+    elif data.type == "duo":
+        if workout_session_id and partner_session_id:
+            if not title:
+                title = "Séance commune"
+        elif data.badge_id:
+            if not user.get("partner_id"):
+                raise HTTPException(status_code=400, detail="Badge duo requiert un partenaire")
+            together = await compute_together_stats(db, user["id"], user["partner_id"])
+            duo_badges = await evaluate_duo_social_badges(db, user["id"], user["partner_id"], together)
+            badge = next((b for b in duo_badges if b.get("id") == data.badge_id), None)
+            if not badge or not badge.get("unlocked"):
+                raise HTTPException(status_code=400, detail="Badge duo non débloqué")
+            badge_name = badge.get("name")
+            badge_icon = badge.get("icon")
+            badge_rarity = badge.get("rarity") or "Commun"
+            if not title:
+                title = f"Badge duo : {badge_name}"
+        elif not title:
+            title = "Publication duo"
+    elif data.type == "badge":
+        if not data.badge_id:
+            raise HTTPException(status_code=400, detail="Badge requis")
+        streak = await _get_user_streak_value(user["id"])
+        badge = await find_badge_for_user(
+            db, user["id"], user.get("partner_id"), streak, data.badge_id
+        )
+        if not badge or not badge.get("unlocked"):
+            raise HTTPException(status_code=400, detail="Badge non débloqué")
+        badge_name = badge.get("name")
+        badge_icon = badge.get("icon")
+        badge_rarity = badge.get("rarity") or "Commun"
+        if not title:
+            title = f"J'ai obtenu le badge {badge_name}"
+    elif data.type == "duo_repost":
+        session_ref = workout_session_id or duo_session_id
+        if not session_ref:
+            raise HTTPException(status_code=400, detail="Séance duo requise")
+        try:
+            session = await db.workout_sessions.find_one({"_id": ObjectId(session_ref)})
+        except Exception:
+            session = None
+        if not session:
+            raise HTTPException(status_code=404, detail="Séance introuvable")
+        allowed = session.get("user_id") == user["id"]
+        if not allowed and user.get("partner_id") == session.get("user_id"):
+            allowed = True
+        if not allowed:
+            raise HTTPException(status_code=403, detail="Séance non republiable")
+        workout_session_id = str(session["_id"])
+        duo_session_id = workout_session_id
+        workout = await _load_workout_for_session(session)
+        session_snapshot = build_session_snapshot(session, workout)
+        if not title and session_snapshot.get("workout_title"):
+            title = session_snapshot["workout_title"]
+
+    now = datetime.now(timezone.utc).isoformat()
+    post_doc = {
+        "author_id": user["id"],
+        "author_username": user.get("username"),
+        "author_handle": user.get("handle") or user.get("username"),
+        "author_display_name": user.get("display_name"),
+        "author_avatar_url": user.get("avatar_url"),
+        "type": data.type,
+        "title": title,
+        "description": description,
+        "image_url": image_url,
+        "workout_session_id": workout_session_id,
+        "badge_id": data.badge_id,
+        "badge_name": badge_name,
+        "badge_icon": badge_icon,
+        "badge_rarity": badge_rarity,
+        "duo_session_id": duo_session_id,
+        "partner_session_id": partner_session_id,
+        "partner_session_snapshot": partner_session_snapshot,
+        "duo_id": duo_id,
+        "source_post_id": None,
+        "visibility": visibility,
+        "session_snapshot": session_snapshot,
+        "likes": [],
+        "comments": [],
+        "created_at": now,
+    }
+
+    result = await db.posts.insert_one(post_doc)
+    post_doc["_id"] = result.inserted_id
+
+    if not user.get("show_posts"):
+        await db.users.update_one(
+            {"_id": ObjectId(user["id"])},
+            {"$set": {"show_posts": True}},
+        )
+
+    if duo_id and data.post_on_duo_wall:
+        await db.duo_profiles.update_one(
+            {"_id": ObjectId(duo_id)},
+            {"$set": {"show_posts": True}},
+        )
+
+    duo_doc_for_serial = None
+    if duo_id:
+        duo_doc_for_serial = await db.duo_profiles.find_one({"_id": ObjectId(duo_id)})
+
+    serialized = await serialize_post(
+        post_doc, user["id"], await get_user_doc_by_id(user["id"]), duo_doc=duo_doc_for_serial
+    )
+    return serialized
+
+
+@api_router.get("/users/{handle}/posts")
+async def get_user_posts(
+    handle: str,
+    limit: int = 20,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    target_id = str(target["_id"])
+    access = await get_profile_access_level(user["id"], target)
+    is_own = user["id"] == target_id
+
+    if access == "limited":
+        return []
+
+    if not is_own and not target.get("show_posts", False):
+        return []
+
+    posts = await db.posts.find({"author_id": target_id}).sort(
+        "created_at", -1
+    ).skip(offset).limit(min(limit, 50)).to_list(min(limit, 50))
+
+    items = []
+    for post in posts:
+        serialized = await serialize_post(post, user["id"], target)
+        if serialized:
+            items.append(serialized)
+    return items
+
+
+@api_router.get("/users/{handle}/reposts")
+async def get_user_reposts(
+    handle: str,
+    limit: int = 20,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    target_id = str(target["_id"])
+    access = await get_profile_access_level(user["id"], target)
+
+    if access == "limited":
+        return []
+
+    if user["id"] != target_id and not target.get("show_posts", False):
+        return []
+
+    reposts = await db.reposts.find({"user_id": target_id}).sort(
+        "created_at", -1
+    ).skip(offset).limit(min(limit, 50)).to_list(min(limit, 50))
+
+    items = []
+    for repost in reposts:
+        item = {
+            "id": str(repost["_id"]),
+            "created_at": repost.get("created_at"),
+            "post": None,
+        }
+        if repost.get("post_id"):
+            try:
+                post = await db.posts.find_one({"_id": ObjectId(repost["post_id"])})
+            except Exception:
+                post = None
+            if post:
+                author = await get_user_doc_by_id(post.get("author_id"))
+                if author:
+                    serialized = await serialize_post(post, user["id"], author)
+                    if serialized:
+                        item["post"] = serialized
+        elif repost.get("workout_session_id"):
+            try:
+                session = await db.workout_sessions.find_one(
+                    {"_id": ObjectId(repost["workout_session_id"])}
+                )
+            except Exception:
+                session = None
+            if session:
+                author = await get_user_doc_by_id(session.get("user_id"))
+                if author and await can_view_session_in_post(user["id"], author, session):
+                    workout = await _load_workout_for_session(session)
+                    item["post"] = {
+                        "id": f"session-{repost['workout_session_id']}",
+                        "type": "workout",
+                        "title": session.get("workout_title"),
+                        "workout_session_id": str(session["_id"]),
+                        "author_id": str(author["_id"]),
+                        "author_username": author.get("username"),
+                        "author_handle": author.get("handle") or author.get("username"),
+                        "author_display_name": author.get("display_name"),
+                        "author_avatar_url": author.get("avatar_url"),
+                        "session_snapshot": build_session_snapshot(session, workout),
+                        "can_view_session_details": True,
+                        "session_details": {
+                            "exercise_log": session.get("exercise_log") or [],
+                            "fatigue_before": session.get("fatigue_before"),
+                            "fatigue_after": session.get("fatigue_after"),
+                            "difficulty_felt": session.get("difficulty_felt"),
+                            "mood": session.get("mood"),
+                            "notes": session.get("notes"),
+                        },
+                        "likes_count": 0,
+                        "comments_count": 0,
+                        "is_liked": False,
+                        "is_repost": True,
+                        "created_at": session.get("created_at"),
+                    }
+        if item["post"]:
+            items.append(item)
+    return items
+
+
+@api_router.get("/posts/{post_id}")
+async def get_post(post_id: str, user: dict = Depends(get_current_user)):
+    try:
+        post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        post = None
+    if not post:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+
+    author = await get_user_doc_by_id(post.get("author_id"))
+    if not author:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+
+    serialized = await serialize_post(post, user["id"], author, include_all_comments=True)
+    if not serialized:
+        raise HTTPException(status_code=403, detail="Publication non accessible")
+    return serialized
+
+
+@api_router.delete("/posts/{post_id}")
+async def delete_post(post_id: str, user: dict = Depends(get_current_user)):
+    try:
+        post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        post = None
+    if not post:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+    if post.get("author_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    await db.posts.delete_one({"_id": ObjectId(post_id)})
+    await db.reposts.delete_many({"post_id": post_id})
+    return {"status": "ok"}
+
+
+@api_router.post("/posts/{post_id}/like")
+async def toggle_post_like(post_id: str, user: dict = Depends(get_current_user)):
+    try:
+        post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        post = None
+    if not post:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+
+    author = await get_user_doc_by_id(post.get("author_id"))
+    if not author:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+    if not await can_view_post(user["id"], post, author):
+        raise HTTPException(status_code=403, detail="Publication non accessible")
+
+    likes = post.get("likes") or []
+    liked = user["id"] in likes
+    if liked:
+        likes = [uid for uid in likes if uid != user["id"]]
+    else:
+        likes = likes + [user["id"]]
+        await create_notification(
+            post.get("author_id"),
+            "like",
+            user,
+            post_id=post_id,
+        )
+
+    await db.posts.update_one({"_id": ObjectId(post_id)}, {"$set": {"likes": likes}})
+    return {"likes_count": len(likes), "is_liked": user["id"] in likes}
+
+
+@api_router.post("/posts/{post_id}/comment")
+async def add_post_comment(
+    post_id: str,
+    data: PostCommentCreate,
+    user: dict = Depends(get_current_user),
+):
+    text = (data.text or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Commentaire vide")
+
+    try:
+        post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        post = None
+    if not post:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+
+    author = await get_user_doc_by_id(post.get("author_id"))
+    if not author:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+    if not await can_view_post(user["id"], post, author):
+        raise HTTPException(status_code=403, detail="Publication non accessible")
+
+    comment = {
+        "id": str(uuid.uuid4()),
+        "user_id": user["id"],
+        "username": user.get("username"),
+        "handle": user.get("handle") or user.get("username"),
+        "display_name": user.get("display_name"),
+        "avatar_url": user.get("avatar_url"),
+        "text": text[:300],
+        "created_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+    await db.posts.update_one(
+        {"_id": ObjectId(post_id)},
+        {"$push": {"comments": comment}},
+    )
+    await create_notification(
+        post.get("author_id"),
+        "comment",
+        user,
+        post_id=post_id,
+    )
+
+    updated = await db.posts.find_one({"_id": ObjectId(post_id)})
+    comments = [_serialize_post_comment(c) for c in (updated.get("comments") or [])]
+    return {
+        "comments_count": len(comments),
+        "preview_comment": comments[-1] if comments else None,
+        "comments": comments,
+    }
+
+
+@api_router.get("/posts/{post_id}/comments")
+async def get_post_comments(post_id: str, user: dict = Depends(get_current_user)):
+    try:
+        post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        post = None
+    if not post:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+
+    author = await get_user_doc_by_id(post.get("author_id"))
+    if not author or not await can_view_post(user["id"], post, author):
+        raise HTTPException(status_code=403, detail="Publication non accessible")
+
+    comments = [_serialize_post_comment(c) for c in (post.get("comments") or [])]
+    return {"comments": comments, "comments_count": len(comments)}
+
+
+@api_router.post("/reposts")
+async def create_repost(data: RepostCreate, user: dict = Depends(get_current_user)):
+    if not data.post_id and not data.workout_session_id:
+        raise HTTPException(status_code=400, detail="Référence requise")
+
+    duo_wall_post = None
+
+    if data.post_id:
+        try:
+            post = await db.posts.find_one({"_id": ObjectId(data.post_id)})
+        except Exception:
+            post = None
+        if not post:
+            raise HTTPException(status_code=404, detail="Publication introuvable")
+        author = await get_user_doc_by_id(post.get("author_id"))
+        if not author or not await can_view_post(user["id"], post, author):
+            raise HTTPException(status_code=403, detail="Publication non accessible")
+
+        existing = await db.reposts.find_one({
+            "user_id": user["id"],
+            "post_id": data.post_id,
+        })
+        if existing:
+            raise HTTPException(status_code=400, detail="Déjà republié")
+
+        now = datetime.now(timezone.utc).isoformat()
+        result = await db.reposts.insert_one({
+            "user_id": user["id"],
+            "post_id": data.post_id,
+            "workout_session_id": post.get("workout_session_id") or post.get("duo_session_id"),
+            "created_at": now,
+        })
+        return {"id": str(result.inserted_id), "post_id": data.post_id, "created_at": now}
+
+    try:
+        session = await db.workout_sessions.find_one(
+            {"_id": ObjectId(data.workout_session_id)}
+        )
+    except Exception:
+        session = None
+    if not session:
+        raise HTTPException(status_code=404, detail="Séance introuvable")
+
+    session_owner_id = session.get("user_id")
+    can_repost = session_owner_id == user["id"] or session_owner_id == user.get("partner_id")
+    if not can_repost:
+        raise HTTPException(status_code=403, detail="Séance non republiable")
+
+    existing = await db.reposts.find_one({
+        "user_id": user["id"],
+        "workout_session_id": data.workout_session_id,
+    })
+    if existing:
+        raise HTTPException(status_code=400, detail="Déjà republié")
+
+    now = datetime.now(timezone.utc).isoformat()
+    repost_doc = {
+        "user_id": user["id"],
+        "post_id": None,
+        "workout_session_id": data.workout_session_id,
+        "partner_session_id": data.partner_session_id,
+        "created_at": now,
+    }
+    result = await db.reposts.insert_one(repost_doc)
+
+    if data.post_on_duo_wall and user.get("partner_id"):
+        duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+        if duo_doc:
+            try:
+                session = await db.workout_sessions.find_one(
+                    {"_id": ObjectId(data.workout_session_id)}
+                )
+            except Exception:
+                session = None
+            if session:
+                workout = await _load_workout_for_session(session)
+                snap = build_session_snapshot(session, workout)
+                partner_snap = None
+                if data.partner_session_id:
+                    try:
+                        ps = await db.workout_sessions.find_one(
+                            {"_id": ObjectId(data.partner_session_id)}
+                        )
+                    except Exception:
+                        ps = None
+                    if ps:
+                        partner_snap = build_session_snapshot(
+                            ps, await _load_workout_for_session(ps)
+                        )
+                post_doc = {
+                    "author_id": user["id"],
+                    "author_username": user.get("username"),
+                    "author_handle": user.get("handle") or user.get("username"),
+                    "author_display_name": user.get("display_name"),
+                    "author_avatar_url": user.get("avatar_url"),
+                    "type": "duo",
+                    "title": "Séance commune" if data.partner_session_id else snap.get("workout_title"),
+                    "description": None,
+                    "image_url": None,
+                    "workout_session_id": data.workout_session_id,
+                    "partner_session_id": data.partner_session_id,
+                    "session_snapshot": snap,
+                    "partner_session_snapshot": partner_snap,
+                    "duo_id": str(duo_doc["_id"]),
+                    "visibility": "public",
+                    "likes": [],
+                    "comments": [],
+                    "created_at": now,
+                }
+                wall_result = await db.posts.insert_one(post_doc)
+                duo_wall_post = str(wall_result.inserted_id)
+                await db.duo_profiles.update_one(
+                    {"_id": duo_doc["_id"]},
+                    {"$set": {"show_posts": True}},
+                )
+
+    return {
+        "id": str(result.inserted_id),
+        "workout_session_id": data.workout_session_id,
+        "partner_session_id": data.partner_session_id,
+        "duo_wall_post_id": duo_wall_post,
+        "created_at": now,
+    }
+
+
+@api_router.delete("/reposts/{repost_id}")
+async def delete_repost(repost_id: str, user: dict = Depends(get_current_user)):
+    try:
+        repost = await db.reposts.find_one({"_id": ObjectId(repost_id)})
+    except Exception:
+        repost = None
+    if not repost:
+        raise HTTPException(status_code=404, detail="Republication introuvable")
+    if repost.get("user_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    await db.reposts.delete_one({"_id": ObjectId(repost_id)})
+    return {"status": "ok"}
+
 # ============ DUO STATS ROUTES ============
 
 def _duo_pair_key(user_id: str, partner_id: str) -> str:
@@ -1997,26 +3665,35 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "status": "completed",
         "created_at": {"$gte": week_start}
     })
-    
-    total_together = await db.workout_sessions.count_documents({
-        "$or": [
-            {"user_id": user["id"]},
-            {"user_id": user["partner_id"]}
-        ],
-        "status": "completed"
-    })
-    
+
+    together = await compute_together_stats(db, user["id"], user["partner_id"])
+    duo_social_badges = await evaluate_duo_social_badges(
+        db, user["id"], user["partner_id"], together
+    )
+    all_badges = badges + [b for b in duo_social_badges if b.get("id") not in {x.get("id") for x in badges}]
+
+    duo_profile = None
+    duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+    if duo_doc:
+        duo_profile = serialize_duo_search(duo_doc)
+
     return {
         "streak": streak,
         "streak_calculated": calculated,
         "streak_manual_override": manual,
-        "total_workouts_together": total_together,
+        "total_workouts_together": together.get("sessions_together", 0),
+        "duo_streak_current": together.get("duo_streak_current", 0),
+        "duo_streak_best": together.get("duo_streak_best", 0),
+        "total_training_time_together": together.get("total_training_time", 0),
+        "challenges_completed": together.get("challenges_completed", 0),
         "this_week_user": user_sessions,
         "this_week_partner": partner_sessions,
-        "badges": badges,
+        "badges": all_badges,
+        "duo_badges": duo_social_badges,
         "current_challenge": challenge,
-        "badges_unlocked": len([b for b in badges if b.get("unlocked")]),
-        "badges_total": len(badges),
+        "badges_unlocked": len([b for b in all_badges if b.get("unlocked")]),
+        "badges_total": len(all_badges),
+        "duo_profile": duo_profile,
     }
 
 async def get_duo_badges(user_id: str, partner_id: Optional[str], streak_value: Optional[int] = None) -> List[dict]:
@@ -2054,13 +3731,17 @@ async def get_detailed_stats(
     # Determine which user to get stats for
     stats_user_id = target_user or user.get("partner_id") or user["id"]
     
-    # Check authorization
+    target_user_doc = await db.users.find_one({"_id": ObjectId(stats_user_id)})
+    if not target_user_doc:
+        raise HTTPException(status_code=404, detail="User not found")
+
     allowed_ids = [user["id"]]
     if user.get("partner_id"):
         allowed_ids.append(user["partner_id"])
-    
+
     if stats_user_id not in allowed_ids:
-        raise HTTPException(status_code=403, detail="Not authorized to view these stats")
+        if not await can_view_user_stats(user["id"], target_user_doc):
+            raise HTTPException(status_code=403, detail="Not authorized to view these stats")
     
     # Calculate date range
     today = datetime.now(timezone.utc)

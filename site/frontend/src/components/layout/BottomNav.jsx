@@ -24,7 +24,7 @@ export function BottomNav() {
   return (
     <nav
       data-testid="bottom-nav"
-      className="md:hidden fixed bottom-0 left-0 w-full h-20 bg-[#0A0A0A]/80 backdrop-blur-2xl border-t border-white/10 flex justify-around items-center z-50 safe-bottom"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 grid h-20 grid-cols-5 items-end border-t border-white/10 bg-[#0A0A0A]/80 backdrop-blur-2xl safe-bottom"
     >
       {navItems.map((item) => {
         const Icon = item.icon;
@@ -32,33 +32,35 @@ export function BottomNav() {
 
         if (item.isCenter) {
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              data-testid="nav-create"
-              className="w-14 h-14 -translate-y-4 rounded-full flex items-center justify-center text-white border-4 border-[#0A0A0A] active:scale-95 transition-transform"
-              style={{
-                background: `linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))`,
-                boxShadow: `0 8px 25px var(--theme-primary-glow)`,
-              }}
-            >
-              <Icon size={24} strokeWidth={2} />
-            </NavLink>
+            <div key={item.path} className="flex justify-center">
+              <NavLink
+                to={item.path}
+                data-testid="nav-create"
+                className="flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full border-4 border-[#0A0A0A] text-white transition-transform active:scale-95"
+                style={{
+                  background: `linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))`,
+                  boxShadow: `0 8px 25px var(--theme-primary-glow)`,
+                }}
+              >
+                <Icon size={24} strokeWidth={2} />
+              </NavLink>
+            </div>
           );
         }
 
         return (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            data-testid={`nav-${item.label.toLowerCase() || 'home'}`}
-            className={`flex flex-col items-center gap-1.5 text-[10px] font-medium tracking-wider uppercase transition-colors ${
-              isActive ? 'text-[var(--theme-primary)]' : 'text-zinc-500 hover:text-white'
-            }`}
-          >
-            <Icon size={22} strokeWidth={1.5} />
-            <span>{item.label}</span>
-          </NavLink>
+          <div key={item.path} className="flex justify-center pb-2">
+            <NavLink
+              to={item.path}
+              data-testid={`nav-${item.label.toLowerCase() || 'home'}`}
+              className={`flex flex-col items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors ${
+                isActive ? 'text-[var(--theme-primary)]' : 'text-zinc-500 hover:text-white'
+              }`}
+            >
+              <Icon size={22} strokeWidth={1.5} />
+              <span>{item.label}</span>
+            </NavLink>
+          </div>
         );
       })}
     </nav>

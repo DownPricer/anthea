@@ -1,4 +1,5 @@
 import { Trophy, Flame, Heart, Target, Medal, Zap, Crown, Star, MessageCircle, Users } from 'lucide-react';
+import { ShareBadgeButton } from './social/ShareBadgeDialog';
 
 const ICON_MAP = {
   trophy: Trophy,
@@ -13,7 +14,7 @@ const ICON_MAP = {
   users: Users,
 };
 
-export function BadgesGrid({ badges = [], compact = false }) {
+export function BadgesGrid({ badges = [], compact = false, showShare = false }) {
   if (!badges.length) return null;
 
   const families = [...new Set(badges.map((b) => b.family || 'other'))];
@@ -66,6 +67,11 @@ export function BadgesGrid({ badges = [], compact = false }) {
                     )}
                     {unlocked && (
                       <span className="absolute top-1 right-1 text-[8px] text-[var(--theme-primary)]">✓</span>
+                    )}
+                    {unlocked && showShare && (
+                      <div className="mt-1">
+                        <ShareBadgeButton badge={badge} />
+                      </div>
                     )}
                   </div>
                 );
