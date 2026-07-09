@@ -385,7 +385,7 @@ export function DuoPage() {
   return (
     <div data-testid="duo-page" className="p-5 animate-fade-in">
       {/* Header with duo avatars */}
-      <header className="mb-6">
+      <header className="mb-6 space-y-4">
         <div className="flex items-center gap-4">
           <div className="flex -space-x-3">
             <div
@@ -431,6 +431,24 @@ export function DuoPage() {
             )}
           </div>
         </div>
+
+        {duoStats?.duo_profile?.tag ? (
+          <Link
+            to={duoProfilePath(duoStats.duo_profile.tag)}
+            className="card p-4 flex items-center justify-between gap-3 border border-[var(--theme-primary)]/30 hover:border-[var(--theme-primary)]/50 transition-colors group"
+            data-testid="duo-profile-link"
+          >
+            <div>
+              <p className="text-white font-semibold group-hover:text-[var(--theme-primary)] transition-colors">
+                Profil du duo
+              </p>
+              <p className="text-zinc-500 text-sm mt-0.5">
+                Mur, stats, badges et vitrine publique
+              </p>
+            </div>
+            <ChevronRight className="text-zinc-500 group-hover:text-[var(--theme-primary)] shrink-0" size={20} />
+          </Link>
+        ) : null}
       </header>
 
       {liveSession && (

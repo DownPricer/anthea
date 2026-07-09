@@ -109,6 +109,13 @@ def test_build_common_sessions():
     assert items[0]["date"] == "2026-07-09"
 
 
+def test_can_view_duo_challenges_section():
+    from duo_social import can_view_duo_section, apply_duo_defaults
+    doc = apply_duo_defaults({"show_challenges": False})
+    assert can_view_duo_section(doc, "public", "challenges") is False
+    assert can_view_duo_section(doc, "member", "challenges") is True
+
+
 def test_compute_best_streak_from_calendar():
     from server import compute_best_streak_from_calendar
     days = []

@@ -3,6 +3,7 @@ export function isCommonSessionPost(post) {
   if (!post) return false;
   return (
     post.common_session === true
+    || post.type === 'duo_common_session'
     || (post.type === 'duo' && !!post.partner_session_snapshot)
   );
 }

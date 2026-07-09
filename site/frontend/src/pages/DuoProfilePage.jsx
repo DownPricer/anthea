@@ -52,7 +52,11 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       setStatsLoading(false);
       return;
     }
-    if (!canViewDuoSection(duoProfile, 'stats') && !canViewDuoSection(duoProfile, 'badges')) {
+    if (
+      !canViewDuoSection(duoProfile, 'stats')
+      && !canViewDuoSection(duoProfile, 'badges')
+      && !canViewDuoSection(duoProfile, 'challenges')
+    ) {
       setStats(null);
       setStatsLoading(false);
       return;
@@ -109,6 +113,10 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
     () => canViewDuoSection(duoProfile, 'badges'),
     [duoProfile]
   );
+  const canShowChallenges = useMemo(
+    () => canViewDuoSection(duoProfile, 'challenges'),
+    [duoProfile]
+  );
   const canShowActivity = useMemo(
     () => canViewDuoSection(duoProfile, 'activity'),
     [duoProfile]
@@ -153,7 +161,7 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
         </TabsList>
 
         <TabsContent value="posts">
-          {canShowPosts ? (
+          {canShowPosts || duoProfile.is_member ? (
             <DuoPostFeed duoProfile={duoProfile} viewer={user} />
           ) : (
             <ProfileEmptyState title="Mur masqué" description="Le mur duo n'est pas visible." />
@@ -166,6 +174,9 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
             loading={statsLoading}
             canViewStats={canShowStats}
             canViewBadges={canShowBadges}
+            canViewChallenges={canShowChallenges}
+            duoProfile={duoProfile}
+            onBadgeShared={loadStats}
           />
         </TabsContent>
 

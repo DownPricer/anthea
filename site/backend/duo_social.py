@@ -37,6 +37,7 @@ DEFAULT_DUO_PRIVACY = {
     "show_badges": True,
     "show_recent_activity": False,
     "show_posts": False,
+    "show_challenges": True,
 }
 
 
@@ -166,6 +167,7 @@ def can_view_duo_section(duo_doc: dict, access: str, section: str) -> bool:
         "badges": "show_badges",
         "activity": "show_recent_activity",
         "posts": "show_posts",
+        "challenges": "show_challenges",
     }
     flag = flag_map.get(section)
     if not flag:
@@ -260,6 +262,24 @@ async def compute_together_stats(db, user_a_id: str, user_b_id: str) -> dict:
         "week_start": {"$gte": week_start},
     })
 
+    last_common_session = None
+    if common_days:
+        last_day = common_days[-1]
+        day_a = [s for s in sessions_a if _session_day(s) == last_day]
+        day_b = [s for s in sessions_b if _session_day(s) == last_day]
+        if day_a and day_b:
+            a_sess = sorted(day_a, key=lambda x: x.get("created_at", ""), reverse=True)[0]
+            b_sess = sorted(day_b, key=lambda x: x.get("created_at", ""), reverse=True)[0]
+            last_common_session = {
+                "date": last_day,
+                "session_a_id": str(a_sess.get("_id", a_sess.get("id", ""))),
+                "session_b_id": str(b_sess.get("_id", b_sess.get("id", ""))),
+                "title_a": a_sess.get("workout_title"),
+                "title_b": b_sess.get("workout_title"),
+            }
+
+    estimated_calories = round(total_time / 60 * 5) if total_time else 0
+
     return {
         "sessions_together": sessions_together,
         "duo_streak_current": current_streak,
@@ -268,6 +288,8 @@ async def compute_together_stats(db, user_a_id: str, user_b_id: str) -> dict:
         "challenges_completed": challenges_won,
         "challenges_week_completed": week_challenges,
         "total_training_time": total_time,
+        "estimated_calories": estimated_calories,
+        "last_common_session": last_common_session,
         "common_days": common_days,
     }
 

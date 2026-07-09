@@ -40,6 +40,7 @@ export function canViewDuoSection(duoProfile, section) {
     badges: 'show_badges',
     activity: 'show_recent_activity',
     posts: 'show_posts',
+    challenges: 'show_challenges',
   };
   const flag = map[section];
   return flag ? !!duoProfile[flag] : true;
