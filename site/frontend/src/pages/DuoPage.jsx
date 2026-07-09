@@ -656,7 +656,9 @@ export function DuoPage() {
                       />
                     </CollapsibleTrigger>
                     <CollapsibleContent className="px-4 pb-4 border-t border-white/5">
-                      <BadgesGrid badges={duoStats.badges} />
+                      <div className="flex w-full justify-center pt-3">
+                        <BadgesGrid badges={duoStats.badges} />
+                      </div>
                     </CollapsibleContent>
                   </div>
                 </Collapsible>

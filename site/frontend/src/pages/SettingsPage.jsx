@@ -273,7 +273,9 @@ export function SettingsPage() {
             </div>
           ) : badges.length > 0 ? (
             <>
-              <BadgesGrid badges={badges} showShare />
+              <div className="flex w-full justify-center">
+                <BadgesGrid badges={badges} showShare />
+              </div>
               <p className="text-zinc-500 text-xs">
                 Choisis jusqu&apos;à 3 badges mis en avant depuis ton profil.
               </p>

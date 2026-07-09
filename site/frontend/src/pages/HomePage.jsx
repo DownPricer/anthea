@@ -574,7 +574,9 @@ export function HomePage() {
                   Tout voir
                 </Link>
               </div>
-              <BadgesGrid badges={duoStats.badges.filter((b) => b.unlocked).slice(0, 8)} compact />
+              <div className="flex w-full justify-center">
+                <BadgesGrid badges={duoStats.badges.filter((b) => b.unlocked).slice(0, 8)} compact />
+              </div>
             </div>
           )}
         </div>

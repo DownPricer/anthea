@@ -83,7 +83,7 @@ export function ProfileHeader({
             ) : null}
 
             {showBadges ? (
-              <div className="mt-4">
+              <div className="mt-4 flex w-full justify-center sm:justify-start">
                 <ProfileFeaturedBadges badges={badges} featuredIds={featuredIds} showEmpty={isOwn} />
               </div>
             ) : null}

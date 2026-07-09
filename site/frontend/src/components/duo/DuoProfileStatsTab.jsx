@@ -98,7 +98,9 @@ export function DuoProfileStatsTab({ stats, loading, canViewBadges, canViewStats
             Badges duo
           </h3>
           {duoBadges.length > 0 ? (
-            <BadgesGrid badges={duoBadges} />
+            <div className="flex w-full justify-center">
+              <BadgesGrid badges={duoBadges} />
+            </div>
           ) : (
             <ProfileEmptyState
               title="Aucun badge duo"

@@ -5,10 +5,16 @@ import { PostCard } from '../social/PostCard';
 import { ProfileEmptyState } from '../profile/ProfileEmptyState';
 import { Loader2 } from 'lucide-react';
 import { canViewDuoSection } from '../../lib/duoProfile';
+import { normalizeArray } from '../../lib/normalizeArray';
+import { isCommonSessionPost, commonSessionFromPost } from '../../lib/commonSession';
+import { CommonDuoSessionCard } from './CommonDuoSessionCard';
+import { useTheme } from '../../context/ThemeContext';
 
 export function DuoPostFeed({ duoProfile, viewer }) {
+  const { theme } = useTheme();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const tag = duoProfile?.tag;
 
   const canView = duoProfile ? canViewDuoSection(duoProfile, 'posts') : false;
@@ -16,15 +22,18 @@ export function DuoPostFeed({ duoProfile, viewer }) {
   const load = useCallback(async () => {
     if (!tag || !canView) {
       setPosts([]);
+      setError(null);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setError(null);
     try {
       const { data } = await duoProfilesApi.getPosts(tag);
-      setPosts(data || []);
+      setPosts(normalizeArray(data));
     } catch {
       setPosts([]);
+      setError('Impossible de charger le mur duo.');
     } finally {
       setLoading(false);
     }
@@ -62,7 +71,19 @@ export function DuoPostFeed({ duoProfile, viewer }) {
     );
   }
 
-  if (posts.length === 0) {
+  if (error) {
+    return (
+      <ProfileEmptyState
+        icon={LayoutGrid}
+        title="Erreur de chargement"
+        description={error}
+      />
+    );
+  }
+
+  const safePosts = normalizeArray(posts);
+
+  if (safePosts.length === 0) {
     return (
       <ProfileEmptyState
         icon={LayoutGrid}
@@ -72,17 +93,38 @@ export function DuoPostFeed({ duoProfile, viewer }) {
     );
   }
 
+  const members = Array.isArray(duoProfile.members) ? duoProfile.members : [];
+
   return (
     <div className="space-y-4" data-testid="duo-post-feed">
-      {posts.map((post, idx) => (
-        <PostCard
-          key={post?.id || `duo-post-${idx}`}
-          post={post}
-          viewer={viewer}
-          onUpdate={load}
-          showRepostAction={false}
-        />
-      ))}
+      {safePosts.map((post, idx) => {
+        if (isCommonSessionPost(post)) {
+          const ctx = commonSessionFromPost(post, viewer);
+          if (ctx) {
+            const memberA = members.find((m) => m.id === ctx.user?.id) || ctx.user;
+            const memberB = members.find((m) => m.id === ctx.partner?.id) || ctx.partner;
+            return (
+              <CommonDuoSessionCard
+                key={post?.id || `duo-common-${idx}`}
+                item={ctx.item}
+                user={memberA}
+                partner={memberB}
+                theme={theme}
+                readOnly
+              />
+            );
+          }
+        }
+        return (
+          <PostCard
+            key={post?.id || `duo-post-${idx}`}
+            post={post}
+            viewer={viewer}
+            onUpdate={load}
+            showRepostAction={false}
+          />
+        );
+      })}
     </div>
   );
 }

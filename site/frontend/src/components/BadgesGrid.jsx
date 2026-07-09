@@ -20,21 +20,17 @@ export function BadgesGrid({ badges = [], compact = false, showShare = false }) 
   const families = [...new Set(badges.map((b) => b.family || 'other'))];
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 w-full">
       {families.map((family) => {
         const familyBadges = badges.filter((b) => (b.family || 'other') === family);
         return (
-          <div key={family} className="w-full">
+          <div key={family} className="w-full flex flex-col items-center">
             {!compact && (
-              <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2 text-center sm:text-left">
+              <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2 text-center w-full">
                 {familyLabel(family)}
               </p>
             )}
-            <div
-              className={`grid gap-2 justify-items-center mx-auto w-full max-w-md ${
-                compact ? 'grid-cols-4' : 'grid-cols-3 sm:grid-cols-4'
-              }`}
-            >
+            <div className="flex w-full flex-wrap items-center justify-center gap-2 text-center">
               {familyBadges.map((badge) => {
                 const Icon = ICON_MAP[badge.icon] || Trophy;
                 const unlocked = badge.unlocked;
@@ -42,7 +38,7 @@ export function BadgesGrid({ badges = [], compact = false, showShare = false }) 
                   <div
                     key={badge.id}
                     title={`${badge.name} — ${badge.description || ''}`}
-                    className={`relative rounded-2xl p-3 text-center border transition-all ${
+                    className={`relative rounded-2xl p-3 text-center border transition-all w-[4.75rem] sm:w-[5.25rem] ${
                       unlocked
                         ? 'bg-[var(--theme-surface-active)] border-[var(--theme-primary)]/40'
                         : 'bg-[#0A0A0A]/80 border-white/5 opacity-60 grayscale'

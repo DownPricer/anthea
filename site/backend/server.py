@@ -892,6 +892,16 @@ async def serialize_post(
             partner_author = await get_user_doc_by_id(partner_session.get("user_id"))
             workout_p = await _load_workout_for_session(partner_session)
             result["partner_session_snapshot"] = build_session_snapshot(partner_session, workout_p)
+            if partner_author:
+                result["partner_author_id"] = str(partner_author["_id"])
+                result["partner_author_username"] = partner_author.get("username")
+                result["partner_author_handle"] = partner_author.get("handle") or partner_author.get("username")
+                result["partner_author_display_name"] = partner_author.get("display_name")
+                result["partner_author_avatar_url"] = partner_author.get("avatar_url")
+                result["common_session"] = True
+                created = partner_session.get("created_at") or ""
+                if created:
+                    result["common_date"] = created[:10]
             can_p = await can_view_session_in_post(viewer_id, partner_author, partner_session) if partner_author else False
             result["can_view_partner_session_details"] = can_p
             if can_p:
@@ -3308,7 +3318,9 @@ async def get_user_reposts(
                     partner_session_id = repost.get("partner_session_id")
                     partner_snap = None
                     partner_details = None
+                    partner_author = None
                     is_duo = bool(partner_session_id)
+                    common_date = None
                     if partner_session_id:
                         try:
                             ps = await db.workout_sessions.find_one(
@@ -3332,7 +3344,10 @@ async def get_user_reposts(
                                     "mood": ps.get("mood"),
                                     "notes": ps.get("notes"),
                                 }
-                    item["post"] = {
+                                created_ps = ps.get("created_at") or ""
+                                if created_ps:
+                                    common_date = created_ps[:10]
+                    post_payload = {
                         "id": f"session-{repost['workout_session_id']}",
                         "type": "duo" if is_duo and partner_snap else "workout",
                         "title": "Séance commune" if is_duo and partner_snap else session.get("workout_title"),
@@ -3362,6 +3377,15 @@ async def get_user_reposts(
                         "is_repost": True,
                         "created_at": repost.get("created_at") or session.get("created_at"),
                     }
+                    if is_duo and partner_snap and partner_author:
+                        post_payload["common_session"] = True
+                        post_payload["partner_author_id"] = str(partner_author["_id"])
+                        post_payload["partner_author_username"] = partner_author.get("username")
+                        post_payload["partner_author_handle"] = partner_author.get("handle") or partner_author.get("username")
+                        post_payload["partner_author_display_name"] = partner_author.get("display_name")
+                        post_payload["partner_author_avatar_url"] = partner_author.get("avatar_url")
+                        post_payload["common_date"] = common_date or (session.get("created_at") or "")[:10]
+                    item["post"] = post_payload
         if item["post"]:
             items.append(item)
     return items
@@ -3593,6 +3617,23 @@ async def create_repost(data: RepostCreate, user: dict = Depends(get_current_use
     if not can_repost:
         raise HTTPException(status_code=403, detail="Séance non republiable")
 
+    partner_session_id = data.partner_session_id
+    if not partner_session_id and user.get("partner_id"):
+        sess_date = (session.get("created_at") or "")[:10]
+        if sess_date:
+            other_uid = (
+                user["partner_id"]
+                if session_owner_id == user["id"]
+                else user["id"]
+            )
+            ps = await db.workout_sessions.find_one({
+                "user_id": other_uid,
+                "status": "completed",
+                "created_at": {"$regex": f"^{re.escape(sess_date)}"},
+            })
+            if ps:
+                partner_session_id = str(ps["_id"])
+
     existing = await db.reposts.find_one({
         "user_id": user["id"],
         "workout_session_id": data.workout_session_id,
@@ -3605,7 +3646,7 @@ async def create_repost(data: RepostCreate, user: dict = Depends(get_current_use
         "user_id": user["id"],
         "post_id": None,
         "workout_session_id": data.workout_session_id,
-        "partner_session_id": data.partner_session_id,
+        "partner_session_id": partner_session_id,
         "created_at": now,
     }
     result = await db.reposts.insert_one(repost_doc)

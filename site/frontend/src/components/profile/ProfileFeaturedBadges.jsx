@@ -9,7 +9,7 @@ export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty
   if (!featured.length) {
     if (!showEmpty) return null;
     return (
-      <div className="flex items-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2 border border-white/5">
+      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2 border border-white/5 sm:justify-start">
         <Trophy size={14} className="text-zinc-600 shrink-0" />
         <span className="text-zinc-600 text-xs">Aucun badge mis en avant</span>
       </div>
@@ -17,7 +17,7 @@ export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty
   }
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex w-full flex-wrap items-center justify-center gap-2 text-center sm:justify-start">
       {featured.map((badge) => (
         <span
           key={badge.id}
