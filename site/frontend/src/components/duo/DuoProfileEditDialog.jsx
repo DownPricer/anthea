@@ -128,7 +128,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
       const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
 
-      setBannerUrl(resolveMediaUrl(data.url) || data.url);
+      setBannerUrl(data.path || data.url || '');
 
       toast.success('Bannière importée');
 

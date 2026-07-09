@@ -135,13 +135,30 @@ async def get_duo_members(db, duo_doc: dict) -> List[dict]:
     return members
 
 
+async def get_duo_follow_doc(db, duo_id: str, follower_id: str) -> Optional[dict]:
+    if not duo_id or not follower_id:
+        return None
+    return await db.duo_follows.find_one({"duo_id": duo_id, "follower_id": follower_id})
+
+
+async def is_duo_follower(db, duo_id: str, follower_id: str, status: str = "accepted") -> bool:
+    doc = await get_duo_follow_doc(db, duo_id, follower_id)
+    return bool(doc and doc.get("status") == status)
+
+
 async def get_duo_access_level(db, viewer_id: str, duo_doc: dict, members: List[dict]) -> str:
     member_ids = {str(m["_id"]) for m in members}
     if viewer_id in member_ids:
         return "member"
+
+    duo_id = str(duo_doc.get("_id", ""))
+    follow_doc = await get_duo_follow_doc(db, duo_id, viewer_id)
+    if follow_doc and follow_doc.get("status") == "accepted":
+        return "follower"
+
     if duo_doc.get("account_visibility") != "public":
         return "limited"
-    # public : ami d'au moins un membre
+
     for member in members:
         mid = str(member["_id"])
         if await _is_mutual(db, viewer_id, mid):
@@ -170,9 +187,11 @@ def can_view_duo_section(duo_doc: dict, access: str, section: str) -> bool:
         "challenges": "show_challenges",
     }
     flag = flag_map.get(section)
-    if not flag:
-        return access in ("member", "friend", "public")
-    return bool(duo_doc.get(flag))
+    if access in ("follower", "friend", "public"):
+        if not flag:
+            return True
+        return bool(duo_doc.get(flag))
+    return False
 
 
 def _session_day(session: dict) -> str:

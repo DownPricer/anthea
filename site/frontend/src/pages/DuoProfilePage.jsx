@@ -4,7 +4,9 @@ import { fr } from 'date-fns/locale';
 import { Loader2, LayoutGrid, BarChart3, Activity, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { duoProfilesApi } from '../lib/api';
+import { duoProfilesApi, formatApiError } from '../lib/api';
+import { normalizeDuoStats } from '../lib/duoStats';
+import { toast } from 'sonner';
 import { DuoProfileHeader } from '../components/duo/DuoProfileHeader';
 import { DuoProfileStatsTab } from '../components/duo/DuoProfileStatsTab';
 import { DuoProfileEditDialog } from '../components/duo/DuoProfileEditDialog';
@@ -29,6 +31,8 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
   const [activityLoading, setActivityLoading] = useState(true);
   const [editOpen, setEditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
+
+  const [statsError, setStatsError] = useState(null);
 
   const resolvedTag = tag || duoProfile?.tag;
 
@@ -62,11 +66,16 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       return;
     }
     setStatsLoading(true);
+    setStatsError(null);
     try {
       const { data } = await duoProfilesApi.getStats(resolvedTag);
-      setStats(data);
-    } catch {
+      setStats(normalizeDuoStats(data));
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') console.error('[duo profile stats]', err);
       setStats(null);
+      const msg = formatApiError(err);
+      setStatsError(msg);
+      if (duoProfile.is_member) toast.error(msg);
     } finally {
       setStatsLoading(false);
     }
@@ -145,6 +154,10 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
         viewer={user}
         theme={theme}
         onEdit={duoProfile.is_member ? () => setEditOpen(true) : undefined}
+        onFollowUpdate={(data) => {
+          setDuoProfile(data);
+          onDuoUpdate?.(data);
+        }}
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-6 space-y-6">
@@ -172,6 +185,7 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
           <DuoProfileStatsTab
             stats={stats}
             loading={statsLoading}
+            statsError={statsError}
             canViewStats={canShowStats}
             canViewBadges={canShowBadges}
             canViewChallenges={canShowChallenges}
@@ -193,6 +207,7 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
           onSaved={(data) => {
             setDuoProfile(data);
             onDuoUpdate?.(data);
+            loadProfile();
             loadStats();
             loadActivity();
           }}

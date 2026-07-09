@@ -25,8 +25,11 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
       setPreview(previewUrl);
       const dataUrl = await blobToDataUrl(blob);
       const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
-      setImageUrl(resolveMediaUrl(data.url) || data.url);
+      const stored = data.path || data.url;
+      setImageUrl(stored);
+      toast.success('Photo prête');
     } catch (error) {
+      if (process.env.NODE_ENV === 'development') console.error('[duo post upload]', error);
       toast.error(error.message || 'Échec import image');
     } finally {
       setUploading(false);
@@ -42,20 +45,26 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
     }
     setPosting(true);
     try {
-      await postsApi.create({
+      const payload = {
         type: 'duo_free',
         title: description.slice(0, 120) || 'Publication duo',
         description: description || null,
-        image_url: imageUrl,
+        image_url: imageUrl || null,
         visibility: 'public',
-      });
+        duo_id: duoProfile.id,
+        post_on_duo_wall: true,
+      };
+      if (process.env.NODE_ENV === 'development') console.debug('[duo post create]', payload);
+      const { data } = await postsApi.create(payload);
+      if (process.env.NODE_ENV === 'development') console.debug('[duo post created]', data);
       setText('');
       setImageUrl(null);
       if (preview) revokePreviewUrl(preview);
       setPreview(null);
       toast.success('Publication ajoutée au mur duo');
-      onPosted?.();
+      onPosted?.(data);
     } catch (error) {
+      if (process.env.NODE_ENV === 'development') console.error('[duo post create error]', error);
       toast.error(formatApiError(error));
     } finally {
       setPosting(false);
@@ -71,6 +80,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
         placeholder="Partagez un moment, une victoire..."
         className="min-h-[80px] rounded-xl bg-[#0A0A0A] border-white/10 text-white"
         maxLength={500}
+        disabled={posting}
       />
       {preview ? (
         <div className="relative rounded-xl overflow-hidden border border-white/10">
@@ -94,7 +104,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
           type="button"
           size="sm"
           variant="outline"
-          disabled={uploading}
+          disabled={uploading || posting}
           onClick={() => fileRef.current?.click()}
           className="rounded-xl border-white/15 text-white"
         >
@@ -108,7 +118,15 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
           onClick={handleSubmit}
           className="rounded-xl btn-primary text-white ml-auto"
         >
-          {posting ? <Loader2 size={14} className="animate-spin" /> : <><Send size={14} className="mr-1" /> Publier</>}
+          {posting ? (
+            <>
+              <Loader2 size={14} className="animate-spin mr-1" /> Publication…
+            </>
+          ) : (
+            <>
+              <Send size={14} className="mr-1" /> Publier
+            </>
+          )}
         </Button>
       </div>
     </div>

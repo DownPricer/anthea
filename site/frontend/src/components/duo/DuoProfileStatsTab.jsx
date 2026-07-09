@@ -10,6 +10,7 @@ import { fr } from 'date-fns/locale';
 export function DuoProfileStatsTab({
   stats,
   loading,
+  statsError,
   canViewBadges,
   canViewStats,
   canViewChallenges = true,
@@ -32,6 +33,24 @@ export function DuoProfileStatsTab({
       <div className="flex justify-center py-16">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
       </div>
+    );
+  }
+
+  if (statsError && !stats) {
+    return (
+      <ProfileEmptyState
+        title="Stats indisponibles"
+        description={statsError}
+      />
+    );
+  }
+
+  if (!stats && (canViewStats || canViewBadges)) {
+    return (
+      <ProfileEmptyState
+        title="Aucune statistique"
+        description="Les stats communes apparaîtront après vos premières séances ensemble."
+      />
     );
   }
 

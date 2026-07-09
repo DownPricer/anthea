@@ -197,6 +197,10 @@ export const duoProfilesApi = {
     api.get(`/duos/${encodeURIComponent(tag)}/activity`, { params: { limit } }),
   getPosts: (tag, params = {}) =>
     api.get(`/duos/${encodeURIComponent(tag)}/posts`, { params }),
+  follow: (tag) => api.post(`/duos/${encodeURIComponent(tag)}/follow`),
+  unfollow: (tag) => api.delete(`/duos/${encodeURIComponent(tag)}/follow`),
+  acceptFollowRequest: (requestId) => api.post(`/duos/follow-requests/${requestId}/accept`),
+  rejectFollowRequest: (requestId) => api.post(`/duos/follow-requests/${requestId}/reject`),
 };
 
 // Streak API

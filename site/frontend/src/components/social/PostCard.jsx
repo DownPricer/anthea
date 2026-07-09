@@ -20,6 +20,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { WorkoutDetailsDrawer } from './WorkoutDetailsDrawer';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
+import { FeedSourceBadge } from './FeedSourceBadge';
 import { formatDuration, formatHandle, getDisplayName, getPublicHandle } from '../../lib/userProfile';
 import { postsApi, formatApiError } from '../../lib/api';
 import { toast } from 'sonner';
@@ -176,6 +177,11 @@ export function PostCard({
       className={`card p-4 space-y-3 ${isCommonSession ? 'border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5' : ''}`}
       data-testid={`post-card-${post.id || 'unknown'}`}
     >
+      {post.feed_source ? (
+        <div className="flex justify-end -mt-1 mb-1">
+          <FeedSourceBadge source={post.feed_source} />
+        </div>
+      ) : null}
       <div className="flex items-start gap-3">
         <Link to={authorHandle ? `/profile/${authorHandle}` : '#'}>
           <UserAvatar user={author} className="w-10 h-10" />

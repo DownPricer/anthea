@@ -42,7 +42,9 @@ from duo_social import (
     duo_tag_from_doc,
     find_duo_by_tag,
     get_duo_access_level,
+    get_duo_follow_doc,
     get_duo_members,
+    is_duo_follower,
     normalize_duo_relation,
     parse_duo_tag,
     RELATION_LABELS,
@@ -659,6 +661,8 @@ async def create_notification(
     skip_if_exists: bool = False,
     post_id: Optional[str] = None,
     request_id: Optional[str] = None,
+    duo_id: Optional[str] = None,
+    duo_tag: Optional[str] = None,
 ) -> None:
     actor_id = actor["id"]
     if recipient_id == actor_id:
@@ -690,6 +694,10 @@ async def create_notification(
         doc["post_id"] = post_id
     if request_id:
         doc["request_id"] = request_id
+    if duo_id:
+        doc["duo_id"] = duo_id
+    if duo_tag:
+        doc["duo_tag"] = duo_tag
     await db.notifications.insert_one(doc)
 
 def serialize_notification(doc: dict) -> dict:
@@ -708,6 +716,10 @@ def serialize_notification(doc: dict) -> dict:
         out["post_id"] = doc.get("post_id")
     if doc.get("request_id"):
         out["request_id"] = doc.get("request_id")
+    if doc.get("duo_id"):
+        out["duo_id"] = doc.get("duo_id")
+    if doc.get("duo_tag"):
+        out["duo_tag"] = doc.get("duo_tag")
     return out
 
 POST_TYPES = {
@@ -1001,6 +1013,81 @@ async def _get_duo_profile_for_user(user_id: str, partner_id: Optional[str]) -> 
         return apply_duo_defaults(doc)
     return apply_duo_defaults(await ensure_duo_profile(user_id, partner_id))
 
+
+def normalize_upload_path(url: Optional[str]) -> Optional[str]:
+    """Stocke un chemin relatif /uploads/... pour persistance portable."""
+    if not url:
+        return None
+    raw = str(url).strip()
+    if not raw:
+        return None
+    if raw.startswith("/uploads/"):
+        return raw[:500]
+    base_url = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    if base_url and raw.startswith(base_url):
+        path = raw[len(base_url):]
+        return path[:500] if path.startswith("/uploads/") else raw[:500]
+    if "/uploads/" in raw:
+        idx = raw.find("/uploads/")
+        return raw[idx:idx + 500]
+    return raw[:500]
+
+
+async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
+    """Stats communes duo — source unique pour /duo/stats et /duos/{tag}/stats."""
+    together = await compute_together_stats(db, user_a_id, user_b_id)
+    streak = await calculate_streak(user_a_id, user_b_id)
+    badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
+    challenge = await get_current_challenge(user_a_id, user_b_id, streak)
+
+    if challenge and challenge.get("status") == "completed":
+        pair_key = duo_pair_key(user_a_id, user_b_id)
+        week_key = challenge.get("week_start", "")
+        existing = await db.challenge_completions.find_one({"pair_key": pair_key, "week_key": week_key})
+        if not existing:
+            await db.challenge_completions.insert_one({
+                "pair_key": pair_key,
+                "user_id": user_a_id,
+                "partner_id": user_b_id,
+                "week_key": week_key,
+                "week_start": week_key,
+                "challenge_id": challenge.get("id"),
+                "created_at": datetime.now(timezone.utc).isoformat(),
+            })
+            together["challenges_completed"] = together.get("challenges_completed", 0) + 1
+            badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
+
+    sessions = together.get("sessions_together", 0)
+    total_time = together.get("total_training_time", 0)
+    unlocked = [b for b in badges if b.get("unlocked")]
+
+    return {
+        **together,
+        "sessions_together": sessions,
+        "total_workouts_together": sessions,
+        "training_days_together": together.get("training_days_together", sessions),
+        "total_training_time": total_time,
+        "total_training_time_together": total_time,
+        "duo_streak_current": together.get("duo_streak_current", 0),
+        "duo_streak_best": together.get("duo_streak_best", 0),
+        "estimated_calories": together.get("estimated_calories", 0),
+        "last_common_session": together.get("last_common_session"),
+        "challenges_completed": together.get("challenges_completed", 0),
+        "badges": badges,
+        "duo_badges": badges,
+        "badges_unlocked": len(unlocked),
+        "badges_total": len(badges),
+        "current_challenge": challenge,
+    }
+
+
+async def _duo_followers_count(duo_id: str) -> int:
+    try:
+        return await db.duo_follows.count_documents({"duo_id": duo_id, "status": "accepted"})
+    except Exception:
+        return 0
+
+
 async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dict:
     duo_doc = apply_duo_defaults(duo_doc)
     members = await get_duo_members(db, duo_doc)
@@ -1052,6 +1139,12 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
         "created_at": duo_doc.get("created_at"),
     }
 
+    follow_doc = await get_duo_follow_doc(db, duo_id, viewer_id)
+    base["is_following_duo"] = bool(follow_doc and follow_doc.get("status") == "accepted")
+    base["duo_follow_pending"] = bool(follow_doc and follow_doc.get("status") == "pending")
+    base["duo_follow_id"] = str(follow_doc["_id"]) if follow_doc else None
+    base["followers_count"] = await _duo_followers_count(duo_id)
+
     if access == "limited":
         base["show_stats"] = False
         base["show_badges"] = False
@@ -1074,7 +1167,7 @@ async def can_view_duo_post(viewer_id: str, post: dict, duo_doc: dict) -> bool:
     if visibility == "private":
         return False
     if visibility == "friends":
-        return access == "friend"
+        return access in ("friend", "follower")
     return True
 
 async def can_view_user_stats(viewer_id: str, target_user: dict) -> bool:
@@ -1123,6 +1216,9 @@ async def lifespan(app: FastAPI):
     await db.reposts.create_index([("user_id", 1), ("created_at", -1)])
     await db.reposts.create_index([("user_id", 1), ("post_id", 1)])
     await db.reposts.create_index([("user_id", 1), ("workout_session_id", 1)])
+    await db.duo_follows.create_index([("duo_id", 1), ("follower_id", 1)], unique=True)
+    await db.duo_follows.create_index([("follower_id", 1), ("status", 1)])
+    await db.duo_follows.create_index([("duo_id", 1), ("status", 1)])
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -1339,7 +1435,7 @@ async def search_users(
 ):
     query = (q or "").strip()
     if search_type == "duo":
-        return await _search_duos(query)
+        return await _search_duos(query, user["id"])
 
     if query.startswith("@"):
         normalized = normalize_handle(query)
@@ -1369,7 +1465,7 @@ async def search_users(
     return [await serialize_search_user(u, user["id"]) for u in users]
 
 
-async def _search_duos(query: str) -> List[dict]:
+async def _search_duos(query: str, viewer_id: str) -> List[dict]:
     if len(query) < 2:
         return []
 
@@ -1392,7 +1488,10 @@ async def _search_duos(query: str) -> List[dict]:
         return []
 
     duos = await db.duo_profiles.find(mongo_query).limit(20).to_list(20)
-    return [serialize_duo_search(d) for d in duos]
+    results = []
+    for d in duos:
+        results.append(await serialize_duo_profile_for_viewer(d, viewer_id))
+    return results
 
 
 @api_router.get("/users/{handle}")
@@ -1587,15 +1686,27 @@ async def get_social_feed(
     offset: int = 0,
     user: dict = Depends(get_current_user),
 ):
-    """Fil d'actualité : abonnements en priorité, puis posts publics tendance."""
+    """Fil global : tendance publique + abonnements + duos suivis."""
     limit = max(1, min(limit, 30))
     offset = max(0, offset)
 
     following_docs = await db.follows.find({"follower_id": user["id"]}).to_list(500)
     following_ids = {d["following_id"] for d in following_docs}
 
-    candidate_posts = await db.posts.find({}).sort("created_at", -1).limit(150).to_list(150)
+    duo_follow_docs = await db.duo_follows.find(
+        {"follower_id": user["id"], "status": "accepted"}
+    ).to_list(200)
+    followed_duo_ids = {d["duo_id"] for d in duo_follow_docs}
+
+    own_duo_ids = set()
+    if user.get("partner_id"):
+        own_duo = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+        if own_duo:
+            own_duo_ids.add(str(own_duo["_id"]))
+
+    candidate_posts = await db.posts.find({}).sort("created_at", -1).limit(200).to_list(200)
     scored = []
+    now = datetime.now(timezone.utc)
 
     for post in candidate_posts:
         author_id = post.get("author_id")
@@ -1608,39 +1719,58 @@ async def get_social_feed(
 
         likes_n = len(post.get("likes") or [])
         comments_n = len(post.get("comments") or [])
-        trending = likes_n * 2 + comments_n * 3
-        is_following_author = author_id in following_ids
-        is_mutual = is_following_author and await is_following(author_id, user["id"])
         visibility = post.get("visibility", "public")
         duo_id = post.get("duo_id")
+        is_following_author = author_id in following_ids
+        is_mutual = is_following_author and await is_following(author_id, user["id"])
 
+        feed_source = "trending"
         priority = 1
+
         if duo_id:
-            try:
-                duo_doc = await db.duo_profiles.find_one({"_id": ObjectId(duo_id)})
-            except Exception:
-                duo_doc = None
-            if duo_doc and user["id"] in set(duo_doc.get("member_ids") or []):
+            if duo_id in own_duo_ids:
+                feed_source = "own_duo"
+                priority = 5
+            elif duo_id in followed_duo_ids:
+                feed_source = "duo_followed"
                 priority = 4
             elif is_mutual:
+                feed_source = "friend"
                 priority = 3
             elif is_following_author:
+                feed_source = "following"
                 priority = 2
             elif visibility == "public":
-                priority = 2
-            else:
+                feed_source = "trending"
                 priority = 1
+            else:
+                continue
+        elif author_id == user["id"]:
+            feed_source = "own"
+            priority = 4
         elif is_mutual:
+            feed_source = "friend"
             priority = 3
         elif is_following_author:
+            feed_source = "following"
             priority = 2
         elif visibility == "public":
+            feed_source = "trending"
             priority = 1
         else:
             continue
 
+        try:
+            created = datetime.fromisoformat((post.get("created_at") or "").replace("Z", "+00:00"))
+            age_hours = max(0.5, (now - created).total_seconds() / 3600)
+        except Exception:
+            age_hours = 24
+
+        trending = (likes_n * 3 + comments_n * 4) / (age_hours ** 0.6)
+
         scored.append({
             **serialized,
+            "feed_source": feed_source,
             "_priority": priority,
             "_trending": trending,
         })
@@ -1991,7 +2121,7 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
     if data.avatar_url is not None:
         updates["avatar_url"] = (data.avatar_url or "").strip()[:500] or None
     if data.banner_url is not None:
-        updates["banner_url"] = (data.banner_url or "").strip()[:500] or None
+        updates["banner_url"] = normalize_upload_path(data.banner_url)
     for field in (
         "account_visibility", "show_stats", "show_badges",
         "show_recent_activity", "show_posts", "show_challenges",
@@ -2032,39 +2162,133 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
         raise HTTPException(status_code=403, detail="Statistiques duo masquées")
 
     if len(members) < 2:
-        return {"sessions_together": 0, "badges": []}
+        return {"sessions_together": 0, "badges": [], "badges_unlocked": 0, "badges_total": 0}
 
     a_id, b_id = str(members[0]["_id"]), str(members[1]["_id"])
-    together = await compute_together_stats(db, a_id, b_id)
-    badges = await evaluate_duo_social_badges(db, a_id, b_id, together)
+    return await assemble_duo_common_stats(a_id, b_id)
 
-    streak = await calculate_streak(a_id, b_id)
-    challenge = await get_current_challenge(a_id, b_id, streak)
 
-    if challenge and challenge.get("status") == "completed":
-        pair_key = duo_pair_key(a_id, b_id)
-        week_key = challenge.get("week_start", "")
-        existing = await db.challenge_completions.find_one({"pair_key": pair_key, "week_key": week_key})
-        if not existing:
-            await db.challenge_completions.insert_one({
-                "pair_key": pair_key,
-                "user_id": a_id,
-                "partner_id": b_id,
-                "week_key": week_key,
-                "week_start": week_key,
-                "challenge_id": challenge.get("id"),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-            together["challenges_completed"] = together.get("challenges_completed", 0) + 1
-            badges = await evaluate_duo_social_badges(db, a_id, b_id, together)
+@api_router.post("/duos/{tag:path}/follow")
+async def follow_duo(tag: str, user: dict = Depends(get_current_user)):
+    duo_doc = await find_duo_by_tag(db, tag)
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    duo_doc = apply_duo_defaults(duo_doc)
+    members = await get_duo_members(db, duo_doc)
+    duo_id = str(duo_doc["_id"])
+    member_ids = {str(m["_id"]) for m in members}
+    if user["id"] in member_ids:
+        raise HTTPException(status_code=400, detail="Vous faites déjà partie de ce duo")
 
-    return {
-        **together,
-        "badges": badges,
-        "badges_unlocked": len([b for b in badges if b.get("unlocked")]),
-        "badges_total": len(badges),
-        "current_challenge": challenge,
-    }
+    existing = await get_duo_follow_doc(db, duo_id, user["id"])
+    if existing and existing.get("status") == "accepted":
+        raise HTTPException(status_code=400, detail="Vous suivez déjà ce duo")
+    if existing and existing.get("status") == "pending":
+        raise HTTPException(status_code=400, detail="Demande déjà envoyée")
+
+    now = datetime.now(timezone.utc).isoformat()
+    is_public = duo_doc.get("account_visibility") == "public"
+    status = "accepted" if is_public else "pending"
+
+    if existing:
+        await db.duo_follows.update_one(
+            {"_id": existing["_id"]},
+            {"$set": {"status": status, "updated_at": now, **({"accepted_at": now} if status == "accepted" else {})}},
+        )
+        follow_id = str(existing["_id"])
+    else:
+        result = await db.duo_follows.insert_one({
+            "duo_id": duo_id,
+            "follower_id": user["id"],
+            "status": status,
+            "created_at": now,
+            "accepted_at": now if status == "accepted" else None,
+        })
+        follow_id = str(result.inserted_id)
+
+    duo_tag = duo_tag_from_doc(duo_doc)
+    if status == "pending":
+        for mid in member_ids:
+            await create_notification(
+                mid,
+                "duo_follow_request",
+                user,
+                request_id=follow_id,
+                duo_id=duo_id,
+                duo_tag=duo_tag,
+                skip_if_exists=True,
+            )
+
+    updated = await db.duo_profiles.find_one({"_id": duo_doc["_id"]})
+    return await serialize_duo_profile_for_viewer(updated, user["id"])
+
+
+@api_router.delete("/duos/{tag:path}/follow")
+async def unfollow_duo(tag: str, user: dict = Depends(get_current_user)):
+    duo_doc = await find_duo_by_tag(db, tag)
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    duo_id = str(duo_doc["_id"])
+    deleted = await db.duo_follows.delete_one({"duo_id": duo_id, "follower_id": user["id"]})
+    if deleted.deleted_count == 0:
+        raise HTTPException(status_code=400, detail="Vous ne suivez pas ce duo")
+    updated = await db.duo_profiles.find_one({"_id": duo_doc["_id"]})
+    return await serialize_duo_profile_for_viewer(updated, user["id"])
+
+
+@api_router.post("/duos/follow-requests/{request_id}/accept")
+async def accept_duo_follow_request(request_id: str, user: dict = Depends(get_current_user)):
+    try:
+        follow_doc = await db.duo_follows.find_one({"_id": ObjectId(request_id)})
+    except Exception:
+        follow_doc = None
+    if not follow_doc or follow_doc.get("status") != "pending":
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+
+    duo_doc = await db.duo_profiles.find_one({"_id": ObjectId(follow_doc["duo_id"])})
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    member_ids = set(duo_doc.get("member_ids") or [])
+    if user["id"] not in member_ids:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    now = datetime.now(timezone.utc).isoformat()
+    await db.duo_follows.update_one(
+        {"_id": follow_doc["_id"]},
+        {"$set": {"status": "accepted", "accepted_at": now}},
+    )
+
+    follower = await get_user_doc_by_id(follow_doc.get("follower_id"))
+    if follower:
+        await create_notification(
+            follow_doc["follower_id"],
+            "duo_follow_accepted",
+            user,
+            duo_id=str(duo_doc["_id"]),
+            duo_tag=duo_tag_from_doc(duo_doc),
+        )
+
+    return {"status": "ok"}
+
+
+@api_router.post("/duos/follow-requests/{request_id}/reject")
+async def reject_duo_follow_request(request_id: str, user: dict = Depends(get_current_user)):
+    try:
+        follow_doc = await db.duo_follows.find_one({"_id": ObjectId(request_id)})
+    except Exception:
+        follow_doc = None
+    if not follow_doc or follow_doc.get("status") != "pending":
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+
+    duo_doc = await db.duo_profiles.find_one({"_id": ObjectId(follow_doc["duo_id"])})
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+    member_ids = set(duo_doc.get("member_ids") or [])
+    if user["id"] not in member_ids:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    await db.duo_follows.delete_one({"_id": follow_doc["_id"]})
+    return {"status": "ok"}
 
 
 @api_router.get("/duos/{tag:path}/activity")
@@ -2097,7 +2321,7 @@ async def get_duo_posts(
     duo_doc = apply_duo_defaults(duo_doc)
     members = await get_duo_members(db, duo_doc)
     access = await get_duo_access_level(db, user["id"], duo_doc, members)
-    if not can_view_duo_section(duo_doc, access, "posts"):
+    if access != "member" and not can_view_duo_section(duo_doc, access, "posts"):
         return []
 
     duo_id = str(duo_doc["_id"])
@@ -3149,7 +3373,7 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
     visibility = data.visibility if data.visibility in POST_VISIBILITY else "public"
     title = (data.title or "").strip()[:120] or None
     description = (data.description or "").strip()[:500] or None
-    image_url = (data.image_url or "").strip()[:500] or None
+    image_url = normalize_upload_path(data.image_url) if data.image_url else None
 
     session_snapshot = None
     badge_name = None
@@ -4203,30 +4427,8 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "created_at": {"$gte": week_start}
     })
 
-    together = await compute_together_stats(db, user["id"], user["partner_id"])
-    duo_social_badges = await evaluate_duo_social_badges(
-        db, user["id"], user["partner_id"], together
-    )
-
-    if challenge and challenge.get("status") == "completed" and user.get("partner_id"):
-        pair_key = duo_pair_key(user["id"], user["partner_id"])
-        week_key = challenge.get("week_start", "")
-        existing = await db.challenge_completions.find_one({"pair_key": pair_key, "week_key": week_key})
-        if not existing:
-            await db.challenge_completions.insert_one({
-                "pair_key": pair_key,
-                "user_id": user["id"],
-                "partner_id": user["partner_id"],
-                "week_key": week_key,
-                "week_start": week_key,
-                "challenge_id": challenge.get("id"),
-                "created_at": datetime.now(timezone.utc).isoformat(),
-            })
-            together["challenges_completed"] = together.get("challenges_completed", 0) + 1
-            duo_social_badges = await evaluate_duo_social_badges(
-                db, user["id"], user["partner_id"], together
-            )
-
+    together = await assemble_duo_common_stats(user["id"], user["partner_id"])
+    duo_social_badges = together.get("duo_badges") or together.get("badges") or []
     all_badges = badges + [b for b in duo_social_badges if b.get("id") not in {x.get("id") for x in badges}]
 
     duo_profile = None
@@ -4238,10 +4440,10 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "streak": streak,
         "streak_calculated": calculated,
         "streak_manual_override": manual,
-        "total_workouts_together": together.get("sessions_together", 0),
+        "total_workouts_together": together.get("total_workouts_together", 0),
         "duo_streak_current": together.get("duo_streak_current", 0),
         "duo_streak_best": together.get("duo_streak_best", 0),
-        "total_training_time_together": together.get("total_training_time", 0),
+        "total_training_time_together": together.get("total_training_time_together", 0),
         "estimated_calories": together.get("estimated_calories", 0),
         "last_common_session": together.get("last_common_session"),
         "challenges_completed": together.get("challenges_completed", 0),
@@ -4249,10 +4451,12 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "this_week_partner": partner_sessions,
         "badges": all_badges,
         "duo_badges": duo_social_badges,
-        "current_challenge": challenge,
+        "current_challenge": together.get("current_challenge", challenge),
         "badges_unlocked": len([b for b in all_badges if b.get("unlocked")]),
         "badges_total": len(all_badges),
         "duo_profile": duo_profile,
+        "sessions_together": together.get("sessions_together", 0),
+        "total_training_time": together.get("total_training_time", 0),
     }
 
 async def get_duo_badges(user_id: str, partner_id: Optional[str], streak_value: Optional[int] = None) -> List[dict]:

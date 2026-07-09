@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { LayoutGrid } from 'lucide-react';
-import { duoProfilesApi } from '../../lib/api';
+import { duoProfilesApi, formatApiError } from '../../lib/api';
 import { PostCard } from '../social/PostCard';
 import { ProfileEmptyState } from '../profile/ProfileEmptyState';
 import { DuoPostComposer } from './DuoPostComposer';
@@ -10,6 +10,7 @@ import { normalizeArray } from '../../lib/normalizeArray';
 import { isCommonSessionPost, commonSessionFromPost } from '../../lib/commonSession';
 import { CommonDuoSessionCard } from './CommonDuoSessionCard';
 import { useTheme } from '../../context/ThemeContext';
+import { toast } from 'sonner';
 
 export function DuoPostFeed({ duoProfile, viewer }) {
   const { theme } = useTheme();
@@ -18,11 +19,12 @@ export function DuoPostFeed({ duoProfile, viewer }) {
   const [error, setError] = useState(null);
   const tag = duoProfile?.tag;
 
-  const canView = duoProfile ? canViewDuoSection(duoProfile, 'posts') : false;
   const isMember = !!duoProfile?.is_member;
+  const canViewPublic = duoProfile ? canViewDuoSection(duoProfile, 'posts') : false;
+  const canLoad = !!tag && (canViewPublic || isMember);
 
   const load = useCallback(async () => {
-    if (!tag || !canView) {
+    if (!canLoad) {
       setPosts([]);
       setError(null);
       setLoading(false);
@@ -33,13 +35,16 @@ export function DuoPostFeed({ duoProfile, viewer }) {
     try {
       const { data } = await duoProfilesApi.getPosts(tag);
       setPosts(normalizeArray(data));
-    } catch {
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') console.error('[duo posts load]', err);
       setPosts([]);
-      setError('Impossible de charger le mur duo.');
+      const msg = formatApiError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
-  }, [tag, canView]);
+  }, [tag, canLoad]);
 
   useEffect(() => {
     load();
@@ -55,7 +60,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
     );
   }
 
-  if (!canView && !isMember) {
+  if (!canLoad) {
     return (
       <ProfileEmptyState
         icon={LayoutGrid}
@@ -70,27 +75,25 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
   return (
     <div className="space-y-4" data-testid="duo-post-feed">
-      {isMember ? <DuoPostComposer duoProfile={duoProfile} onPosted={load} /> : null}
+      {isMember ? <DuoPostComposer duoProfile={duoProfile} onPosted={() => load()} /> : null}
 
-      {!canView && isMember ? (
-        <ProfileEmptyState
-          icon={LayoutGrid}
-          title="Mur masqué pour le public"
-          description="Seuls les membres voient le mur. Active « Afficher le mur duo » pour le rendre public."
-        />
+      {!canViewPublic && isMember ? (
+        <p className="text-zinc-500 text-xs text-center">
+          Mur visible pour les membres — active « Afficher le mur duo » pour le rendre public.
+        </p>
       ) : null}
 
-      {canView && loading ? (
+      {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
         </div>
       ) : null}
 
-      {canView && error ? (
+      {error && !loading ? (
         <ProfileEmptyState icon={LayoutGrid} title="Erreur de chargement" description={error} />
       ) : null}
 
-      {canView && !loading && !error && safePosts.length === 0 ? (
+      {!loading && !error && safePosts.length === 0 ? (
         <ProfileEmptyState
           icon={LayoutGrid}
           title="Aucune publication duo"
@@ -98,7 +101,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
         />
       ) : null}
 
-      {canView && !loading && !error
+      {!loading && !error
         ? safePosts.map((post, idx) => {
             if (isCommonSessionPost(post)) {
               const ctx = commonSessionFromPost(post, viewer);

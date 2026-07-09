@@ -3,7 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Bell, ChevronLeft, Loader2, UserPlus, Heart } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { notificationsApi, usersApi } from '../lib/api';
+import { notificationsApi, usersApi, duoProfilesApi } from '../lib/api';
+import { duoProfilePath } from '../lib/duoProfile';
 import { UserAvatar } from '../components/UserAvatar';
 import { getPublicHandle } from '../lib/userProfile';
 import { Button } from '../components/ui/button';
@@ -24,6 +25,10 @@ function notificationLabel(notif) {
       return 'a aimé ta publication';
     case 'comment':
       return 'a commenté ta publication';
+    case 'duo_follow_request':
+      return 'demande à suivre votre duo';
+    case 'duo_follow_accepted':
+      return 'a accepté votre demande de suivi duo';
     default:
       return 'nouvelle activité';
   }
@@ -105,6 +110,34 @@ export function NotificationsPage() {
     }
   };
 
+  const handleAcceptDuoFollowRequest = async (notif) => {
+    if (!notif.request_id) return;
+    setRequestLoading(notif.id);
+    try {
+      await duoProfilesApi.acceptFollowRequest(notif.request_id);
+      toast.success('Demande duo acceptée');
+      await loadNotifications();
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setRequestLoading(null);
+    }
+  };
+
+  const handleRejectDuoFollowRequest = async (notif) => {
+    if (!notif.request_id) return;
+    setRequestLoading(notif.id);
+    try {
+      await duoProfilesApi.rejectFollowRequest(notif.request_id);
+      toast.success('Demande duo refusée');
+      await loadNotifications();
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setRequestLoading(null);
+    }
+  };
+
   return (
     <div data-testid="notifications-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto">
       <header className="mb-5 flex items-center gap-3">
@@ -170,6 +203,34 @@ export function NotificationsPage() {
                     </p>
                   </div>
                   <p className="text-zinc-600 text-xs mt-1.5">{dateLabel}</p>
+                  {notif.type === 'duo_follow_request' && notif.request_id ? (
+                    <div className="mt-3 flex gap-2 flex-wrap">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={requestLoading === notif.id}
+                        onClick={() => handleAcceptDuoFollowRequest(notif)}
+                        className="h-8 rounded-lg btn-primary text-white text-xs"
+                      >
+                        Accepter
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={requestLoading === notif.id}
+                        onClick={() => handleRejectDuoFollowRequest(notif)}
+                        className="h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                      >
+                        Refuser
+                      </Button>
+                      {notif.duo_tag ? (
+                        <Button asChild size="sm" variant="ghost" className="h-8 text-xs text-zinc-400">
+                          <Link to={duoProfilePath(notif.duo_tag)}>Voir le duo</Link>
+                        </Button>
+                      ) : null}
+                    </div>
+                  ) : null}
                   {notif.type === 'follow_request' && notif.request_id ? (
                     <div className="mt-3 flex gap-2">
                       <Button

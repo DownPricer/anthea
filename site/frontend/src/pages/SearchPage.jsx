@@ -3,6 +3,8 @@ import { Link, useNavigate } from 'react-router-dom';
 import { Search, Users, Heart, Loader2, Lock, Globe, ChevronLeft, UserPlus, UserMinus } from 'lucide-react';
 import { usersApi, formatApiError } from '../lib/api';
 import { duoProfilePath } from '../lib/duoProfile';
+import { DuoAvatar } from '../components/duo/DuoAvatar';
+import { DuoFollowButton } from '../components/duo/DuoFollowButton';
 import { UserAvatar } from '../components/UserAvatar';
 import { formatHandle, getDisplayName, getPublicHandle } from '../lib/userProfile';
 import { Input } from '../components/ui/input';
@@ -258,21 +260,29 @@ export function SearchPage() {
         <div className="space-y-2">
           {results.map((duo) => (
             <div key={duo.id} className="card p-4 flex items-center gap-3">
-              <div className="w-12 h-12 rounded-full bg-[var(--theme-secondary)]/20 flex items-center justify-center shrink-0">
-                <Heart size={20} className="text-[var(--theme-secondary)]" />
-              </div>
+              <DuoAvatar duoProfile={duo} members={duo.members} className="w-12 h-12 shrink-0" textSize="text-sm" />
               <div className="flex-1 min-w-0">
                 <p className="text-white font-medium truncate">{duo.name}</p>
                 <p className="text-zinc-500 text-sm font-mono">{duo.tag}</p>
-                <p className="text-zinc-600 text-xs mt-1">{duo.member_count} membres</p>
+                <div className="flex items-center gap-2 mt-1">
+                  {duo.account_visibility === 'public' ? (
+                    <span className="text-[10px] uppercase text-emerald-400/80">Public</span>
+                  ) : (
+                    <span className="text-[10px] uppercase text-zinc-500">Privé</span>
+                  )}
+                  {duo.followers_count != null ? (
+                    <span className="text-zinc-600 text-xs">{duo.followers_count} abonnés</span>
+                  ) : null}
+                </div>
               </div>
-              <Button
-                asChild
-                size="sm"
-                className="rounded-xl btn-primary text-white shrink-0"
-              >
-                <Link to={duoProfilePath(duo.tag)}>Voir profil</Link>
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                {!duo.is_member ? (
+                  <DuoFollowButton duoProfile={duo} onUpdate={(d) => updateResult(d)} />
+                ) : null}
+                <Button asChild size="sm" className="rounded-xl btn-primary text-white">
+                  <Link to={duoProfilePath(duo.tag)}>Voir profil</Link>
+                </Button>
+              </div>
             </div>
           ))}
           {searched && results.length === 0 ? (

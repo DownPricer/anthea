@@ -109,6 +109,13 @@ def test_build_common_sessions():
     assert items[0]["date"] == "2026-07-09"
 
 
+def test_normalize_upload_path():
+    from server import normalize_upload_path
+    assert normalize_upload_path("/uploads/u1/abc.jpg") == "/uploads/u1/abc.jpg"
+    assert normalize_upload_path("https://example.com/uploads/u1/abc.jpg") == "/uploads/u1/abc.jpg"
+    assert normalize_upload_path(None) is None
+
+
 def test_can_view_duo_challenges_section():
     from duo_social import can_view_duo_section, apply_duo_defaults
     doc = apply_duo_defaults({"show_challenges": False})

@@ -16,6 +16,7 @@ import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import { getAccentForUser } from '../lib/userAccent';
 import { duoProfilePath } from '../lib/duoProfile';
+import { DuoAvatar } from '../components/duo/DuoAvatar';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -435,10 +436,16 @@ export function DuoPage() {
         {duoStats?.duo_profile?.tag ? (
           <Link
             to={duoProfilePath(duoStats.duo_profile.tag)}
-            className="card p-4 flex items-center justify-between gap-3 border border-[var(--theme-primary)]/30 hover:border-[var(--theme-primary)]/50 transition-colors group"
+            className="card p-4 flex items-center gap-3 border border-[var(--theme-primary)]/30 hover:border-[var(--theme-primary)]/50 transition-colors group"
             data-testid="duo-profile-link"
           >
-            <div>
+            <DuoAvatar
+              duoProfile={duoStats.duo_profile}
+              members={[user, partner]}
+              className="w-12 h-12 shrink-0"
+              textSize="text-sm"
+            />
+            <div className="flex-1 min-w-0">
               <p className="text-white font-semibold group-hover:text-[var(--theme-primary)] transition-colors">
                 Profil du duo
               </p>
