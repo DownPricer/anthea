@@ -14,6 +14,10 @@ function notificationLabel(notif) {
   switch (notif.type) {
     case 'new_follower':
       return 'a commencé à te suivre';
+    case 'follow_request':
+      return 'demande à te suivre';
+    case 'follow_accepted':
+      return 'a accepté ta demande de suivi';
     case 'follow_back':
       return 'te suit en retour — vous êtes amis mutuels';
     case 'like':
@@ -37,6 +41,7 @@ export function NotificationsPage() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(null);
+  const [requestLoading, setRequestLoading] = useState(null);
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -69,6 +74,34 @@ export function NotificationsPage() {
       toast.error(formatApiError(error));
     } finally {
       setFollowLoading(null);
+    }
+  };
+
+  const handleAcceptFollowRequest = async (notif) => {
+    if (!notif.request_id) return;
+    setRequestLoading(notif.id);
+    try {
+      await usersApi.acceptFollowRequest(notif.request_id);
+      toast.success('Demande acceptée');
+      await loadNotifications();
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setRequestLoading(null);
+    }
+  };
+
+  const handleRejectFollowRequest = async (notif) => {
+    if (!notif.request_id) return;
+    setRequestLoading(notif.id);
+    try {
+      await usersApi.rejectFollowRequest(notif.request_id);
+      toast.success('Demande refusée');
+      await loadNotifications();
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setRequestLoading(null);
     }
   };
 
@@ -137,6 +170,29 @@ export function NotificationsPage() {
                     </p>
                   </div>
                   <p className="text-zinc-600 text-xs mt-1.5">{dateLabel}</p>
+                  {notif.type === 'follow_request' && notif.request_id ? (
+                    <div className="mt-3 flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        disabled={requestLoading === notif.id}
+                        onClick={() => handleAcceptFollowRequest(notif)}
+                        className="h-8 rounded-lg btn-primary text-white text-xs"
+                      >
+                        Accepter
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant="outline"
+                        disabled={requestLoading === notif.id}
+                        onClick={() => handleRejectFollowRequest(notif)}
+                        className="h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                      >
+                        Refuser
+                      </Button>
+                    </div>
+                  ) : null}
                   {notif.type === 'new_follower' ? (
                     <Button
                       type="button"

@@ -71,7 +71,9 @@ export function DuoProfileStatsTab({ stats, loading, canViewBadges, canViewStats
                   style={{
                     width: `${Math.min(
                       100,
-                      (stats.current_challenge.current / stats.current_challenge.target) * 100
+                      stats.current_challenge.target
+                        ? (stats.current_challenge.current / stats.current_challenge.target) * 100
+                        : 0
                     )}%`,
                   }}
                 />

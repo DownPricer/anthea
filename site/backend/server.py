@@ -2,11 +2,15 @@ from dotenv import load_dotenv
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).parent
+UPLOAD_DIR = ROOT_DIR / "uploads"
+UPLOAD_DIR.mkdir(exist_ok=True)
 load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
 from fastapi.responses import StreamingResponse
+from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
+import base64
 import csv
 import io
 import json
@@ -159,6 +163,10 @@ class DuoProfileUpdate(BaseModel):
     show_badges: Optional[bool] = None
     show_recent_activity: Optional[bool] = None
     show_posts: Optional[bool] = None
+
+class ImageUpload(BaseModel):
+    image_data: str
+    filename: Optional[str] = "image.jpg"
 
 class PartnerRequest(BaseModel):
     target_username: str
@@ -540,6 +548,8 @@ async def get_profile_access_level(viewer_id: str, profile_user: dict) -> str:
         return "own"
     if await is_mutual_friends(viewer_id, profile_id):
         return "friend"
+    if await is_following(viewer_id, profile_id):
+        return "follower"
     if profile_user.get("account_visibility") == "public":
         return "public"
     return "limited"
@@ -554,13 +564,31 @@ async def find_user_by_handle(handle: str) -> Optional[dict]:
 
 async def get_follow_relation(viewer_id: str, profile_id: str) -> dict:
     if not viewer_id or not profile_id or viewer_id == profile_id:
-        return {"is_following": False, "is_followed_by": False, "is_mutual": False}
+        return {
+            "is_following": False,
+            "is_followed_by": False,
+            "is_mutual": False,
+            "follow_request_pending": False,
+            "incoming_follow_request": False,
+        }
     following = await is_following(viewer_id, profile_id)
     followed_by = await is_following(profile_id, viewer_id)
+    pending = await db.follow_requests.find_one({
+        "requester_id": viewer_id,
+        "target_id": profile_id,
+        "status": "pending",
+    })
+    incoming = await db.follow_requests.find_one({
+        "requester_id": profile_id,
+        "target_id": viewer_id,
+        "status": "pending",
+    })
     return {
         "is_following": following,
         "is_followed_by": followed_by,
         "is_mutual": following and followed_by,
+        "follow_request_pending": pending is not None,
+        "incoming_follow_request": incoming is not None,
     }
 
 async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> dict:
@@ -628,6 +656,7 @@ async def create_notification(
     *,
     skip_if_exists: bool = False,
     post_id: Optional[str] = None,
+    request_id: Optional[str] = None,
 ) -> None:
     actor_id = actor["id"]
     if recipient_id == actor_id:
@@ -657,6 +686,8 @@ async def create_notification(
     }
     if post_id:
         doc["post_id"] = post_id
+    if request_id:
+        doc["request_id"] = request_id
     await db.notifications.insert_one(doc)
 
 def serialize_notification(doc: dict) -> dict:
@@ -673,6 +704,8 @@ def serialize_notification(doc: dict) -> dict:
     }
     if doc.get("post_id"):
         out["post_id"] = doc.get("post_id")
+    if doc.get("request_id"):
+        out["request_id"] = doc.get("request_id")
     return out
 
 POST_TYPES = {"workout_photo", "workout", "badge", "duo_repost", "duo", "free"}
@@ -742,7 +775,8 @@ async def _load_workout_for_session(session: dict) -> Optional[dict]:
         return None
 
 
-def _serialize_post_comment(comment: dict) -> dict:
+def _serialize_post_comment(comment: dict, viewer_id: Optional[str] = None) -> dict:
+    likes = comment.get("likes") or []
     return {
         "id": comment.get("id"),
         "user_id": comment.get("user_id"),
@@ -752,6 +786,8 @@ def _serialize_post_comment(comment: dict) -> dict:
         "avatar_url": comment.get("avatar_url"),
         "text": comment.get("text"),
         "created_at": comment.get("created_at"),
+        "likes_count": len(likes),
+        "is_liked": viewer_id in likes if viewer_id else False,
     }
 
 
@@ -785,7 +821,7 @@ async def serialize_post(
     author_id = str(author["_id"]) if author else post.get("author_id")
     likes = post.get("likes") or []
     comments = post.get("comments") or []
-    serialized_comments = [_serialize_post_comment(c) for c in comments]
+    serialized_comments = [_serialize_post_comment(c, viewer_id) for c in comments]
 
     result = {
         "id": str(post["_id"]),
@@ -1052,6 +1088,8 @@ async def lifespan(app: FastAPI):
     await db.live_workout_messages.create_index([("pair_key", 1), ("created_at", -1)])
     await db.follows.create_index([("follower_id", 1), ("following_id", 1)], unique=True)
     await db.follows.create_index("following_id")
+    await db.follow_requests.create_index([("requester_id", 1), ("target_id", 1)], unique=True)
+    await db.follow_requests.create_index([("target_id", 1), ("status", 1)])
     await db.notifications.create_index([("user_id", 1), ("created_at", -1)])
     await db.notifications.create_index([("user_id", 1), ("read", 1)])
     await db.duo_profiles.create_index("pair_key", unique=True)
@@ -1361,7 +1399,35 @@ async def follow_user(handle: str, user: dict = Depends(get_current_user)):
     if existing:
         raise HTTPException(status_code=400, detail="Vous suivez déjà cet utilisateur")
 
+    pending = await db.follow_requests.find_one({
+        "requester_id": user["id"],
+        "target_id": target_id,
+        "status": "pending",
+    })
+    if pending:
+        raise HTTPException(status_code=400, detail="Demande de suivi déjà envoyée")
+
     now = datetime.now(timezone.utc).isoformat()
+    is_private = target.get("account_visibility", "private") == "private"
+    is_mutual = await is_following(target_id, user["id"])
+
+    if is_private and not is_mutual:
+        req_result = await db.follow_requests.insert_one({
+            "requester_id": user["id"],
+            "target_id": target_id,
+            "status": "pending",
+            "created_at": now,
+        })
+        await create_notification(
+            target_id,
+            "follow_request",
+            user,
+            skip_if_exists=True,
+            request_id=str(req_result.inserted_id),
+        )
+        updated = await db.users.find_one({"_id": ObjectId(target_id)})
+        return await serialize_profile_for_viewer(updated, user["id"])
+
     await db.follows.insert_one({
         "follower_id": user["id"],
         "following_id": target_id,
@@ -1377,6 +1443,97 @@ async def follow_user(handle: str, user: dict = Depends(get_current_user)):
 
     updated = await db.users.find_one({"_id": ObjectId(target_id)})
     return await serialize_profile_for_viewer(updated, user["id"])
+
+
+async def _accept_follow_request(request_doc: dict, accepter: dict) -> None:
+    requester_id = request_doc["requester_id"]
+    target_id = request_doc["target_id"]
+    if str(accepter["_id"]) != target_id:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    existing = await db.follows.find_one({
+        "follower_id": requester_id,
+        "following_id": target_id,
+    })
+    now = datetime.now(timezone.utc).isoformat()
+    if not existing:
+        await db.follows.insert_one({
+            "follower_id": requester_id,
+            "following_id": target_id,
+            "created_at": now,
+        })
+        await db.users.update_one({"_id": ObjectId(target_id)}, {"$inc": {"followers_count": 1}})
+        await db.users.update_one({"_id": ObjectId(requester_id)}, {"$inc": {"following_count": 1}})
+
+    await db.follow_requests.update_one(
+        {"_id": request_doc["_id"]},
+        {"$set": {"status": "accepted", "responded_at": now}},
+    )
+    requester = await get_user_doc_by_id(requester_id)
+    if requester:
+        await create_notification(requester_id, "follow_accepted", accepter, skip_if_exists=True)
+
+
+@api_router.post("/follow-requests/{request_id}/accept")
+async def accept_follow_request(request_id: str, user: dict = Depends(get_current_user)):
+    try:
+        request_doc = await db.follow_requests.find_one({"_id": ObjectId(request_id)})
+    except Exception:
+        request_doc = None
+    if not request_doc or request_doc.get("status") != "pending":
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+    if request_doc.get("target_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    await _accept_follow_request(request_doc, user)
+    requester = await get_user_doc_by_id(request_doc["requester_id"])
+    if requester:
+        return await serialize_profile_for_viewer(requester, user["id"])
+    return {"status": "ok"}
+
+
+@api_router.post("/follow-requests/{request_id}/reject")
+async def reject_follow_request(request_id: str, user: dict = Depends(get_current_user)):
+    try:
+        request_doc = await db.follow_requests.find_one({"_id": ObjectId(request_id)})
+    except Exception:
+        request_doc = None
+    if not request_doc or request_doc.get("status") != "pending":
+        raise HTTPException(status_code=404, detail="Demande introuvable")
+    if request_doc.get("target_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    await db.follow_requests.update_one(
+        {"_id": request_doc["_id"]},
+        {"$set": {
+            "status": "rejected",
+            "responded_at": datetime.now(timezone.utc).isoformat(),
+        }},
+    )
+    return {"status": "ok"}
+
+
+@api_router.get("/follow-requests/pending")
+async def list_pending_follow_requests(user: dict = Depends(get_current_user)):
+    docs = await db.follow_requests.find({
+        "target_id": user["id"],
+        "status": "pending",
+    }).sort("created_at", -1).limit(50).to_list(50)
+    items = []
+    for doc in docs:
+        requester = await get_user_doc_by_id(doc.get("requester_id"))
+        if not requester:
+            continue
+        items.append({
+            "id": str(doc["_id"]),
+            "requester_id": doc.get("requester_id"),
+            "requester_username": requester.get("username"),
+            "requester_handle": requester.get("handle") or requester.get("username"),
+            "requester_display_name": requester.get("display_name"),
+            "requester_avatar_url": requester.get("avatar_url"),
+            "created_at": doc.get("created_at"),
+        })
+    return items
 
 
 @api_router.delete("/users/{handle}/follow")
@@ -1401,6 +1558,108 @@ async def unfollow_user(handle: str, user: dict = Depends(get_current_user)):
 
     updated = await db.users.find_one({"_id": ObjectId(target_id)})
     return await serialize_profile_for_viewer(updated, user["id"])
+
+
+@api_router.get("/feed")
+async def get_social_feed(
+    limit: int = 15,
+    offset: int = 0,
+    user: dict = Depends(get_current_user),
+):
+    """Fil d'actualité : abonnements en priorité, puis posts publics tendance."""
+    limit = max(1, min(limit, 30))
+    offset = max(0, offset)
+
+    following_docs = await db.follows.find({"follower_id": user["id"]}).to_list(500)
+    following_ids = {d["following_id"] for d in following_docs}
+
+    candidate_posts = await db.posts.find({}).sort("created_at", -1).limit(150).to_list(150)
+    scored = []
+
+    for post in candidate_posts:
+        author_id = post.get("author_id")
+        author = await get_user_doc_by_id(author_id)
+        if not author:
+            continue
+        serialized = await serialize_post(post, user["id"], author)
+        if not serialized:
+            continue
+
+        likes_n = len(post.get("likes") or [])
+        comments_n = len(post.get("comments") or [])
+        trending = likes_n * 2 + comments_n * 3
+        is_following_author = author_id in following_ids
+        is_mutual = is_following_author and await is_following(author_id, user["id"])
+        visibility = post.get("visibility", "public")
+
+        if is_mutual or is_following_author:
+            priority = 3 if is_mutual else 2
+        elif visibility == "public":
+            priority = 1
+        else:
+            continue
+
+        scored.append({
+            **serialized,
+            "_priority": priority,
+            "_trending": trending,
+        })
+
+    scored.sort(
+        key=lambda p: (
+            p.get("_priority", 0),
+            p.get("_trending", 0),
+            p.get("created_at") or "",
+        ),
+        reverse=True,
+    )
+
+    page = []
+    for item in scored[offset:offset + limit]:
+        item.pop("_priority", None)
+        item.pop("_trending", None)
+        page.append(item)
+    return page
+
+
+@api_router.post("/uploads/image")
+async def upload_image(data: ImageUpload, user: dict = Depends(get_current_user)):
+    raw = (data.image_data or "").strip()
+    if not raw:
+        raise HTTPException(status_code=400, detail="Image requise")
+
+    meta = ""
+    b64 = raw
+    if "," in raw:
+        meta, b64 = raw.split(",", 1)
+
+    try:
+        image_bytes = base64.b64decode(b64)
+    except Exception:
+        raise HTTPException(status_code=400, detail="Image invalide")
+
+    if len(image_bytes) > 3 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Image trop volumineuse (max 3 Mo)")
+
+    ext = "webp"
+    meta_lower = meta.lower()
+    if "png" in meta_lower:
+        ext = "png"
+    elif "jpeg" in meta_lower or "jpg" in meta_lower:
+        ext = "jpg"
+    elif "webp" in meta_lower:
+        ext = "webp"
+
+    user_dir = UPLOAD_DIR / user["id"]
+    user_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.{ext}"
+    file_path = user_dir / filename
+    file_path.write_bytes(image_bytes)
+
+    relative = f"/uploads/{user['id']}/{filename}"
+    base_url = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
+    url = f"{base_url}{relative}" if base_url else relative
+    return {"url": url, "path": relative}
 
 
 @api_router.get("/notifications")
@@ -3046,18 +3305,48 @@ async def get_user_reposts(
                 author = await get_user_doc_by_id(session.get("user_id"))
                 if author and await can_view_session_in_post(user["id"], author, session):
                     workout = await _load_workout_for_session(session)
+                    partner_session_id = repost.get("partner_session_id")
+                    partner_snap = None
+                    partner_details = None
+                    is_duo = bool(partner_session_id)
+                    if partner_session_id:
+                        try:
+                            ps = await db.workout_sessions.find_one(
+                                {"_id": ObjectId(partner_session_id)}
+                            )
+                        except Exception:
+                            ps = None
+                        if ps:
+                            partner_author = await get_user_doc_by_id(ps.get("user_id"))
+                            if partner_author and await can_view_session_in_post(
+                                user["id"], partner_author, ps
+                            ):
+                                partner_snap = build_session_snapshot(
+                                    ps, await _load_workout_for_session(ps)
+                                )
+                                partner_details = {
+                                    "exercise_log": ps.get("exercise_log") or [],
+                                    "fatigue_before": ps.get("fatigue_before"),
+                                    "fatigue_after": ps.get("fatigue_after"),
+                                    "difficulty_felt": ps.get("difficulty_felt"),
+                                    "mood": ps.get("mood"),
+                                    "notes": ps.get("notes"),
+                                }
                     item["post"] = {
                         "id": f"session-{repost['workout_session_id']}",
-                        "type": "workout",
-                        "title": session.get("workout_title"),
+                        "type": "duo" if is_duo and partner_snap else "workout",
+                        "title": "Séance commune" if is_duo and partner_snap else session.get("workout_title"),
                         "workout_session_id": str(session["_id"]),
+                        "partner_session_id": partner_session_id,
                         "author_id": str(author["_id"]),
                         "author_username": author.get("username"),
                         "author_handle": author.get("handle") or author.get("username"),
                         "author_display_name": author.get("display_name"),
                         "author_avatar_url": author.get("avatar_url"),
                         "session_snapshot": build_session_snapshot(session, workout),
+                        "partner_session_snapshot": partner_snap,
                         "can_view_session_details": True,
+                        "can_view_partner_session_details": partner_details is not None,
                         "session_details": {
                             "exercise_log": session.get("exercise_log") or [],
                             "fatigue_before": session.get("fatigue_before"),
@@ -3066,11 +3355,12 @@ async def get_user_reposts(
                             "mood": session.get("mood"),
                             "notes": session.get("notes"),
                         },
+                        "partner_session_details": partner_details,
                         "likes_count": 0,
                         "comments_count": 0,
                         "is_liked": False,
                         "is_repost": True,
-                        "created_at": session.get("created_at"),
+                        "created_at": repost.get("created_at") or session.get("created_at"),
                     }
         if item["post"]:
             items.append(item)
@@ -3176,6 +3466,7 @@ async def add_post_comment(
         "avatar_url": user.get("avatar_url"),
         "text": text[:300],
         "created_at": datetime.now(timezone.utc).isoformat(),
+        "likes": [],
     }
 
     await db.posts.update_one(
@@ -3190,7 +3481,7 @@ async def add_post_comment(
     )
 
     updated = await db.posts.find_one({"_id": ObjectId(post_id)})
-    comments = [_serialize_post_comment(c) for c in (updated.get("comments") or [])]
+    comments = [_serialize_post_comment(c, user["id"]) for c in (updated.get("comments") or [])]
     return {
         "comments_count": len(comments),
         "preview_comment": comments[-1] if comments else None,
@@ -3211,8 +3502,46 @@ async def get_post_comments(post_id: str, user: dict = Depends(get_current_user)
     if not author or not await can_view_post(user["id"], post, author):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
-    comments = [_serialize_post_comment(c) for c in (post.get("comments") or [])]
+    comments = [_serialize_post_comment(c, user["id"]) for c in (post.get("comments") or [])]
     return {"comments": comments, "comments_count": len(comments)}
+
+
+@api_router.post("/posts/{post_id}/comments/{comment_id}/like")
+async def toggle_comment_like(
+    post_id: str,
+    comment_id: str,
+    user: dict = Depends(get_current_user),
+):
+    try:
+        post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        post = None
+    if not post:
+        raise HTTPException(status_code=404, detail="Publication introuvable")
+
+    author = await get_user_doc_by_id(post.get("author_id"))
+    if not author or not await can_view_post(user["id"], post, author):
+        raise HTTPException(status_code=403, detail="Publication non accessible")
+
+    comments = post.get("comments") or []
+    idx = next((i for i, c in enumerate(comments) if c.get("id") == comment_id), None)
+    if idx is None:
+        raise HTTPException(status_code=404, detail="Commentaire introuvable")
+
+    likes = list(comments[idx].get("likes") or [])
+    if user["id"] in likes:
+        likes = [uid for uid in likes if uid != user["id"]]
+        is_liked = False
+    else:
+        likes.append(user["id"])
+        is_liked = True
+
+    comments[idx]["likes"] = likes
+    await db.posts.update_one(
+        {"_id": ObjectId(post_id)},
+        {"$set": {"comments": comments}},
+    )
+    return {"likes_count": len(likes), "is_liked": is_liked, "comment_id": comment_id}
 
 
 @api_router.post("/reposts")
@@ -3245,6 +3574,7 @@ async def create_repost(data: RepostCreate, user: dict = Depends(get_current_use
             "user_id": user["id"],
             "post_id": data.post_id,
             "workout_session_id": post.get("workout_session_id") or post.get("duo_session_id"),
+            "partner_session_id": post.get("partner_session_id"),
             "created_at": now,
         })
         return {"id": str(result.inserted_id), "post_id": data.post_id, "created_at": now}
@@ -3555,6 +3885,47 @@ async def calculate_streak(user_id: str, partner_id: Optional[str]) -> int:
             streak += 1
 
     return streak
+
+
+def compute_best_streak_from_calendar(days: List[dict]) -> int:
+    """Meilleur streak historique — ignore les jours sans séance prévue."""
+    if not days:
+        return 0
+
+    sorted_days = sorted(days, key=lambda d: d.get("date") or "")
+    max_streak = 0
+    current = 0
+    prev_date = None
+
+    for day in sorted_days:
+        if day.get("is_future") or day.get("skip"):
+            continue
+
+        ds = day.get("date")
+        if prev_date and ds:
+            prev = datetime.strptime(prev_date, "%Y-%m-%d").date()
+            cur = datetime.strptime(ds, "%Y-%m-%d").date()
+            if (cur - prev).days > 1:
+                current = 0
+
+        contributes = False
+        if day.get("combined") == "fail":
+            current = 0
+        elif day.get("rest"):
+            contributes = True
+        elif day.get("has_planned") and day.get("combined") in ("ok", "today_pending"):
+            contributes = True
+
+        if contributes:
+            current += 1
+            max_streak = max(max_streak, current)
+            prev_date = ds
+        elif day.get("has_planned") and day.get("combined") == "fail":
+            prev_date = ds
+        elif ds:
+            prev_date = ds
+
+    return max_streak
 
 
 async def build_streak_calendar(
@@ -3948,13 +4319,26 @@ async def get_streak_days(
 async def get_streak_calendar(
     start_date: str,
     end_date: str,
+    target_user: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     """État visuel jour par jour pour l'agenda (streak, repos, duo, manqués)."""
+    user_id = user["id"]
     partner_id = user.get("partner_id")
-    days = await build_streak_calendar(user["id"], partner_id, start_date, end_date)
-    streak = await calculate_streak(user["id"], partner_id)
-    manual = await _get_manual_streak_override(user["id"], partner_id) if partner_id else None
+
+    if target_user and target_user != user_id:
+        target = await get_user_doc_by_id(target_user)
+        if not target:
+            raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        access = await get_profile_access_level(user_id, target)
+        if access == "limited":
+            raise HTTPException(status_code=403, detail="Accès refusé")
+        user_id = target_user
+        partner_id = target.get("partner_id")
+
+    days = await build_streak_calendar(user_id, partner_id, start_date, end_date)
+    streak = await calculate_streak(user_id, partner_id)
+    manual = await _get_manual_streak_override(user_id, partner_id) if partner_id else None
     return {
         "streak": manual if manual is not None else streak,
         "days": days,
@@ -4046,6 +4430,8 @@ async def root():
     return {"message": "Anthea API", "version": "1.0.0"}
 
 app.include_router(api_router)
+
+app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 
 app.add_middleware(
     CORSMiddleware,

@@ -11,7 +11,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
   const [loading, setLoading] = useState(true);
   const tag = duoProfile?.tag;
 
-  const canView = canViewDuoSection(duoProfile, 'posts');
+  const canView = duoProfile ? canViewDuoSection(duoProfile, 'posts') : false;
 
   const load = useCallback(async () => {
     if (!tag || !canView) {
@@ -33,6 +33,16 @@ export function DuoPostFeed({ duoProfile, viewer }) {
   useEffect(() => {
     load();
   }, [load]);
+
+  if (!duoProfile) {
+    return (
+      <ProfileEmptyState
+        icon={LayoutGrid}
+        title="Profil duo incomplet"
+        description="Les informations duo ne sont pas encore disponibles."
+      />
+    );
+  }
 
   if (!canView) {
     return (
@@ -64,8 +74,14 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
   return (
     <div className="space-y-4" data-testid="duo-post-feed">
-      {posts.map((post) => (
-        <PostCard key={post.id} post={post} viewer={viewer} onUpdate={load} showRepostAction={false} />
+      {posts.map((post, idx) => (
+        <PostCard
+          key={post?.id || `duo-post-${idx}`}
+          post={post}
+          viewer={viewer}
+          onUpdate={load}
+          showRepostAction={false}
+        />
       ))}
     </div>
   );

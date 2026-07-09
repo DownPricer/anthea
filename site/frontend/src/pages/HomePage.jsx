@@ -32,11 +32,13 @@ import { fr } from 'date-fns/locale';
 import { useTheme } from '../context/ThemeContext';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { WeekAgendaStrip } from '../components/agenda/WeekAgendaStrip';
+import { HomeFeed } from '../components/social/HomeFeed';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { useUserAccent } from '../hooks/useUserAccent';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
+import { getPublicHandle } from '../lib/userProfile';
 import { toast } from 'sonner';
 
 export function HomePage() {
@@ -494,6 +496,8 @@ export function HomePage() {
               </div>
             </div>
           )}
+
+          <HomeFeed />
         </div>
 
         <div className="space-y-6 lg:col-span-5">
@@ -511,7 +515,10 @@ export function HomePage() {
             </div>
           ) : partner && duoStats && (
             <div className="card p-5">
-          <div className="flex items-center gap-3 mb-4">
+          <Link
+            to={`/profile/${getPublicHandle(partner) || partner.username}`}
+            className="flex items-center gap-3 mb-4 hover:opacity-90 transition-opacity"
+          >
             <div className="flex -space-x-3">
               <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)] flex items-center justify-center border-2 border-[#141414]">
                 <span className="text-white text-sm font-bold">
@@ -528,10 +535,8 @@ export function HomePage() {
               <p className="text-white font-medium">Duo avec {partner.display_name || partner.username}</p>
               <p className="text-zinc-500 text-sm">{user?.relation_type === 'coach' ? 'Coach' : 'Partenaire'}</p>
             </div>
-            <Link to="/duo" className="text-[var(--theme-primary)]">
-              <ChevronRight size={20} />
-            </Link>
-          </div>
+            <ChevronRight className="text-[var(--theme-primary)]" size={20} />
+          </Link>
 
           <div className="grid grid-cols-3 gap-3">
             <div className="text-center p-3 rounded-xl bg-white/5 col-span-3 sm:col-span-1">

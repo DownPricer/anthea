@@ -6,6 +6,7 @@ import { duoApi } from '../lib/api';
 import { isPushConfigured } from '../lib/env';
 import { applyAccentToDocument, normalizeAccentColor, resolveUserAccent } from '../lib/userAccent';
 import { BadgesGrid } from '../components/BadgesGrid';
+import { AnnualHeatmap } from '../components/agenda/AnnualHeatmap';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -413,6 +414,14 @@ export function SettingsPage() {
           >
             {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer les préférences'}
           </Button>
+        </SettingsSection>
+
+        <SettingsSection
+          icon={BarChart3}
+          title="Agenda annuel"
+          description="Visualise toute l'année et exporte en JPG"
+        >
+          <AnnualHeatmap year={new Date().getFullYear()} />
         </SettingsSection>
       </div>
     </div>

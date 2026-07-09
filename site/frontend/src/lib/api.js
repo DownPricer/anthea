@@ -54,6 +54,9 @@ export const usersApi = {
   follow: (handle) => api.post(`/users/${encodeURIComponent(handle)}/follow`),
   unfollow: (handle) => api.delete(`/users/${encodeURIComponent(handle)}/follow`),
   getProfileStats: (handle) => api.get(`/users/${encodeURIComponent(handle)}/profile-stats`),
+  acceptFollowRequest: (requestId) => api.post(`/follow-requests/${requestId}/accept`),
+  rejectFollowRequest: (requestId) => api.post(`/follow-requests/${requestId}/reject`),
+  getPendingFollowRequests: () => api.get('/follow-requests/pending'),
 };
 
 // Notifications API
@@ -144,9 +147,30 @@ export const postsApi = {
   toggleLike: (id) => api.post(`/posts/${id}/like`),
   addComment: (id, data) => api.post(`/posts/${id}/comment`, data),
   getComments: (id) => api.get(`/posts/${id}/comments`),
+  toggleCommentLike: (postId, commentId) =>
+    api.post(`/posts/${postId}/comments/${commentId}/like`),
   repost: (data) => api.post('/reposts', data),
   deleteRepost: (id) => api.delete(`/reposts/${id}`),
 };
+
+// Feed API
+export const feedApi = {
+  get: (params = {}) => api.get('/feed', { params }),
+};
+
+// Uploads API
+export const uploadsApi = {
+  uploadImage: (imageData, filename = 'image.jpg') =>
+    api.post('/uploads/image', { image_data: imageData, filename }),
+};
+
+/** Résout une URL d'upload relative vers l'URL backend complète. */
+export function resolveMediaUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
+  const base = (process.env.REACT_APP_BACKEND_URL || '').replace(/\/$/, '');
+  return `${base}${url.startsWith('/') ? url : `/${url}`}`;
+}
 
 // Push API (PWA)
 export const pushApi = {
@@ -180,8 +204,10 @@ export const streakApi = {
   markRestDay: (date) => api.post('/streak/rest-day', { date }),
   markSkipDay: (date) => api.post('/streak/skip-day', { date }),
   getDays: (startDate, endDate) => api.get('/streak/days', { params: { start_date: startDate, end_date: endDate } }),
-  getCalendar: (startDate, endDate) =>
-    api.get('/streak/calendar', { params: { start_date: startDate, end_date: endDate } }),
+  getCalendar: (startDate, endDate, params = {}) =>
+    api.get('/streak/calendar', {
+      params: { start_date: startDate, end_date: endDate, ...params },
+    }),
   removeDay: (date) => api.delete(`/streak/day/${date}`),
   getCoachStatus: () => api.get('/streak/coach/status'),
   coachSetManualStreak: (streak) => api.post('/streak/coach/manual-streak', { streak }),

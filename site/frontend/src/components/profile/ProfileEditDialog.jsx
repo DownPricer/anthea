@@ -1,11 +1,11 @@
-import { useState, useEffect } from 'react';
-import { Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Loader2, Camera, Share2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserAvatar } from '../UserAvatar';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
+import { Label } from '../ui/label';
 import {
   Select,
   SelectContent,
@@ -20,6 +20,8 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { getPublicHandle, isValidHandle, normalizeHandle } from '../../lib/userProfile';
+import { uploadsApi, resolveMediaUrl } from '../../lib/api';
+import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 
 const FITNESS_LEVELS = [
   { value: 'beginner', label: 'Débutant' },
@@ -51,20 +53,50 @@ export function ProfileEditDialog({
   const [mainGoal, setMainGoal] = useState('');
   const [featuredBadges, setFeaturedBadges] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [avatarPreview, setAvatarPreview] = useState(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     if (!user || !open) return;
     setDisplayName(user.display_name || '');
     setHandle(getPublicHandle(user));
     setAvatarUrl(user.avatar_url || '');
+    setAvatarPreview(null);
     setBio(user.bio || '');
     setFitnessLevel(user.fitness_level || 'beginner');
     setMainGoal(user.main_goal || '');
     setFeaturedBadges(user.featured_badges || []);
   }, [user, open]);
 
+  useEffect(() => () => revokePreviewUrl(avatarPreview), [avatarPreview]);
+
+  const handleAvatarPick = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setUploadingAvatar(true);
+    try {
+      const { blob, previewUrl } = await compressImageFile(file);
+      setAvatarPreview(previewUrl);
+      const dataUrl = await blobToDataUrl(blob);
+      const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
+      const url = resolveMediaUrl(data.url) || data.url;
+      setAvatarUrl(url);
+      toast.success('Photo importée');
+    } catch (error) {
+      toast.error(error.message || 'Échec de l\'import photo');
+    } finally {
+      setUploadingAvatar(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
   const unlockedBadges = badges.filter((b) => b.unlocked);
-  const previewUser = { ...user, avatar_url: avatarUrl || user?.avatar_url, display_name: displayName };
+  const previewUser = {
+    ...user,
+    avatar_url: avatarPreview || avatarUrl || user?.avatar_url,
+    display_name: displayName,
+  };
 
   const toggleFeaturedBadge = (badgeId) => {
     setFeaturedBadges((prev) => {
@@ -114,15 +146,43 @@ export function ProfileEditDialog({
         <div className="space-y-5">
           <div className="flex items-center gap-4">
             <UserAvatar user={previewUser} className="w-16 h-16 text-2xl" />
-            <div className="flex-1 min-w-0">
-              <Label className="text-zinc-400 text-sm">Photo de profil (URL)</Label>
-              <Input
-                value={avatarUrl}
-                onChange={(e) => setAvatarUrl(e.target.value)}
-                placeholder="https://..."
-                className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+            <div className="flex-1 min-w-0 space-y-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleAvatarPick}
               />
-              <p className="text-zinc-600 text-xs mt-1">Laisse vide pour l&apos;avatar par défaut</p>
+              <Button
+                type="button"
+                variant="outline"
+                disabled={uploadingAvatar}
+                onClick={() => fileInputRef.current?.click()}
+                className="rounded-xl border-white/15 text-white w-full sm:w-auto"
+              >
+                {uploadingAvatar ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Camera size={16} className="mr-2" />
+                )}
+                Importer une photo
+              </Button>
+              {avatarUrl ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAvatarUrl('');
+                    revokePreviewUrl(avatarPreview);
+                    setAvatarPreview(null);
+                  }}
+                  className="text-zinc-500 text-xs hover:text-red-400 flex items-center gap-1"
+                >
+                  <X size={12} /> Retirer la photo
+                </button>
+              ) : (
+                <p className="text-zinc-600 text-xs">JPG, PNG ou WebP — compressé automatiquement</p>
+              )}
             </div>
           </div>
 

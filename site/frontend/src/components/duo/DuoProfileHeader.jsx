@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Globe, Lock, Pencil, Users } from 'lucide-react';
+import { Globe, Lock, Settings, Users } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
 import { Button } from '../ui/button';
 import {
@@ -8,16 +8,24 @@ import {
   getDuoRelationLabel,
   isDuoLimited,
 } from '../../lib/duoProfile';
-import { formatHandle, getDisplayName } from '../../lib/userProfile';
+import { formatHandle, getDisplayName, getPublicHandle } from '../../lib/userProfile';
 
 export function DuoProfileHeader({ duoProfile, viewer, onEdit, theme = 'default' }) {
-  if (!duoProfile) return null;
+  if (!duoProfile) {
+    return (
+      <div className="card p-5 border border-white/10">
+        <p className="text-zinc-400 text-sm text-center">Profil duo en cours de configuration…</p>
+      </div>
+    );
+  }
 
-  const members = duoProfile.members || [];
-  const memberA = members[0];
-  const memberB = members[1];
+  const members = Array.isArray(duoProfile.members) ? duoProfile.members : [];
+  const memberA = members[0] || null;
+  const memberB = members[1] || null;
   const gradient = memberA && memberB ? getDuoGradientStyle(memberA, memberB, theme) : {};
   const limited = isDuoLimited(duoProfile);
+  const displayName = duoProfile.name || 'Duo';
+  const relationLabel = getDuoRelationLabel(duoProfile.relation_type || 'partners');
 
   return (
     <div
@@ -34,8 +42,18 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, theme = 'default'
               </div>
             ) : (
               <>
-                <UserAvatar user={memberA} className="w-14 h-14 text-xl border-2 border-[#0A0A0A] z-10" />
-                <UserAvatar user={memberB} className="w-14 h-14 text-xl border-2 border-[#0A0A0A]" />
+                {memberA ? (
+                  <UserAvatar user={memberA} className="w-14 h-14 text-xl border-2 border-[#0A0A0A] z-10" />
+                ) : (
+                  <div className="w-14 h-14 rounded-full bg-white/10 border-2 border-[#0A0A0A] z-10" />
+                )}
+                {memberB ? (
+                  <UserAvatar user={memberB} className="w-14 h-14 text-xl border-2 border-[#0A0A0A]" />
+                ) : members.length === 1 ? (
+                  <div className="w-14 h-14 rounded-full bg-white/5 border-2 border-[#0A0A0A] flex items-center justify-center">
+                    <Users className="text-zinc-600" size={18} />
+                  </div>
+                ) : null}
               </>
             )}
           </div>
@@ -46,20 +64,19 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, theme = 'default'
               variant="outline"
               onClick={onEdit}
               className="rounded-xl border-white/15 text-white shrink-0"
+              aria-label="Modifier le duo"
             >
-              <Pencil size={14} className="mr-1.5" />
-              Modifier
+              <Settings size={14} className="mr-1.5" />
+              Réglages
             </Button>
           ) : null}
         </div>
 
         <h1 className="text-2xl font-bold text-white font-['Outfit']">
-          {duoProfile.name}
+          {displayName}
         </h1>
-        <p className="text-zinc-400 font-mono text-sm mt-1">{formatDuoTag(duoProfile)}</p>
-        <p className="text-zinc-500 text-sm mt-1">
-          {getDuoRelationLabel(duoProfile.relation_type)}
-        </p>
+        <p className="text-zinc-400 font-mono text-sm mt-1">{formatDuoTag(duoProfile) || '—'}</p>
+        <p className="text-zinc-500 text-sm mt-1">{relationLabel}</p>
 
         <div className="flex items-center gap-2 mt-3">
           {duoProfile.account_visibility === 'public' ? (
@@ -73,9 +90,12 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, theme = 'default'
           )}
         </div>
 
-        {!limited && members.length >= 2 ? (
+        {!limited && members.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-5">
-            {members.map((member) => (
+            {members.map((member) => {
+              if (!member?.id) return null;
+              const profileHandle = getPublicHandle(member);
+              return (
               <div
                 key={member.id}
                 className="rounded-xl bg-black/20 border border-white/5 p-3 flex items-center gap-3"
@@ -93,13 +113,14 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, theme = 'default'
                   </p>
                   <p className="text-zinc-500 text-xs">{formatHandle(member)}</p>
                 </div>
-                {!member.is_limited ? (
+                {!member.is_limited && profileHandle ? (
                   <Button asChild size="sm" variant="ghost" className="text-zinc-400 shrink-0">
-                    <Link to={`/profile/${member.handle || member.username}`}>Voir</Link>
+                    <Link to={`/profile/${profileHandle}`}>Voir</Link>
                   </Button>
                 ) : null}
               </div>
-            ))}
+            );
+            })}
           </div>
         ) : limited ? (
           <p className="text-zinc-500 text-sm mt-4">Ce profil duo est privé.</p>

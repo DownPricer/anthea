@@ -32,6 +32,7 @@ export function ProfileHeader({
   isFollowing = false,
   isMutual = false,
   followLoading = false,
+  followRequestPending = false,
   isLimited = false,
 }) {
   const displayName = getDisplayName(profileUser);
@@ -98,7 +99,31 @@ export function ProfileHeader({
                   <Pencil size={16} className="mr-2" />
                   Modifier le profil
                 </Button>
-              ) : isLimited ? null : isFollowing ? (
+              ) : isLimited ? (
+                followRequestPending ? (
+                  <Button
+                    type="button"
+                    disabled
+                    className="h-10 rounded-xl px-5 bg-white/5 text-zinc-400 border border-white/10"
+                  >
+                    Demande envoyée
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={onFollow}
+                    disabled={followLoading}
+                    className="h-10 rounded-xl px-5 btn-primary text-white"
+                  >
+                    {followLoading ? (
+                      <Loader2 size={16} className="mr-2 animate-spin" />
+                    ) : (
+                      <UserPlus size={16} className="mr-2" />
+                    )}
+                    Demander à suivre
+                  </Button>
+                )
+              ) : isFollowing ? (
                 <>
                   {isMutual ? (
                     <span className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-[var(--theme-primary)]/15 text-[var(--theme-primary)] text-sm font-medium border border-[var(--theme-primary)]/25">

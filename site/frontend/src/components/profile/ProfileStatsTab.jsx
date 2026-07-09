@@ -13,6 +13,7 @@ import {
 import { formatCalories } from '../../lib/calories';
 import { canViewProfileSection, formatDuration } from '../../lib/userProfile';
 import { SessionHistoryCard } from '../history/SessionHistoryCard';
+import { computeBestStreak } from '../../lib/streakUtils';
 
 function StatCard({ icon: Icon, label, value, sub }) {
   if (value == null || value === '') return null;
@@ -27,29 +28,6 @@ function StatCard({ icon: Icon, label, value, sub }) {
       {sub ? <p className="text-zinc-500 text-xs mt-1">{sub}</p> : null}
     </div>
   );
-}
-
-function computeBestStreak(calendarDays = []) {
-  if (!calendarDays.length) return null;
-
-  const sorted = [...calendarDays].sort((a, b) => a.date.localeCompare(b.date));
-  let max = 0;
-  let current = 0;
-
-  for (const day of sorted) {
-    const ok = day.combined === 'ok' || (day.in_streak && !day.is_future);
-    if (ok) {
-      current += 1;
-      max = Math.max(max, current);
-    } else if (day.rest && day.in_streak) {
-      current += 1;
-      max = Math.max(max, current);
-    } else if (!day.is_future && day.combined === 'fail') {
-      current = 0;
-    }
-  }
-
-  return max > 0 ? max : null;
 }
 
 function sumExercisesCompleted(sessions = []) {

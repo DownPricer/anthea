@@ -24,13 +24,17 @@ export function BadgesGrid({ badges = [], compact = false, showShare = false }) 
       {families.map((family) => {
         const familyBadges = badges.filter((b) => (b.family || 'other') === family);
         return (
-          <div key={family}>
+          <div key={family} className="w-full">
             {!compact && (
-              <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2">
+              <p className="text-xs uppercase tracking-wider text-zinc-500 mb-2 text-center sm:text-left">
                 {familyLabel(family)}
               </p>
             )}
-            <div className={`grid gap-2 ${compact ? 'grid-cols-4' : 'grid-cols-3 sm:grid-cols-4'}`}>
+            <div
+              className={`grid gap-2 justify-items-center mx-auto w-full max-w-md ${
+                compact ? 'grid-cols-4' : 'grid-cols-3 sm:grid-cols-4'
+              }`}
+            >
               {familyBadges.map((badge) => {
                 const Icon = ICON_MAP[badge.icon] || Trophy;
                 const unlocked = badge.unlocked;
@@ -57,7 +61,7 @@ export function BadgesGrid({ badges = [], compact = false, showShare = false }) 
                     <p className={`text-[10px] leading-tight font-medium ${unlocked ? 'text-white' : 'text-zinc-500'}`}>
                       {badge.name}
                     </p>
-                    {!unlocked && badge.target > 1 && (
+                    {!unlocked && (badge.target || 0) > 1 && (
                       <div className="mt-1.5 h-1 bg-white/5 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-zinc-600 rounded-full"

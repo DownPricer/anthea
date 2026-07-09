@@ -1,17 +1,96 @@
 import { useState, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Search, Users, Heart, Loader2, Lock, Globe, ChevronLeft } from 'lucide-react';
-import { usersApi } from '../lib/api';
+import { Search, Users, Heart, Loader2, Lock, Globe, ChevronLeft, UserPlus, UserMinus } from 'lucide-react';
+import { usersApi, formatApiError } from '../lib/api';
 import { duoProfilePath } from '../lib/duoProfile';
 import { UserAvatar } from '../components/UserAvatar';
 import { formatHandle, getDisplayName, getPublicHandle } from '../lib/userProfile';
 import { Input } from '../components/ui/input';
 import { Button } from '../components/ui/button';
+import { toast } from 'sonner';
 
 const TABS = [
   { id: 'user', label: 'Utilisateurs', icon: Users },
   { id: 'duo', label: 'Duos', icon: Heart },
 ];
+
+function FollowButton({ result, onUpdate }) {
+  const [loading, setLoading] = useState(false);
+  const handle = getPublicHandle(result);
+
+  const handleFollow = async () => {
+    if (!handle) return;
+    setLoading(true);
+    try {
+      const { data } = await usersApi.follow(handle);
+      onUpdate(data);
+      toast.success(data.follow_request_pending ? 'Demande envoyée' : 'Abonnement ajouté');
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUnfollow = async () => {
+    if (!handle) return;
+    setLoading(true);
+    try {
+      const { data } = await usersApi.unfollow(handle);
+      onUpdate(data);
+      toast.success('Abonnement retiré');
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (result.is_following) {
+    return (
+      <Button
+        type="button"
+        size="sm"
+        variant="outline"
+        disabled={loading}
+        onClick={handleUnfollow}
+        className="rounded-xl border-white/15 text-zinc-300 shrink-0"
+      >
+        {loading ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} className="mr-1" />}
+        Ne plus suivre
+      </Button>
+    );
+  }
+
+  if (result.follow_request_pending) {
+    return (
+      <Button type="button" size="sm" disabled className="rounded-xl bg-white/5 text-zinc-500 shrink-0">
+        Demande envoyée
+      </Button>
+    );
+  }
+
+  const isPrivate = result.account_visibility === 'private' && !result.is_mutual;
+
+  return (
+    <Button
+      type="button"
+      size="sm"
+      disabled={loading}
+      onClick={handleFollow}
+      className="rounded-xl btn-primary text-white shrink-0"
+    >
+      {loading ? (
+        <Loader2 size={14} className="animate-spin" />
+      ) : (
+        <>
+          <UserPlus size={14} className="mr-1" />
+          {isPrivate ? 'Demander' : 'Suivre'}
+        </>
+      )}
+    </Button>
+  );
+}
 
 export function SearchPage() {
   const navigate = useNavigate();
@@ -57,6 +136,12 @@ export function SearchPage() {
     if (query.trim().length >= 2 || query.trim().startsWith('@')) {
       runSearch(query, tab);
     }
+  };
+
+  const updateResult = (updated) => {
+    setResults((prev) =>
+      prev.map((r) => (r.id === updated.id ? { ...r, ...updated } : r))
+    );
   };
 
   return (
@@ -144,13 +229,17 @@ export function SearchPage() {
                     ) : null}
                   </div>
                 </div>
-                <Button
-                  asChild
-                  size="sm"
-                  className="rounded-xl btn-primary text-white shrink-0"
-                >
-                  <Link to={`/profile/${handle}`}>Voir profil</Link>
-                </Button>
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                  <FollowButton result={result} onUpdate={updateResult} />
+                  <Button
+                    asChild
+                    size="sm"
+                    variant="outline"
+                    className="rounded-xl border-white/15 text-white"
+                  >
+                    <Link to={`/profile/${handle}`}>Voir profil</Link>
+                  </Button>
+                </div>
               </div>
             );
           })}

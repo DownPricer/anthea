@@ -13,13 +13,14 @@ import {
   Send,
   Trophy,
   Trash2,
+  Users,
 } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { WorkoutDetailsDrawer } from './WorkoutDetailsDrawer';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
-import { formatDuration, formatHandle, getDisplayName } from '../../lib/userProfile';
+import { formatDuration, formatHandle, getDisplayName, getPublicHandle } from '../../lib/userProfile';
 import { postsApi, formatApiError } from '../../lib/api';
 import { toast } from 'sonner';
 
@@ -33,7 +34,7 @@ export function PostCard({
   showRepostAction = true,
   isRepost = false,
 }) {
-  const [liked, setLiked] = useState(!!post.is_liked);
+  const [liked, setLiked] = useState(!!post?.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
   const [previewComment, setPreviewComment] = useState(post.preview_comment);
@@ -45,8 +46,14 @@ export function PostCard({
   const [likeLoading, setLikeLoading] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
   const [repostLoading, setRepostLoading] = useState(false);
+  const [commentLikes, setCommentLikes] = useState({});
 
   const isOwn = viewer?.id === post.author_id;
+  const authorHandle = getPublicHandle({
+    handle: post.author_handle,
+    username: post.author_username,
+  }) || post.author_username;
+  const isCommonSession = post.type === 'duo' && !!post.partner_session_snapshot;
   const author = {
     id: post.author_id,
     username: post.author_username,
@@ -110,7 +117,10 @@ export function PostCard({
     setRepostLoading(true);
     try {
       const payload = post.workout_session_id
-        ? { workout_session_id: post.workout_session_id }
+        ? {
+            workout_session_id: post.workout_session_id,
+            partner_session_id: post.partner_session_id || undefined,
+          }
         : { post_id: post.id };
       await postsApi.repost(payload);
       toast.success('Republication ajoutée à ton profil');
@@ -120,6 +130,28 @@ export function PostCard({
     } finally {
       setRepostLoading(false);
     }
+  };
+
+  const handleCommentLike = async (comment) => {
+    if (!post.id || post.id.startsWith('session-') || !comment?.id) return;
+    try {
+      const { data } = await postsApi.toggleCommentLike(post.id, comment.id);
+      setCommentLikes((prev) => ({
+        ...prev,
+        [comment.id]: { likes_count: data.likes_count, is_liked: data.is_liked },
+      }));
+    } catch (error) {
+      toast.error(formatApiError(error));
+    }
+  };
+
+  const getCommentLikeState = (comment) => {
+    const override = commentLikes[comment.id];
+    if (override) return override;
+    return {
+      likes_count: comment.likes_count || 0,
+      is_liked: !!comment.is_liked,
+    };
   };
 
   const handleDelete = async () => {
@@ -137,16 +169,21 @@ export function PostCard({
     previewComment ? [previewComment] : []
   );
 
+  if (!post) return null;
+
   return (
-    <article className="card p-4 space-y-3" data-testid={`post-card-${post.id}`}>
+    <article
+      className={`card p-4 space-y-3 ${isCommonSession ? 'border border-amber-500/30 bg-gradient-to-br from-amber-500/5 to-orange-500/5' : ''}`}
+      data-testid={`post-card-${post.id || 'unknown'}`}
+    >
       <div className="flex items-start gap-3">
-        <Link to={`/profile/${post.author_handle || post.author_username}`}>
+        <Link to={authorHandle ? `/profile/${authorHandle}` : '#'}>
           <UserAvatar user={author} className="w-10 h-10" />
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Link
-              to={`/profile/${post.author_handle || post.author_username}`}
+              to={authorHandle ? `/profile/${authorHandle}` : '#'}
               className="text-white font-medium hover:underline"
             >
               {getDisplayName(author)}
@@ -213,9 +250,18 @@ export function PostCard({
         </div>
       )}
 
+      {isCommonSession ? (
+        <div className="flex items-center gap-2 text-amber-300/90 text-xs uppercase tracking-wide">
+          <Users size={14} />
+          Séance commune
+        </div>
+      ) : null}
+
       {snapshot && (
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3 space-y-2">
-          {post.type === 'duo' && post.partner_session_snapshot ? (
+        <div className={`rounded-xl bg-white/5 border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-white/10'}`}>
+          {isCommonSession ? (
+            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">Ma séance</p>
+          ) : post.type === 'duo' && post.partner_session_snapshot ? (
             <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">Séance commune</p>
           ) : null}
           <button
@@ -259,9 +305,11 @@ export function PostCard({
       )}
 
       {post.partner_session_snapshot && (
-        <div className="rounded-xl bg-white/5 border border-white/10 p-3 space-y-2">
-          <p className="text-zinc-500 text-xs uppercase tracking-wide">Partenaire</p>
-          <p className="text-white font-medium">{post.partner_session_snapshot.workout_title}</p>
+        <div className={`rounded-xl bg-white/5 border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-white/10'}`}>
+          <p className="text-zinc-500 text-xs uppercase tracking-wide">
+            {isCommonSession ? 'Séance partenaire' : 'Partenaire'}
+          </p>
+          <p className="text-white font-medium">{post.partner_session_snapshot.workout_title || 'Séance'}</p>
           <div className="flex flex-wrap gap-3 text-sm text-zinc-400">
             <span className="flex items-center gap-1">
               <Clock size={14} />
@@ -326,32 +374,53 @@ export function PostCard({
 
       {(commentOpen || commentsToShow.length > 0) && !post.id?.startsWith('session-') && (
         <div className="space-y-3 pt-1">
-          {commentsToShow.map((comment) => (
-            <div key={comment.id} className="flex gap-2">
-              <UserAvatar
-                user={{
-                  username: comment.username,
-                  display_name: comment.display_name,
-                  avatar_url: comment.avatar_url,
-                  handle: comment.handle,
-                }}
-                className="w-6 h-6"
-              />
+          {commentsToShow.map((comment, cIdx) => {
+            const commentUser = {
+              username: comment.username,
+              display_name: comment.display_name,
+              avatar_url: comment.avatar_url,
+              handle: comment.handle,
+            };
+            const commentHandle = getPublicHandle(commentUser) || comment.username;
+            const likeState = getCommentLikeState(comment);
+            return (
+            <div key={comment.id || `comment-${cIdx}`} className="flex gap-2">
+              <Link to={commentHandle ? `/profile/${commentHandle}` : '#'} className="shrink-0">
+                <UserAvatar user={commentUser} className="w-6 h-6" />
+              </Link>
               <div className="flex-1 min-w-0">
                 <p className="text-zinc-400 text-sm">
-                  <span className="text-white font-medium">
-                    {comment.display_name || comment.username}
-                  </span>{' '}
+                  <Link
+                    to={commentHandle ? `/profile/${commentHandle}` : '#'}
+                    className="text-white font-medium hover:underline"
+                  >
+                    {comment.display_name || comment.username || 'Utilisateur'}
+                  </Link>{' '}
                   {comment.text}
                 </p>
-                {comment.created_at && (
-                  <p className="text-zinc-600 text-[10px] mt-0.5">
-                    {format(parseISO(comment.created_at), 'd MMM HH:mm', { locale: fr })}
-                  </p>
-                )}
+                <div className="flex items-center gap-3 mt-0.5">
+                  {comment.created_at && (
+                    <p className="text-zinc-600 text-[10px]">
+                      {format(parseISO(comment.created_at), 'd MMM HH:mm', { locale: fr })}
+                    </p>
+                  )}
+                  {!post.id?.startsWith('session-') && comment.id ? (
+                    <button
+                      type="button"
+                      onClick={() => handleCommentLike(comment)}
+                      className={`flex items-center gap-1 text-[10px] transition-colors ${
+                        likeState.is_liked ? 'text-red-400' : 'text-zinc-500 hover:text-zinc-300'
+                      }`}
+                    >
+                      <Heart size={10} fill={likeState.is_liked ? 'currentColor' : 'none'} />
+                      {likeState.likes_count > 0 ? likeState.likes_count : null}
+                    </button>
+                  ) : null}
+                </div>
               </div>
             </div>
-          ))}
+          );
+          })}
 
           {commentsCount > 1 && !showAllComments && (
             <button
@@ -393,6 +462,10 @@ export function PostCard({
         snapshot={snapshot}
         details={post.session_details}
         canView={post.can_view_session_details}
+        partnerSnapshot={post.partner_session_snapshot}
+        partnerDetails={post.partner_session_details}
+        canViewPartner={post.can_view_partner_session_details}
+        isCommonSession={isCommonSession}
       />
     </article>
   );

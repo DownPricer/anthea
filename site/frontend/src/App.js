@@ -16,6 +16,7 @@ import { PublicProfilePage } from './pages/PublicProfilePage';
 import { SearchPage } from './pages/SearchPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { BadgesPage } from './pages/BadgesPage';
 import './index.css';
 
 function App() {
@@ -45,6 +46,7 @@ function App() {
               <Route path="duo/:tag" element={<PublicDuoProfilePage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route path="profile/:handle" element={<PublicProfilePage />} />
+              <Route path="badges" element={<BadgesPage />} />
               <Route path="search" element={<SearchPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="settings" element={<SettingsPage />} />

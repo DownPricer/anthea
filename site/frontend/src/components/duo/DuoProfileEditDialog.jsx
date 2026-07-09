@@ -69,7 +69,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     <Dialog open={open} onOpenChange={handleOpen}>
       <DialogContent className="bg-[#141414] border-white/10 text-white max-w-md">
         <DialogHeader>
-          <DialogTitle className="font-['Outfit']">Modifier le profil duo</DialogTitle>
+          <DialogTitle className="font-['Outfit']">Modifier le duo</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 mt-2">

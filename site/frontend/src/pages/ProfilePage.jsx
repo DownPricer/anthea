@@ -23,6 +23,7 @@ import {
   Repeat2,
   BarChart3,
   Bell,
+  Trophy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -202,7 +203,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
     try {
       const { data } = await usersApi.follow(handle);
       onProfileUpdate?.(data);
-      toast.success('Tu suis cet utilisateur');
+      toast.success(data.follow_request_pending ? 'Demande de suivi envoyée' : 'Tu suis cet utilisateur');
     } catch (error) {
       toast.error(formatApiError(error));
     } finally {
@@ -339,28 +340,41 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
           isFollowing={!!profileUser.is_following}
           isMutual={!!profileUser.is_mutual}
           followLoading={followLoading}
+          followRequestPending={!!profileUser.follow_request_pending}
           isLimited={isLimited}
         />
 
+        {isOwn && badges.length > 0 ? (
+          <div className="flex justify-center sm:justify-start">
+            <Link
+              to="/badges"
+              className="inline-flex items-center gap-1.5 text-sm text-[var(--theme-primary)] hover:underline"
+            >
+              <Trophy size={14} />
+              Voir tous les badges
+            </Link>
+          </div>
+        ) : null}
+
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-12 rounded-xl bg-[#141414] border border-white/10 p-1">
+          <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-[#141414] border border-white/10 p-1">
             <TabsTrigger
               value="posts"
-              className="rounded-lg data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
+              className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
             >
               <LayoutGrid size={16} />
               <span className="hidden sm:inline">Posts</span>
             </TabsTrigger>
             <TabsTrigger
               value="reposts"
-              className="rounded-lg data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
+              className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
             >
               <Repeat2 size={16} />
               <span className="hidden sm:inline">Republications</span>
             </TabsTrigger>
             <TabsTrigger
               value="stats"
-              className="rounded-lg data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
+              className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
             >
               <BarChart3 size={16} />
               <span className="hidden sm:inline">Statistiques</span>
@@ -496,7 +510,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
                             >
                               <div className="w-10 h-10 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
                                 <span className="text-white font-medium">
-                                  {result.display_name?.[0] || result.username[0]}
+                                  {result.display_name?.[0] || result.username?.[0] || '?'}
                                 </span>
                               </div>
                               <div className="flex-1 text-left">
@@ -514,29 +528,36 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
               </div>
 
               {partner ? (
-                <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
-                    <span className="text-white font-bold">
-                      {partner.display_name?.[0] || partner.username?.[0]}
-                    </span>
-                  </div>
-                  <div className="flex-1">
-                    <p className="text-white font-medium">{partner.display_name || partner.username}</p>
-                    <p className="text-zinc-500 text-sm">
-                      {partner.relation_type === 'coach'
-                        ? 'Coach'
-                        : partner.relation_type === 'coach_partner'
-                          ? 'Coach + Partenaire'
-                          : 'Partenaire'}
-                    </p>
-                  </div>
+                <div className="space-y-3">
+                  <Link
+                    to={`/profile/${getPublicHandle(partner) || partner.username}`}
+                    className="flex items-center gap-4 rounded-xl hover:bg-white/5 p-2 -m-2 transition-colors"
+                  >
+                    <div className="w-12 h-12 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
+                      <span className="text-white font-bold">
+                        {partner.display_name?.[0] || partner.username?.[0]}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-white font-medium">{partner.display_name || partner.username}</p>
+                      <p className="text-zinc-500 text-sm">
+                        {partner.relation_type === 'coach'
+                          ? 'Coach'
+                          : partner.relation_type === 'coach_partner'
+                            ? 'Coach + Partenaire'
+                            : 'Partenaire'}
+                      </p>
+                    </div>
+                    <ChevronRight className="text-zinc-500" size={18} />
+                  </Link>
                   <Button
                     size="sm"
                     variant="outline"
                     onClick={handleUnlinkPartner}
                     className="text-red-400 border-red-400/30 hover:bg-red-400/10"
                   >
-                    <UserMinus size={16} />
+                    <UserMinus size={16} className="mr-1.5" />
+                    Délier le partenaire
                   </Button>
                 </div>
               ) : (

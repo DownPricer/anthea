@@ -109,6 +109,27 @@ def test_build_common_sessions():
     assert items[0]["date"] == "2026-07-09"
 
 
+def test_compute_best_streak_from_calendar():
+    from server import compute_best_streak_from_calendar
+    days = []
+    for i in range(1, 32):
+        days.append({
+            "date": f"2026-01-{i:02d}",
+            "has_planned": i <= 5,
+            "combined": "ok" if i <= 5 else "ok",
+            "rest": False,
+            "skip": False,
+            "is_future": False,
+        })
+    assert compute_best_streak_from_calendar(days) == 5
+
+    neutral_days = [
+        {"date": "2026-01-01", "has_planned": False, "combined": "ok", "rest": False, "skip": False, "is_future": False},
+        {"date": "2026-01-02", "has_planned": False, "combined": "ok", "rest": False, "skip": False, "is_future": False},
+    ]
+    assert compute_best_streak_from_calendar(neutral_days) == 0
+
+
 if __name__ == "__main__":
     test_estimate_calories_by_difficulty()
     test_normalize_accent_color()
