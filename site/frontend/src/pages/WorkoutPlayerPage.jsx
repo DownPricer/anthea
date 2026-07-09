@@ -1053,7 +1053,7 @@ export function WorkoutPlayerPage() {
       </header>
 
       {duoLive && (
-        <div className="shrink-0 px-4 py-2 xl:hidden">
+        <div className="shrink-0 px-4 py-2 2xl:hidden">
           <LiveWorkoutChat
             partnerName={partnerName}
             open={liveChatOpen}
@@ -1062,10 +1062,9 @@ export function WorkoutPlayerPage() {
         </div>
       )}
 
-      <main className="flex-1 w-full px-4 py-4 md:px-8 md:py-8">
-        <div className="mx-auto grid w-full max-w-7xl gap-6 xl:grid-cols-[1fr_360px]">
-          <section className="flex min-h-[calc(100dvh-180px)] items-center justify-center">
-            <div className="flex w-full max-w-2xl flex-col items-center gap-6 text-center">
+      <main className="relative flex-1 w-full px-4 py-4 md:px-8 md:py-8">
+        <section className="mx-auto flex min-h-[calc(100dvh-180px)] w-full max-w-2xl items-center justify-center">
+          <div className="flex w-full flex-col items-center gap-6 text-center">
               {currentExercise?.image_url && phase === 'exercise' && (
                 <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white/5 aspect-video">
                   <img
@@ -1207,25 +1206,24 @@ export function WorkoutPlayerPage() {
                   {pauseTime > 0 && ` • Pause: ${formatTime(pauseTime)}`}
                 </p>
               </div>
+          </div>
+        </section>
 
-              <div className="w-full max-w-md space-y-4 xl:hidden">
-                {playerSidebar}
-              </div>
-            </div>
-          </section>
+        <aside className="pointer-events-none hidden 2xl:block absolute right-8 top-8 w-80">
+          <div className="pointer-events-auto space-y-4">
+            {playerSidebar}
+            {duoLive && (
+              <LiveWorkoutChat
+                partnerName={partnerName}
+                open={liveChatOpen}
+                onOpenChange={setLiveChatOpen}
+              />
+            )}
+          </div>
+        </aside>
 
-          <aside className="hidden xl:block">
-            <div className="sticky top-8 space-y-4">
-              {playerSidebar}
-              {duoLive && (
-                <LiveWorkoutChat
-                  partnerName={partnerName}
-                  open={liveChatOpen}
-                  onOpenChange={setLiveChatOpen}
-                />
-              )}
-            </div>
-          </aside>
+        <div className="mx-auto mt-6 w-full max-w-md 2xl:hidden">
+          {playerSidebar}
         </div>
       </main>
 
