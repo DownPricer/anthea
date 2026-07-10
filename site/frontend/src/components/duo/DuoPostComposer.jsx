@@ -4,11 +4,11 @@ import { Loader2, ImagePlus, Send } from 'lucide-react';
 
 import { Button } from '../ui/button';
 
-import { Textarea } from '../ui/textarea';
-
 import { postsApi, uploadsApi, formatApiError } from '../../lib/api';
 
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
+
+import { canSubmitDuoPost } from '../../lib/duoPostComposer';
 
 import { toast } from 'sonner';
 
@@ -32,21 +32,29 @@ function uploadPathFromResponse(data) {
 
 export function DuoPostComposer({ duoProfile, onPosted }) {
 
-  const [text, setText] = useState('');
+  const [content, setContent] = useState('');
 
-  const [imageUrl, setImageUrl] = useState(null);
+  const [uploadedImagePath, setUploadedImagePath] = useState(null);
 
   const [preview, setPreview] = useState(null);
 
   const [uploading, setUploading] = useState(false);
 
-  const [posting, setPosting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fileRef = useRef(null);
 
 
 
-  if (!duoProfile?.is_member) return null;
+  const isMember = !!duoProfile?.is_member;
+
+  const pairKey = duoProfile?.pair_key || null;
+
+  const canSubmit = canSubmitDuoPost(content, uploadedImagePath, isSubmitting, uploading);
+
+
+
+  if (!isMember) return null;
 
 
 
@@ -72,7 +80,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       if (!stored) throw new Error('Réponse upload invalide');
 
-      setImageUrl(stored);
+      setUploadedImagePath(stored);
 
       toast.success('Photo prête');
 
@@ -98,9 +106,9 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
     event?.preventDefault?.();
 
-    const description = text.trim();
+    const description = content.trim();
 
-    if (!description && !imageUrl) {
+    if (!description && !uploadedImagePath) {
 
       toast.info('Ajoute un texte ou une photo');
 
@@ -108,15 +116,15 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
     }
 
-    if (!duoProfile?.id) {
+    if (!pairKey) {
 
-      toast.error('Profil duo introuvable — recharge la page');
+      toast.error('Impossible d\'identifier le duo');
 
       return;
 
     }
 
-    setPosting(true);
+    setIsSubmitting(true);
 
     try {
 
@@ -128,11 +136,11 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
         description: description || null,
 
-        image_url: imageUrl || null,
+        image_url: uploadedImagePath || null,
 
-        visibility: 'public',
+        visibility: 'duo',
 
-        duo_id: duoProfile.id,
+        duo_id: pairKey,
 
         post_on_duo_wall: true,
 
@@ -140,17 +148,37 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       if (process.env.NODE_ENV === 'development') {
 
-        console.debug('[duo post create]', { duo_id: duoProfile.id, payload });
+        console.debug('[DuoPostComposer]', {
+
+          contentLength: content?.trim()?.length,
+
+          uploadedImagePath,
+
+          isSubmitting: true,
+
+          isMember,
+
+          duoId: pairKey,
+
+          pairKey,
+
+          canSubmit,
+
+          payload,
+
+        });
 
       }
 
       const { data } = await postsApi.create(payload);
 
-      if (process.env.NODE_ENV === 'development') console.debug('[duo post created]', data);
+      const created = data?.post || data;
 
-      setText('');
+      if (process.env.NODE_ENV === 'development') console.debug('[duo post created]', created);
 
-      setImageUrl(null);
+      setContent('');
+
+      setUploadedImagePath(null);
 
       if (preview) revokePreviewUrl(preview);
 
@@ -158,7 +186,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       toast.success('Publication envoyée sur le mur du duo');
 
-      onPosted?.(data);
+      onPosted?.(created);
 
     } catch (error) {
 
@@ -168,7 +196,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
     } finally {
 
-      setPosting(false);
+      setIsSubmitting(false);
 
     }
 
@@ -190,19 +218,25 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       <p className="text-zinc-400 text-xs uppercase tracking-wider">Publier sur le mur du duo</p>
 
-      <Textarea
+      {!pairKey ? (
 
-        value={text}
+        <p className="text-amber-400 text-xs">Impossible d&apos;identifier le duo.</p>
 
-        onChange={(e) => setText(e.target.value)}
+      ) : null}
+
+      <textarea
+
+        value={content}
+
+        onChange={(event) => setContent(event.target.value)}
 
         placeholder="Partagez un moment, une victoire..."
 
-        className="min-h-[80px] rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+        className="flex min-h-[80px] w-full rounded-xl bg-[#0A0A0A] border border-white/10 px-3 py-2 text-white text-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--theme-primary)] disabled:opacity-50"
 
         maxLength={500}
 
-        disabled={posting}
+        disabled={isSubmitting}
 
       />
 
@@ -222,7 +256,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
               setPreview(null);
 
-              setImageUrl(null);
+              setUploadedImagePath(null);
 
             }}
 
@@ -238,6 +272,16 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       ) : null}
 
+      {process.env.NODE_ENV === 'development' ? (
+
+        <p className="text-[10px] text-zinc-600 font-mono">
+
+          debug: canSubmit={String(canSubmit)} len={content.trim().length} pairKey={pairKey || '—'}
+
+        </p>
+
+      ) : null}
+
       <div className="flex items-center gap-2">
 
         <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleImagePick} />
@@ -250,7 +294,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
           variant="outline"
 
-          disabled={uploading || posting}
+          disabled={uploading || isSubmitting}
 
           onClick={() => fileRef.current?.click()}
 
@@ -260,7 +304,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
           {uploading ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} className="mr-1" />}
 
-          Photo
+          {uploading ? 'Importation…' : 'Photo'}
 
         </Button>
 
@@ -270,13 +314,13 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
           size="sm"
 
-          disabled={posting || uploading || (!text.trim() && !imageUrl)}
+          disabled={!canSubmit || !pairKey}
 
           className="rounded-xl btn-primary text-white ml-auto"
 
         >
 
-          {posting ? (
+          {isSubmitting ? (
 
             <>
 
@@ -303,5 +347,4 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
   );
 
 }
-
 

@@ -23,6 +23,8 @@ services:
       MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017}
       DB_NAME: ${DB_NAME:-anthea}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+    volumes:
+      - ../backend/uploads:/app/uploads
     depends_on:
       - mongo
     networks:

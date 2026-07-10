@@ -54,7 +54,10 @@ export function DuoProfileStatsTab({
     );
   }
 
-  const duoBadges = (stats?.badges || []).filter((b) => b.family === 'duo_social' || b.id?.startsWith('duo_'));
+  const duoBadges = (stats?.badges || []).filter((b) => {
+    const family = b.family === 'duo_social' ? 'duo' : b.family;
+    return family === 'duo' || b.id?.startsWith('duo_');
+  });
   const unlockedBadges = duoBadges.filter((b) => b.unlocked);
   const displayedBadges = showAllBadges ? duoBadges : unlockedBadges;
   const duoBadgesUnlockedCount = unlockedBadges.length;
@@ -124,7 +127,7 @@ export function DuoProfileStatsTab({
       {canViewBadges ? (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Badges duo</h3>
+            <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Duo</h3>
             {duoBadges.length > unlockedBadges.length || duoBadges.length > 6 ? (
               <button
                 type="button"

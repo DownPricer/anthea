@@ -124,7 +124,75 @@ def test_normalize_upload_path():
     from server import normalize_upload_path
     assert normalize_upload_path("/uploads/u1/abc.jpg") == "/uploads/u1/abc.jpg"
     assert normalize_upload_path("https://example.com/uploads/u1/abc.jpg") == "/uploads/u1/abc.jpg"
+    assert normalize_upload_path("uploads/u1/abc.webp") == "/uploads/u1/abc.webp"
+    assert normalize_upload_path("https://domaine.fr/page") is None
     assert normalize_upload_path(None) is None
+
+
+def test_can_submit_duo_post():
+    def can_submit(content, image, submitting, uploading=False):
+        if submitting or uploading:
+            return False
+        return bool(str(content or '').strip()) or bool(image)
+    assert can_submit('test duo', None, False) is True
+    assert can_submit('', '/uploads/u1/a.webp', False) is True
+    assert can_submit('', None, False) is False
+    assert can_submit('test', None, True) is False
+
+
+def test_duo_wall_posts_query():
+    from server import duo_wall_posts_query
+    pk = "507f1f77bcf86cd799439011_507f191e810c19729de860ea"
+    profile_id = "abc123profile"
+    q = duo_wall_posts_query(pk, profile_id)
+    assert "$or" in q
+    assert {"owner_type": "duo", "owner_id": pk} in q["$or"]
+    assert {"duo_id": pk} in q["$or"]
+    assert {"duo_id": profile_id} in q["$or"]
+
+
+def test_is_duo_wall_post_pair_key():
+    from server import is_duo_wall_post
+    pk = "aaa_bbb"
+    assert is_duo_wall_post({"owner_type": "duo", "owner_id": pk, "duo_id": pk, "type": "duo_free"}) is True
+    assert is_duo_wall_post({"owner_type": "user", "author_id": "u1", "type": "free"}) is False
+
+
+def test_user_wall_excludes_duo_posts():
+    from server import user_wall_posts_query, is_duo_wall_post
+    author = "user123"
+    q = user_wall_posts_query(author)
+    assert q["author_id"] == author
+    duo_post = {"owner_type": "duo", "owner_id": "pk", "duo_id": "pk", "type": "duo_free", "author_id": author}
+    assert is_duo_wall_post(duo_post) is True
+
+
+def test_merge_duo_badges_unified_category():
+    from badges import merge_duo_badges, normalize_badge_category
+    legacy = [
+        {"id": "duo_3", "name": "Trio dynamique", "family": "duo", "unlocked": True},
+        {"id": "duo_presence_5", "name": "Présence duo", "family": "duo", "unlocked": True},
+    ]
+    social = [
+        {"id": "duo_together_first", "name": "Première séance ensemble", "family": "duo_social", "unlocked": True},
+    ]
+    merged = merge_duo_badges(social, legacy)
+    ids = {b["id"] for b in merged}
+    assert "duo_3" in ids
+    assert "duo_presence_5" in ids
+    assert "duo_together_first" in ids
+    assert all(b["family"] == "duo" for b in merged)
+    assert normalize_badge_category("duo_social") == "duo"
+    assert normalize_badge_category("duo_social") != "Duo social"
+
+
+def test_duo_wall_owner_key():
+    from server import duo_wall_owner_key, duo_pair_key
+    a = "507f1f77bcf86cd799439011"
+    b = "507f191e810c19729de860ea"
+    pk = duo_pair_key(a, b)
+    doc = {"pair_key": pk, "_id": "profileid"}
+    assert duo_wall_owner_key(doc, a, b) == pk
 
 
 def test_can_view_duo_challenges_section():

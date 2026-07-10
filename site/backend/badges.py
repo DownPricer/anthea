@@ -1,6 +1,63 @@
 """Catalogue et évaluation des badges Anthea."""
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Iterable, List, Optional
+
+
+BADGE_CATEGORY_ALIASES = {
+    "duo_social": "duo",
+    "social_duo": "duo",
+    "couple": "duo",
+}
+
+# Alias d'identifiants — uniquement les doublons réels (même badge, ID historique différent).
+BADGE_ID_ALIASES: Dict[str, str] = {}
+
+
+def normalize_badge_category(family: Optional[str]) -> str:
+    if not family:
+        return "other"
+    return BADGE_CATEGORY_ALIASES.get(str(family).strip().lower(), family)
+
+
+def canonical_badge_id(badge_id: Optional[str]) -> str:
+    if not badge_id:
+        return ""
+    return BADGE_ID_ALIASES.get(badge_id, badge_id)
+
+
+def is_duo_category_badge(badge: dict) -> bool:
+    family = normalize_badge_category(badge.get("family"))
+    if family == "duo":
+        return True
+    bid = str(badge.get("id", ""))
+    return bid.startswith("duo_")
+
+
+def merge_duo_badges(*badge_lists: Iterable[dict]) -> List[dict]:
+    """Fusionne badges duo historiques + V2, catégorie unique « duo »."""
+    merged: Dict[str, dict] = {}
+    for badges in badge_lists:
+        for raw in badges or []:
+            if not is_duo_category_badge(raw):
+                continue
+            cid = canonical_badge_id(raw.get("id"))
+            if not cid:
+                continue
+            normalized = {
+                **raw,
+                "family": "duo",
+                "category": "duo",
+            }
+            existing = merged.get(cid)
+            if not existing:
+                merged[cid] = normalized
+                continue
+            if normalized.get("unlocked") and not existing.get("unlocked"):
+                merged[cid] = normalized
+            elif normalized.get("unlocked") == existing.get("unlocked"):
+                if (normalized.get("current") or 0) > (existing.get("current") or 0):
+                    merged[cid] = normalized
+    return list(merged.values())
 
 
 BADGE_RARITY_OVERRIDES = {
@@ -423,7 +480,7 @@ async def evaluate_duo_social_badges(db, user_a_id: str, user_b_id: str, togethe
             unlocked = False
         badges.append(
             _badge(
-                bid, name, desc, icon, "duo_social",
+                bid, name, desc, icon, "duo",
                 unlocked, current, target, rarity=rarity,
             )
         )

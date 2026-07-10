@@ -729,8 +729,24 @@ POST_TYPES = {
     "workout_photo", "workout", "badge", "duo_repost", "duo", "free",
     "duo_free", "duo_common_session", "duo_badge", "duo_challenge",
 }
-POST_VISIBILITY = {"public", "friends", "private"}
+POST_VISIBILITY = {"public", "friends", "private", "duo"}
 DUO_WALL_POST_TYPES = {"duo", "duo_free", "duo_common_session", "duo_badge", "duo_challenge"}
+
+
+def duo_wall_owner_key(duo_doc: dict, user_id: str, partner_id: str) -> str:
+    """Identifiant canonique du mur duo = pair_key."""
+    return duo_doc.get("pair_key") or duo_pair_key(user_id, partner_id)
+
+
+def duo_wall_posts_query(pair_key: str, profile_id: Optional[str] = None) -> dict:
+    """Requête mur duo — pair_key prioritaire, compat legacy profile _id."""
+    clauses = [
+        {"owner_type": "duo", "owner_id": pair_key},
+        {"duo_id": pair_key},
+    ]
+    if profile_id:
+        clauses.append({"duo_id": profile_id})
+    return {"$or": clauses}
 
 
 def is_duo_wall_post(post: dict) -> bool:
@@ -1059,21 +1075,25 @@ def normalize_upload_path(url: Optional[str]) -> Optional[str]:
         return None
     if raw.startswith("/uploads/"):
         return raw[:500]
-    base_url = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-    if base_url and raw.startswith(base_url):
-        path = raw[len(base_url):]
-        return path[:500] if path.startswith("/uploads/") else raw[:500]
+    if raw.startswith("uploads/"):
+        return f"/{raw}"[:500]
     if "/uploads/" in raw:
         idx = raw.find("/uploads/")
         return raw[idx:idx + 500]
+    if raw.startswith("http"):
+        return None
     return raw[:500]
 
 
 async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
     """Stats communes duo — source unique pour /duo/stats et /duos/{tag}/stats."""
+    from badges import merge_duo_badges, evaluate_all_badges, evaluate_duo_social_badges
+
     together = await compute_together_stats(db, user_a_id, user_b_id)
     streak = await calculate_streak(user_a_id, user_b_id)
-    badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
+    social_badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
+    legacy_badges = await evaluate_all_badges(db, user_a_id, user_b_id, streak)
+    badges = merge_duo_badges(social_badges, legacy_badges)
     challenge = await get_current_challenge(user_a_id, user_b_id, streak)
 
     if challenge and challenge.get("status") == "completed":
@@ -1091,7 +1111,9 @@ async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
             together["challenges_completed"] = together.get("challenges_completed", 0) + 1
-            badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
+            social_badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
+            legacy_badges = await evaluate_all_badges(db, user_a_id, user_b_id, streak)
+            badges = merge_duo_badges(social_badges, legacy_badges)
 
     sessions = together.get("sessions_together", 0)
     total_time = together.get("total_training_time", 0)
@@ -1153,6 +1175,7 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
 
     base = {
         "id": duo_id,
+        "pair_key": duo_doc.get("pair_key"),
         "name": duo_doc.get("name") or "Duo",
         "short_id": int(duo_doc.get("short_id") or 0),
         "tag": tag,
@@ -1863,9 +1886,7 @@ async def upload_image(data: ImageUpload, user: dict = Depends(get_current_user)
     file_path.write_bytes(image_bytes)
 
     relative = f"/uploads/{user['id']}/{filename}"
-    base_url = os.environ.get("PUBLIC_BASE_URL", "").rstrip("/")
-    url = f"{base_url}{relative}" if base_url else relative
-    return {"url": url, "path": relative}
+    return {"url": relative, "path": relative}
 
 
 @api_router.get("/notifications")
@@ -2208,22 +2229,6 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
     calculated = await calculate_streak(a_id, b_id)
     manual = await _get_manual_streak_override(a_id, b_id)
     streak = manual if manual is not None else calculated
-    legacy_badges = await get_duo_badges(a_id, b_id, streak_value=streak)
-    duo_social = together.get("duo_badges") or together.get("badges") or []
-    seen_ids = {b.get("id") for b in duo_social}
-    merged_badges = list(duo_social) + [
-        b for b in legacy_badges
-        if b.get("id") not in seen_ids
-        and (
-            b.get("family") == "duo_social"
-            or str(b.get("id", "")).startswith("duo_")
-        )
-    ]
-    unlocked = [b for b in merged_badges if b.get("unlocked")]
-    together["badges"] = merged_badges
-    together["duo_badges"] = merged_badges
-    together["badges_unlocked"] = len(unlocked)
-    together["badges_total"] = len(merged_badges)
     together["streak"] = streak
     together["streak_calculated"] = calculated
     together["streak_manual_override"] = manual
@@ -2393,7 +2398,8 @@ async def get_duo_posts(
         return []
 
     duo_id = str(duo_doc["_id"])
-    posts = await db.posts.find({"duo_id": duo_id}).sort(
+    pair_key = duo_doc.get("pair_key") or ""
+    posts = await db.posts.find(duo_wall_posts_query(pair_key, duo_id)).sort(
         "created_at", -1
     ).skip(offset).limit(min(limit, 50)).to_list(min(limit, 50))
 
@@ -3452,6 +3458,8 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
     partner_session_id = data.partner_session_id
     duo_id = data.duo_id
     partner_session_snapshot = None
+    duo_doc = None
+    duo_profile_id = None
 
     is_duo_wall_type = post_type in DUO_WALL_POST_TYPES or data.post_on_duo_wall
 
@@ -3461,7 +3469,10 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
         if not duo_doc:
             raise HTTPException(status_code=404, detail="Profil duo introuvable")
-        duo_id = str(duo_doc["_id"])
+        duo_profile_id = str(duo_doc["_id"])
+        duo_id = duo_wall_owner_key(duo_doc, user["id"], user["partner_id"])
+        if not duo_id:
+            raise HTTPException(status_code=400, detail="Impossible d'identifier le duo")
 
     if post_type in ("workout", "workout_photo", "duo", "duo_repost", "duo_common_session") and partner_session_id:
         try:
@@ -3616,20 +3627,22 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
             {"$set": {"show_posts": True}},
         )
 
-    if duo_id and (data.post_on_duo_wall or post_type in DUO_WALL_POST_TYPES):
+    if duo_profile_id and (data.post_on_duo_wall or post_type in DUO_WALL_POST_TYPES):
         await db.duo_profiles.update_one(
-            {"_id": ObjectId(duo_id)},
+            {"_id": ObjectId(duo_profile_id)},
             {"$set": {"show_posts": True}},
         )
 
     duo_doc_for_serial = None
-    if duo_id:
-        duo_doc_for_serial = await db.duo_profiles.find_one({"_id": ObjectId(duo_id)})
+    if duo_profile_id:
+        duo_doc_for_serial = await db.duo_profiles.find_one({"_id": ObjectId(duo_profile_id)})
+    elif duo_id and duo_doc:
+        duo_doc_for_serial = duo_doc
 
     serialized = await serialize_post(
         post_doc, user["id"], await get_user_doc_by_id(user["id"]), duo_doc=duo_doc_for_serial
     )
-    return serialized
+    return {"post": serialized}
 
 
 @api_router.get("/users/{handle}/posts")

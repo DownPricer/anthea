@@ -17,12 +17,19 @@ const ICON_MAP = {
 export function BadgesGrid({ badges = [], compact = false, showShare = false }) {
   if (!badges.length) return null;
 
-  const families = [...new Set(badges.map((b) => b.family || 'other'))];
+  const families = [...new Set(badges.map((b) => {
+    const f = b.family || 'other';
+    return { duo_social: 'duo', social_duo: 'duo', couple: 'duo' }[f] || f;
+  }))];
 
   return (
     <div className="space-y-4 w-full">
       {families.map((family) => {
-        const familyBadges = badges.filter((b) => (b.family || 'other') === family);
+        const familyBadges = badges.filter((b) => {
+          const f = b.family || 'other';
+          const norm = { duo_social: 'duo', social_duo: 'duo', couple: 'duo' }[f] || f;
+          return norm === family;
+        });
         return (
           <div key={family} className="w-full flex flex-col items-center">
             {!compact && (
@@ -85,6 +92,11 @@ export function BadgesGrid({ badges = [], compact = false, showShare = false }) 
 }
 
 function familyLabel(family) {
+  const normalized = {
+    duo_social: 'duo',
+    social_duo: 'duo',
+    couple: 'duo',
+  }[family] || family;
   const labels = {
     regularity: 'Régularité',
     volume: 'Volume',
@@ -93,5 +105,5 @@ function familyLabel(family) {
     challenge: 'Défis',
     other: 'Autres',
   };
-  return labels[family] || family;
+  return labels[normalized] || normalized;
 }
