@@ -44,6 +44,14 @@ import { Loader2, ImagePlus, Bell } from 'lucide-react';
 
 
 
+function uploadPathFromResponse(data) {
+  if (data?.path) return data.path;
+  const url = data?.url;
+  if (!url) return null;
+  const idx = url.indexOf('/uploads/');
+  return idx >= 0 ? url.slice(idx) : url;
+}
+
 export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }) {
 
   const [name, setName] = useState(duoProfile?.name || '');
@@ -128,7 +136,9 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
       const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
 
-      setBannerUrl(data.path || data.url || '');
+      const stored = uploadPathFromResponse(data);
+      if (!stored) throw new Error('Réponse upload invalide');
+      setBannerUrl(stored);
 
       toast.success('Bannière importée');
 

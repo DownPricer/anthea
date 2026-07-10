@@ -1,6 +1,9 @@
 """Profil duo social : stats communes, confidentialité, activités."""
+import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
+
+from bson import ObjectId
 
 DUO_RELATION_TYPES = {
     "couple",
@@ -110,15 +113,69 @@ def resolve_coach_roles(relation_type: str, member_a: dict, member_b: dict) -> T
 
 
 async def find_duo_by_tag(db, tag: str) -> Optional[dict]:
+    """
+    tag public = name#short_id ; duo interne = pair_key + member_ids sur duo_profiles.
+    Le short_id est la clé fiable (le nom peut changer après renommage).
+    """
     name_part, short_id = parse_duo_tag(tag)
-    query: Dict[str, Any] = {}
     if short_id is not None:
-        query["short_id"] = short_id
+        doc = await db.duo_profiles.find_one({"short_id": short_id})
+        if doc:
+            return doc
     if name_part:
-        query["name"] = {"$regex": f"^{name_part}$", "$options": "i"}
-    if not query:
-        return None
-    return await db.duo_profiles.find_one(query)
+        escaped = re.escape(name_part)
+        return await db.duo_profiles.find_one({"name": {"$regex": f"^{escaped}$", "$options": "i"}})
+    return None
+
+
+def resolve_duo_member_pair_from_doc(duo_doc: dict) -> Tuple[Optional[str], Optional[str]]:
+    """Identifiant interne couple via pair_key (prioritaire) ou member_ids."""
+    pk = duo_doc.get("pair_key")
+    if pk and isinstance(pk, str) and "_" in pk:
+        parts = pk.split("_")
+        if len(parts) == 2 and all(len(p) == 24 for p in parts):
+            return parts[0], parts[1]
+    mids = duo_doc.get("member_ids") or []
+    if len(mids) >= 2:
+        return str(mids[0]), str(mids[1])
+    return None, None
+
+
+async def resolve_duo_member_pair(
+    db,
+    duo_doc: dict,
+    viewer_id: Optional[str] = None,
+    viewer_partner_id: Optional[str] = None,
+) -> Tuple[Optional[str], Optional[str]]:
+    """Résout le couple réel — même logique que GET /duo/stats (partner_id)."""
+    a_id, b_id = resolve_duo_member_pair_from_doc(duo_doc)
+    duo_ids = {a_id, b_id} if a_id and b_id else set()
+    if viewer_id and viewer_partner_id and viewer_id in duo_ids and viewer_partner_id in duo_ids:
+        return viewer_id, viewer_partner_id
+    if a_id and b_id:
+        return a_id, b_id
+    if viewer_id and viewer_partner_id:
+        return viewer_id, viewer_partner_id
+    members = await get_duo_members(db, duo_doc)
+    if len(members) >= 2:
+        return str(members[0]["_id"]), str(members[1]["_id"])
+    return None, None
+
+
+async def sync_duo_member_ids(db, duo_doc: dict) -> dict:
+    """Réaligne member_ids sur pair_key si désynchronisé."""
+    a_id, b_id = resolve_duo_member_pair_from_doc(duo_doc)
+    if not a_id or not b_id:
+        return duo_doc
+    expected = sorted([a_id, b_id])
+    current = sorted(str(m) for m in (duo_doc.get("member_ids") or []))
+    if current != expected:
+        await db.duo_profiles.update_one(
+            {"_id": duo_doc["_id"]},
+            {"$set": {"member_ids": expected}},
+        )
+        duo_doc["member_ids"] = expected
+    return duo_doc
 
 
 async def get_duo_members(db, duo_doc: dict) -> List[dict]:
@@ -198,23 +255,51 @@ def _session_day(session: dict) -> str:
     return (session.get("created_at") or "")[:10]
 
 
+def _is_session_countable(session: dict) -> bool:
+    """Inclut les anciennes séances sans champ status explicite."""
+    status = session.get("status")
+    if status == "abandoned":
+        return False
+    if status == "completed":
+        return True
+    if not status and (
+        session.get("total_time", 0) > 0 or session.get("exercises_completed", 0) > 0
+    ):
+        return True
+    return False
+
+
+_SESSION_FIELDS = {
+    "user_id": 1,
+    "username": 1,
+    "workout_title": 1,
+    "total_time": 1,
+    "exercises_completed": 1,
+    "exercises_total": 1,
+    "difficulty_felt": 1,
+    "created_at": 1,
+    "status": 1,
+    "likes": 1,
+    "comments": 1,
+    "reactions": 1,
+}
+
+
 async def _completed_sessions_by_user(db, user_id: str, limit: int = 2000) -> List[dict]:
-    return await db.workout_sessions.find(
-        {"user_id": user_id, "status": "completed"},
-        {
-            "user_id": 1,
-            "username": 1,
-            "workout_title": 1,
-            "total_time": 1,
-            "exercises_completed": 1,
-            "exercises_total": 1,
-            "difficulty_felt": 1,
-            "created_at": 1,
-            "likes": 1,
-            "comments": 1,
-            "reactions": 1,
-        },
+    sessions = await db.workout_sessions.find(
+        {"user_id": user_id},
+        _SESSION_FIELDS,
     ).sort("created_at", -1).limit(limit).to_list(limit)
+    return [s for s in sessions if _is_session_countable(s)]
+
+
+async def _activity_sessions_by_user(db, user_id: str, limit: int = 100) -> List[dict]:
+    """Historique duo — même source que GET /duo/activity-feed (sans filtre status strict)."""
+    sessions = await db.workout_sessions.find(
+        {"user_id": user_id},
+        _SESSION_FIELDS,
+    ).sort("created_at", -1).limit(limit).to_list(limit)
+    return [s for s in sessions if _is_session_countable(s) or s.get("status") != "abandoned"]
 
 
 def _compute_streaks_from_days(days: List[str]) -> Tuple[int, int]:
@@ -386,14 +471,42 @@ async def build_duo_activity(
     members: List[dict],
     viewer_id: str,
     limit: int = 15,
+    user_a_id: Optional[str] = None,
+    user_b_id: Optional[str] = None,
 ) -> List[dict]:
-    if len(members) < 2:
+    a_id = user_a_id
+    b_id = user_b_id
+    if not a_id or not b_id:
+        if len(members) < 2:
+            a_id, b_id = await resolve_duo_member_pair(db, duo_doc, viewer_id, None)
+        else:
+            a_id, b_id = str(members[0]["_id"]), str(members[1]["_id"])
+    if not a_id or not b_id:
         return []
-    a, b = members[0], members[1]
-    a_id, b_id = str(a["_id"]), str(b["_id"])
 
-    sessions_a = await _completed_sessions_by_user(db, a_id, limit=100)
-    sessions_b = await _completed_sessions_by_user(db, b_id, limit=100)
+    member_by_id = {str(m["_id"]): m for m in members}
+    a = member_by_id.get(a_id)
+    b = member_by_id.get(b_id)
+    if not a:
+        try:
+            a = await db.users.find_one({"_id": ObjectId(a_id)})
+        except Exception:
+            a = None
+    if not b:
+        try:
+            b = await db.users.find_one({"_id": ObjectId(b_id)})
+        except Exception:
+            b = None
+    if not a or not b:
+        return []
+
+    sessions_a = await _activity_sessions_by_user(db, a_id, limit=100)
+    sessions_b = await _activity_sessions_by_user(db, b_id, limit=100)
+    for s in sessions_a:
+        s["id"] = str(s.get("_id", s.get("id", "")))
+    for s in sessions_b:
+        s["id"] = str(s.get("_id", s.get("id", "")))
+
     common = build_common_sessions(sessions_a, sessions_b, a_id, b_id)
 
     activity = []

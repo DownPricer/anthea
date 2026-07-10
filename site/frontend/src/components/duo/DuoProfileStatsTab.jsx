@@ -64,7 +64,7 @@ export function DuoProfileStatsTab({
         <>
           <div className="grid grid-cols-2 gap-3">
             <StatCard icon={Trophy} label="Séances ensemble" value={stats.sessions_together ?? 0} />
-            <StatCard icon={Flame} label="Streak duo" value={stats.duo_streak_current ?? 0} />
+            <StatCard icon={Flame} label="Streak duo" value={stats.streak ?? stats.duo_streak_current ?? 0} />
             <StatCard icon={Calendar} label="Meilleur streak" value={stats.duo_streak_best ?? 0} />
             <StatCard icon={Target} label="Défis réussis" value={stats.challenges_completed ?? 0} />
             <StatCard icon={Clock} label="Temps total" value={formatDuration(stats.total_training_time || 0)} isText />

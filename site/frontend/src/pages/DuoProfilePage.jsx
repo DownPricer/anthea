@@ -4,8 +4,8 @@ import { fr } from 'date-fns/locale';
 import { Loader2, LayoutGrid, BarChart3, Activity, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { duoProfilesApi, formatApiError } from '../lib/api';
-import { normalizeDuoStats } from '../lib/duoStats';
+import { duoProfilesApi, duoApi, formatApiError } from '../lib/api';
+import { normalizeDuoStats, normalizeDuoActivityItem } from '../lib/duoStats';
 import { toast } from 'sonner';
 import { DuoProfileHeader } from '../components/duo/DuoProfileHeader';
 import { DuoProfileStatsTab } from '../components/duo/DuoProfileStatsTab';
@@ -56,8 +56,10 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       setStatsLoading(false);
       return;
     }
+    const isMember = !!duoProfile.is_member;
     if (
-      !canViewDuoSection(duoProfile, 'stats')
+      !isMember
+      && !canViewDuoSection(duoProfile, 'stats')
       && !canViewDuoSection(duoProfile, 'badges')
       && !canViewDuoSection(duoProfile, 'challenges')
     ) {
@@ -68,7 +70,18 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
     setStatsLoading(true);
     setStatsError(null);
     try {
-      const { data } = await duoProfilesApi.getStats(resolvedTag);
+      const useMemberStats = isMember && !!user?.partner_id;
+      const { data } = useMemberStats
+        ? await duoApi.getStats()
+        : await duoProfilesApi.getStats(resolvedTag);
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[duo profile stats]', {
+          tag: resolvedTag,
+          duo_id: duoProfile.id,
+          endpoint: useMemberStats ? '/duo/stats' : `/duos/${resolvedTag}/stats`,
+          payload: data,
+        });
+      }
       setStats(normalizeDuoStats(data));
     } catch (err) {
       if (process.env.NODE_ENV === 'development') console.error('[duo profile stats]', err);
@@ -79,24 +92,36 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
     } finally {
       setStatsLoading(false);
     }
-  }, [resolvedTag, duoProfile]);
+  }, [resolvedTag, duoProfile, user?.partner_id]);
 
   const loadActivity = useCallback(async () => {
-    if (!resolvedTag || !duoProfile || !canViewDuoSection(duoProfile, 'activity')) {
+    if (!resolvedTag || !duoProfile) {
+      setActivity([]);
+      setActivityLoading(false);
+      return;
+    }
+    const isMember = !!duoProfile.is_member;
+    if (!isMember && !canViewDuoSection(duoProfile, 'activity')) {
       setActivity([]);
       setActivityLoading(false);
       return;
     }
     setActivityLoading(true);
     try {
-      const { data } = await duoProfilesApi.getActivity(resolvedTag);
-      setActivity(data || []);
-    } catch {
+      const useMemberFeed = isMember && !!user?.partner_id;
+      const { data } = useMemberFeed
+        ? await duoApi.getActivityFeed(30)
+        : await duoProfilesApi.getActivity(resolvedTag, 30);
+      const items = (data || []).map(normalizeDuoActivityItem);
+      setActivity(items);
+    } catch (err) {
+      if (process.env.NODE_ENV === 'development') console.error('[duo profile activity]', err);
       setActivity([]);
+      if (duoProfile.is_member) toast.error(formatApiError(err));
     } finally {
       setActivityLoading(false);
     }
-  }, [resolvedTag, duoProfile]);
+  }, [resolvedTag, duoProfile, user?.partner_id]);
 
   useEffect(() => {
     if (!viewedDuo && resolvedTag) loadProfile();
@@ -127,7 +152,7 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
     [duoProfile]
   );
   const canShowActivity = useMemo(
-    () => canViewDuoSection(duoProfile, 'activity'),
+    () => duoProfile?.is_member || canViewDuoSection(duoProfile, 'activity'),
     [duoProfile]
   );
 

@@ -49,6 +49,8 @@ from duo_social import (
     parse_duo_tag,
     RELATION_LABELS,
     resolve_coach_roles,
+    resolve_duo_member_pair,
+    sync_duo_member_ids,
 )
 
 # MongoDB connection
@@ -2144,6 +2146,7 @@ async def get_duo_profile_by_tag(tag: str, user: dict = Depends(get_current_user
     duo_doc = await find_duo_by_tag(db, tag)
     if not duo_doc:
         raise HTTPException(status_code=404, detail="Duo introuvable")
+    duo_doc = await sync_duo_member_ids(db, duo_doc)
     return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
 
 
@@ -2152,7 +2155,7 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
     duo_doc = await find_duo_by_tag(db, tag)
     if not duo_doc:
         raise HTTPException(status_code=404, detail="Duo introuvable")
-    duo_doc = apply_duo_defaults(duo_doc)
+    duo_doc = apply_duo_defaults(await sync_duo_member_ids(db, duo_doc))
     members = await get_duo_members(db, duo_doc)
     access = await get_duo_access_level(db, user["id"], duo_doc, members)
     can_stats = can_view_duo_section(duo_doc, access, "stats")
@@ -2161,11 +2164,20 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
     if not (can_stats or can_badges or can_challenges):
         raise HTTPException(status_code=403, detail="Statistiques duo masquées")
 
-    if len(members) < 2:
+    a_id, b_id = await resolve_duo_member_pair(
+        db, duo_doc, user["id"], user.get("partner_id")
+    )
+    if not a_id or not b_id:
         return {"sessions_together": 0, "badges": [], "badges_unlocked": 0, "badges_total": 0}
 
-    a_id, b_id = str(members[0]["_id"]), str(members[1]["_id"])
-    return await assemble_duo_common_stats(a_id, b_id)
+    together = await assemble_duo_common_stats(a_id, b_id)
+    calculated = await calculate_streak(a_id, b_id)
+    manual = await _get_manual_streak_override(a_id, b_id)
+    streak = manual if manual is not None else calculated
+    together["streak"] = streak
+    together["streak_calculated"] = calculated
+    together["streak_manual_override"] = manual
+    return together
 
 
 @api_router.post("/duos/{tag:path}/follow")
@@ -2300,12 +2312,18 @@ async def get_duo_profile_activity(
     duo_doc = await find_duo_by_tag(db, tag)
     if not duo_doc:
         raise HTTPException(status_code=404, detail="Duo introuvable")
-    duo_doc = apply_duo_defaults(duo_doc)
+    duo_doc = apply_duo_defaults(await sync_duo_member_ids(db, duo_doc))
     members = await get_duo_members(db, duo_doc)
     access = await get_duo_access_level(db, user["id"], duo_doc, members)
     if not can_view_duo_section(duo_doc, access, "activity"):
         return []
-    return await build_duo_activity(db, duo_doc, members, user["id"], limit=min(limit, 30))
+    a_id, b_id = await resolve_duo_member_pair(
+        db, duo_doc, user["id"], user.get("partner_id")
+    )
+    return await build_duo_activity(
+        db, duo_doc, members, user["id"], limit=min(limit, 30),
+        user_a_id=a_id, user_b_id=b_id,
+    )
 
 
 @api_router.get("/duos/{tag:path}/posts")
@@ -2318,7 +2336,7 @@ async def get_duo_posts(
     duo_doc = await find_duo_by_tag(db, tag)
     if not duo_doc:
         raise HTTPException(status_code=404, detail="Duo introuvable")
-    duo_doc = apply_duo_defaults(duo_doc)
+    duo_doc = apply_duo_defaults(await sync_duo_member_ids(db, duo_doc))
     members = await get_duo_members(db, duo_doc)
     access = await get_duo_access_level(db, user["id"], duo_doc, members)
     if access != "member" and not can_view_duo_section(duo_doc, access, "posts"):

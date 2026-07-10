@@ -92,6 +92,17 @@ def test_parse_duo_tag():
     assert tag == "TestDuo#9999"
 
 
+def test_resolve_duo_member_pair_from_doc():
+    from duo_social import resolve_duo_member_pair_from_doc
+    a = "507f1f77bcf86cd799439011"
+    b = "507f191e810c19729de860ea"
+    pk = f"{b}_{a}" if a > b else f"{a}_{b}"
+    pair_a, pair_b = resolve_duo_member_pair_from_doc({"pair_key": pk})
+    assert {pair_a, pair_b} == {a, b}
+    mid_a, mid_b = resolve_duo_member_pair_from_doc({"member_ids": [a, b]})
+    assert {mid_a, mid_b} == {a, b}
+
+
 def test_build_common_sessions():
     from duo_social import build_common_sessions
     sessions_a = [
