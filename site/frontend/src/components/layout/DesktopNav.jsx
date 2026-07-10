@@ -23,8 +23,8 @@ export function DesktopNav() {
   }
 
   return (
-    <aside className="hidden md:block w-64 shrink-0 border-r border-white/5 bg-[#0A0A0A]">
-      <div className="sticky top-0 h-[100dvh] p-4 flex flex-col">
+    <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-white/5 bg-[#0A0A0A]">
+      <div className="flex h-full flex-col p-4">
         <div className="px-2 py-3">
           <div className="text-white font-black tracking-tight font-['Outfit'] text-lg">
             Anthea
@@ -32,7 +32,7 @@ export function DesktopNav() {
           <div className="text-zinc-500 text-xs mt-0.5">Fitness duo</div>
         </div>
 
-        <nav className="mt-4 space-y-1">
+        <nav className="mt-4 flex-1 space-y-1 overflow-y-auto min-h-0">
           {navItems.map((item) => {
             const Icon = item.icon;
             return (
@@ -55,7 +55,7 @@ export function DesktopNav() {
           })}
         </nav>
 
-        <div className="mt-auto pt-4 space-y-1">
+        <div className="mt-auto shrink-0 border-t border-white/5 pt-4 space-y-1">
           <NavLink
             to="/settings"
             className={({ isActive }) =>

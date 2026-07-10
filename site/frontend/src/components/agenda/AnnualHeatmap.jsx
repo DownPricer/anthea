@@ -5,47 +5,33 @@ import {
   endOfYear,
   eachDayOfInterval,
   getMonth,
-  parseISO,
   isSameDay,
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Download, Loader2 } from 'lucide-react';
 import { streakApi } from '../../lib/api';
 import { calendarDaysToMap } from '../../lib/agendaDayMap';
+import { getHeatmapDayStyle, heatmapDayTitle, paintHeatmapCell } from '../../lib/heatmapDayStyle';
 import { Button } from '../ui/button';
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
-
-function dayIntensity(day) {
-  if (!day || day.is_future) return 0;
-  if (day.both_completed) return 4;
-  if (day.my_completed || day.partner_completed) return 3;
-  if (day.combined === 'ok' || day.in_streak) return 2;
-  if (day.rest) return 1;
-  if (day.has_planned && day.combined === 'fail') return -1;
-  return 0;
-}
-
-const INTENSITY_CLASS = {
-  0: 'bg-white/[0.04]',
-  1: 'bg-blue-500/40',
-  2: 'bg-emerald-500/50',
-  3: 'bg-[var(--theme-primary)]/60',
-  4: 'bg-orange-500/70',
-  [-1]: 'bg-red-500/30',
-};
 
 export function AnnualHeatmap({
   year = new Date().getFullYear(),
   userId = null,
   title = 'Agenda annuel',
   accentColor = null,
-  duoMode = false,
+  partnerColor = null,
 }) {
   const [dayMap, setDayMap] = useState({});
   const [loading, setLoading] = useState(true);
   const [selectedDay, setSelectedDay] = useState(null);
   const gridRef = useRef(null);
+
+  const colorOpts = useMemo(
+    () => ({ accentColor: accentColor || undefined, partnerColor: partnerColor || undefined }),
+    [accentColor, partnerColor]
+  );
 
   const days = useMemo(() => {
     const start = startOfYear(new Date(year, 0, 1));
@@ -80,6 +66,11 @@ export function AnnualHeatmap({
     return months;
   }, [days]);
 
+  const getCellStyle = useCallback(
+    (info) => getHeatmapDayStyle(info, colorOpts),
+    [colorOpts]
+  );
+
   const handleExport = () => {
     const cell = 10;
     const gap = 2;
@@ -100,41 +91,26 @@ export function AnnualHeatmap({
     ctx.textAlign = 'center';
     ctx.fillText(`${title} — ${year}`, w / 2, 16);
 
-    const colors = {
-      0: '#1a1a1a',
-      1: '#3b82f680',
-      2: '#10b98180',
-      3: '#06b6d499',
-      4: '#f9731680',
-      [-1]: '#ef444450',
-    };
-
     weeksByMonth.forEach((monthDays, monthIdx) => {
       monthDays.forEach((date, dayIdx) => {
         const key = format(date, 'yyyy-MM-dd');
         const info = dayMap[key] || {};
-        const intensity = duoMode
-          ? info.both_completed
-            ? 4
-            : info.my_completed || info.partner_completed
-              ? 2
-              : dayIntensity(info)
-          : dayIntensity(info);
+        const style = getCellStyle(info);
         const col = dayIdx % cols;
         const row = monthIdx;
-        ctx.fillStyle = colors[intensity] || colors[0];
-        ctx.fillRect(
+        paintHeatmapCell(
+          ctx,
           pad + col * (cell + gap),
           pad + row * (cell + gap),
           cell,
-          cell
+          style
         );
       });
     });
 
     const link = document.createElement('a');
-    link.download = `agenda-${year}.jpg`;
-    link.href = canvas.toDataURL('image/jpeg', 0.92);
+    link.download = `agenda-${year}.png`;
+    link.href = canvas.toDataURL('image/png');
     link.click();
   };
 
@@ -146,14 +122,15 @@ export function AnnualHeatmap({
     );
   }
 
+  const selectedKey = selectedDay ? format(selectedDay, 'yyyy-MM-dd') : null;
+  const selectedInfo = selectedKey ? dayMap[selectedKey] : null;
+
   return (
     <div className="space-y-4" data-testid="annual-heatmap">
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-white font-semibold font-['Outfit']">{title} — {year}</h3>
-          {duoMode ? (
-            <p className="text-zinc-500 text-xs mt-0.5">Séances communes et jours d&apos;entraînement duo</p>
-          ) : null}
+          <p className="text-zinc-500 text-xs mt-0.5">Séances terminées uniquement</p>
         </div>
         <Button
           type="button"
@@ -163,7 +140,7 @@ export function AnnualHeatmap({
           className="rounded-xl border-white/15 text-white shrink-0"
         >
           <Download size={14} className="mr-1.5" />
-          JPG
+          PNG
         </Button>
       </div>
 
@@ -175,32 +152,31 @@ export function AnnualHeatmap({
               <p className="text-[10px] text-zinc-500 uppercase tracking-wide text-center">
                 {MONTH_LABELS[monthIdx]}
               </p>
-              <div
-                className="flex flex-wrap gap-0.5 justify-center"
-                style={accentColor ? { '--heatmap-accent': accentColor } : undefined}
-              >
+              <div className="flex flex-wrap gap-0.5 justify-center">
                 {monthDays.map((date) => {
                   const key = format(date, 'yyyy-MM-dd');
                   const info = dayMap[key] || {};
-                  const intensity = duoMode
-                    ? info.both_completed
-                      ? 4
-                      : info.my_completed && info.partner_completed
-                        ? 4
-                        : info.my_completed || info.partner_completed
-                          ? 2
-                          : dayIntensity(info)
-                    : dayIntensity(info);
+                  const style = getCellStyle(info);
                   const isSelected = selectedDay && isSameDay(selectedDay, date);
+                  const dateLabel = format(date, 'd MMMM yyyy', { locale: fr });
                   return (
                     <button
                       key={key}
                       type="button"
-                      title={format(date, 'd MMMM yyyy', { locale: fr })}
+                      title={heatmapDayTitle(info, dateLabel)}
                       onClick={() => setSelectedDay(date)}
                       className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm transition-transform ${
-                        INTENSITY_CLASS[intensity] || INTENSITY_CLASS[0]
-                      } ${isSelected ? 'ring-1 ring-white scale-125' : 'hover:scale-110'}`}
+                        isSelected ? 'ring-1 ring-white scale-125' : 'hover:scale-110'
+                      } ${style.kind === 'empty' ? 'bg-white/[0.04]' : ''}`}
+                      style={
+                        style.kind !== 'empty'
+                          ? style.gradient
+                            ? {
+                                background: `linear-gradient(135deg, ${style.gradient[0]} 0 50%, ${style.gradient[1]} 50% 100%)`,
+                              }
+                            : { backgroundColor: style.fill }
+                          : undefined
+                      }
                     />
                   );
                 })}
@@ -209,20 +185,36 @@ export function AnnualHeatmap({
           ))}
         </div>
         <div className="flex flex-wrap justify-center gap-3 text-[10px] text-zinc-500 pt-2 border-t border-white/5">
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-white/[0.04]" /> Repos / vide</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-emerald-500/50" /> Séance</span>
-          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-orange-500/70" /> Duo</span>
+          <span className="flex items-center gap-1">
+            <span className="w-2.5 h-2.5 rounded-sm bg-white/[0.04]" /> Aucune séance
+          </span>
+          <span className="flex items-center gap-1">
+            <span
+              className="w-2.5 h-2.5 rounded-sm"
+              style={{ backgroundColor: accentColor || 'var(--theme-primary)' }}
+            />{' '}
+            Solo
+          </span>
+          {partnerColor ? (
+            <span className="flex items-center gap-1">
+              <span
+                className="w-2.5 h-2.5 rounded-sm"
+                style={{
+                  background: `linear-gradient(135deg, ${accentColor || 'var(--theme-primary)'} 0 50%, ${partnerColor} 50% 100%)`,
+                }}
+              />{' '}
+              Duo
+            </span>
+          ) : null}
         </div>
       </div>
 
       {selectedDay ? (
         <p className="text-zinc-400 text-sm text-center">
-          {format(selectedDay, 'EEEE d MMMM yyyy', { locale: fr })}
-          {dayMap[format(selectedDay, 'yyyy-MM-dd')]?.has_planned
-            ? ' — séance prévue'
-            : dayMap[format(selectedDay, 'yyyy-MM-dd')]?.my_completed
-              ? ' — séance faite'
-              : ''}
+          {heatmapDayTitle(
+            selectedInfo,
+            format(selectedDay, 'EEEE d MMMM yyyy', { locale: fr })
+          )}
         </p>
       ) : null}
     </div>

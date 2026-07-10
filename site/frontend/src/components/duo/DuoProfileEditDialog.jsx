@@ -258,7 +258,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
             </div>
 
-            <input ref={bannerInputRef} type="file" accept="image/*" className="hidden" onChange={handleBannerPick} />
+            <input ref={bannerInputRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleBannerPick} />
 
             <div className="flex gap-2 mt-2">
 

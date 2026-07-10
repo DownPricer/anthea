@@ -168,7 +168,11 @@ export const uploadsApi = {
 export function resolveMediaUrl(url) {
   if (!url) return null;
   if (url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:')) return url;
-  const base = (API_URL || '').replace(/\/$/, '');
+  let base = (API_URL || '').replace(/\/$/, '');
+  // Les fichiers statiques sont servis à la racine (/uploads), pas sous /api
+  if (base.endsWith('/api')) {
+    base = base.slice(0, -4);
+  }
   if (!base) return url.startsWith('/') ? url : `/${url}`;
   return `${base}${url.startsWith('/') ? url : `/${url}`}`;
 }

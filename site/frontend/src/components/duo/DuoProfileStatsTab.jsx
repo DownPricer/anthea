@@ -56,7 +56,8 @@ export function DuoProfileStatsTab({
 
   const duoBadges = (stats?.badges || []).filter((b) => b.family === 'duo_social' || b.id?.startsWith('duo_'));
   const unlockedBadges = duoBadges.filter((b) => b.unlocked);
-  const displayedBadges = showAllBadges ? duoBadges : unlockedBadges.slice(0, 8);
+  const displayedBadges = showAllBadges ? duoBadges : unlockedBadges;
+  const duoBadgesUnlockedCount = unlockedBadges.length;
 
   return (
     <div className="space-y-6" data-testid="duo-profile-stats">
@@ -64,13 +65,13 @@ export function DuoProfileStatsTab({
         <>
           <div className="grid grid-cols-2 gap-3">
             <StatCard icon={Trophy} label="Séances ensemble" value={stats.sessions_together ?? 0} />
-            <StatCard icon={Flame} label="Streak duo" value={stats.streak ?? stats.duo_streak_current ?? 0} />
+            <StatCard icon={Flame} label="Streak duo" value={stats.duo_streak_current ?? 0} />
             <StatCard icon={Calendar} label="Meilleur streak" value={stats.duo_streak_best ?? 0} />
             <StatCard icon={Target} label="Défis réussis" value={stats.challenges_completed ?? 0} />
             <StatCard icon={Clock} label="Temps total" value={formatDuration(stats.total_training_time || 0)} isText />
             <StatCard icon={Calendar} label="Jours ensemble" value={stats.training_days_together ?? 0} />
             <StatCard icon={Zap} label="Calories estimées" value={stats.estimated_calories ?? 0} />
-            <StatCard icon={Medal} label="Badges duo" value={stats.badges_unlocked ?? unlockedBadges.length} />
+            <StatCard icon={Medal} label="Badges duo" value={duoBadgesUnlockedCount} />
           </div>
 
           {stats.last_common_session ? (
@@ -124,7 +125,7 @@ export function DuoProfileStatsTab({
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Badges duo</h3>
-            {duoBadges.length > 8 ? (
+            {duoBadges.length > unlockedBadges.length || duoBadges.length > 6 ? (
               <button
                 type="button"
                 onClick={() => setShowAllBadges((v) => !v)}
@@ -142,7 +143,7 @@ export function DuoProfileStatsTab({
               {duoProfile?.is_member && unlockedBadges.length > 0 ? (
                 <p className="text-center text-zinc-500 text-xs">
                   Publier un badge :{' '}
-                  {unlockedBadges.slice(0, 3).map((badge, i) => (
+                  {unlockedBadges.map((badge, i) => (
                     <span key={badge.id}>
                       {i > 0 ? ' · ' : ''}
                       <ShareDuoBadgeButton badge={badge} onShared={onBadgeShared} />

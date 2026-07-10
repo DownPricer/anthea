@@ -296,6 +296,16 @@ export function WorkoutPlayerPage() {
     skipExercise();
   };
 
+  const skipRest = () => {
+    if (phase !== 'rest') return;
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+    setTimeRemaining(0);
+    moveToNextExercise();
+  };
+
   const handleTimerComplete = () => {
     if (phase === 'countdown') {
       startExercise();
@@ -1188,10 +1198,11 @@ export function WorkoutPlayerPage() {
 
                   <button
                     type="button"
-                    onClick={skipCurrentExercise}
+                    onClick={phase === 'rest' ? skipRest : skipCurrentExercise}
+                    data-testid={phase === 'rest' ? 'skip-rest-btn' : 'skip-exercise-btn'}
                     className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
                   >
-                    Sauter
+                    {phase === 'rest' ? 'Passer le repos' : 'Sauter'}
                   </button>
                 </div>
 

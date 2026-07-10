@@ -156,7 +156,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       setPreview(null);
 
-      toast.success('Publication envoyée');
+      toast.success('Publication envoyée sur le mur du duo');
 
       onPosted?.(data);
 
@@ -240,7 +240,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       <div className="flex items-center gap-2">
 
-        <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={handleImagePick} />
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/webp" className="hidden" onChange={handleImagePick} />
 
         <Button
 

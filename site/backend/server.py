@@ -50,6 +50,7 @@ from duo_social import (
     RELATION_LABELS,
     resolve_coach_roles,
     resolve_duo_member_pair,
+    session_completions_for_range,
     sync_duo_member_ids,
 )
 
@@ -732,6 +733,37 @@ POST_VISIBILITY = {"public", "friends", "private"}
 DUO_WALL_POST_TYPES = {"duo", "duo_free", "duo_common_session", "duo_badge", "duo_challenge"}
 
 
+def is_duo_wall_post(post: dict) -> bool:
+    """Mur duo vs mur utilisateur — rétrocompat sans owner_type."""
+    owner_type = post.get("owner_type")
+    if owner_type == "duo":
+        return True
+    if owner_type == "user":
+        return False
+    if post.get("duo_id"):
+        return True
+    if post.get("type") in DUO_WALL_POST_TYPES:
+        return True
+    return False
+
+
+def user_wall_posts_query(author_id: str) -> dict:
+    """Posts du mur personnel — exclut les publications mur duo."""
+    return {
+        "author_id": author_id,
+        "$or": [
+            {"owner_type": "user"},
+            {
+                "$and": [
+                    {"$or": [{"owner_type": {"$exists": False}}, {"owner_type": None}]},
+                    {"$or": [{"duo_id": {"$exists": False}}, {"duo_id": None}]},
+                    {"type": {"$nin": list(DUO_WALL_POST_TYPES)}},
+                ],
+            },
+        ],
+    }
+
+
 async def get_user_doc_by_id(user_id: str) -> Optional[dict]:
     try:
         return await db.users.find_one({"_id": ObjectId(user_id)})
@@ -862,6 +894,8 @@ async def serialize_post(
         "duo_session_id": post.get("duo_session_id"),
         "partner_session_id": post.get("partner_session_id"),
         "duo_id": post.get("duo_id"),
+        "owner_type": post.get("owner_type"),
+        "owner_id": post.get("owner_id"),
         "duo_name": duo_doc.get("name") if duo_doc else None,
         "duo_tag": duo_tag_from_doc(duo_doc) if duo_doc else None,
         "source_post_id": post.get("source_post_id"),
@@ -2121,7 +2155,7 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
             {"$set": {"relation_type": rel}},
         )
     if data.avatar_url is not None:
-        updates["avatar_url"] = (data.avatar_url or "").strip()[:500] or None
+        updates["avatar_url"] = normalize_upload_path(data.avatar_url)
     if data.banner_url is not None:
         updates["banner_url"] = normalize_upload_path(data.banner_url)
     for field in (
@@ -2174,6 +2208,22 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
     calculated = await calculate_streak(a_id, b_id)
     manual = await _get_manual_streak_override(a_id, b_id)
     streak = manual if manual is not None else calculated
+    legacy_badges = await get_duo_badges(a_id, b_id, streak_value=streak)
+    duo_social = together.get("duo_badges") or together.get("badges") or []
+    seen_ids = {b.get("id") for b in duo_social}
+    merged_badges = list(duo_social) + [
+        b for b in legacy_badges
+        if b.get("id") not in seen_ids
+        and (
+            b.get("family") == "duo_social"
+            or str(b.get("id", "")).startswith("duo_")
+        )
+    ]
+    unlocked = [b for b in merged_badges if b.get("unlocked")]
+    together["badges"] = merged_badges
+    together["duo_badges"] = merged_badges
+    together["badges_unlocked"] = len(unlocked)
+    together["badges_total"] = len(merged_badges)
     together["streak"] = streak
     together["streak_calculated"] = calculated
     together["streak_manual_override"] = manual
@@ -3522,8 +3572,16 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
             title = session_snapshot["workout_title"]
 
     now = datetime.now(timezone.utc).isoformat()
+    owner_type = "user"
+    owner_id = user["id"]
+    if duo_id and (data.post_on_duo_wall or post_type in DUO_WALL_POST_TYPES):
+        owner_type = "duo"
+        owner_id = duo_id
+
     post_doc = {
         "author_id": user["id"],
+        "owner_type": owner_type,
+        "owner_id": owner_id,
         "author_username": user.get("username"),
         "author_handle": user.get("handle") or user.get("username"),
         "author_display_name": user.get("display_name"),
@@ -3595,7 +3653,7 @@ async def get_user_posts(
     if not is_own and not target.get("show_posts", False):
         return []
 
-    posts = await db.posts.find({"author_id": target_id}).sort(
+    posts = await db.posts.find(user_wall_posts_query(target_id)).sort(
         "created_at", -1
     ).skip(offset).limit(min(limit, 50)).to_list(min(limit, 50))
 
@@ -4368,6 +4426,9 @@ async def build_streak_calendar(
 
     start = datetime.strptime(start_date, "%Y-%m-%d").date()
     end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    session_map = await session_completions_for_range(
+        db, user_id, partner_id, start_date, end_date
+    )
     days_out = []
     cursor = start
     today_str = current_date.isoformat()
@@ -4382,13 +4443,26 @@ async def build_streak_calendar(
         info = _combined_for_date(
             user_id, partner_id, ds, day_index, skip_pairs, rest_pairs, planned_by_user_date
         )
+        session_info = session_map.get(ds, {})
+        my_completed = bool(info["my_completed"] or session_info.get("my_completed"))
+        partner_completed = bool(
+            info["partner_completed"] or session_info.get("partner_completed")
+        )
+        both_completed = bool(
+            session_info.get("both_completed")
+            or (my_completed and partner_completed and partner_id)
+        )
         days_out.append({
             "date": ds,
             "in_streak": ds in in_streak_set,
             "combined": info["combined"],
-            "my_completed": info["my_completed"],
-            "partner_completed": info["partner_completed"],
-            "both_completed": info["both_completed"],
+            "my_completed": my_completed,
+            "partner_completed": partner_completed,
+            "both_completed": both_completed,
+            "my_session_count": session_info.get("my_count", 0),
+            "partner_session_count": session_info.get("partner_count", 0),
+            "my_session_titles": session_info.get("my_titles", []),
+            "partner_session_titles": session_info.get("partner_titles", []),
             "has_planned": info["has_planned"],
             "partner_missed": info["partner_missed"] and ds < today_str,
             "my_missed": info["my_missed"] and ds < today_str,

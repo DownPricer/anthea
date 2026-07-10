@@ -333,6 +333,63 @@ def _compute_streaks_from_days(days: List[str]) -> Tuple[int, int]:
     return current_streak, best
 
 
+async def session_completions_for_range(
+    db,
+    user_id: str,
+    partner_id: Optional[str],
+    start_date: str,
+    end_date: str,
+) -> Dict[str, dict]:
+    """
+    Jours avec séances terminées (workout_sessions, inclut legacy).
+    Clé = yyyy-MM-dd.
+    """
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end = datetime.strptime(end_date, "%Y-%m-%d").date()
+
+    sessions_a = await _completed_sessions_by_user(db, user_id)
+    sessions_b = await _completed_sessions_by_user(db, partner_id) if partner_id else []
+
+    out: Dict[str, dict] = {}
+    cursor = start
+    while cursor <= end:
+        out[cursor.isoformat()] = {
+            "my_completed": False,
+            "partner_completed": False,
+            "both_completed": False,
+            "my_count": 0,
+            "partner_count": 0,
+            "my_titles": [],
+            "partner_titles": [],
+        }
+        cursor += timedelta(days=1)
+
+    for session in sessions_a:
+        day = _session_day(session)
+        if not day or day not in out:
+            continue
+        out[day]["my_completed"] = True
+        out[day]["my_count"] += 1
+        title = session.get("workout_title") or "Séance"
+        if title not in out[day]["my_titles"]:
+            out[day]["my_titles"].append(title)
+
+    for session in sessions_b:
+        day = _session_day(session)
+        if not day or day not in out:
+            continue
+        out[day]["partner_completed"] = True
+        out[day]["partner_count"] += 1
+        title = session.get("workout_title") or "Séance"
+        if title not in out[day]["partner_titles"]:
+            out[day]["partner_titles"].append(title)
+
+    for day, info in out.items():
+        info["both_completed"] = bool(info["my_completed"] and info["partner_completed"])
+
+    return out
+
+
 async def compute_together_stats(db, user_a_id: str, user_b_id: str) -> dict:
     """Stats basées uniquement sur l'activité commune (même jour)."""
     sessions_a = await _completed_sessions_by_user(db, user_a_id)

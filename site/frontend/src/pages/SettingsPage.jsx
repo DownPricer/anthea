@@ -2,9 +2,9 @@ import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { duoApi } from '../lib/api';
+import { duoApi, partnerApi } from '../lib/api';
 import { isPushConfigured } from '../lib/env';
-import { applyAccentToDocument, normalizeAccentColor, resolveUserAccent } from '../lib/userAccent';
+import { applyAccentToDocument, normalizeAccentColor, resolveUserAccent, getAccentForUser } from '../lib/userAccent';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { AnnualHeatmap } from '../components/agenda/AnnualHeatmap';
 import { Button } from '../components/ui/button';
@@ -100,6 +100,7 @@ export function SettingsPage() {
   const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [badges, setBadges] = useState([]);
   const [badgesLoading, setBadgesLoading] = useState(true);
+  const [partnerAccent, setPartnerAccent] = useState(null);
 
   useEffect(() => {
     if (!user) return;
@@ -122,6 +123,24 @@ export function SettingsPage() {
       .catch(() => setBadges([]))
       .finally(() => setBadgesLoading(false));
   }, []);
+
+  useEffect(() => {
+    if (!user?.partner_id) {
+      setPartnerAccent(null);
+      return;
+    }
+    partnerApi
+      .getInfo()
+      .then((res) => {
+        const partner = res.data;
+        setPartnerAccent(
+          partner?.accent_color
+            ? getAccentForUser({ accent_color: partner.accent_color }, theme)
+            : null
+        );
+      })
+      .catch(() => setPartnerAccent(null));
+  }, [user?.partner_id, theme]);
 
   const setAccentPreview = (color) => {
     const normalized = normalizeAccentColor(color) || '';
@@ -421,9 +440,13 @@ export function SettingsPage() {
         <SettingsSection
           icon={BarChart3}
           title="Agenda annuel"
-          description="Visualise toute l'année et exporte en JPG"
+          description="Visualise toute l'année et exporte en PNG"
         >
-          <AnnualHeatmap year={new Date().getFullYear()} />
+          <AnnualHeatmap
+            year={new Date().getFullYear()}
+            accentColor={getAccentForUser(user, theme)}
+            partnerColor={partnerAccent}
+          />
         </SettingsSection>
       </div>
     </div>
