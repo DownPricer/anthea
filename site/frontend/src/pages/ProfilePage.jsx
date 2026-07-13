@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 import { duoApi, streakApi, usersApi, formatApiError } from '../lib/api';
 import { ProfileHeader } from '../components/profile/ProfileHeader';
 import { ProfileEditDialog } from '../components/profile/ProfileEditDialog';
+import { AvatarCropDialog } from '../components/profile/AvatarCropDialog';
+import { uploadsApi } from '../lib/api';
+import { blobToDataUrl, revokePreviewUrl } from '../lib/imageCompress';
 import { ProfileEmptyState } from '../components/profile/ProfileEmptyState';
 import { ProfileStatsTab } from '../components/profile/ProfileStatsTab';
 import { PostFeed } from '../components/social/PostFeed';
@@ -32,7 +35,7 @@ import {
  * `viewedUser` permet de préparer l'affichage d'autres profils (route /profile/:handle à venir).
  */
 export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
-  const { user, updateProfile, logout } = useAuth();
+  const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -43,6 +46,11 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
 
   const [activeTab, setActiveTab] = useState('posts');
   const [editOpen, setEditOpen] = useState(false);
+  const [cropOpen, setCropOpen] = useState(false);
+  const [pendingAvatarFile, setPendingAvatarFile] = useState(null);
+  const [cropSrc, setCropSrc] = useState(null);
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const [reopenProfileAfterCrop, setReopenProfileAfterCrop] = useState(false);
   const [badges, setBadges] = useState([]);
   const [duoStats, setDuoStats] = useState(null);
   const [detailedStats, setDetailedStats] = useState(null);
@@ -62,6 +70,83 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
       setSearchParams(next, { replace: true });
     }
   }, [searchParams, setSearchParams, isOwn]);
+
+  useEffect(() => {
+    if (!editOpen && reopenProfileAfterCrop && pendingAvatarFile && cropSrc && !cropOpen && !avatarUploading) {
+      const frame = requestAnimationFrame(() => {
+        setCropOpen(true);
+        setReopenProfileAfterCrop(false);
+      });
+      return () => cancelAnimationFrame(frame);
+    }
+    return undefined;
+  }, [editOpen, reopenProfileAfterCrop, pendingAvatarFile, cropSrc, cropOpen, avatarUploading]);
+
+  const handleAvatarFileSelected = (file) => {
+    setPendingAvatarFile(file);
+    setCropSrc(URL.createObjectURL(file));
+    setReopenProfileAfterCrop(true);
+    setEditOpen(false);
+  };
+
+  const resetAvatarCropState = () => {
+    if (cropSrc) revokePreviewUrl(cropSrc);
+    setCropSrc(null);
+    setPendingAvatarFile(null);
+    setReopenProfileAfterCrop(false);
+  };
+
+  const handleCropConfirm = async ({ file, blob }) => {
+    setAvatarUploading(true);
+    const previousAvatarUrl = user?.avatar_url || null;
+    try {
+      const dataUrl = await blobToDataUrl(file || blob);
+      const uploadName = file?.name || `avatar-${Date.now()}.webp`;
+
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[AvatarUpload Request]', {
+          filename: uploadName,
+          type: file?.type,
+          size: file?.size,
+        });
+      }
+
+      const { data } = await uploadsApi.uploadImage(dataUrl, uploadName);
+      const newAvatarUrl = data.url || data.path;
+
+      if (process.env.NODE_ENV === 'development') {
+        console.debug('[AvatarUpload Response]', data);
+      }
+
+      if (!newAvatarUrl) {
+        throw new Error('Réponse upload invalide');
+      }
+
+      const now = new Date().toISOString();
+      patchUser({ avatar_url: newAvatarUrl, updated_at: now });
+
+      const saveResult = await updateProfile({ avatar_url: newAvatarUrl });
+      if (!saveResult.success) {
+        throw new Error(saveResult.error || 'Échec de la sauvegarde du profil');
+      }
+
+      await refreshUser();
+      toast.success('Photo importée');
+      setCropOpen(false);
+      resetAvatarCropState();
+      setEditOpen(true);
+    } catch (error) {
+      console.error('[AvatarUpload Error]', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
+      patchUser({ avatar_url: previousAvatarUrl });
+      toast.error(error.message || 'Échec de l\'import photo');
+    } finally {
+      setAvatarUploading(false);
+    }
+  };
 
   const loadBadges = useCallback(async () => {
     if (!isOwn) return;
@@ -351,13 +436,33 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
       </div>
 
       {isOwn ? (
-        <ProfileEditDialog
-          open={editOpen}
-          onOpenChange={setEditOpen}
-          user={user}
-          badges={badges}
-          onSave={handleSaveProfile}
-        />
+        <>
+          <ProfileEditDialog
+            open={editOpen}
+            onOpenChange={setEditOpen}
+            user={user}
+            badges={badges}
+            onSave={handleSaveProfile}
+            onAvatarFileSelected={handleAvatarFileSelected}
+            avatarUploading={avatarUploading}
+            suppressCloseAutoFocus={reopenProfileAfterCrop}
+          />
+          <AvatarCropDialog
+            open={cropOpen}
+            imageSrc={cropSrc}
+            originalFile={pendingAvatarFile}
+            onOpenChange={(open) => {
+              if (avatarUploading) return;
+              setCropOpen(open);
+              if (!open) {
+                resetAvatarCropState();
+                setEditOpen(true);
+              }
+            }}
+            onConfirm={handleCropConfirm}
+            confirming={avatarUploading}
+          />
+        </>
       ) : null}
     </div>
   );

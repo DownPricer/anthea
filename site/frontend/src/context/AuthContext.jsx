@@ -68,6 +68,10 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const patchUser = (partial) => {
+    setUser((prev) => (prev && typeof prev === 'object' ? { ...prev, ...partial } : prev));
+  };
+
   const refreshUser = async () => {
     try {
       const { data } = await authApi.me();
@@ -87,6 +91,7 @@ export function AuthProvider({ children }) {
         register,
         logout,
         updateProfile,
+        patchUser,
         refreshUser,
       }}
     >

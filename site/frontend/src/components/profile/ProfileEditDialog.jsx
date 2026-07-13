@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Loader2, Camera, Share2, X } from 'lucide-react';
+import { Loader2, Camera, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserAvatar } from '../UserAvatar';
 import { Button } from '../ui/button';
@@ -20,11 +20,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
-import { useAuth } from '../../context/AuthContext';
 import { getPublicHandle, isValidHandle, normalizeHandle } from '../../lib/userProfile';
-import { uploadsApi, resolveMediaUrl } from '../../lib/api';
-import { revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
-import { AvatarCropDialog } from './AvatarCropDialog';
+import { revokePreviewUrl } from '../../lib/imageCompress';
 
 const FITNESS_LEVELS = [
   { value: 'beginner', label: 'Débutant' },
@@ -47,8 +44,10 @@ export function ProfileEditDialog({
   user,
   badges = [],
   onSave,
+  onAvatarFileSelected,
+  avatarUploading = false,
+  suppressCloseAutoFocus = false,
 }) {
-  const { refreshUser } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -58,10 +57,6 @@ export function ProfileEditDialog({
   const [featuredBadges, setFeaturedBadges] = useState([]);
   const [saving, setSaving] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
-  const [uploadingAvatar, setUploadingAvatar] = useState(false);
-  const [cropSrc, setCropSrc] = useState(null);
-  const [cropOpen, setCropOpen] = useState(false);
-  const originalFileRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -78,43 +73,11 @@ export function ProfileEditDialog({
 
   useEffect(() => () => revokePreviewUrl(avatarPreview), [avatarPreview]);
 
-  const handleAvatarPick = async (event) => {
+  const handleAvatarPick = (event) => {
     const file = event.target.files?.[0];
+    if (fileInputRef.current) fileInputRef.current.value = '';
     if (!file) return;
-    originalFileRef.current = file;
-    try {
-      const previewUrl = URL.createObjectURL(file);
-      setCropSrc(previewUrl);
-      setCropOpen(true);
-    } catch (error) {
-      toast.error(error.message || 'Échec de l\'import photo');
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  };
-
-  const handleCropConfirm = async ({ file, blob, previewUrl }) => {
-    setUploadingAvatar(true);
-    try {
-      revokePreviewUrl(avatarPreview);
-      setAvatarPreview(previewUrl);
-      const dataUrl = await blobToDataUrl(file || blob);
-      const uploadName = file?.name || `avatar-${Date.now()}.webp`;
-      const { data } = await uploadsApi.uploadImage(dataUrl, uploadName);
-      const url = data.url || data.path;
-      setAvatarUrl(url);
-      await refreshUser();
-      setCropOpen(false);
-      if (cropSrc) revokePreviewUrl(cropSrc);
-      setCropSrc(null);
-      originalFileRef.current = null;
-      toast.success('Photo importée');
-    } catch (error) {
-      revokePreviewUrl(previewUrl);
-      toast.error(error.message || 'Échec de l\'import photo');
-    } finally {
-      setUploadingAvatar(false);
-    }
+    onAvatarFileSelected?.(file);
   };
 
   const unlockedBadges = badges.filter((b) => b.unlocked);
@@ -122,6 +85,7 @@ export function ProfileEditDialog({
     ...user,
     avatar_url: avatarPreview || avatarUrl || user?.avatar_url,
     display_name: displayName,
+    updated_at: user?.updated_at,
   };
 
   const toggleFeaturedBadge = (badgeId) => {
@@ -163,9 +127,13 @@ export function ProfileEditDialog({
   };
 
   return (
-    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="bg-[#141414] border-white/10 max-w-lg max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="bg-[#141414] border-white/10 max-w-lg max-h-[90vh] overflow-y-auto"
+        onCloseAutoFocus={(event) => {
+          if (suppressCloseAutoFocus) event.preventDefault();
+        }}
+      >
         <DialogHeader>
           <DialogTitle className="text-white font-['Outfit']">Modifier le profil</DialogTitle>
           <DialogDescription className="text-zinc-500">
@@ -175,7 +143,7 @@ export function ProfileEditDialog({
 
         <div className="space-y-5">
           <div className="flex items-center gap-4">
-            <UserAvatar user={previewUser} className="w-16 h-16 text-2xl" />
+            <UserAvatar user={previewUser} className="w-16 h-16 text-2xl" cacheVersion={user?.updated_at} />
             <div className="flex-1 min-w-0 space-y-2">
               <input
                 ref={fileInputRef}
@@ -187,11 +155,11 @@ export function ProfileEditDialog({
               <Button
                 type="button"
                 variant="outline"
-                disabled={uploadingAvatar}
+                disabled={avatarUploading}
                 onClick={() => fileInputRef.current?.click()}
                 className="rounded-xl border-white/15 text-white w-full sm:w-auto"
               >
-                {uploadingAvatar ? (
+                {avatarUploading ? (
                   <Loader2 className="w-4 h-4 animate-spin mr-2" />
                 ) : (
                   <Camera size={16} className="mr-2" />
@@ -211,7 +179,7 @@ export function ProfileEditDialog({
                   <X size={12} /> Retirer la photo
                 </button>
               ) : (
-                <p className="text-zinc-600 text-xs">JPG, PNG ou WebP — compressé automatiquement</p>
+                <p className="text-zinc-600 text-xs">JPG, PNG ou WebP</p>
               )}
             </div>
           </div>
@@ -312,7 +280,7 @@ export function ProfileEditDialog({
 
           <Button
             onClick={handleSubmit}
-            disabled={saving}
+            disabled={saving || avatarUploading}
             className="w-full h-11 rounded-xl btn-primary text-white font-medium"
           >
             {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enregistrer'}
@@ -320,23 +288,5 @@ export function ProfileEditDialog({
         </div>
       </DialogContent>
     </Dialog>
-
-      <AvatarCropDialog
-        open={cropOpen}
-        imageSrc={cropSrc}
-        originalFile={originalFileRef.current}
-        onOpenChange={(open) => {
-          if (uploadingAvatar) return;
-          setCropOpen(open);
-          if (!open) {
-            if (cropSrc) revokePreviewUrl(cropSrc);
-            setCropSrc(null);
-            originalFileRef.current = null;
-          }
-        }}
-        onConfirm={handleCropConfirm}
-        confirming={uploadingAvatar}
-      />
-    </>
   );
 }

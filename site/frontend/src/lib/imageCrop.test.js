@@ -86,4 +86,20 @@ describe('cropSquareImage', () => {
     expect(result.file.size).toBeGreaterThan(0);
     expect(result.previewUrl).toMatch(/^blob:/);
   });
+
+  it('test quatre couleurs — déplacement modifie la zone source recadrée', async () => {
+    global.Image = class {
+      constructor() {
+        return mockImage(400, 400);
+      }
+    };
+
+    const center = await cropSquareImage('blob:quad', { zoom: 1, offsetX: 0, offsetY: 0 });
+    const topLeft = await cropSquareImage('blob:quad', { zoom: 2, offsetX: -80, offsetY: -80 });
+
+    expect(center.cropRect.sx).not.toBe(topLeft.cropRect.sx);
+    expect(center.cropRect.sy).not.toBe(topLeft.cropRect.sy);
+    expect(Math.abs(topLeft.cropRect.sx - center.cropRect.sx)).toBeGreaterThan(0);
+    expect(Math.abs(topLeft.cropRect.sy - center.cropRect.sy)).toBeGreaterThan(0);
+  });
 });

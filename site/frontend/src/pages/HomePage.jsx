@@ -40,6 +40,7 @@ import { useUserAccent } from '../hooks/useUserAccent';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
+import { UserAvatar } from '../components/UserAvatar';
 import { getPublicHandle } from '../lib/userProfile';
 import { toast } from 'sonner';
 
@@ -321,11 +322,7 @@ export function HomePage() {
               className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center overflow-hidden"
               aria-label="Mon profil"
             >
-              {user?.avatar_url ? (
-                <img src={user.avatar_url} alt="" className="w-full h-full rounded-full object-cover" />
-              ) : (
-                <User size={20} className="text-zinc-400" />
-              )}
+              <UserAvatar user={user} className="w-full h-full" />
             </button>
           </div>
         </header>
