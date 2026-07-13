@@ -421,6 +421,44 @@ def test_user_wall_excludes_actor_type_duo():
     assert is_duo_wall_post(post) is True
 
 
+def test_duo_routes_do_not_shadow_posts():
+    """Le routage ne doit pas faire matcher /duos/{tag} avant /duos/{tag}/posts."""
+    from starlette.routing import Match
+    from server import app
+
+    def _full_matches(path: str):
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": path,
+            "root_path": "",
+            "scheme": "http",
+            "query_string": b"",
+            "headers": [],
+        }
+        matches = []
+        for route in app.routes:
+            match, child_scope = route.matches(scope)
+            if match == Match.FULL:
+                matches.append((
+                    getattr(route, "path", ""),
+                    getattr(route, "name", ""),
+                    child_scope.get("path_params"),
+                ))
+        return matches
+
+    full_posts = _full_matches("/api/duos/2395/posts")
+    assert full_posts, "Aucune route ne matche /api/duos/2395/posts"
+    assert full_posts[0][0] == "/api/duos/{tag}/posts"
+    assert full_posts[0][2]["tag"] == "2395"
+
+    full_stats = _full_matches("/api/duos/2395/stats")
+    assert full_stats and full_stats[0][0] == "/api/duos/{tag}/stats"
+
+    full_activity = _full_matches("/api/duos/2395/activity")
+    assert full_activity and full_activity[0][0] == "/api/duos/{tag}/activity"
+
+
 if __name__ == "__main__":
     test_estimate_calories_by_difficulty()
     test_normalize_accent_color()

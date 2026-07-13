@@ -2402,16 +2402,7 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
     return await serialize_duo_profile_for_viewer(updated, user["id"])
 
 
-@api_router.get("/duos/{tag:path}")
-async def get_duo_profile_by_tag(tag: str, user: dict = Depends(get_current_user)):
-    duo_doc = await find_duo_by_tag(db, tag)
-    if not duo_doc:
-        raise HTTPException(status_code=404, detail="Duo introuvable")
-    duo_doc = await sync_duo_member_ids(db, duo_doc)
-    return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
-
-
-@api_router.get("/duos/{tag:path}/stats")
+@api_router.get("/duos/{tag}/stats")
 async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)):
     duo_doc = await find_duo_by_tag(db, tag)
     if not duo_doc:
@@ -2441,7 +2432,7 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
     return together
 
 
-@api_router.post("/duos/{tag:path}/follow")
+@api_router.post("/duos/{tag}/follow")
 async def follow_duo(tag: str, user: dict = Depends(get_current_user)):
     duo_doc = await find_duo_by_tag(db, tag)
     if not duo_doc:
@@ -2496,7 +2487,7 @@ async def follow_duo(tag: str, user: dict = Depends(get_current_user)):
     return await serialize_duo_profile_for_viewer(updated, user["id"])
 
 
-@api_router.delete("/duos/{tag:path}/follow")
+@api_router.delete("/duos/{tag}/follow")
 async def unfollow_duo(tag: str, user: dict = Depends(get_current_user)):
     duo_doc = await find_duo_by_tag(db, tag)
     if not duo_doc:
@@ -2564,7 +2555,7 @@ async def reject_duo_follow_request(request_id: str, user: dict = Depends(get_cu
     return {"status": "ok"}
 
 
-@api_router.get("/duos/{tag:path}/activity")
+@api_router.get("/duos/{tag}/activity")
 async def get_duo_profile_activity(
     tag: str,
     limit: int = 15,
@@ -2587,7 +2578,7 @@ async def get_duo_profile_activity(
     )
 
 
-@api_router.get("/duos/{tag:path}/posts")
+@api_router.get("/duos/{tag}/posts")
 async def get_duo_posts(
     tag: str,
     limit: int = 20,
@@ -2631,6 +2622,16 @@ async def get_duo_posts(
         if serialized:
             items.append(serialized)
     return {"posts": items}
+
+
+@api_router.get("/duos/{tag}")
+async def get_duo_profile_by_tag(tag: str, user: dict = Depends(get_current_user)):
+    """Route générique profil duo — doit rester après les routes /stats, /activity, /posts, /follow."""
+    duo_doc = await find_duo_by_tag(db, tag)
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    duo_doc = await sync_duo_member_ids(db, duo_doc)
+    return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
 
 
 @api_router.get("/duo/activity-feed")
