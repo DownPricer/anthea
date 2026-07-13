@@ -1,17 +1,23 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Dumbbell, Plus, Heart, User, Settings } from 'lucide-react';
+import { Home, Dumbbell, Plus, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
 
-const navItems = [
+const baseNavItems = [
   { path: '/', icon: Home, label: 'Accueil' },
   { path: '/workouts', icon: Dumbbell, label: 'Séances' },
   { path: '/create', icon: Plus, label: 'Créer' },
-  { path: '/duo', icon: Heart, label: 'Duo' },
   { path: '/profile', icon: User, label: 'Profil' },
 ];
 
 export function DesktopNav() {
   const location = useLocation();
+  const duoNav = useDuoNavLabel();
+  const navItems = [
+    ...baseNavItems.slice(0, 3),
+    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label },
+    ...baseNavItems.slice(3),
+  ];
 
   // Pas de nav desktop sur auth/player
   if (

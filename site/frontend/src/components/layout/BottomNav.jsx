@@ -1,16 +1,17 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Dumbbell, Plus, Heart, User } from 'lucide-react';
-
-const navItems = [
-  { path: '/', icon: Home, label: 'Accueil' },
-  { path: '/workouts', icon: Dumbbell, label: 'Séances' },
-  { path: '/create', icon: Plus, label: '', isCenter: true },
-  { path: '/duo', icon: Heart, label: 'Duo' },
-  { path: '/profile', icon: User, label: 'Profil' },
-];
+import { Home, Dumbbell, Plus, User } from 'lucide-react';
+import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
 
 export function BottomNav() {
   const location = useLocation();
+  const duoNav = useDuoNavLabel();
+  const navItems = [
+    { path: '/', icon: Home, label: 'Accueil' },
+    { path: '/workouts', icon: Dumbbell, label: 'Séances' },
+    { path: '/create', icon: Plus, label: '', isCenter: true },
+    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label },
+    { path: '/profile', icon: User, label: 'Profil' },
+  ];
 
   // Don't show nav on auth pages or workout player
   if (

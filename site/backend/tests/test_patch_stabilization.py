@@ -459,6 +459,17 @@ def test_workouts_query_excludes_drafts_by_default():
     assert visible[0]["title"] == "Publiée"
 
 
+def test_iso_week_key_stable():
+    from challenges import iso_week_key, pick_weekly_challenge
+    from datetime import datetime, timezone
+
+    key = iso_week_key(datetime(2026, 7, 14, tzinfo=timezone.utc))
+    assert key.startswith("2026-W")
+    challenge = pick_weekly_challenge()
+    assert "week_key" in challenge
+    assert challenge["week_key"].startswith("2026-W")
+
+
 def test_duo_post_owner_actor_fields():
     """Champs attendus pour une publication mur duo."""
     from server import duo_wall_owner_key, duo_pair_key, DUO_WALL_POST_TYPES

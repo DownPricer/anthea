@@ -86,13 +86,20 @@ def _week_bounds() -> tuple:
     return week_start, week_end
 
 
+def iso_week_key(dt: Optional[datetime] = None) -> str:
+    """Clé stable ISO, ex. 2026-W29 — identique pour tous les utilisateurs."""
+    today = dt or datetime.now(timezone.utc)
+    iso = today.isocalendar()
+    return f"{iso.year}-W{iso.week:02d}"
+
+
 def pick_weekly_challenge() -> dict:
     """Choisit un défi stable pour la semaine ISO."""
     today = datetime.now(timezone.utc)
     week_num = today.isocalendar()[1]
     year = today.year
     idx = (year * 53 + week_num) % len(CHALLENGE_POOL)
-    return CHALLENGE_POOL[idx]
+    return {**CHALLENGE_POOL[idx], "week_key": iso_week_key(today)}
 
 
 async def compute_challenge_progress(

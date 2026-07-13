@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
+import { useDuoNavLabel } from '../hooks/useDuoNavLabel';
 import { formatCalories } from '../lib/calories';
 import {
   Collapsible,
@@ -65,6 +66,7 @@ const QUICK_REACTIONS = [
 export function DuoPage() {
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
+  const duoNav = useDuoNavLabel();
   const [searchParams] = useSearchParams();
   
   const [activeTab, setActiveTab] = useState('activity');
@@ -335,7 +337,7 @@ export function DuoPage() {
     return (
       <div data-testid="duo-page-no-partner" className="p-5 animate-fade-in">
         <header className="mb-8">
-          <h1 className="text-2xl font-bold text-white font-['Outfit']">Duo</h1>
+          <h1 className="text-2xl font-bold text-white font-['Outfit']">{duoNav.label}</h1>
           <p className="text-zinc-500 text-sm mt-1">Lie-toi à ton partenaire</p>
         </header>
 
