@@ -253,6 +253,68 @@ def test_can_view_duo_challenges_section():
     assert resolve_duo_visibility(public_doc, "badges") == "public"
 
 
+def test_feed_cursor_encode_decode():
+    from server import _encode_feed_cursor, _decode_feed_cursor
+    raw = _encode_feed_cursor("2026-01-15T10:00:00+00:00", "507f1f77bcf86cd799439011")
+    assert _decode_feed_cursor(raw) == ("2026-01-15T10:00:00+00:00", "507f1f77bcf86cd799439011")
+
+
+def test_feed_cursor_filter_orders_desc():
+    from server import _cursor_filter
+    clause = _cursor_filter(("2026-01-15T10:00:00+00:00", "507f1f77bcf86cd799439011"))
+    assert clause is not None
+    assert "$or" in clause
+
+
+def test_following_scope_own_and_followed_only():
+    import asyncio
+    from unittest.mock import AsyncMock, patch
+    from server import _post_matches_following_scope
+
+    user = {"id": "user1"}
+    ctx = {
+        "following_ids": {"friend1"},
+        "own_duo_ids": set(),
+        "own_duo_pair_keys": set(),
+        "followed_duo_ids": set(),
+        "followed_duo_pair_keys": set(),
+    }
+
+    async def run():
+        with patch("server.can_view_post_doc", new=AsyncMock(return_value=True)):
+            with patch("server.is_duo_wall_post", return_value=False):
+                assert await _post_matches_following_scope(
+                    user, {"author_id": "user1", "visibility": "public"}, ctx
+                )
+                assert await _post_matches_following_scope(
+                    user, {"author_id": "friend1", "visibility": "public"}, ctx
+                )
+                assert not await _post_matches_following_scope(
+                    user, {"author_id": "stranger", "visibility": "public"}, ctx
+                )
+
+    asyncio.get_event_loop().run_until_complete(run())
+
+
+def test_trending_sort_likes_then_created_at():
+    scored = [
+        (2, "2026-01-02T00:00:00+00:00", "b"),
+        (5, "2026-01-01T00:00:00+00:00", "a"),
+        (5, "2026-01-03T00:00:00+00:00", "c"),
+        (1, "2026-01-04T00:00:00+00:00", "d"),
+    ]
+    scored.sort(key=lambda t: (t[0], t[1], t[2]), reverse=True)
+    assert [row[2] for row in scored[:3]] == ["c", "a", "b"]
+
+
+def test_global_feed_excludes_trending_ids_concept():
+    trending_ids = {"id1", "id2", "id3"}
+    page_posts = [{"_id": "id1"}, {"_id": "id4"}, {"_id": "id5"}]
+    filtered = [p for p in page_posts if str(p["_id"]) not in trending_ids]
+    assert len(filtered) == 2
+    assert all(str(p["_id"]) not in trending_ids for p in filtered)
+
+
 def test_duo_private_wall_followers_only():
     from duo_social import can_view_duo_section, apply_duo_defaults
     doc = apply_duo_defaults({"account_visibility": "private", "show_posts": True})

@@ -2060,16 +2060,36 @@ async def unfollow_user(handle: str, user: dict = Depends(get_current_user)):
     return await serialize_profile_for_viewer(updated, user["id"])
 
 
-@api_router.get("/feed")
-async def get_social_feed(
-    limit: int = 15,
-    offset: int = 0,
-    user: dict = Depends(get_current_user),
-):
-    """Fil global : tendance publique + abonnements + duos suivis."""
-    limit = max(1, min(limit, 30))
-    offset = max(0, offset)
+def _encode_feed_cursor(created_at: str, post_id: str) -> str:
+    return f"{created_at}|{post_id}"
 
+
+def _decode_feed_cursor(cursor: Optional[str]) -> Optional[tuple]:
+    if not cursor:
+        return None
+    parts = cursor.split("|", 1)
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        return None
+    return parts[0], parts[1]
+
+
+def _cursor_filter(cursor: Optional[tuple]) -> Optional[dict]:
+    if not cursor:
+        return None
+    created_at, post_id = cursor
+    try:
+        oid = ObjectId(post_id)
+    except Exception:
+        return None
+    return {
+        "$or": [
+            {"created_at": {"$lt": created_at}},
+            {"created_at": created_at, "_id": {"$lt": oid}},
+        ]
+    }
+
+
+async def _feed_network_context(user: dict) -> dict:
     following_docs = await db.follows.find({"follower_id": user["id"]}).to_list(500)
     following_ids = {d["following_id"] for d in following_docs}
 
@@ -2096,100 +2116,206 @@ async def get_social_feed(
         except Exception:
             continue
 
-    candidate_posts = await db.posts.find({}).sort("created_at", -1).limit(200).to_list(200)
-    scored = []
-    now = datetime.now(timezone.utc)
+    return {
+        "following_ids": following_ids,
+        "followed_duo_ids": followed_duo_ids,
+        "own_duo_ids": own_duo_ids,
+        "own_duo_pair_keys": own_duo_pair_keys,
+        "followed_duo_pair_keys": followed_duo_pair_keys,
+    }
 
-    def _post_duo_keys(p: dict) -> set:
-        keys = {p.get("duo_id"), p.get("owner_id"), p.get("actor_id")}
-        return {k for k in keys if k}
 
-    for post in candidate_posts:
-        author_id = post.get("author_id")
-        if is_duo_wall_post(post):
-            author = None
-        else:
-            author = await get_user_doc_by_id(author_id)
-            if not author:
-                continue
-        serialized = await serialize_post(post, user["id"], author)
-        if not serialized:
+def _post_duo_keys(post: dict) -> set:
+    keys = {post.get("duo_id"), post.get("owner_id"), post.get("actor_id")}
+    return {k for k in keys if k}
+
+
+async def _post_matches_following_scope(user: dict, post: dict, ctx: dict) -> bool:
+    if not await can_view_post_doc(user["id"], post):
+        return False
+
+    user_id = user["id"]
+    following_ids = ctx["following_ids"]
+    own_duo_keys = ctx["own_duo_pair_keys"] | ctx["own_duo_ids"]
+    followed_duo_keys = ctx["followed_duo_pair_keys"] | ctx["followed_duo_ids"]
+    post_duo_keys = _post_duo_keys(post)
+
+    if is_duo_wall_post(post) or post.get("duo_id"):
+        if post_duo_keys & own_duo_keys or post_duo_keys & followed_duo_keys:
+            return True
+        author_id = post.get("author_id") or post.get("created_by_user_id")
+        if author_id == user_id:
+            return True
+        if author_id and author_id in following_ids:
+            return True
+        return False
+
+    author_id = post.get("author_id")
+    if author_id == user_id:
+        return True
+    if author_id in following_ids:
+        return True
+    return False
+
+
+async def _serialize_feed_post(post: dict, user: dict, feed_source: Optional[str] = None) -> Optional[dict]:
+    author = None
+    if not is_duo_wall_post(post):
+        author = await get_user_doc_by_id(post.get("author_id"))
+        if not author:
+            return None
+    duo_doc = await find_duo_doc_for_post(post) if is_duo_wall_post(post) else None
+    serialized = await serialize_post(post, user["id"], author, duo_doc=duo_doc)
+    if not serialized:
+        return None
+    if feed_source:
+        serialized["feed_source"] = feed_source
+    return serialized
+
+
+async def _fetch_feed_page(
+    user: dict,
+    *,
+    scope: str,
+    limit: int,
+    cursor: Optional[str],
+    exclude_ids: Optional[list] = None,
+    ctx: Optional[dict] = None,
+) -> dict:
+    limit = max(1, min(limit, 30))
+    exclude_oids = []
+    for pid in exclude_ids or []:
+        try:
+            exclude_oids.append(ObjectId(pid))
+        except Exception:
             continue
 
-        likes_n = len(post.get("likes") or [])
-        comments_n = len(post.get("comments") or [])
-        visibility = post.get("visibility", "public")
-        duo_id = post.get("duo_id")
-        post_duo_keys = _post_duo_keys(post)
-        is_following_author = author_id in following_ids
-        is_mutual = is_following_author and await is_following(author_id, user["id"])
+    batch_size = max(limit * 4, 40)
+    collected = []
+    last_matched = None
+    scan_cursor = _decode_feed_cursor(cursor)
+    network = ctx or await _feed_network_context(user)
 
-        feed_source = "trending"
-        priority = 1
+    while len(collected) < limit:
+        query: dict = {}
+        if exclude_oids:
+            query["_id"] = {"$nin": exclude_oids}
+        cursor_clause = _cursor_filter(scan_cursor)
+        if cursor_clause:
+            if "_id" in query:
+                query = {"$and": [query, cursor_clause]}
+            else:
+                query.update(cursor_clause)
 
-        if is_duo_wall_post(post) or duo_id:
-            if post_duo_keys & own_duo_pair_keys or post_duo_keys & own_duo_ids:
-                feed_source = "own_duo"
-                priority = 5
-            elif post_duo_keys & followed_duo_pair_keys or duo_id in followed_duo_ids:
-                feed_source = "duo_followed"
-                priority = 4
-            elif is_mutual:
-                feed_source = "friend"
-                priority = 3
-            elif is_following_author:
-                feed_source = "following"
-                priority = 2
-            elif visibility in ("public", "duo"):
-                feed_source = "trending"
-                priority = 1
+        if scope == "global":
+            query["visibility"] = "public"
+
+        raw_posts = await db.posts.find(query).sort([
+            ("created_at", -1),
+            ("_id", -1),
+        ]).limit(batch_size).to_list(batch_size)
+
+        if not raw_posts:
+            break
+
+        last_scanned = raw_posts[-1]
+        matched_in_batch = 0
+
+        for post in raw_posts:
+            if scope == "following":
+                if not await _post_matches_following_scope(user, post, network):
+                    continue
+            elif scope == "global":
+                if post.get("visibility", "public") != "public":
+                    continue
+                if not await can_view_post_doc(user["id"], post):
+                    continue
             else:
                 continue
-        elif author_id == user["id"]:
-            feed_source = "own"
-            priority = 4
-        elif is_mutual:
-            feed_source = "friend"
-            priority = 3
-        elif is_following_author:
-            feed_source = "following"
-            priority = 2
-        elif visibility == "public":
-            feed_source = "trending"
-            priority = 1
-        else:
-            continue
 
-        try:
-            created = datetime.fromisoformat((post.get("created_at") or "").replace("Z", "+00:00"))
-            age_hours = max(0.5, (now - created).total_seconds() / 3600)
-        except Exception:
-            age_hours = 24
+            serialized = await _serialize_feed_post(post, user)
+            if serialized:
+                collected.append(serialized)
+                last_matched = post
+                matched_in_batch += 1
+            if len(collected) >= limit:
+                break
 
-        trending = (likes_n * 3 + comments_n * 4) / (age_hours ** 0.6)
+        if len(collected) >= limit:
+            break
+        if len(raw_posts) < batch_size:
+            break
 
-        scored.append({
-            **serialized,
-            "feed_source": feed_source,
-            "_priority": priority,
-            "_trending": trending,
-        })
+        scan_cursor = (
+            last_scanned.get("created_at") or "",
+            str(last_scanned["_id"]),
+        )
 
-    scored.sort(
-        key=lambda p: (
-            p.get("_priority", 0),
-            p.get("_trending", 0),
-            p.get("created_at") or "",
-        ),
-        reverse=True,
+    next_cursor = None
+    if last_matched and len(collected) >= limit:
+        next_cursor = _encode_feed_cursor(
+            last_matched.get("created_at") or "",
+            str(last_matched["_id"]),
+        )
+
+    return {"posts": collected[:limit], "next_cursor": next_cursor}
+
+
+@api_router.get("/feed")
+async def get_social_feed(
+    scope: str = "following",
+    limit: int = 20,
+    cursor: Optional[str] = None,
+    exclude_ids: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    """Fil social — scope following (réseau) ou global (monde chronologique)."""
+    if scope not in ("following", "global"):
+        raise HTTPException(status_code=400, detail="scope invalide (following|global)")
+
+    exclude_list = [x.strip() for x in (exclude_ids or "").split(",") if x.strip()]
+    return await _fetch_feed_page(
+        user,
+        scope=scope,
+        limit=limit,
+        cursor=cursor,
+        exclude_ids=exclude_list,
     )
 
-    page = []
-    for item in scored[offset:offset + limit]:
-        item.pop("_priority", None)
-        item.pop("_trending", None)
-        page.append(item)
-    return page
+
+@api_router.get("/feed/trending")
+async def get_feed_trending(
+    limit: int = 3,
+    window_days: int = 7,
+    user: dict = Depends(get_current_user),
+):
+    """Top tendances — publications publiques les plus aimées sur la fenêtre récente."""
+    limit = max(1, min(limit, 3))
+    window_days = max(1, min(window_days, 30))
+    since = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
+
+    candidates = await db.posts.find({
+        "visibility": "public",
+        "created_at": {"$gte": since},
+    }).sort([("created_at", -1)]).limit(300).to_list(300)
+
+    scored = []
+    for post in candidates:
+        if not await can_view_post_doc(user["id"], post):
+            continue
+        likes_n = len(post.get("likes") or [])
+        scored.append((likes_n, post.get("created_at") or "", str(post["_id"]), post))
+
+    scored.sort(key=lambda t: (t[0], t[1], t[2]), reverse=True)
+
+    posts = []
+    for rank, (_, __, ___, post) in enumerate(scored[:limit], start=1):
+        serialized = await _serialize_feed_post(post, user, feed_source="trending")
+        if serialized:
+            serialized["trending_rank"] = rank
+            posts.append(serialized)
+
+    return {"posts": posts, "window_days": window_days}
 
 
 @api_router.post("/uploads/image")

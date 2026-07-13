@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { invalidateFeedCache } from './feedCache';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -140,7 +141,11 @@ export const sessionsApi = {
 
 // Posts API (mur social)
 export const postsApi = {
-  create: (data) => api.post('/posts', data),
+  create: async (data) => {
+    const response = await api.post('/posts', data);
+    invalidateFeedCache();
+    return response;
+  },
   getByHandle: (handle, params = {}) =>
     api.get(`/users/${encodeURIComponent(handle)}/posts`, { params }),
   getRepostsByHandle: (handle, params = {}) =>
@@ -159,6 +164,7 @@ export const postsApi = {
 // Feed API
 export const feedApi = {
   get: (params = {}) => api.get('/feed', { params }),
+  getTrending: (params = {}) => api.get('/feed/trending', { params }),
 };
 
 // Uploads API
