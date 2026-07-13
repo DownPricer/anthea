@@ -97,6 +97,12 @@ export function CreateWorkoutPage() {
   const { workoutId: editWorkoutId } = useParams();
   const isEditMode = Boolean(editWorkoutId);
   const [drafts, setDrafts] = useState([]);
+  const [editingDraft, setEditingDraft] = useState(false);
+  const [abandonDialogOpen, setAbandonDialogOpen] = useState(false);
+  const [deleteDraftDialogOpen, setDeleteDraftDialogOpen] = useState(false);
+  const [draftToDelete, setDraftToDelete] = useState(null);
+  const [deletingDraft, setDeletingDraft] = useState(false);
+  const draftDeletedRef = useRef(false);
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -143,13 +149,99 @@ export function CreateWorkoutPage() {
     loadData();
   }, [editWorkoutId]);
 
+  const refreshDrafts = async () => {
+    if (isEditMode) return;
+    try {
+      const res = await workoutsApi.getDrafts();
+      setDrafts(res.data || []);
+    } catch {
+      setDrafts([]);
+    }
+  };
+
   useEffect(() => {
     if (isEditMode) return;
-    workoutsApi
-      .getDrafts()
-      .then((res) => setDrafts(res.data || []))
-      .catch(() => setDrafts([]));
+    refreshDrafts();
   }, [isEditMode]);
+
+  const clearLocalDraftStorage = () => {
+    try {
+      sessionStorage.removeItem('workout_draft');
+      sessionStorage.removeItem('create_workout_draft');
+      localStorage.removeItem('workout_draft');
+      localStorage.removeItem('create_workout_draft');
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const resetFormState = () => {
+    setTitle('');
+    setDescription('');
+    setForUserId(user?.id || '');
+    setScheduledTime('');
+    setDifficulty('medium');
+    setScheduleMode('single');
+    setSingleDate(new Date());
+    setMultipleDates([]);
+    setWeekDays([]);
+    setBlocks([
+      { block_type: 'warmup', exercises: [], expanded: true },
+      { block_type: 'main', exercises: [], expanded: true },
+      { block_type: 'cooldown', exercises: [], expanded: true },
+    ]);
+    setEditingDraft(false);
+  };
+
+  const handleDeleteDraft = async (draftId) => {
+    if (!draftId) return;
+    setDeletingDraft(true);
+    draftDeletedRef.current = true;
+    try {
+      await workoutsApi.delete(draftId);
+      clearLocalDraftStorage();
+      resetFormState();
+      setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+      toast.success('Brouillon supprimé');
+      if (isEditMode && editWorkoutId === draftId) {
+        navigate('/create');
+      }
+    } catch (error) {
+      draftDeletedRef.current = false;
+      toast.error(formatApiError(error));
+    } finally {
+      setDeletingDraft(false);
+      setDeleteDraftDialogOpen(false);
+      setDraftToDelete(null);
+      await refreshDrafts();
+    }
+  };
+
+  const handleAbandonSaveDraft = async () => {
+    setAbandonDialogOpen(false);
+    await handleSave(true);
+    if (!isEditMode) {
+      navigate('/create');
+    } else {
+      navigate('/create');
+    }
+  };
+
+  const handleAbandonDelete = async () => {
+    setAbandonDialogOpen(false);
+    draftDeletedRef.current = true;
+    clearLocalDraftStorage();
+    resetFormState();
+    if (isEditMode && editWorkoutId) {
+      try {
+        await workoutsApi.delete(editWorkoutId);
+      } catch {
+        /* peut déjà être absent */
+      }
+    }
+    await refreshDrafts();
+    navigate('/create');
+  };
 
   const loadData = async () => {
     try {
@@ -162,6 +254,7 @@ export function CreateWorkoutPage() {
 
       if (isEditMode && results[1]?.data) {
         const w = results[1].data;
+        setEditingDraft(!!w.is_draft);
         setTitle(w.title || '');
         setDescription(w.description || '');
         setForUserId(w.for_user_id || user?.id || '');
@@ -515,6 +608,7 @@ export function CreateWorkoutPage() {
   const previewDates = getScheduledDatesPreview();
 
   const handleSave = async (asDraft = false) => {
+    if (draftDeletedRef.current) return;
     if (!title.trim()) {
       toast.error('Donne un titre à ta séance');
       return;
@@ -544,8 +638,10 @@ export function CreateWorkoutPage() {
           is_draft: asDraft,
         };
         await workoutsApi.update(editWorkoutId, workoutData);
-        toast.success(asDraft ? 'Brouillon mis à jour' : 'Séance mise à jour !');
-        if (!asDraft) {
+        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance mise à jour !');
+        if (asDraft) {
+          navigate('/create');
+        } else if (!asDraft) {
           navigate('/workouts');
         }
         return;
@@ -564,10 +660,10 @@ export function CreateWorkoutPage() {
         };
 
         const { data } = await workoutsApi.create(workoutData);
-        toast.success(asDraft ? 'Brouillon sauvegardé' : 'Séance créée !');
+        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance créée !');
         
         if (asDraft) {
-          navigate(`/workouts/${data.id}`);
+          navigate('/create');
         } else {
           navigate('/workouts');
         }
@@ -688,7 +784,7 @@ export function CreateWorkoutPage() {
             <p className="text-amber-200/70 text-sm mt-1">
               Reprends ta dernière séance sauvegardée en brouillon.
             </p>
-            <div className="mt-3">
+            <div className="mt-3 flex flex-wrap gap-2">
               <Button
                 type="button"
                 variant="outline"
@@ -696,6 +792,18 @@ export function CreateWorkoutPage() {
                 onClick={() => navigate(`/workouts/${drafts[0].id}`)}
               >
                 Ouvrir le brouillon
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                data-testid="delete-draft-btn"
+                className="rounded-xl border-red-500/30 text-red-200 hover:bg-red-500/10"
+                onClick={() => {
+                  setDraftToDelete(drafts[0]);
+                  setDeleteDraftDialogOpen(true);
+                }}
+              >
+                Supprimer le brouillon
               </Button>
             </div>
           </div>
@@ -1547,11 +1655,12 @@ export function CreateWorkoutPage() {
           <div className="flex gap-3">
             <Button
               variant="outline"
-              onClick={() => handleSave(true)}
+              onClick={() => setAbandonDialogOpen(true)}
               disabled={saving}
+              data-testid="abandon-workout-btn"
               className="flex-1 h-12 rounded-2xl bg-white/5 border-white/10 text-white"
             >
-              <Save size={18} className="mr-2" /> Brouillon
+              {isEditMode && editingDraft ? 'Abandonner ce brouillon' : 'Abandonner la création'}
             </Button>
             <Button
               variant="outline"
@@ -1568,6 +1677,63 @@ export function CreateWorkoutPage() {
           </div>
         </div>
       </div>
+
+      <AlertDialog open={deleteDraftDialogOpen} onOpenChange={setDeleteDraftDialogOpen}>
+        <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Supprimer définitivement ce brouillon ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Cette action est irréversible.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteDraft(draftToDelete?.id);
+              }}
+              disabled={deletingDraft}
+              className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+            >
+              {deletingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={abandonDialogOpen} onOpenChange={setAbandonDialogOpen}>
+        <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Que souhaitez-vous faire de cette séance ?</AlertDialogTitle>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <AlertDialogCancel className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10">
+              {isEditMode && editingDraft ? 'Continuer' : 'Continuer la modification'}
+            </AlertDialogCancel>
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full rounded-xl border-white/15 text-white"
+              disabled={saving}
+              onClick={handleAbandonSaveDraft}
+            >
+              {isEditMode && editingDraft ? 'Conserver le brouillon' : 'Enregistrer en brouillon'}
+            </Button>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleAbandonDelete();
+              }}
+              className="w-full bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
+            >
+              {isEditMode && editingDraft ? 'Supprimer définitivement' : 'Abandonner et supprimer'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={!!templatePendingDelete}

@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Bell, ChevronLeft, Loader2, UserPlus, Heart } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -43,6 +43,8 @@ function NotificationIcon({ type }) {
 
 export function NotificationsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const filterDuo = searchParams.get('filter') === 'duo';
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(null);
@@ -51,14 +53,19 @@ export function NotificationsPage() {
   const loadNotifications = useCallback(async () => {
     setLoading(true);
     try {
-      const { data } = await notificationsApi.list();
+      const { data } = await notificationsApi.list(30, filterDuo ? 'duo' : undefined);
       setNotifications(data || []);
     } catch {
       setNotifications([]);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [filterDuo]);
+
+  const displayedNotifications = useMemo(() => {
+    if (!filterDuo) return notifications;
+    return notifications.filter((n) => n.type?.startsWith('duo_'));
+  }, [notifications, filterDuo]);
 
   useEffect(() => {
     loadNotifications();
@@ -152,18 +159,42 @@ export function NotificationsPage() {
         <h1 className="text-xl font-bold text-white font-['Outfit']">Notifications</h1>
       </header>
 
+      <div className="flex gap-2 mb-4">
+        <Button
+          type="button"
+          size="sm"
+          variant={filterDuo ? 'outline' : 'default'}
+          className={`rounded-full ${filterDuo ? 'border-white/15 text-white' : 'btn-primary text-white'}`}
+          onClick={() => navigate('/notifications')}
+        >
+          Toutes
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant={filterDuo ? 'default' : 'outline'}
+          data-testid="notifications-filter-duo"
+          className={`rounded-full ${filterDuo ? 'btn-primary text-white' : 'border-white/15 text-white'}`}
+          onClick={() => navigate('/notifications?filter=duo')}
+        >
+          Duo
+        </Button>
+      </div>
+
       {loading ? (
         <div className="flex justify-center py-16">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
         </div>
-      ) : notifications.length === 0 ? (
+      ) : displayedNotifications.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Bell size={32} className="text-zinc-600 mb-3" />
-          <p className="text-zinc-400 text-sm">Aucune notification pour l'instant.</p>
+          <p className="text-zinc-400 text-sm">
+            {filterDuo ? 'Aucune notification duo pour l\'instant.' : 'Aucune notification pour l\'instant.'}
+          </p>
         </div>
       ) : (
         <div className="space-y-2">
-          {notifications.map((notif) => {
+          {displayedNotifications.map((notif) => {
             const handle = getPublicHandle({
               handle: notif.actor_handle,
               username: notif.actor_username,

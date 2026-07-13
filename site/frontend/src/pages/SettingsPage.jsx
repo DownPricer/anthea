@@ -35,6 +35,7 @@ import {
   Loader2,
   Lock,
   Globe,
+  ChevronDown,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { setupPushNotifications } from '../lib/pushNotifications';
@@ -96,6 +97,7 @@ export function SettingsPage() {
   const [activityVisibility, setActivityVisibility] = useState(user?.activity_visibility || (user?.show_recent_activity ? 'public' : 'me'));
   const [showSessions, setShowSessions] = useState(!!user?.show_sessions);
   const [postsVisibility, setPostsVisibility] = useState(user?.posts_visibility || (user?.show_posts ? 'public' : 'me'));
+  const [privacyAdvancedOpen, setPrivacyAdvancedOpen] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [badges, setBadges] = useState([]);
@@ -172,14 +174,17 @@ export function SettingsPage() {
 
   const handleSavePrivacy = async () => {
     setSavingPrivacy(true);
-    const result = await updateProfile({
+    const payload = {
       account_visibility: accountVisibility,
-      stats_visibility: statsVisibility,
-      badges_visibility: badgesVisibility,
-      activity_visibility: activityVisibility,
       show_sessions: showSessions,
-      posts_visibility: postsVisibility,
-    });
+    };
+    if (accountVisibility === 'public') {
+      payload.stats_visibility = statsVisibility;
+      payload.activity_visibility = activityVisibility;
+      payload.posts_visibility = 'public';
+      payload.badges_visibility = 'public';
+    }
+    const result = await updateProfile(payload);
     setSavingPrivacy(false);
 
     if (result.success) {
@@ -216,56 +221,69 @@ export function SettingsPage() {
         <SettingsSection
           icon={Shield}
           title="Confidentialité"
-          description="Contrôle ce que les autres pourront voir (V2 sociale)"
         >
           <div className="space-y-3">
             <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
-              <div className="flex items-center gap-3">
-                {accountVisibility === 'public' ? (
-                  <Globe size={18} className="text-emerald-400" />
-                ) : (
-                  <Lock size={18} className="text-zinc-400" />
-                )}
-                <div>
-                  <span className="text-white block">Compte {accountVisibility === 'public' ? 'public' : 'privé'}</span>
-                  <span className="text-zinc-500 text-xs">
-                    {accountVisibility === 'public'
-                      ? 'Ton profil sera visible par tous (bientôt)'
-                      : 'Seul ton duo voit tes infos pour l\'instant'}
-                  </span>
-                </div>
-              </div>
+              <span className="text-white text-sm font-medium">Confidentialité</span>
               <Select value={accountVisibility} onValueChange={setAccountVisibility}>
-                <SelectTrigger className="w-28 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs">
+                <SelectTrigger
+                  data-testid="account-visibility-select"
+                  className="w-36 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs"
+                >
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="private" className="text-white">Privé</SelectItem>
-                  <SelectItem value="public" className="text-white">Public</SelectItem>
+                  <SelectItem value="public" className="text-white">Compte public</SelectItem>
+                  <SelectItem value="private" className="text-white">Compte privé</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            {[
-              { key: 'stats', label: 'Visibilité des statistiques', value: statsVisibility, set: setStatsVisibility },
-              { key: 'badges', label: 'Visibilité des badges', value: badgesVisibility, set: setBadgesVisibility },
-              { key: 'activity', label: "Visibilité de l’activité", value: activityVisibility, set: setActivityVisibility },
-              { key: 'posts', label: 'Visibilité des publications', value: postsVisibility, set: setPostsVisibility },
-            ].map((item) => (
-              <div key={item.key} className="flex items-center justify-between rounded-xl bg-white/5 p-3">
-                <span className="text-white text-sm">{item.label}</span>
-                <Select value={item.value} onValueChange={item.set}>
-                  <SelectTrigger className="w-44 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-[#141414] border-white/10">
-                    <SelectItem value="public" className="text-white">Public</SelectItem>
-                    <SelectItem value="followers" className="text-white">Abonnés uniquement</SelectItem>
-                    <SelectItem value="me" className="text-white">Moi uniquement</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
+            {accountVisibility === 'public' ? (
+              <>
+                <p className="text-zinc-500 text-xs px-1">
+                  Vos publications et badges sont visibles publiquement.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setPrivacyAdvancedOpen((v) => !v)}
+                  className="flex w-full items-center justify-between rounded-xl bg-white/5 p-3 text-left"
+                  data-testid="privacy-advanced-toggle"
+                >
+                  <span className="text-white text-sm">Personnaliser la visibilité</span>
+                  <ChevronDown
+                    size={16}
+                    className={`text-zinc-500 transition-transform ${privacyAdvancedOpen ? 'rotate-180' : ''}`}
+                  />
+                </button>
+                {privacyAdvancedOpen ? (
+                  <div className="space-y-3 pl-1">
+                    {[
+                      { key: 'stats', label: 'Statistiques', value: statsVisibility, set: setStatsVisibility },
+                      { key: 'activity', label: 'Activité', value: activityVisibility, set: setActivityVisibility },
+                    ].map((item) => (
+                      <div key={item.key} className="flex items-center justify-between rounded-xl bg-white/5 p-3">
+                        <span className="text-white text-sm">{item.label}</span>
+                        <Select value={item.value} onValueChange={item.set}>
+                          <SelectTrigger className="w-44 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-[#141414] border-white/10">
+                            <SelectItem value="public" className="text-white">Public</SelectItem>
+                            <SelectItem value="followers" className="text-white">Abonnés uniquement</SelectItem>
+                            <SelectItem value="me" className="text-white">Moi uniquement</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
+              </>
+            ) : (
+              <p className="text-zinc-500 text-xs px-1">
+                Seuls vos abonnés acceptés peuvent voir votre contenu.
+              </p>
+            )}
 
             <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
               <span className="text-white text-sm">Historique des séances</span>

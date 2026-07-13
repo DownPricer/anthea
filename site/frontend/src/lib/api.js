@@ -61,8 +61,10 @@ export const usersApi = {
 
 // Notifications API
 export const notificationsApi = {
-  list: (limit = 30) => api.get('/notifications', { params: { limit } }),
-  unreadCount: () => api.get('/notifications/unread-count'),
+  list: (limit = 30, filter) =>
+    api.get('/notifications', { params: { limit, ...(filter ? { filter } : {}) } }),
+  unreadCount: (filter) =>
+    api.get('/notifications/unread-count', { params: filter ? { filter } : {} }),
   markRead: (id) => api.post(`/notifications/${id}/read`),
   markAllRead: () => api.post('/notifications/read-all'),
 };
