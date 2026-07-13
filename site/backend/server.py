@@ -4537,8 +4537,6 @@ def _combined_for_date(
     uo = _user_day_outcome(u_planned, u_rest, day_index)
     po = _user_day_outcome(p_planned, p_rest, day_index) if partner_id else None
     combined = _combine_duo_outcomes(uo, po if partner_id else None)
-    if combined == "neutral":
-        combined = "ok"
 
     active_u = [w for w in u_planned if not w.get("is_draft")]
     active_p = [w for w in p_planned if not w.get("is_draft")] if partner_id else []
@@ -4588,9 +4586,14 @@ async def calculate_streak(user_id: str, partner_id: Optional[str]) -> int:
             if i > 0:
                 break
             continue
+        contributes = bool(info.get("rest") or info.get("has_planned"))
         combined = info["combined"]
-        if combined == "fail" and i > 0:
-            break
+        if not contributes:
+            continue
+        if combined == "fail":
+            if i > 0:
+                break
+            continue
         if combined == "today_pending":
             continue
         if combined == "ok":
@@ -4663,6 +4666,9 @@ async def build_streak_calendar(
                 break
             continue
         combined = info["combined"]
+        contributes = bool(info.get("rest") or info.get("has_planned"))
+        if not contributes:
+            continue
         if combined == "fail" and i > 0:
             break
         if combined == "today_pending":

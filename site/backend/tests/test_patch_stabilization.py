@@ -271,6 +271,161 @@ def test_compute_best_streak_from_calendar():
     assert compute_best_streak_from_calendar(neutral_days) == 0
 
 
+def test_calculate_streak_empty_history_is_zero():
+    import asyncio
+    import server as srv
+
+    class _FakeFind:
+        def __init__(self, docs):
+            self._docs = list(docs or [])
+
+        def sort(self, *args, **kwargs):
+            return self
+
+        def limit(self, *args, **kwargs):
+            return self
+
+        async def to_list(self, n):
+            return list(self._docs)[:n]
+
+    class _FakeCol:
+        def __init__(self, docs):
+            self._docs = list(docs or [])
+
+        def find(self, query, projection=None):
+            # Support minimal filters used by streak context
+            if not query:
+                return _FakeFind(self._docs)
+            if "user_id" in query and isinstance(query["user_id"], dict) and "$in" in query["user_id"]:
+                allowed = set(query["user_id"]["$in"])
+                docs = [d for d in self._docs if d.get("user_id") in allowed]
+                return _FakeFind(docs)
+            if "for_user_id" in query and isinstance(query["for_user_id"], dict) and "$in" in query["for_user_id"]:
+                allowed = set(query["for_user_id"]["$in"])
+                docs = [d for d in self._docs if d.get("for_user_id") in allowed]
+                return _FakeFind(docs)
+            return _FakeFind(self._docs)
+
+    class _FakeDb:
+        def __init__(self):
+            self.streak_days = _FakeCol([])
+            self.scheduled_workouts = _FakeCol([])
+
+    orig_db = srv.db
+    srv.db = _FakeDb()
+    try:
+        streak = asyncio.get_event_loop().run_until_complete(srv.calculate_streak("userB", None))
+        assert streak == 0
+    finally:
+        srv.db = orig_db
+
+
+def test_calculate_streak_isolated_between_users():
+    import asyncio
+    import server as srv
+
+    class _FakeFind:
+        def __init__(self, docs):
+            self._docs = list(docs or [])
+
+        def sort(self, *args, **kwargs):
+            return self
+
+        def limit(self, *args, **kwargs):
+            return self
+
+        async def to_list(self, n):
+            return list(self._docs)[:n]
+
+    class _FakeCol:
+        def __init__(self, docs):
+            self._docs = list(docs or [])
+
+        def find(self, query, projection=None):
+            if "for_user_id" in query and isinstance(query["for_user_id"], dict) and "$in" in query["for_user_id"]:
+                allowed = set(query["for_user_id"]["$in"])
+                docs = [d for d in self._docs if d.get("for_user_id") in allowed]
+                return _FakeFind(docs)
+            if "user_id" in query and isinstance(query["user_id"], dict) and "$in" in query["user_id"]:
+                allowed = set(query["user_id"]["$in"])
+                docs = [d for d in self._docs if d.get("user_id") in allowed]
+                return _FakeFind(docs)
+            return _FakeFind(self._docs)
+
+    class _FakeDb:
+        def __init__(self, scheduled):
+            self.streak_days = _FakeCol([])
+            self.scheduled_workouts = _FakeCol(scheduled)
+
+    # A a 10 jours avec séances planifiées et complétées => streak attendu 10
+    # B n'a rien => streak attendu 0 (ne doit jamais "hériter" d'A)
+    from datetime import datetime, timedelta, timezone
+    today = datetime.now(timezone.utc).date()
+    scheduled = []
+    for i in range(10):
+        d = (today - timedelta(days=i)).isoformat()
+        scheduled.append({"for_user_id": "userA", "scheduled_date": d, "is_draft": False, "status": "completed"})
+
+    orig_db = srv.db
+    srv.db = _FakeDb(scheduled)
+    try:
+        streak_a = asyncio.get_event_loop().run_until_complete(srv.calculate_streak("userA", None))
+        streak_b = asyncio.get_event_loop().run_until_complete(srv.calculate_streak("userB", None))
+        assert streak_a == 10
+        assert streak_b == 0
+    finally:
+        srv.db = orig_db
+
+
+def test_new_account_has_no_unlocked_badges():
+    import asyncio
+    from badges import evaluate_all_badges
+
+    class _FakeFind:
+        def __init__(self, docs):
+            self._docs = list(docs or [])
+
+        def sort(self, *args, **kwargs):
+            return self
+
+        def limit(self, *args, **kwargs):
+            return self
+
+        async def to_list(self, n):
+            return list(self._docs)[:n]
+
+    class _FakeWorkoutSessions:
+        def __init__(self):
+            pass
+
+        async def count_documents(self, query):
+            return 0
+
+        def find(self, query, projection=None):
+            return _FakeFind([])
+
+    class _FakeScheduled:
+        async def count_documents(self, query):
+            return 0
+
+    class _FakeChallengeCompletions:
+        async def count_documents(self, query):
+            return 0
+
+    class _FakeDb:
+        workout_sessions = _FakeWorkoutSessions()
+        scheduled_workouts = _FakeScheduled()
+        challenge_completions = _FakeChallengeCompletions()
+
+    async def _run():
+        badges = await evaluate_all_badges(_FakeDb(), "user_new", None, 0)
+        assert badges, "Le catalogue doit exister même pour un compte neuf"
+        assert len([b for b in badges if b.get("unlocked")]) == 0
+        assert all((b.get("progress") or 0) == 0 for b in badges if not b.get("unlocked"))
+
+    asyncio.get_event_loop().run_until_complete(_run())
+
+
 def test_duo_post_owner_actor_fields():
     """Champs attendus pour une publication mur duo."""
     from server import duo_wall_owner_key, duo_pair_key, DUO_WALL_POST_TYPES

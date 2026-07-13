@@ -31,10 +31,14 @@ def api_session():
     session.headers.update({'Content-Type': 'application/json'})
     
     # Login to get auth cookies
-    login_response = session.post(
-        f"{BASE_URL}/api/auth/login",
-        json={"username": TEST_USERNAME, "password": TEST_PASSWORD}
-    )
+    try:
+        login_response = session.post(
+            f"{BASE_URL}/api/auth/login",
+            json={"username": TEST_USERNAME, "password": TEST_PASSWORD},
+            timeout=3,
+        )
+    except requests.RequestException as e:
+        pytest.skip(f"Backend indisponible ({BASE_URL}) : {e}")
     
     if login_response.status_code != 200:
         pytest.skip(f"Login failed: {login_response.text}")
