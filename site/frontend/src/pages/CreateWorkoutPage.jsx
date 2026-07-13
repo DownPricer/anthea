@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
+import { sanitizeExerciseForApi, handleExerciseImageError } from '../lib/exerciseMedia';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -17,6 +18,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -146,6 +148,7 @@ export function CreateWorkoutPage() {
   const templateCacheRef = useRef(new Map());
 
   useEffect(() => {
+    draftDeletedRef.current = false;
     loadData();
   }, [editWorkoutId]);
 
@@ -608,23 +611,51 @@ export function CreateWorkoutPage() {
   const previewDates = getScheduledDatesPreview();
 
   const handleSave = async (asDraft = false) => {
-    if (draftDeletedRef.current) return;
-    if (!title.trim()) {
-      toast.error('Donne un titre à ta séance');
+    const exerciseCount = blocks.reduce((n, b) => n + b.exercises.length, 0);
+    const validationErrors = [];
+
+    if (!title.trim()) validationErrors.push('Le nom de la séance est obligatoire.');
+    if (exerciseCount === 0) validationErrors.push('Ajoutez au moins un exercice.');
+    if (previewDates.length === 0) {
+      if (scheduleMode === 'weekly' && weekDays.length === 0) {
+        validationErrors.push('Sélectionnez au moins un jour de la semaine.');
+      } else {
+        validationErrors.push('Sélectionnez au moins une date.');
+      }
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[Workout Plan Click]', {
+        title,
+        exerciseCount,
+        selectedDates: previewDates,
+        startTime: scheduledTime,
+        recurrence: scheduleMode,
+        status: asDraft ? 'draft' : 'scheduled',
+        isSaving: saving,
+        validationErrors,
+        draftDeleted: draftDeletedRef.current,
+      });
+    }
+
+    if (validationErrors.length > 0) {
+      toast.error(validationErrors[0]);
       return;
     }
 
-    if (previewDates.length === 0) {
-      toast.error('Sélectionne au moins une date');
+    if (draftDeletedRef.current) {
+      toast.error('Ce brouillon a été supprimé. Rechargez la page pour créer une nouvelle séance.');
       return;
     }
 
     setSaving(true);
     try {
-      const blocksPayload = blocks.filter((b) => b.exercises.length > 0).map((b) => ({
-        block_type: b.block_type,
-        exercises: b.exercises,
-      }));
+      const blocksPayload = blocks
+        .filter((b) => b.exercises.length > 0)
+        .map((b) => ({
+          block_type: b.block_type,
+          exercises: b.exercises.map(sanitizeExerciseForApi),
+        }));
 
       if (isEditMode) {
         const workoutData = {
@@ -637,13 +668,20 @@ export function CreateWorkoutPage() {
           blocks: blocksPayload,
           is_draft: asDraft,
         };
-        await workoutsApi.update(editWorkoutId, workoutData);
-        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance mise à jour !');
-        if (asDraft) {
-          navigate('/create');
-        } else if (!asDraft) {
-          navigate('/workouts');
+        const endpoint = `/workouts/${editWorkoutId}`;
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Workout Plan Request]', { endpoint, method: 'PUT', payload: workoutData });
         }
+        const response = await workoutsApi.update(editWorkoutId, workoutData);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Workout Plan Response]', response.data);
+        }
+        if (!asDraft) {
+          clearLocalDraftStorage();
+          draftDeletedRef.current = false;
+        }
+        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance planifiée');
+        navigate(asDraft ? '/create' : '/workouts');
         return;
       }
 
@@ -658,28 +696,28 @@ export function CreateWorkoutPage() {
           blocks: blocksPayload,
           is_draft: asDraft,
         };
-
-        const { data } = await workoutsApi.create(workoutData);
-        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance créée !');
-        
-        if (asDraft) {
-          navigate('/create');
-        } else {
-          navigate('/workouts');
+        const endpoint = '/workouts';
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Workout Plan Request]', { endpoint, method: 'POST', payload: workoutData });
         }
+        const response = await workoutsApi.create(workoutData);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Workout Plan Response]', response.data);
+        }
+        if (!asDraft) {
+          clearLocalDraftStorage();
+          draftDeletedRef.current = false;
+        }
+        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance planifiée');
+        navigate(asDraft ? '/create' : '/workouts');
       } else {
-        // Multi-schedule creation
         const multiData = {
           title: title.trim(),
           description: description.trim(),
           for_user_id: forUserId || user.id,
           scheduled_time: scheduledTime || null,
           difficulty,
-          blocks: blocks.filter((b) => b.exercises.length > 0).map((b) => ({
-            block_type: b.block_type,
-            exercises: b.exercises,
-          })),
-          // API FastAPI : multiple_dates | weekly_repeat (pas "multiple" / "weekly")
+          blocks: blocksPayload,
           schedule_mode:
             scheduleMode === 'multiple'
               ? 'multiple_dates'
@@ -692,14 +730,26 @@ export function CreateWorkoutPage() {
           end_date: scheduleMode === 'weekly' ? endDate : null,
           repeat_weeks: scheduleMode === 'weekly' ? repeatWeeks : null,
         };
-
-        const { data } = await workoutsApi.createMulti(multiData);
-        toast.success(`${data.created} séances créées !`);
+        const endpoint = '/workouts/multi-schedule';
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Workout Plan Request]', { endpoint, method: 'POST', payload: multiData });
+        }
+        const response = await workoutsApi.createMulti(multiData);
+        if (process.env.NODE_ENV === 'development') {
+          console.debug('[Workout Plan Response]', response.data);
+        }
+        clearLocalDraftStorage();
+        draftDeletedRef.current = false;
+        toast.success(`Séance planifiée — ${response.data.created} création(s)`);
         navigate('/workouts');
       }
     } catch (error) {
+      console.error('[Workout Plan Error]', {
+        status: error.response?.status,
+        data: error.response?.data,
+        message: error.message,
+      });
       toast.error(formatApiError(error));
-      console.error(error);
     } finally {
       setSaving(false);
     }
@@ -1216,7 +1266,7 @@ export function CreateWorkoutPage() {
                               src={exercise.image_url}
                               alt=""
                               className="w-full h-full object-cover"
-                              onError={(e) => e.target.parentElement.style.display = 'none'}
+                              onError={handleExerciseImageError}
                             />
                           </div>
                         )}
@@ -1383,9 +1433,7 @@ export function CreateWorkoutPage() {
                                           src={exercise.image_url}
                                           alt=""
                                           className="w-full h-full object-cover"
-                                          onError={(e) => {
-                                            e.target.parentElement.innerHTML = '<div class="w-full h-full flex items-center justify-center text-zinc-600"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>';
-                                          }}
+                                          onError={handleExerciseImageError}
                                         />
                                       </div>
                                     ) : (
@@ -1708,6 +1756,9 @@ export function CreateWorkoutPage() {
         <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>Que souhaitez-vous faire de cette séance ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Enregistrez un brouillon, continuez l&apos;édition ou abandonnez sans conserver les changements.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <AlertDialogCancel className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10">
