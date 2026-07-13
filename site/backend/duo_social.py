@@ -114,10 +114,19 @@ def resolve_coach_roles(relation_type: str, member_a: dict, member_b: dict) -> T
 
 async def find_duo_by_tag(db, tag: str) -> Optional[dict]:
     """
-    tag public = name#short_id ; duo interne = pair_key + member_ids sur duo_profiles.
+    tag public = name#short_id ; URL-safe = short_id seul (ex. /duo/2395).
     Le short_id est la clé fiable (le nom peut changer après renommage).
     """
-    name_part, short_id = parse_duo_tag(tag)
+    from urllib.parse import unquote
+
+    raw = unquote((tag or "").strip())
+    if not raw:
+        return None
+    if raw.isdigit():
+        doc = await db.duo_profiles.find_one({"short_id": int(raw)})
+        if doc:
+            return doc
+    name_part, short_id = parse_duo_tag(raw)
     if short_id is not None:
         doc = await db.duo_profiles.find_one({"short_id": short_id})
         if doc:

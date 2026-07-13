@@ -50,6 +50,7 @@ from duo_social import (
     RELATION_LABELS,
     resolve_coach_roles,
     resolve_duo_member_pair,
+    resolve_duo_member_pair_from_doc,
     session_completions_for_range,
     sync_duo_member_ids,
 )
@@ -738,15 +739,70 @@ def duo_wall_owner_key(duo_doc: dict, user_id: str, partner_id: str) -> str:
     return duo_doc.get("pair_key") or duo_pair_key(user_id, partner_id)
 
 
+def resolve_duo_pair_key(duo_doc: dict) -> str:
+    """pair_key canonique — depuis le doc ou member_ids."""
+    pk = duo_doc.get("pair_key")
+    if pk:
+        return pk
+    a_id, b_id = resolve_duo_member_pair_from_doc(duo_doc)
+    if a_id and b_id:
+        return duo_pair_key(a_id, b_id)
+    return ""
+
+
 def duo_wall_posts_query(pair_key: str, profile_id: Optional[str] = None) -> dict:
-    """Requête mur duo — pair_key prioritaire, compat legacy profile _id."""
-    clauses = [
-        {"owner_type": "duo", "owner_id": pair_key},
-        {"duo_id": pair_key},
-    ]
+    """Requête mur duo — pair_key canonique + compat legacy profile _id / actor_id."""
+    clauses = []
+    if pair_key:
+        clauses.extend([
+            {"owner_type": "duo", "owner_id": pair_key},
+            {"duo_id": pair_key},
+            {"actor_type": "duo", "actor_id": pair_key},
+        ])
     if profile_id:
-        clauses.append({"duo_id": profile_id})
+        clauses.extend([
+            {"owner_type": "duo", "owner_id": profile_id},
+            {"duo_id": profile_id},
+            {"actor_type": "duo", "actor_id": profile_id},
+        ])
+    if not clauses:
+        return {"_id": None}
     return {"$or": clauses}
+
+
+async def repair_duo_wall_post_ownership() -> int:
+    """Réaligne owner/duo/actor sur pair_key pour les posts duo (idempotent)."""
+    candidates = await db.posts.find({
+        "$or": [
+            {"actor_type": "duo"},
+            {"owner_type": "duo"},
+            {"duo_id": {"$exists": True, "$ne": None}},
+            {"type": {"$in": list(DUO_WALL_POST_TYPES)}},
+        ]
+    }).to_list(5000)
+    repaired = 0
+    for post in candidates:
+        if not is_duo_wall_post(post):
+            continue
+        duo_doc = await find_duo_doc_for_post(post)
+        if not duo_doc:
+            continue
+        pair_key = resolve_duo_pair_key(duo_doc)
+        if not pair_key:
+            continue
+        updates = {}
+        if post.get("owner_type") != "duo" or post.get("owner_id") != pair_key:
+            updates["owner_type"] = "duo"
+            updates["owner_id"] = pair_key
+        if post.get("duo_id") != pair_key:
+            updates["duo_id"] = pair_key
+        if post.get("actor_type") != "duo" or post.get("actor_id") != pair_key:
+            updates["actor_type"] = "duo"
+            updates["actor_id"] = pair_key
+        if updates:
+            await db.posts.update_one({"_id": post["_id"]}, {"$set": updates})
+            repaired += 1
+    return repaired
 
 
 def is_duo_wall_post(post: dict) -> bool:
@@ -1398,6 +1454,10 @@ async def lifespan(app: FastAPI):
     await db.posts.create_index([("author_id", 1), ("created_at", -1)])
     await db.posts.create_index("created_at")
     await db.posts.create_index([("duo_id", 1), ("created_at", -1)])
+    await db.posts.create_index([("owner_type", 1), ("owner_id", 1), ("created_at", -1)])
+    repaired_posts = await repair_duo_wall_post_ownership()
+    if repaired_posts:
+        logger.info("Repaired %s duo wall posts ownership fields", repaired_posts)
     await db.reposts.create_index([("user_id", 1), ("created_at", -1)])
     await db.reposts.create_index([("user_id", 1), ("post_id", 1)])
     await db.reposts.create_index([("user_id", 1), ("workout_session_id", 1)])
@@ -2534,20 +2594,35 @@ async def get_duo_posts(
     offset: int = 0,
     user: dict = Depends(get_current_user),
 ):
-    duo_doc = await find_duo_by_tag(db, tag)
+    from urllib.parse import unquote
+
+    raw_tag = unquote(tag or "").strip()
+    duo_doc = await find_duo_by_tag(db, raw_tag)
     if not duo_doc:
         raise HTTPException(status_code=404, detail="Duo introuvable")
     duo_doc = apply_duo_defaults(await sync_duo_member_ids(db, duo_doc))
     members = await get_duo_members(db, duo_doc)
     access = await get_duo_access_level(db, user["id"], duo_doc, members)
-    if access != "member" and not can_view_duo_section(duo_doc, access, "posts"):
-        return []
+    is_member = access == "member"
+    if not is_member and not can_view_duo_section(duo_doc, access, "posts"):
+        return {"posts": []}
 
     duo_id = str(duo_doc["_id"])
-    pair_key = duo_doc.get("pair_key") or ""
-    posts = await db.posts.find(duo_wall_posts_query(pair_key, duo_id)).sort(
+    pair_key = resolve_duo_pair_key(duo_doc)
+    query = duo_wall_posts_query(pair_key, duo_id)
+    print("[DUO WALL READ]", {
+        "raw_tag": raw_tag,
+        "resolved_profile_id": duo_id,
+        "resolved_short_id": duo_doc.get("short_id"),
+        "resolved_pair_key": pair_key,
+        "member_ids": duo_doc.get("member_ids"),
+        "access": access,
+    })
+    print("[DUO WALL QUERY]", query)
+    posts = await db.posts.find(query).sort(
         "created_at", -1
     ).skip(offset).limit(min(limit, 50)).to_list(min(limit, 50))
+    print("[DUO WALL MATCHED]", len(posts))
 
     items = []
     for post in posts:
@@ -2555,7 +2630,7 @@ async def get_duo_posts(
         serialized = await serialize_post(post, user["id"], author, duo_doc=duo_doc)
         if serialized:
             items.append(serialized)
-    return items
+    return {"posts": items}
 
 
 @api_router.get("/duo/activity-feed")
@@ -3772,6 +3847,16 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
 
     result = await db.posts.insert_one(post_doc)
     post_doc["_id"] = result.inserted_id
+    if post_doc.get("owner_type") == "duo":
+        print("[DUO POST CREATE]", {
+            "post_id": str(result.inserted_id),
+            "owner_type": post_doc.get("owner_type"),
+            "owner_id": post_doc.get("owner_id"),
+            "duo_id": post_doc.get("duo_id"),
+            "actor_type": post_doc.get("actor_type"),
+            "actor_id": post_doc.get("actor_id"),
+            "created_by_user_id": post_doc.get("created_by_user_id"),
+        })
 
     if not user.get("show_posts"):
         await db.users.update_one(

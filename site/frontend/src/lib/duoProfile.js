@@ -55,6 +55,14 @@ export function duoProfilePath(tag) {
   return `/duo/${encodeURIComponent(tag)}`;
 }
 
+/** Identifiant URL-safe pour les appels API mur duo (short_id prioritaire). */
+export function duoWallRouteId(duoProfile) {
+  if (!duoProfile) return null;
+  const sid = duoProfile.short_id;
+  if (sid != null && sid !== 0) return String(sid);
+  return duoProfile.tag || null;
+}
+
 export function getDuoGradientStyle(memberA, memberB, theme = 'default') {
   const colorA = getAccentForUser(memberA, theme);
   const colorB = getAccentForUser(memberB, theme);

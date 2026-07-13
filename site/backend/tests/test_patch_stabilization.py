@@ -148,7 +148,55 @@ def test_duo_wall_posts_query():
     assert "$or" in q
     assert {"owner_type": "duo", "owner_id": pk} in q["$or"]
     assert {"duo_id": pk} in q["$or"]
+    assert {"actor_type": "duo", "actor_id": pk} in q["$or"]
+    assert {"owner_type": "duo", "owner_id": profile_id} in q["$or"]
     assert {"duo_id": profile_id} in q["$or"]
+    assert {"actor_type": "duo", "actor_id": profile_id} in q["$or"]
+
+
+def test_resolve_duo_pair_key_from_members():
+    from server import resolve_duo_pair_key, duo_pair_key
+    a = "507f1f77bcf86cd799439011"
+    b = "507f191e810c19729de860ea"
+    pk = duo_pair_key(a, b)
+    assert resolve_duo_pair_key({"pair_key": pk}) == pk
+    assert resolve_duo_pair_key({"member_ids": [a, b]}) == pk
+
+
+def test_find_duo_by_tag_short_id_only():
+    import asyncio
+    from duo_social import find_duo_by_tag
+
+    class FakeCol:
+        async def find_one(self, query):
+            if query.get("short_id") == 2395:
+                return {"_id": "p1", "short_id": 2395, "name": "TestDuo", "pair_key": "a_b"}
+            return None
+
+    class FakeDb:
+        duo_profiles = FakeCol()
+
+    async def _run():
+        doc = await find_duo_by_tag(FakeDb(), "2395")
+        assert doc is not None
+        assert doc["short_id"] == 2395
+
+    asyncio.get_event_loop().run_until_complete(_run())
+
+
+def test_duo_wall_query_legacy_profile_id():
+    from server import duo_wall_posts_query
+
+    pk = "userA_userB"
+    profile_id = "507f1f77bcf86cd799439011"
+    q = duo_wall_posts_query(pk, profile_id)
+    legacy_clauses = [
+        {"owner_type": "duo", "owner_id": profile_id},
+        {"duo_id": profile_id},
+        {"actor_type": "duo", "actor_id": profile_id},
+    ]
+    for clause in legacy_clauses:
+        assert clause in q["$or"]
 
 
 def test_is_duo_wall_post_pair_key():
@@ -353,11 +401,10 @@ def test_duo_wall_query_finds_pair_key_posts():
     pk = "507f1f77bcf86cd799439011_507f191e810c19729de860ea"
     profile_id = "legacyProfileId"
     q = duo_wall_posts_query(pk, profile_id)
-    sample_new = {"owner_type": "duo", "owner_id": pk, "duo_id": pk}
-    sample_legacy = {"duo_id": profile_id, "author_id": "u1", "type": "duo_free"}
-    assert any(clause.items() <= sample_new.items() for clause in q["$or"])
-    assert {"duo_id": profile_id} in q["$or"]
+    assert {"owner_type": "duo", "owner_id": pk} in q["$or"]
     assert {"duo_id": pk} in q["$or"]
+    assert {"actor_type": "duo", "actor_id": pk} in q["$or"]
+    assert {"duo_id": profile_id} in q["$or"]
 
 
 def test_user_wall_excludes_actor_type_duo():

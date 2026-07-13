@@ -12,9 +12,7 @@ import { DuoPostComposer } from './DuoPostComposer';
 
 import { Loader2 } from 'lucide-react';
 
-import { canViewDuoSection } from '../../lib/duoProfile';
-
-import { normalizeArray } from '../../lib/normalizeArray';
+import { canViewDuoSection, duoWallRouteId } from '../../lib/duoProfile';
 
 import { isCommonSessionPost, commonSessionFromPost } from '../../lib/commonSession';
 
@@ -36,7 +34,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
   const [error, setError] = useState(null);
 
-  const tag = duoProfile?.tag;
+  const wallRouteId = duoWallRouteId(duoProfile);
 
 
 
@@ -44,7 +42,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
   const canViewPublic = duoProfile ? canViewDuoSection(duoProfile, 'posts') : false;
 
-  const canLoad = !!tag && (canViewPublic || isMember);
+  const canLoad = !!wallRouteId && (canViewPublic || isMember);
 
 
 
@@ -68,9 +66,31 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
     try {
 
-      const { data } = await duoProfilesApi.getPosts(tag);
+      const response = await duoProfilesApi.getPosts(wallRouteId);
 
-      setPosts(normalizeArray(data));
+      const loadedPosts = Array.isArray(response.data?.posts)
+
+        ? response.data.posts
+
+        : [];
+
+      if (process.env.NODE_ENV === 'development') {
+
+        console.debug('[DuoPostFeed] GET wall', {
+
+          requestedTag: wallRouteId,
+
+          encodedTag: encodeURIComponent(wallRouteId),
+
+          pairKey: duoProfile?.pair_key,
+
+          response: response.data,
+
+        });
+
+      }
+
+      setPosts(loadedPosts);
 
     } catch (err) {
 
@@ -90,7 +110,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
     }
 
-  }, [tag, canLoad]);
+  }, [wallRouteId, canLoad, duoProfile?.pair_key]);
 
 
 
@@ -144,7 +164,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
   const members = Array.isArray(duoProfile.members) ? duoProfile.members : [];
 
-  const safePosts = normalizeArray(posts);
+  const safePosts = posts;
 
 
 
@@ -155,11 +175,11 @@ export function DuoPostFeed({ duoProfile, viewer }) {
       {isMember ? (
         <DuoPostComposer
           duoProfile={duoProfile}
-          onPosted={(newPost) => {
+          onPosted={async (newPost) => {
             if (newPost?.id && newPost?.actor?.type === 'duo') {
-              setPosts((prev) => [newPost, ...prev.filter((p) => p.id !== newPost.id)]);
+              setPosts((current) => [newPost, ...current.filter((p) => p.id !== newPost.id)]);
             }
-            load();
+            await load();
           }}
         />
       ) : null}
