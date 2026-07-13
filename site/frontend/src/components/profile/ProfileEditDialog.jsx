@@ -16,12 +16,14 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
+import { useAuth } from '../../context/AuthContext';
 import { getPublicHandle, isValidHandle, normalizeHandle } from '../../lib/userProfile';
 import { uploadsApi, resolveMediaUrl } from '../../lib/api';
-import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
+import { revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 import { AvatarCropDialog } from './AvatarCropDialog';
 
 const FITNESS_LEVELS = [
@@ -46,6 +48,7 @@ export function ProfileEditDialog({
   badges = [],
   onSave,
 }) {
+  const { refreshUser } = useAuth();
   const [displayName, setDisplayName] = useState('');
   const [handle, setHandle] = useState('');
   const [avatarUrl, setAvatarUrl] = useState('');
@@ -58,6 +61,7 @@ export function ProfileEditDialog({
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [cropSrc, setCropSrc] = useState(null);
   const [cropOpen, setCropOpen] = useState(false);
+  const originalFileRef = useRef(null);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -77,8 +81,9 @@ export function ProfileEditDialog({
   const handleAvatarPick = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
+    originalFileRef.current = file;
     try {
-      const { blob, previewUrl } = await compressImageFile(file);
+      const previewUrl = URL.createObjectURL(file);
       setCropSrc(previewUrl);
       setCropOpen(true);
     } catch (error) {
@@ -96,11 +101,13 @@ export function ProfileEditDialog({
       const dataUrl = await blobToDataUrl(file || blob);
       const uploadName = file?.name || `avatar-${Date.now()}.webp`;
       const { data } = await uploadsApi.uploadImage(dataUrl, uploadName);
-      const url = resolveMediaUrl(data.url) || data.url;
+      const url = data.url || data.path;
       setAvatarUrl(url);
+      await refreshUser();
       setCropOpen(false);
-      revokePreviewUrl(cropSrc);
+      if (cropSrc) revokePreviewUrl(cropSrc);
       setCropSrc(null);
+      originalFileRef.current = null;
       toast.success('Photo importée');
     } catch (error) {
       revokePreviewUrl(previewUrl);
@@ -161,6 +168,9 @@ export function ProfileEditDialog({
       <DialogContent className="bg-[#141414] border-white/10 max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-white font-['Outfit']">Modifier le profil</DialogTitle>
+          <DialogDescription className="text-zinc-500">
+            Photo, pseudo, bio et badges mis en avant.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-5">
@@ -314,11 +324,14 @@ export function ProfileEditDialog({
       <AvatarCropDialog
         open={cropOpen}
         imageSrc={cropSrc}
+        originalFile={originalFileRef.current}
         onOpenChange={(open) => {
+          if (uploadingAvatar) return;
           setCropOpen(open);
           if (!open) {
-            revokePreviewUrl(cropSrc);
+            if (cropSrc) revokePreviewUrl(cropSrc);
             setCropSrc(null);
+            originalFileRef.current = null;
           }
         }}
         onConfirm={handleCropConfirm}

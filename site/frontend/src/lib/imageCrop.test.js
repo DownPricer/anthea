@@ -1,7 +1,9 @@
-import { cropSquareImage, AVATAR_SIZE } from './imageCrop';
+import { computeCropSourceRect, cropSquareImage, AVATAR_SIZE } from './imageCrop';
 
 function mockImage(width, height) {
   return {
+    naturalWidth: width,
+    naturalHeight: height,
     width,
     height,
     onload: null,
@@ -35,6 +37,35 @@ beforeEach(() => {
   });
 });
 
+describe('computeCropSourceRect', () => {
+  it('déplace la zone source horizontalement', () => {
+    const center = computeCropSourceRect(800, 600, 280, 1, 0, 0);
+    const shifted = computeCropSourceRect(800, 600, 280, 1, 50, 0);
+    expect(shifted.sx).not.toBe(center.sx);
+  });
+
+  it('déplace la zone source verticalement', () => {
+    const center = computeCropSourceRect(800, 600, 280, 1, 0, 0);
+    const shifted = computeCropSourceRect(800, 600, 280, 1, 0, 40);
+    expect(shifted.sy).not.toBe(center.sy);
+  });
+
+  it('réduit la zone source avec le zoom', () => {
+    const z1 = computeCropSourceRect(800, 600, 280, 1, 0, 0);
+    const z2 = computeCropSourceRect(800, 600, 280, 2, 0, 0);
+    expect(z2.sw).toBeLessThan(z1.sw);
+    expect(z2.sh).toBeLessThan(z1.sh);
+  });
+
+  it('garde le rectangle dans les limites de l\'image', () => {
+    const rect = computeCropSourceRect(800, 600, 280, 2.5, 120, -80);
+    expect(rect.sx).toBeGreaterThanOrEqual(0);
+    expect(rect.sy).toBeGreaterThanOrEqual(0);
+    expect(rect.sx + rect.sw).toBeLessThanOrEqual(800);
+    expect(rect.sy + rect.sh).toBeLessThanOrEqual(600);
+  });
+});
+
 describe('cropSquareImage', () => {
   it('produit un fichier 512×512 en webp', async () => {
     const result = await cropSquareImage('blob:mock', { zoom: 1, offsetX: 0, offsetY: 0 });
@@ -49,7 +80,9 @@ describe('cropSquareImage', () => {
   });
 
   it('utilise le blob recadré, pas le fichier original', async () => {
+    const original = new File(['orig'], 'orig.jpg', { type: 'image/jpeg' });
     const result = await cropSquareImage('blob:mock', { zoom: 2, offsetX: 50, offsetY: -30 });
+    expect(result.file).not.toBe(original);
     expect(result.file.size).toBeGreaterThan(0);
     expect(result.previewUrl).toMatch(/^blob:/);
   });
