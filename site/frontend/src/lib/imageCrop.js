@@ -1,12 +1,17 @@
 const AVATAR_SIZE = 512;
+const OUTPUT_MIME = 'image/webp';
 
 /**
- * Recadre une image en carré centré avec zoom et décalage.
+ * Recadre une image en carré 512×512 avec zoom et décalage.
  * @param {string} imageSrc - data URL ou blob URL
  * @param {{ zoom: number, offsetX: number, offsetY: number }} options
  * @param {number} outputSize - taille de sortie (px)
  */
-export async function cropSquareImage(imageSrc, { zoom = 1, offsetX = 0, offsetY = 0 }, outputSize = AVATAR_SIZE) {
+export async function cropSquareImage(
+  imageSrc,
+  { zoom = 1, offsetX = 0, offsetY = 0 },
+  outputSize = AVATAR_SIZE
+) {
   const image = await loadImage(imageSrc);
   const canvas = document.createElement('canvas');
   canvas.width = outputSize;
@@ -23,19 +28,27 @@ export async function cropSquareImage(imageSrc, { zoom = 1, offsetX = 0, offsetY
 
   ctx.drawImage(image, sx, sy, sw, sh, 0, 0, outputSize, outputSize);
 
-  const mimeType = imageSrc.includes('image/png') ? 'image/png' : 'image/jpeg';
   const blob = await new Promise((resolve, reject) => {
     canvas.toBlob(
       (b) => (b ? resolve(b) : reject(new Error('Recadrage échoué'))),
-      mimeType === 'image/png' ? 'image/webp' : 'image/jpeg',
+      OUTPUT_MIME,
       0.88
     );
   });
 
+  const filename = `avatar-${Date.now()}.webp`;
+  const file = new File([blob], filename, {
+    type: OUTPUT_MIME,
+    lastModified: Date.now(),
+  });
+
   return {
     blob,
+    file,
     previewUrl: URL.createObjectURL(blob),
-    mimeType: blob.type,
+    mimeType: OUTPUT_MIME,
+    width: outputSize,
+    height: outputSize,
   };
 }
 
@@ -48,4 +61,4 @@ function loadImage(src) {
   });
 }
 
-export { AVATAR_SIZE };
+export { AVATAR_SIZE, OUTPUT_MIME };

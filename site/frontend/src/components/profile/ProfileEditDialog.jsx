@@ -88,13 +88,14 @@ export function ProfileEditDialog({
     }
   };
 
-  const handleCropConfirm = async ({ blob, previewUrl }) => {
+  const handleCropConfirm = async ({ file, blob, previewUrl }) => {
     setUploadingAvatar(true);
     try {
       revokePreviewUrl(avatarPreview);
       setAvatarPreview(previewUrl);
-      const dataUrl = await blobToDataUrl(blob);
-      const { data } = await uploadsApi.uploadImage(dataUrl, 'avatar.jpg');
+      const dataUrl = await blobToDataUrl(file || blob);
+      const uploadName = file?.name || `avatar-${Date.now()}.webp`;
+      const { data } = await uploadsApi.uploadImage(dataUrl, uploadName);
       const url = resolveMediaUrl(data.url) || data.url;
       setAvatarUrl(url);
       setCropOpen(false);
@@ -102,6 +103,7 @@ export function ProfileEditDialog({
       setCropSrc(null);
       toast.success('Photo importée');
     } catch (error) {
+      revokePreviewUrl(previewUrl);
       toast.error(error.message || 'Échec de l\'import photo');
     } finally {
       setUploadingAvatar(false);
