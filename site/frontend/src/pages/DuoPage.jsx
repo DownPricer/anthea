@@ -13,6 +13,7 @@ import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, notificationsApi, duoProfilesApi, formatApiError } from '../lib/api';
 import { SoloDashboard } from '../components/duo/SoloDashboard';
+import { NotificationBell } from '../components/NotificationBell';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
@@ -51,7 +52,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Flame as FlameIcon,
-  Bell,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -71,7 +71,6 @@ export function DuoPage() {
   const navigate = useNavigate();
   const duoNav = useDuoNavLabel();
   const [searchParams] = useSearchParams();
-  const [duoUnreadCount, setDuoUnreadCount] = useState(0);
   const [pendingDuoFollow, setPendingDuoFollow] = useState(null);
   
   const [activeTab, setActiveTab] = useState('activity');
@@ -106,17 +105,12 @@ export function DuoPage() {
 
   const loadDuoNotifications = useCallback(async () => {
     try {
-      const [countRes, listRes] = await Promise.all([
-        notificationsApi.unreadCount('duo'),
-        notificationsApi.list(30, 'duo'),
-      ]);
-      setDuoUnreadCount(countRes.data?.count || 0);
-      const pending = (listRes.data || []).find(
+      const { data } = await notificationsApi.list(30, 'duo');
+      const pending = (data || []).find(
         (n) => n.type === 'duo_follow_request' && !n.read && n.request_id
       );
       setPendingDuoFollow(pending || null);
     } catch {
-      setDuoUnreadCount(0);
       setPendingDuoFollow(null);
     }
   }, []);
@@ -392,9 +386,6 @@ export function DuoPage() {
     }
   };
 
-  const duoNotifBadge =
-    duoUnreadCount > 9 ? '9+' : duoUnreadCount > 0 ? String(duoUnreadCount) : null;
-
   return (
     <div data-testid="duo-page" className="p-5 animate-fade-in">
       {/* Header with duo avatars */}
@@ -443,25 +434,7 @@ export function DuoPage() {
               </p>
             )}
           </div>
-          <div className="relative shrink-0">
-            {duoNotifBadge && (
-              <span
-                data-testid="duo-notifications-badge"
-                className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white z-10"
-              >
-                {duoNotifBadge}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={() => navigate('/notifications?filter=duo')}
-              data-testid="duo-notifications-btn"
-              className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-              aria-label="Notifications duo"
-            >
-              <Bell size={20} />
-            </button>
-          </div>
+          <NotificationBell filter="duo" includeAll data-testid="duo-notification-bell" />
         </div>
 
         {pendingDuoFollow && (

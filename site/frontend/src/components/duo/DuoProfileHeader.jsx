@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
-import { Globe, Lock, Settings } from 'lucide-react';
+import { Globe, Lock, Settings, LogOut } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
+import { NotificationBell } from '../NotificationBell';
 import { Button } from '../ui/button';
 import { DuoAvatar } from './DuoAvatar';
 import { DuoFollowButton } from './DuoFollowButton';
@@ -55,17 +56,32 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, onFollowUpdate, t
           <DuoAvatar duoProfile={duoProfile} members={members} className="w-16 h-16 text-lg" />
           <div className="flex flex-col gap-2 items-end shrink-0">
             {duoProfile.is_member && onEdit ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="outline"
-                onClick={onEdit}
-                className="rounded-xl border-white/15 text-white"
-                aria-label="Modifier le duo"
-              >
-                <Settings size={14} className="mr-1.5" />
-                Réglages
-              </Button>
+              <div className="flex items-center gap-2">
+                <NotificationBell filter="duo" includeAll data-testid="duo-profile-notification-bell" />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  asChild
+                  className="rounded-xl border-white/15 text-white h-9 w-9 p-0"
+                  aria-label="Gérer ou quitter le duo"
+                >
+                  <Link to="/settings#partner-settings">
+                    <LogOut size={14} />
+                  </Link>
+                </Button>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={onEdit}
+                  className="rounded-xl border-white/15 text-white"
+                  aria-label="Modifier le duo"
+                >
+                  <Settings size={14} className="mr-1.5" />
+                  Réglages
+                </Button>
+              </div>
             ) : (
               <DuoFollowButton duoProfile={duoProfile} onUpdate={onFollowUpdate} />
             )}

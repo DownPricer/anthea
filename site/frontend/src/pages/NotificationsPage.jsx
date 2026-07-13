@@ -291,7 +291,7 @@ export function NotificationsPage() {
                       size="sm"
                       disabled={followLoading === notif.id}
                       onClick={() => handleFollowBack(notif)}
-                      className="mt-3 h-8 rounded-lg btn-primary text-white text-xs"
+                      className="mt-3 h-9 rounded-full px-4 btn-primary text-white text-xs"
                     >
                       {followLoading === notif.id ? (
                         <Loader2 size={14} className="animate-spin" />
