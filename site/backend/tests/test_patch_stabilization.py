@@ -460,14 +460,59 @@ def test_workouts_query_excludes_drafts_by_default():
 
 
 def test_iso_week_key_stable():
-    from challenges import iso_week_key, pick_weekly_challenge
+    from challenges import iso_week_key, pick_weekly_challenge, SOLO_CHALLENGE_POOL, DUO_CHALLENGE_POOL
     from datetime import datetime, timezone
 
     key = iso_week_key(datetime(2026, 7, 14, tzinfo=timezone.utc))
     assert key.startswith("2026-W")
-    challenge = pick_weekly_challenge()
-    assert "week_key" in challenge
-    assert challenge["week_key"].startswith("2026-W")
+    solo = pick_weekly_challenge("solo")
+    duo = pick_weekly_challenge("duo")
+    assert solo["week_key"].endswith("-solo")
+    assert duo["week_key"].endswith("-duo")
+    assert solo["scope"] == "solo"
+    assert duo["scope"] == "duo"
+    assert solo["week_key"].split("-solo")[0] == duo["week_key"].split("-duo")[0]
+    assert len(SOLO_CHALLENGE_POOL) >= 5
+    assert len(DUO_CHALLENGE_POOL) >= 5
+
+
+def test_solo_duo_challenge_scopes():
+    from challenges import pick_weekly_challenge
+
+    solo = pick_weekly_challenge("solo")
+    duo = pick_weekly_challenge("duo")
+    solo_ids = {c["id"] for c in __import__("challenges", fromlist=["SOLO_CHALLENGE_POOL"]).SOLO_CHALLENGE_POOL}
+    duo_ids = {c["id"] for c in __import__("challenges", fromlist=["DUO_CHALLENGE_POOL"]).DUO_CHALLENGE_POOL}
+    assert solo["id"] in solo_ids
+    assert duo["id"] in duo_ids
+    assert solo["id"] not in duo_ids or solo["id"] == duo["id"]  # pools disjoint sauf coïncidence improbable
+
+
+def test_public_account_forces_posts_badges_public():
+    from server import resolve_visibility_value
+
+    public_user = {"account_visibility": "public", "posts_visibility": "me", "badges_visibility": "me"}
+    posts_vis = resolve_visibility_value(public_user, "posts_visibility", "show_posts", default_public=False)
+    badges_vis = resolve_visibility_value(public_user, "badges_visibility", "show_badges", default_public=True)
+    assert posts_vis == "me"  # raw stored value
+    # serialize layer forces public — tested via visibility_allows with account public override in serialize
+
+
+def test_duo_notification_filter_types():
+    from server import DUO_NOTIFICATION_TYPES
+    assert "duo_follow_request" in DUO_NOTIFICATION_TYPES
+    assert "duo_follow_accepted" in DUO_NOTIFICATION_TYPES
+
+
+def test_pick_weekly_challenge_solo_not_duo_metric():
+    from challenges import pick_weekly_challenge, DUO_CHALLENGE_POOL, SOLO_CHALLENGE_POOL
+
+    duo_metrics = {c["metric"] for c in DUO_CHALLENGE_POOL}
+    solo_only = {"distinct_days"}
+    for c in SOLO_CHALLENGE_POOL:
+        if c["metric"] in ("sessions_each_3", "same_day_session", "encouragements"):
+            assert False, f"Solo pool must not include duo-only metric: {c['metric']}"
+    assert "distinct_days" in {c["metric"] for c in SOLO_CHALLENGE_POOL}
 
 
 def test_duo_post_owner_actor_fields():

@@ -695,6 +695,12 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
     activity_vis = _resolve_visibility("activity_visibility", "show_recent_activity", default_public=False)
     posts_vis = _resolve_visibility("posts_visibility", "show_posts", default_public=False)
 
+    if profile_user.get("account_visibility") == "public":
+        badges_vis = "public"
+        posts_vis = "public"
+    elif profile_user.get("account_visibility") == "private" and access not in ("own", "friend", "follower"):
+        badges_vis = posts_vis = activity_vis = stats_vis = "me"
+
     base["stats_visibility"] = stats_vis
     base["badges_visibility"] = badges_vis
     base["activity_visibility"] = activity_vis
@@ -1343,7 +1349,7 @@ async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
 
     if challenge and challenge.get("status") == "completed":
         pair_key = duo_pair_key(user_a_id, user_b_id)
-        week_key = challenge.get("week_start", "")
+        week_key = challenge.get("week_key", "")
         existing = await db.challenge_completions.find_one({"pair_key": pair_key, "week_key": week_key})
         if not existing:
             await db.challenge_completions.insert_one({
@@ -1351,8 +1357,9 @@ async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
                 "user_id": user_a_id,
                 "partner_id": user_b_id,
                 "week_key": week_key,
-                "week_start": week_key,
+                "week_start": challenge.get("week_start", ""),
                 "challenge_id": challenge.get("id"),
+                "scope": "duo",
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
             together["challenges_completed"] = together.get("challenges_completed", 0) + 1
@@ -1708,6 +1715,20 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
         if vis not in ("public", "private"):
             raise HTTPException(status_code=400, detail="account_visibility invalide")
         set_data["account_visibility"] = vis
+        if vis == "public":
+            set_data["posts_visibility"] = "public"
+            set_data["badges_visibility"] = "public"
+            set_data["show_posts"] = True
+            set_data["show_badges"] = True
+        elif vis == "private":
+            set_data["posts_visibility"] = "followers"
+            set_data["badges_visibility"] = "followers"
+            set_data["activity_visibility"] = "followers"
+            set_data["stats_visibility"] = "followers"
+            set_data["show_posts"] = True
+            set_data["show_badges"] = True
+            set_data["show_recent_activity"] = True
+            set_data["show_stats"] = True
 
     visibility_legacy_map = {
         "stats_visibility": "show_stats",
@@ -2177,16 +2198,26 @@ async def upload_image(data: ImageUpload, user: dict = Depends(get_current_user)
 @api_router.get("/notifications")
 async def list_notifications(
     limit: int = 30,
+    filter: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     limit = max(1, min(limit, 50))
-    docs = await db.notifications.find({"user_id": user["id"]}).sort("created_at", -1).limit(limit).to_list(limit)
+    query = {"user_id": user["id"]}
+    if filter == "duo":
+        query["type"] = {"$regex": "^duo_"}
+    docs = await db.notifications.find(query).sort("created_at", -1).limit(limit).to_list(limit)
     return [serialize_notification(d) for d in docs]
 
 
 @api_router.get("/notifications/unread-count")
-async def notifications_unread_count(user: dict = Depends(get_current_user)):
-    count = await db.notifications.count_documents({"user_id": user["id"], "read": False})
+async def notifications_unread_count(
+    filter: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    query = {"user_id": user["id"], "read": False}
+    if filter == "duo":
+        query["type"] = {"$regex": "^duo_"}
+    count = await db.notifications.count_documents(query)
     return {"count": count}
 
 
@@ -4012,7 +4043,10 @@ async def get_user_posts(
     if access == "limited":
         return []
 
-    if not is_own and not target.get("show_posts", False):
+    posts_vis = resolve_visibility_value(target, "posts_visibility", "show_posts", default_public=False)
+    if target.get("account_visibility") == "public":
+        posts_vis = "public"
+    if not is_own and not visibility_allows(access, posts_vis):
         return []
 
     posts = await db.posts.find(user_wall_posts_query(target_id)).sort(
@@ -4044,7 +4078,10 @@ async def get_user_reposts(
     if access == "limited":
         return []
 
-    if user["id"] != target_id and not target.get("show_posts", False):
+    posts_vis = resolve_visibility_value(target, "posts_visibility", "show_posts", default_public=False)
+    if target.get("account_visibility") == "public":
+        posts_vis = "public"
+    if user["id"] != target_id and not visibility_allows(access, posts_vis):
         return []
 
     reposts = await db.reposts.find({"user_id": target_id}).sort(
@@ -4854,6 +4891,26 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
             "status": "completed",
             "created_at": {"$gte": (datetime.now(timezone.utc) - timedelta(days=datetime.now(timezone.utc).weekday())).strftime("%Y-%m-%d")},
         })
+        challenges_completed = await db.challenge_completions.count_documents({
+            "user_id": user["id"],
+            "scope": "solo",
+        })
+        if challenge and challenge.get("status") == "completed":
+            week_key = challenge.get("week_key", "")
+            existing = await db.challenge_completions.find_one({
+                "user_id": user["id"],
+                "week_key": week_key,
+            })
+            if not existing:
+                await db.challenge_completions.insert_one({
+                    "user_id": user["id"],
+                    "week_key": week_key,
+                    "week_start": challenge.get("week_start", ""),
+                    "challenge_id": challenge.get("id"),
+                    "scope": "solo",
+                    "created_at": datetime.now(timezone.utc).isoformat(),
+                })
+                challenges_completed += 1
         return {
             "streak": streak,
             "streak_calculated": calculated,
@@ -4865,6 +4922,8 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
             "current_challenge": challenge,
             "badges_unlocked": len([b for b in badges if b.get("unlocked")]),
             "badges_total": len(badges),
+            "challenges_completed": challenges_completed,
+            "scope": "solo",
         }
     
     today = datetime.now(timezone.utc)
@@ -4925,8 +4984,16 @@ async def get_duo_badges(user_id: str, partner_id: Optional[str], streak_value: 
 async def get_current_challenge(
     user_id: str, partner_id: Optional[str] = None, streak_value: int = 0
 ) -> Optional[dict]:
-    challenge_def = pick_weekly_challenge()
+    scope = "duo" if partner_id else "solo"
+    challenge_def = pick_weekly_challenge(scope)
     return await compute_challenge_progress(db, challenge_def, user_id, partner_id, streak_value)
+
+
+DUO_NOTIFICATION_TYPES = (
+    "duo_follow_request",
+    "duo_follow_accepted",
+    "duo_new_follower",
+)
 
 @api_router.get("/duo/activity")
 async def get_duo_activity(limit: int = 10, user: dict = Depends(get_current_user)):

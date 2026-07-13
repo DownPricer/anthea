@@ -9,6 +9,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
+import { useDuoNavLabel } from '../hooks/useDuoNavLabel';
 import {
   Play,
   Calendar,
@@ -26,6 +27,7 @@ import {
   Undo2,
   RotateCcw,
   Search,
+  ChartNoAxesColumnIncreasing,
 } from 'lucide-react';
 import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -45,6 +47,7 @@ export function HomePage() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const duoNav = useDuoNavLabel();
   
   const [todayWorkouts, setTodayWorkouts] = useState([]);
   const [calendarDayMap, setCalendarDayMap] = useState({});
@@ -563,6 +566,46 @@ export function HomePage() {
             </div>
           </div>
             </div>
+          )}
+
+          {!partner && duoStats && (
+            <Link
+              to="/duo"
+              data-testid="home-solo-card"
+              className="card p-5 block hover:border-[var(--theme-primary)]/30 transition-colors"
+            >
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)]/20 flex items-center justify-center">
+                  <ChartNoAxesColumnIncreasing className="text-[var(--theme-primary)]" size={20} />
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-medium">{duoNav.label} — ton tableau de bord</p>
+                  <p className="text-zinc-500 text-sm">Stats, badges et défis personnels</p>
+                </div>
+                <ChevronRight className="text-[var(--theme-primary)]" size={20} />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div className="text-center p-3 rounded-xl bg-white/5 col-span-3 sm:col-span-1">
+                  <div className="flex items-center justify-center gap-1 mb-1">
+                    <Flame
+                      size={18}
+                      className={(duoStats.streak || 0) > 0 ? 'text-orange-500' : 'text-zinc-600'}
+                      fill="currentColor"
+                    />
+                    <span className="text-xl font-bold text-white tabular-nums">{duoStats.streak || 0}</span>
+                  </div>
+                  <p className="text-zinc-500 text-xs">Streak</p>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-white/5">
+                  <p className="text-xl font-bold text-white">{duoStats.this_week_user ?? 0}</p>
+                  <p className="text-zinc-500 text-xs">Cette semaine</p>
+                </div>
+                <div className="text-center p-3 rounded-xl bg-white/5">
+                  <p className="text-xl font-bold text-white">{duoStats.badges_unlocked ?? 0}</p>
+                  <p className="text-zinc-500 text-xs">Badges</p>
+                </div>
+              </div>
+            </Link>
           )}
 
           {/* Badges */}

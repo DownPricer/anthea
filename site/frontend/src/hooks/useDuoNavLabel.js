@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { Heart, Handshake, User, Users } from 'lucide-react';
+import { Heart, Handshake, ChartNoAxesColumnIncreasing, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 /**
@@ -10,7 +10,7 @@ export function useDuoNavLabel() {
 
   return useMemo(() => {
     if (!user?.partner_id) {
-      return { label: 'Solo', Icon: User, path: '/duo' };
+      return { label: 'Solo', Icon: ChartNoAxesColumnIncreasing, path: '/duo' };
     }
 
     const relation = user.relation_type || 'partners';

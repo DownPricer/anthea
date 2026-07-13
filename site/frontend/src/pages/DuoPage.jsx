@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useState, useEffect, useCallback } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { useDuoNavLabel } from '../hooks/useDuoNavLabel';
@@ -11,7 +11,8 @@ import {
 } from '../components/ui/collapsible';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { sessionsApi, duoApi, partnerApi, streakApi, formatApiError } from '../lib/api';
+import { sessionsApi, duoApi, partnerApi, streakApi, notificationsApi, duoProfilesApi, formatApiError } from '../lib/api';
+import { SoloDashboard } from '../components/duo/SoloDashboard';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
@@ -50,6 +51,7 @@ import {
   CheckCircle2,
   ChevronDown,
   Flame as FlameIcon,
+  Bell,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -66,8 +68,11 @@ const QUICK_REACTIONS = [
 export function DuoPage() {
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
+  const navigate = useNavigate();
   const duoNav = useDuoNavLabel();
   const [searchParams] = useSearchParams();
+  const [duoUnreadCount, setDuoUnreadCount] = useState(0);
+  const [pendingDuoFollow, setPendingDuoFollow] = useState(null);
   
   const [activeTab, setActiveTab] = useState('activity');
   const [sessions, setSessions] = useState([]);
@@ -99,9 +104,32 @@ export function DuoPage() {
 
   const { liveSession } = usePartnerLiveSession(!!partner);
 
+  const loadDuoNotifications = useCallback(async () => {
+    try {
+      const [countRes, listRes] = await Promise.all([
+        notificationsApi.unreadCount('duo'),
+        notificationsApi.list(30, 'duo'),
+      ]);
+      setDuoUnreadCount(countRes.data?.count || 0);
+      const pending = (listRes.data || []).find(
+        (n) => n.type === 'duo_follow_request' && !n.read && n.request_id
+      );
+      setPendingDuoFollow(pending || null);
+    } catch {
+      setDuoUnreadCount(0);
+      setPendingDuoFollow(null);
+    }
+  }, []);
+
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    if (partner) {
+      loadDuoNotifications();
+    }
+  }, [partner, loadDuoNotifications]);
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -332,58 +360,40 @@ export function DuoPage() {
     );
   }
 
-  // No partner state
   if (!partner) {
     return (
-      <div data-testid="duo-page-no-partner" className="p-5 animate-fade-in">
-        <header className="mb-8">
-          <h1 className="text-2xl font-bold text-white font-['Outfit']">{duoNav.label}</h1>
-          <p className="text-zinc-500 text-sm mt-1">Lie-toi à ton partenaire</p>
-        </header>
-
-        <div className="card p-8 text-center">
-          <div className="w-20 h-20 mx-auto rounded-full bg-[var(--theme-surface-active)] flex items-center justify-center mb-4">
-            <UserPlus className="text-[var(--theme-primary)]" size={32} />
-          </div>
-          <h2 className="text-xl font-bold text-white mb-2">Pas encore de partenaire</h2>
-          <p className="text-zinc-500 text-sm mb-6">
-            Lie-toi à quelqu'un pour partager vos séances et vous motiver mutuellement !
-          </p>
-          <Button
-            onClick={() => window.location.href = '/profile'}
-            className="btn-primary text-white"
-          >
-            Trouver un partenaire
-          </Button>
-        </div>
-
-        {sessions.length > 0 && (
-          <div className="mt-8">
-            <h2 className="text-lg font-semibold text-white font-['Outfit'] mb-4">Mes séances</h2>
-            <div className="space-y-4">
-              {sessions.filter(s => s.user_id === user?.id).map((session) => (
-                <SessionCard
-                  key={session.id}
-                  session={session}
-                  user={user}
-                  partner={null}
-                  theme={theme}
-                  isLikedByMe={isLikedByMe(session)}
-                  onLike={handleLike}
-                  onReaction={handleReaction}
-                  activeCommentSession={activeCommentSession}
-                  setActiveCommentSession={setActiveCommentSession}
-                  commentText={commentText}
-                  setCommentText={setCommentText}
-                  onComment={handleComment}
-                />
-              ))}
-            </div>
-          </div>
-        )}
-      </div>
+      <SoloDashboard
+        duoStats={duoStats}
+        duoNav={duoNav}
+        initialSessions={sessions.filter((s) => s.user_id === user?.id)}
+      />
     );
   }
+
+  const handleAcceptDuoFollow = async () => {
+    if (!pendingDuoFollow?.request_id) return;
+    try {
+      await duoProfilesApi.acceptFollowRequest(pendingDuoFollow.request_id);
+      toast.success('Demande acceptée');
+      loadDuoNotifications();
+    } catch (e) {
+      toast.error(formatApiError(e));
+    }
+  };
+
+  const handleRejectDuoFollow = async () => {
+    if (!pendingDuoFollow?.request_id) return;
+    try {
+      await duoProfilesApi.rejectFollowRequest(pendingDuoFollow.request_id);
+      toast.success('Demande refusée');
+      loadDuoNotifications();
+    } catch (e) {
+      toast.error(formatApiError(e));
+    }
+  };
+
+  const duoNotifBadge =
+    duoUnreadCount > 9 ? '9+' : duoUnreadCount > 0 ? String(duoUnreadCount) : null;
 
   return (
     <div data-testid="duo-page" className="p-5 animate-fade-in">
@@ -433,7 +443,62 @@ export function DuoPage() {
               </p>
             )}
           </div>
+          <div className="relative shrink-0">
+            {duoNotifBadge && (
+              <span
+                data-testid="duo-notifications-badge"
+                className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white z-10"
+              >
+                {duoNotifBadge}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => navigate('/notifications?filter=duo')}
+              data-testid="duo-notifications-btn"
+              className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+              aria-label="Notifications duo"
+            >
+              <Bell size={20} />
+            </button>
+          </div>
         </div>
+
+        {pendingDuoFollow && (
+          <div
+            data-testid="duo-notification-bar"
+            className="card p-4 flex flex-col sm:flex-row sm:items-center gap-3 border border-[var(--theme-primary)]/20"
+          >
+            <p className="text-white text-sm flex-1">
+              Vous avez 1 demande pour suivre votre profil duo.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                className="rounded-xl btn-primary text-white"
+                onClick={handleAcceptDuoFollow}
+              >
+                Accepter
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="rounded-xl border-white/15 text-white"
+                onClick={handleRejectDuoFollow}
+              >
+                Refuser
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                className="rounded-xl text-zinc-400"
+                onClick={() => navigate('/notifications?filter=duo')}
+              >
+                Voir
+              </Button>
+            </div>
+          </div>
+        )}
 
         {duoStats?.duo_profile?.tag ? (
           <Link
