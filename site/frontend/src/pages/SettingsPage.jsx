@@ -91,11 +91,11 @@ export function SettingsPage() {
   const [spotifyPlaylistUrl, setSpotifyPlaylistUrl] = useState(user?.spotify_playlist_url || '');
   const [accentColor, setAccentColor] = useState(user?.accent_color || '');
   const [accountVisibility, setAccountVisibility] = useState(user?.account_visibility || 'private');
-  const [showStats, setShowStats] = useState(!!user?.show_stats);
-  const [showBadges, setShowBadges] = useState(user?.show_badges !== false);
-  const [showRecentActivity, setShowRecentActivity] = useState(!!user?.show_recent_activity);
+  const [statsVisibility, setStatsVisibility] = useState(user?.stats_visibility || (user?.show_stats ? 'public' : 'me'));
+  const [badgesVisibility, setBadgesVisibility] = useState(user?.badges_visibility || (user?.show_badges !== false ? 'public' : 'me'));
+  const [activityVisibility, setActivityVisibility] = useState(user?.activity_visibility || (user?.show_recent_activity ? 'public' : 'me'));
   const [showSessions, setShowSessions] = useState(!!user?.show_sessions);
-  const [showPosts, setShowPosts] = useState(!!user?.show_posts);
+  const [postsVisibility, setPostsVisibility] = useState(user?.posts_visibility || (user?.show_posts ? 'public' : 'me'));
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [badges, setBadges] = useState([]);
@@ -109,11 +109,11 @@ export function SettingsPage() {
     setSpotifyPlaylistUrl(user.spotify_playlist_url || '');
     setAccentColor(user.accent_color || '');
     setAccountVisibility(user.account_visibility || 'private');
-    setShowStats(!!user.show_stats);
-    setShowBadges(user.show_badges !== false);
-    setShowRecentActivity(!!user.show_recent_activity);
+    setStatsVisibility(user.stats_visibility || (user.show_stats ? 'public' : 'me'));
+    setBadgesVisibility(user.badges_visibility || (user.show_badges !== false ? 'public' : 'me'));
+    setActivityVisibility(user.activity_visibility || (user.show_recent_activity ? 'public' : 'me'));
     setShowSessions(!!user.show_sessions);
-    setShowPosts(!!user.show_posts);
+    setPostsVisibility(user.posts_visibility || (user.show_posts ? 'public' : 'me'));
   }, [user]);
 
   useEffect(() => {
@@ -174,11 +174,11 @@ export function SettingsPage() {
     setSavingPrivacy(true);
     const result = await updateProfile({
       account_visibility: accountVisibility,
-      show_stats: showStats,
-      show_badges: showBadges,
-      show_recent_activity: showRecentActivity,
+      stats_visibility: statsVisibility,
+      badges_visibility: badgesVisibility,
+      activity_visibility: activityVisibility,
       show_sessions: showSessions,
-      show_posts: showPosts,
+      posts_visibility: postsVisibility,
     });
     setSavingPrivacy(false);
 
@@ -247,24 +247,30 @@ export function SettingsPage() {
             </div>
 
             {[
-              { key: 'stats', label: 'Visibilité des statistiques', value: showStats, set: setShowStats },
-              { key: 'badges', label: 'Visibilité des badges', value: showBadges, set: setShowBadges },
-              { key: 'activity', label: 'Activité récente', value: showRecentActivity, set: setShowRecentActivity },
-              { key: 'sessions', label: 'Historique des séances', value: showSessions, set: setShowSessions },
-              { key: 'posts', label: 'Publications sur le profil', value: showPosts, set: setShowPosts },
+              { key: 'stats', label: 'Visibilité des statistiques', value: statsVisibility, set: setStatsVisibility },
+              { key: 'badges', label: 'Visibilité des badges', value: badgesVisibility, set: setBadgesVisibility },
+              { key: 'activity', label: "Visibilité de l’activité", value: activityVisibility, set: setActivityVisibility },
+              { key: 'posts', label: 'Visibilité des publications', value: postsVisibility, set: setPostsVisibility },
             ].map((item) => (
-              <div
-                key={item.key}
-                className={`flex items-center justify-between rounded-xl bg-white/5 p-3 ${item.disabled ? 'opacity-60' : ''}`}
-              >
+              <div key={item.key} className="flex items-center justify-between rounded-xl bg-white/5 p-3">
                 <span className="text-white text-sm">{item.label}</span>
-                <Switch
-                  checked={item.value}
-                  onCheckedChange={item.set}
-                  disabled={item.disabled}
-                />
+                <Select value={item.value} onValueChange={item.set}>
+                  <SelectTrigger className="w-44 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-[#141414] border-white/10">
+                    <SelectItem value="public" className="text-white">Public</SelectItem>
+                    <SelectItem value="followers" className="text-white">Abonnés uniquement</SelectItem>
+                    <SelectItem value="me" className="text-white">Moi uniquement</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             ))}
+
+            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
+              <span className="text-white text-sm">Historique des séances</span>
+              <Switch checked={showSessions} onCheckedChange={setShowSessions} />
+            </div>
           </div>
 
           <Button

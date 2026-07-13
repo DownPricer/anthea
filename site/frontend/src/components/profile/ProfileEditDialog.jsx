@@ -22,6 +22,7 @@ import {
 import { getPublicHandle, isValidHandle, normalizeHandle } from '../../lib/userProfile';
 import { uploadsApi, resolveMediaUrl } from '../../lib/api';
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
+import { AvatarCropDialog } from './AvatarCropDialog';
 
 const FITNESS_LEVELS = [
   { value: 'beginner', label: 'Débutant' },
@@ -55,6 +56,8 @@ export function ProfileEditDialog({
   const [saving, setSaving] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [cropSrc, setCropSrc] = useState(null);
+  const [cropOpen, setCropOpen] = useState(false);
   const fileInputRef = useRef(null);
 
   useEffect(() => {
@@ -74,20 +77,34 @@ export function ProfileEditDialog({
   const handleAvatarPick = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    setUploadingAvatar(true);
     try {
       const { blob, previewUrl } = await compressImageFile(file);
+      setCropSrc(previewUrl);
+      setCropOpen(true);
+    } catch (error) {
+      toast.error(error.message || 'Échec de l\'import photo');
+    } finally {
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const handleCropConfirm = async ({ blob, previewUrl }) => {
+    setUploadingAvatar(true);
+    try {
+      revokePreviewUrl(avatarPreview);
       setAvatarPreview(previewUrl);
       const dataUrl = await blobToDataUrl(blob);
-      const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
+      const { data } = await uploadsApi.uploadImage(dataUrl, 'avatar.jpg');
       const url = resolveMediaUrl(data.url) || data.url;
       setAvatarUrl(url);
+      setCropOpen(false);
+      revokePreviewUrl(cropSrc);
+      setCropSrc(null);
       toast.success('Photo importée');
     } catch (error) {
       toast.error(error.message || 'Échec de l\'import photo');
     } finally {
       setUploadingAvatar(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
@@ -137,6 +154,7 @@ export function ProfileEditDialog({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="bg-[#141414] border-white/10 max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
@@ -290,5 +308,20 @@ export function ProfileEditDialog({
         </div>
       </DialogContent>
     </Dialog>
+
+      <AvatarCropDialog
+        open={cropOpen}
+        imageSrc={cropSrc}
+        onOpenChange={(open) => {
+          setCropOpen(open);
+          if (!open) {
+            revokePreviewUrl(cropSrc);
+            setCropSrc(null);
+          }
+        }}
+        onConfirm={handleCropConfirm}
+        confirming={uploadingAvatar}
+      />
+    </>
   );
 }

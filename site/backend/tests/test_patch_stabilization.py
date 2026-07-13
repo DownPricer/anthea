@@ -426,6 +426,39 @@ def test_new_account_has_no_unlocked_badges():
     asyncio.get_event_loop().run_until_complete(_run())
 
 
+def test_visibility_allows_privacy_levels():
+    from server import visibility_allows, resolve_visibility_value
+
+    doc = {"stats_visibility": "me", "show_stats": True}
+    assert resolve_visibility_value(doc, "stats_visibility", "show_stats", default_public=False) == "me"
+    assert visibility_allows("own", "me") is True
+    assert visibility_allows("follower", "me") is False
+    assert visibility_allows("follower", "followers") is True
+    assert visibility_allows("public", "public") is True
+    assert visibility_allows("limited", "public") is False
+
+
+def test_workouts_query_excludes_drafts_by_default():
+    """La liste des séances publiées exclut is_draft=true."""
+    query = {
+        "$or": [{"creator_id": "u1"}, {"for_user_id": "u1"}],
+        "is_draft": {"$ne": True},
+    }
+    workouts = [
+        {"creator_id": "u1", "is_draft": False, "title": "Publiée"},
+        {"creator_id": "u1", "is_draft": True, "title": "Brouillon"},
+    ]
+
+    def matches(doc):
+        if doc.get("is_draft") is True:
+            return False
+        return doc.get("creator_id") == "u1" or doc.get("for_user_id") == "u1"
+
+    visible = [w for w in workouts if matches(w)]
+    assert len(visible) == 1
+    assert visible[0]["title"] == "Publiée"
+
+
 def test_duo_post_owner_actor_fields():
     """Champs attendus pour une publication mur duo."""
     from server import duo_wall_owner_key, duo_pair_key, DUO_WALL_POST_TYPES

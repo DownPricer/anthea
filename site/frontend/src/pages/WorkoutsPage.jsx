@@ -187,11 +187,11 @@ export function WorkoutsPage() {
 
   const getWorkoutsForDate = (date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
-    return calendarWorkouts.filter((w) => w.scheduled_date === dateStr);
+    return calendarWorkouts.filter((w) => w.scheduled_date === dateStr && !w.is_draft);
   };
 
   const selectedDateWorkouts = getWorkoutsForDate(selectedDate);
-  const draftWorkouts = todayWorkouts.filter((w) => w.is_draft);
+  // Les brouillons ne doivent pas apparaître dans la liste « Séances »
   const publishedToday = todayWorkouts.filter((w) => !w.is_draft);
 
   const getStatusColor = (status) => {
@@ -262,10 +262,11 @@ export function WorkoutsPage() {
         </p>
       </div>
 
-      {!showSelect && (
+          {!showSelect && (
         <>
           {(workout.status === 'pending' || workout.status === 'in_progress') &&
-            workout.for_user_id === user?.id && (
+            workout.for_user_id === user?.id &&
+            !workout.is_draft && (
             <Button
               size="sm"
               onClick={() => navigate(`/player/${workout.id}`)}
@@ -359,15 +360,7 @@ export function WorkoutsPage() {
         </TabsList>
 
         <TabsContent value="today" className="space-y-4">
-          {draftWorkouts.length > 0 && (
-            <div className="space-y-2">
-              <h3 className="text-xs font-medium uppercase tracking-wider text-amber-400/90">Brouillons</h3>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-                {draftWorkouts.map((workout) => renderWorkoutCard(workout))}
-              </div>
-            </div>
-          )}
-          {publishedToday.length === 0 && draftWorkouts.length === 0 ? (
+          {publishedToday.length === 0 ? (
             <div className="card p-8 text-center">
               <div className="w-16 h-16 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-4">
                 <CalendarIcon className="text-zinc-500" size={28} />

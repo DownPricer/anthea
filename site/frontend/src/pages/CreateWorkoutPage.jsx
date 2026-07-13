@@ -96,6 +96,7 @@ export function CreateWorkoutPage() {
   const navigate = useNavigate();
   const { workoutId: editWorkoutId } = useParams();
   const isEditMode = Boolean(editWorkoutId);
+  const [drafts, setDrafts] = useState([]);
   
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -142,11 +143,19 @@ export function CreateWorkoutPage() {
     loadData();
   }, [editWorkoutId]);
 
+  useEffect(() => {
+    if (isEditMode) return;
+    workoutsApi
+      .getDrafts()
+      .then((res) => setDrafts(res.data || []))
+      .catch(() => setDrafts([]));
+  }, [isEditMode]);
+
   const loadData = async () => {
     try {
       const tasks = [templatesApi.getAll({ summary: true })];
       if (isEditMode) {
-        tasks.push(workoutsApi.getOne(editWorkoutId));
+        tasks.push(workoutsApi.getOne(editWorkoutId, { allow_draft: true }));
       }
       const results = await Promise.all(tasks);
       setTemplates(results[0].data || []);
@@ -673,6 +682,24 @@ export function CreateWorkoutPage() {
       </header>
 
       <div className="p-5">
+        {!isEditMode && drafts.length > 0 ? (
+          <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
+            <p className="text-amber-200 font-medium">Brouillon en cours</p>
+            <p className="text-amber-200/70 text-sm mt-1">
+              Reprends ta dernière séance sauvegardée en brouillon.
+            </p>
+            <div className="mt-3">
+              <Button
+                type="button"
+                variant="outline"
+                className="rounded-xl border-amber-500/30 text-amber-100 hover:bg-amber-500/10"
+                onClick={() => navigate(`/workouts/${drafts[0].id}`)}
+              >
+                Ouvrir le brouillon
+              </Button>
+            </div>
+          </div>
+        ) : null}
         <div className="grid gap-6 lg:grid-cols-12">
           <div className="space-y-6 order-1 lg:order-2 lg:col-span-4 lg:sticky lg:top-24 h-fit">
             {/* Modèles — liste + actions claires */}
@@ -883,17 +910,40 @@ export function CreateWorkoutPage() {
 
           {/* Multiple Dates */}
           {!isEditMode && scheduleMode === 'multiple' && (
-            <div>
-              <Calendar
-                mode="multiple"
-                selected={multipleDates}
-                onSelect={(dates) => dates && setMultipleDates(dates)}
-                locale={fr}
-                className="rounded-xl bg-white/5 p-3"
-              />
-              {multipleDates.length > 0 && (
-                <p className="text-zinc-400 text-sm mt-3 text-center">
-                  {multipleDates.length} date(s) sélectionnée(s)
+            <div className="space-y-4">
+              <div className="flex justify-center overflow-x-auto -mx-1 px-1">
+                <Calendar
+                  mode="multiple"
+                  selected={multipleDates}
+                  onSelect={(dates) => dates && setMultipleDates(dates)}
+                  locale={fr}
+                  className="rounded-xl bg-white/5 p-3 shrink-0"
+                />
+              </div>
+              {multipleDates.length > 0 ? (
+                <div className="space-y-2">
+                  <p className="text-zinc-400 text-sm text-center">
+                    {multipleDates.length} date(s) sélectionnée(s)
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2 max-h-32 overflow-y-auto px-1">
+                    {[...multipleDates]
+                      .sort((a, b) => a - b)
+                      .map((date) => (
+                        <button
+                          key={date.toISOString()}
+                          type="button"
+                          onClick={() => toggleMultipleDate(date)}
+                          className="inline-flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/10 transition-colors max-w-full"
+                        >
+                          <span className="truncate">{format(date, 'EEE d MMM yyyy', { locale: fr })}</span>
+                          <span className="text-zinc-500 shrink-0">×</span>
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="text-zinc-500 text-sm text-center">
+                  Sélectionne une ou plusieurs dates dans le calendrier
                 </p>
               )}
             </div>

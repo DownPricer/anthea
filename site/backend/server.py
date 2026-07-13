@@ -103,6 +103,10 @@ class UserUpdate(BaseModel):
     show_recent_activity: Optional[bool] = None
     show_sessions: Optional[bool] = None
     show_posts: Optional[bool] = None
+    stats_visibility: Optional[Literal["public", "followers", "me"]] = None
+    badges_visibility: Optional[Literal["public", "followers", "me"]] = None
+    activity_visibility: Optional[Literal["public", "followers", "me"]] = None
+    posts_visibility: Optional[Literal["public", "followers", "me"]] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -129,6 +133,10 @@ class UserResponse(BaseModel):
     show_recent_activity: bool = False
     show_sessions: bool = False
     show_posts: bool = False
+    stats_visibility: Optional[Literal["public", "followers", "me"]] = None
+    badges_visibility: Optional[Literal["public", "followers", "me"]] = None
+    activity_visibility: Optional[Literal["public", "followers", "me"]] = None
+    posts_visibility: Optional[Literal["public", "followers", "me"]] = None
     partner_id: Optional[str] = None
     partner_username: Optional[str] = None
     relation_type: Optional[str] = None
@@ -529,6 +537,10 @@ def serialize_user(user: dict) -> dict:
         "show_recent_activity": user.get("show_recent_activity", False),
         "show_sessions": user.get("show_sessions", False),
         "show_posts": user.get("show_posts", False),
+        "stats_visibility": user.get("stats_visibility"),
+        "badges_visibility": user.get("badges_visibility"),
+        "activity_visibility": user.get("activity_visibility"),
+        "posts_visibility": user.get("posts_visibility"),
         "partner_id": user.get("partner_id"),
         "partner_username": user.get("partner_username"),
         "relation_type": user.get("relation_type"),
@@ -561,6 +573,30 @@ async def get_profile_access_level(viewer_id: str, profile_user: dict) -> str:
     if profile_user.get("account_visibility") == "public":
         return "public"
     return "limited"
+
+
+def resolve_visibility_value(doc: dict, field_key: str, legacy_show_key: str, *, default_public: bool) -> str:
+    """Normalise un champ *_visibility avec compat legacy show_*."""
+    raw = doc.get(field_key)
+    if raw in ("public", "followers", "me"):
+        return raw
+    legacy = doc.get(legacy_show_key)
+    if legacy is True:
+        return "public"
+    if legacy is False:
+        return "me"
+    return "public" if default_public else "me"
+
+
+def visibility_allows(access: str, vis: str) -> bool:
+    """Retourne True si le viewer peut voir une section selon son niveau d'accès."""
+    if access == "limited":
+        return False
+    if vis == "public":
+        return access in ("own", "friend", "follower", "public")
+    if vis == "followers":
+        return access in ("own", "friend", "follower")
+    return access == "own"
 
 async def find_user_by_handle(handle: str) -> Optional[dict]:
     normalized = normalize_handle(handle)
@@ -634,13 +670,41 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
         base["show_posts"] = False
         return base
 
+    def _resolve_visibility(field_key: str, legacy_show_key: str, default_public: bool) -> str:
+        raw = profile_user.get(field_key)
+        if raw in ("public", "followers", "me"):
+            return raw
+        legacy = profile_user.get(legacy_show_key)
+        if legacy is True:
+            return "public"
+        if legacy is False:
+            return "me"
+        return "public" if default_public else "me"
+
+    def _visibility_allows(vis: str) -> bool:
+        if vis == "public":
+            return access in ("own", "friend", "follower", "public")
+        if vis == "followers":
+            return access in ("own", "friend", "follower")
+        return access == "own"
+
     base["bio"] = profile_user.get("bio")
     base["featured_badges"] = featured
-    base["show_stats"] = profile_user.get("show_stats", False)
-    base["show_badges"] = profile_user.get("show_badges", True)
-    base["show_recent_activity"] = profile_user.get("show_recent_activity", False)
+    stats_vis = _resolve_visibility("stats_visibility", "show_stats", default_public=False)
+    badges_vis = _resolve_visibility("badges_visibility", "show_badges", default_public=True)
+    activity_vis = _resolve_visibility("activity_visibility", "show_recent_activity", default_public=False)
+    posts_vis = _resolve_visibility("posts_visibility", "show_posts", default_public=False)
+
+    base["stats_visibility"] = stats_vis
+    base["badges_visibility"] = badges_vis
+    base["activity_visibility"] = activity_vis
+    base["posts_visibility"] = posts_vis
+
+    base["show_stats"] = _visibility_allows(stats_vis)
+    base["show_badges"] = _visibility_allows(badges_vis)
+    base["show_recent_activity"] = _visibility_allows(activity_vis)
     base["show_sessions"] = profile_user.get("show_sessions", False)
-    base["show_posts"] = profile_user.get("show_posts", False)
+    base["show_posts"] = _visibility_allows(posts_vis)
     return base
 
 async def serialize_search_user(user_doc: dict, viewer_id: str) -> dict:
@@ -966,7 +1030,8 @@ async def can_view_post(viewer_id: str, post: dict, author: dict) -> bool:
     if access == "limited":
         return False
 
-    if access != "own" and not author.get("show_posts", False):
+    posts_vis = resolve_visibility_value(author, "posts_visibility", "show_posts", default_public=False)
+    if not visibility_allows(access, posts_vis):
         return False
 
     visibility = post.get("visibility", "public")
@@ -1644,6 +1709,20 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
             raise HTTPException(status_code=400, detail="account_visibility invalide")
         set_data["account_visibility"] = vis
 
+    visibility_legacy_map = {
+        "stats_visibility": "show_stats",
+        "badges_visibility": "show_badges",
+        "activity_visibility": "show_recent_activity",
+        "posts_visibility": "show_posts",
+    }
+    for vis_key, legacy_key in visibility_legacy_map.items():
+        if vis_key in payload:
+            value = payload.pop(vis_key)
+            if value not in ("public", "followers", "me"):
+                raise HTTPException(status_code=400, detail=f"{vis_key} invalide")
+            set_data[vis_key] = value
+            set_data[legacy_key] = value in ("public", "followers")
+
     for key, value in payload.items():
         if key == "accent_color" and (value is None or value == ""):
             unset_data["accent_color"] = ""
@@ -2142,8 +2221,10 @@ async def get_user_profile_stats(handle: str, user: dict = Depends(get_current_u
     if access == "limited":
         raise HTTPException(status_code=403, detail="Profil privé")
 
-    can_stats = access == "own" or bool(target.get("show_stats"))
-    can_badges = access == "own" or bool(target.get("show_badges", True))
+    stats_vis = resolve_visibility_value(target, "stats_visibility", "show_stats", default_public=False)
+    badges_vis = resolve_visibility_value(target, "badges_visibility", "show_badges", default_public=True)
+    can_stats = visibility_allows(access, stats_vis)
+    can_badges = visibility_allows(access, badges_vis)
     can_sessions = access == "own" or bool(target.get("show_sessions"))
 
     result = {"duo_stats": None, "detailed_stats": None, "calendar_days": []}
@@ -2934,6 +3015,7 @@ async def get_workouts(
     end_date: Optional[str] = None,
     for_user: Optional[str] = None,
     light: Optional[bool] = False,
+    include_drafts: Optional[bool] = False,
     user: dict = Depends(get_current_user)
 ):
     query = {
@@ -2942,6 +3024,8 @@ async def get_workouts(
             {"for_user_id": user["id"]}
         ]
     }
+    if not include_drafts:
+        query["is_draft"] = {"$ne": True}
     
     if user.get("partner_id"):
         query["$or"].extend([
@@ -2985,6 +3069,7 @@ async def get_today_workouts(user: dict = Depends(get_current_user)):
     
     query = {
         "scheduled_date": today,
+        "is_draft": {"$ne": True},
         "$or": [
             {"for_user_id": user["id"]},
             {"creator_id": user["id"]}
@@ -3000,8 +3085,19 @@ async def get_today_workouts(user: dict = Depends(get_current_user)):
     workouts = await db.scheduled_workouts.find(query).to_list(100)
     return [{"id": str(w["_id"]), **{k: v for k, v in w.items() if k != "_id"}} for w in workouts]
 
+
+@api_router.get("/workouts/drafts")
+async def get_my_drafts(user: dict = Depends(get_current_user)):
+    """Liste des brouillons de séance du propriétaire (pour la page Créer)."""
+    drafts = await db.scheduled_workouts.find(
+        {"creator_id": user["id"], "is_draft": True},
+        {"title": 1, "updated_at": 1, "created_at": 1, "scheduled_date": 1},
+    ).sort("updated_at", -1).to_list(20)
+    return [{"id": str(w["_id"]), **{k: v for k, v in w.items() if k != "_id"}} for w in drafts]
+
+
 @api_router.get("/workouts/{workout_id}")
-async def get_workout(workout_id: str, user: dict = Depends(get_current_user)):
+async def get_workout(workout_id: str, allow_draft: Optional[bool] = False, user: dict = Depends(get_current_user)):
     workout = await db.scheduled_workouts.find_one({"_id": ObjectId(workout_id)})
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
@@ -3012,8 +3108,15 @@ async def get_workout(workout_id: str, user: dict = Depends(get_current_user)):
     
     if workout["creator_id"] not in allowed_ids and workout["for_user_id"] not in allowed_ids:
         raise HTTPException(status_code=403, detail="Not authorized")
-    
+
+    if workout.get("is_draft"):
+        if workout["creator_id"] != user["id"]:
+            raise HTTPException(status_code=403, detail="Brouillon inaccessible")
+        if not allow_draft:
+            raise HTTPException(status_code=403, detail="Ce brouillon ne peut pas être lancé")
+
     return {"id": str(workout["_id"]), **{k: v for k, v in workout.items() if k != "_id"}}
+
 
 @api_router.post("/workouts")
 async def create_workout(data: ScheduledWorkoutCreate, user: dict = Depends(get_current_user)):
@@ -3158,6 +3261,8 @@ async def save_workout_progress(workout_id: str, data: WorkoutProgressSave, user
     workout = await db.scheduled_workouts.find_one({"_id": ObjectId(workout_id)})
     if not workout:
         raise HTTPException(status_code=404, detail="Workout not found")
+    if workout.get("is_draft"):
+        raise HTTPException(status_code=403, detail="Impossible de démarrer un brouillon")
     
     progress_doc = {
         "workout_id": workout_id,
@@ -3190,6 +3295,9 @@ async def save_workout_progress(workout_id: str, data: WorkoutProgressSave, user
 @api_router.get("/workouts/{workout_id}/progress")
 async def get_workout_progress(workout_id: str, user: dict = Depends(get_current_user)):
     """Get saved workout progress"""
+    workout = await db.scheduled_workouts.find_one({"_id": ObjectId(workout_id)}, {"is_draft": 1, "creator_id": 1, "for_user_id": 1})
+    if workout and workout.get("is_draft"):
+        raise HTTPException(status_code=403, detail="Brouillon")
     progress = await db.workout_progress.find_one({
         "workout_id": workout_id,
         "user_id": user["id"]
@@ -3210,6 +3318,9 @@ async def get_workout_progress(workout_id: str, user: dict = Depends(get_current
 @api_router.delete("/workouts/{workout_id}/progress")
 async def clear_workout_progress(workout_id: str, user: dict = Depends(get_current_user)):
     """Clear saved workout progress"""
+    workout = await db.scheduled_workouts.find_one({"_id": ObjectId(workout_id)}, {"is_draft": 1})
+    if workout and workout.get("is_draft"):
+        raise HTTPException(status_code=403, detail="Brouillon")
     await db.workout_progress.delete_one({
         "workout_id": workout_id,
         "user_id": user["id"]

@@ -106,7 +106,8 @@ export const templatesApi = {
 export const workoutsApi = {
   getAll: (params) => api.get('/workouts', { params }), // params.light=true : sans blocs (léger)
   getToday: () => api.get('/workouts/today'),
-  getOne: (id) => api.get(`/workouts/${id}`),
+  getOne: (id, params) => api.get(`/workouts/${id}`, params ? { params } : undefined),
+  getDrafts: () => api.get('/workouts/drafts'),
   create: (data) => api.post('/workouts', data),
   createMulti: (data) => api.post('/workouts/multi-schedule', data),
   update: (id, data) => api.put(`/workouts/${id}`, data),
