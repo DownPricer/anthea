@@ -40,6 +40,7 @@ from duo_social import (
     can_view_duo_section,
     compute_together_stats,
     duo_tag_from_doc,
+    duo_visibility_allows,
     find_duo_by_tag,
     get_duo_access_level,
     get_duo_follow_doc,
@@ -47,6 +48,7 @@ from duo_social import (
     is_duo_follower,
     normalize_duo_relation,
     parse_duo_tag,
+    resolve_duo_visibility,
     RELATION_LABELS,
     resolve_coach_roles,
     resolve_duo_member_pair,
@@ -179,6 +181,11 @@ class DuoProfileUpdate(BaseModel):
     show_recent_activity: Optional[bool] = None
     show_posts: Optional[bool] = None
     show_challenges: Optional[bool] = None
+    stats_visibility: Optional[Literal["public", "followers", "members"]] = None
+    wall_visibility: Optional[Literal["public", "followers", "members"]] = None
+    badges_visibility: Optional[Literal["public", "followers", "members"]] = None
+    activity_visibility: Optional[Literal["public", "followers", "members"]] = None
+    challenges_visibility: Optional[Literal["public", "followers", "members"]] = None
 
 class ImageUpload(BaseModel):
     image_data: str
@@ -709,7 +716,10 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
     base["show_stats"] = _visibility_allows(stats_vis)
     base["show_badges"] = _visibility_allows(badges_vis)
     base["show_recent_activity"] = _visibility_allows(activity_vis)
-    base["show_sessions"] = profile_user.get("show_sessions", False)
+    if profile_user.get("account_visibility") == "public":
+        base["show_sessions"] = access != "limited"
+    else:
+        base["show_sessions"] = access in ("own", "friend", "follower")
     base["show_posts"] = _visibility_allows(posts_vis)
     return base
 
@@ -1056,7 +1066,9 @@ async def can_view_session_in_post(viewer_id: str, author: dict, session: dict) 
         return False
     if access == "own":
         return True
-    return bool(author.get("show_sessions", False))
+    if author.get("account_visibility") == "public":
+        return True
+    return access in ("follower", "friend")
 
 
 def build_session_snapshot(session: dict, workout: Optional[dict] = None) -> dict:
@@ -1462,6 +1474,26 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
         base["show_recent_activity"] = False
         base["show_posts"] = False
         base["show_challenges"] = False
+    else:
+        stats_vis = resolve_duo_visibility(duo_doc, "stats")
+        badges_vis = resolve_duo_visibility(duo_doc, "badges")
+        activity_vis = resolve_duo_visibility(duo_doc, "activity")
+        posts_vis = resolve_duo_visibility(duo_doc, "posts")
+        challenges_vis = resolve_duo_visibility(duo_doc, "challenges")
+        if duo_doc.get("account_visibility") == "public":
+            posts_vis = badges_vis = "public"
+        elif duo_doc.get("account_visibility") == "private":
+            posts_vis = badges_vis = "followers"
+        base["stats_visibility"] = stats_vis
+        base["wall_visibility"] = posts_vis
+        base["badges_visibility"] = badges_vis
+        base["activity_visibility"] = activity_vis
+        base["challenges_visibility"] = challenges_vis
+        base["show_stats"] = duo_visibility_allows(access, stats_vis)
+        base["show_badges"] = duo_visibility_allows(access, badges_vis)
+        base["show_recent_activity"] = duo_visibility_allows(access, activity_vis)
+        base["show_posts"] = duo_visibility_allows(access, posts_vis)
+        base["show_challenges"] = duo_visibility_allows(access, challenges_vis)
     return base
 
 async def can_view_duo_post(viewer_id: str, post: dict, duo_doc: dict) -> bool:
@@ -1489,7 +1521,10 @@ async def can_view_user_stats(viewer_id: str, target_user: dict) -> bool:
         return False
     if access == "own":
         return True
-    return bool(target_user.get("show_stats"))
+    stats_vis = resolve_visibility_value(target_user, "stats_visibility", "show_stats", default_public=False)
+    if target_user.get("account_visibility") == "private" and stats_vis == "public":
+        stats_vis = "followers"
+    return visibility_allows(access, stats_vis)
 
 # ============ STARTUP ============
 
@@ -2256,7 +2291,12 @@ async def get_user_profile_stats(handle: str, user: dict = Depends(get_current_u
     badges_vis = resolve_visibility_value(target, "badges_visibility", "show_badges", default_public=True)
     can_stats = visibility_allows(access, stats_vis)
     can_badges = visibility_allows(access, badges_vis)
-    can_sessions = access == "own" or bool(target.get("show_sessions"))
+    if target.get("account_visibility") == "public":
+        can_sessions = access != "limited"
+    elif target.get("account_visibility") == "private":
+        can_sessions = access in ("own", "friend", "follower")
+    else:
+        can_sessions = access == "own" or bool(target.get("show_sessions"))
 
     result = {"duo_stats": None, "detailed_stats": None, "calendar_days": []}
 
@@ -2497,12 +2537,40 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
         updates["avatar_url"] = normalize_upload_path(data.avatar_url)
     if data.banner_url is not None:
         updates["banner_url"] = normalize_upload_path(data.banner_url)
+
+    payload = data.model_dump(exclude_unset=True)
+    duo_vis_fields = {
+        "stats_visibility": "show_stats",
+        "wall_visibility": "show_posts",
+        "badges_visibility": "show_badges",
+        "activity_visibility": "show_recent_activity",
+        "challenges_visibility": "show_challenges",
+    }
+    if payload.get("account_visibility") == "public":
+        updates["wall_visibility"] = "public"
+        updates["badges_visibility"] = "public"
+        updates["show_posts"] = True
+        updates["show_badges"] = True
+    elif payload.get("account_visibility") == "private":
+        updates["wall_visibility"] = "followers"
+        updates["badges_visibility"] = "followers"
+        updates["show_posts"] = True
+        updates["show_badges"] = True
+
+    for vis_key, legacy_key in duo_vis_fields.items():
+        if vis_key in payload and payload[vis_key] is not None:
+            value = payload[vis_key]
+            if value not in ("public", "followers", "members"):
+                raise HTTPException(status_code=400, detail=f"{vis_key} invalide")
+            updates[vis_key] = value
+            updates[legacy_key] = value in ("public", "followers")
+
     for field in (
         "account_visibility", "show_stats", "show_badges",
         "show_recent_activity", "show_posts", "show_challenges",
     ):
         val = getattr(data, field, None)
-        if val is not None:
+        if val is not None and field not in updates:
             updates[field] = val
 
     if not updates:

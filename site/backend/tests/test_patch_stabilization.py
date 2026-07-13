@@ -244,11 +244,21 @@ def test_duo_wall_owner_key():
 
 
 def test_can_view_duo_challenges_section():
-    from duo_social import can_view_duo_section, apply_duo_defaults
+    from duo_social import can_view_duo_section, apply_duo_defaults, resolve_duo_visibility
     doc = apply_duo_defaults({"show_challenges": False})
     assert can_view_duo_section(doc, "public", "challenges") is False
     assert can_view_duo_section(doc, "member", "challenges") is True
+    public_doc = apply_duo_defaults({"account_visibility": "public", "show_posts": True})
+    assert can_view_duo_section(public_doc, "public", "posts") is True
+    assert resolve_duo_visibility(public_doc, "badges") == "public"
 
+
+def test_duo_private_wall_followers_only():
+    from duo_social import can_view_duo_section, apply_duo_defaults
+    doc = apply_duo_defaults({"account_visibility": "private", "show_posts": True})
+    assert can_view_duo_section(doc, "public", "posts") is False
+    assert can_view_duo_section(doc, "follower", "posts") is True
+    assert can_view_duo_section(doc, "member", "posts") is True
 
 def test_compute_best_streak_from_calendar():
     from server import compute_best_streak_from_calendar

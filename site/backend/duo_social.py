@@ -240,24 +240,62 @@ async def _is_mutual(db, user_a: str, user_b: str) -> bool:
     return bool(a and b)
 
 
+def resolve_duo_visibility(duo_doc: dict, section: str) -> str:
+    """Normalise la visibilité d'une section duo (public / followers / members)."""
+    field_map = {
+        "stats": ("stats_visibility", "show_stats"),
+        "badges": ("badges_visibility", "show_badges"),
+        "activity": ("activity_visibility", "show_recent_activity"),
+        "posts": ("wall_visibility", "show_posts"),
+        "challenges": ("challenges_visibility", "show_challenges"),
+    }
+    field, legacy = field_map.get(section, (None, None))
+    if not field:
+        return "followers"
+    raw = duo_doc.get(field)
+    if raw in ("public", "followers", "members"):
+        return raw
+    legacy_val = duo_doc.get(legacy)
+    is_public = duo_doc.get("account_visibility") == "public"
+    if legacy_val is True:
+        return "public" if is_public else "followers"
+    if legacy_val is False:
+        return "members"
+    defaults = {
+        "badges": "public",
+        "posts": "followers",
+        "stats": "followers",
+        "activity": "followers",
+        "challenges": "followers",
+    }
+    return defaults.get(section, "followers")
+
+
+def duo_visibility_allows(access: str, vis: str) -> bool:
+    if access == "limited":
+        return False
+    if access == "member":
+        return True
+    if vis == "public":
+        return access in ("follower", "friend", "public")
+    if vis == "followers":
+        return access in ("follower", "friend")
+    return False
+
+
 def can_view_duo_section(duo_doc: dict, access: str, section: str) -> bool:
     if access == "limited":
         return False
     if access == "member":
         return True
-    flag_map = {
-        "stats": "show_stats",
-        "badges": "show_badges",
-        "activity": "show_recent_activity",
-        "posts": "show_posts",
-        "challenges": "show_challenges",
-    }
-    flag = flag_map.get(section)
-    if access in ("follower", "friend", "public"):
-        if not flag:
-            return True
-        return bool(duo_doc.get(flag))
-    return False
+    duo_doc = apply_duo_defaults(duo_doc)
+    is_public = duo_doc.get("account_visibility") == "public"
+    if is_public and section in ("posts", "badges"):
+        return duo_visibility_allows(access, "public")
+    if not is_public and section in ("posts", "badges"):
+        return duo_visibility_allows(access, "followers")
+    vis = resolve_duo_visibility(duo_doc, section)
+    return duo_visibility_allows(access, vis)
 
 
 def _session_day(session: dict) -> str:
