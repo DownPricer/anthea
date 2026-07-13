@@ -156,7 +156,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
         <DuoPostComposer
           duoProfile={duoProfile}
           onPosted={(newPost) => {
-            if (newPost?.id) {
+            if (newPost?.id && newPost?.actor?.type === 'duo') {
               setPosts((prev) => [newPost, ...prev.filter((p) => p.id !== newPost.id)]);
             }
             load();

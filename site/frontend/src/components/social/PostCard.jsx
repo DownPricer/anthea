@@ -21,7 +21,9 @@ import { Input } from '../ui/input';
 import { WorkoutDetailsDrawer } from './WorkoutDetailsDrawer';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
 import { FeedSourceBadge } from './FeedSourceBadge';
-import { formatDuration, formatHandle, getDisplayName, getPublicHandle } from '../../lib/userProfile';
+import { formatDuration, getPublicHandle } from '../../lib/userProfile';
+import { getPostActorDisplay, canDeletePost } from '../../lib/postActor';
+import { DuoAvatarStack } from '../duo/DuoAvatar';
 import { postsApi, formatApiError } from '../../lib/api';
 import { toast } from 'sonner';
 
@@ -49,13 +51,11 @@ export function PostCard({
   const [repostLoading, setRepostLoading] = useState(false);
   const [commentLikes, setCommentLikes] = useState({});
 
-  const isOwn = viewer?.id === post.author_id;
-  const authorHandle = getPublicHandle({
-    handle: post.author_handle,
-    username: post.author_username,
-  }) || post.author_username;
+  const isOwn = canDeletePost(post, viewer);
+  const actorDisplay = getPostActorDisplay(post);
+  const isDuoActor = actorDisplay.type === 'duo';
   const isCommonSession = post.type === 'duo' && !!post.partner_session_snapshot;
-  const author = {
+  const author = actorDisplay.user || {
     id: post.author_id,
     username: post.author_username,
     handle: post.author_handle,
@@ -183,18 +183,33 @@ export function PostCard({
         </div>
       ) : null}
       <div className="flex items-start gap-3">
-        <Link to={authorHandle ? `/profile/${authorHandle}` : '#'}>
-          <UserAvatar user={author} className="w-10 h-10" />
+        <Link to={actorDisplay.link}>
+          {isDuoActor ? (
+            <DuoAvatarStack
+              duoProfile={actorDisplay.duoProfile}
+              members={actorDisplay.members}
+              className="w-10 h-10"
+            />
+          ) : (
+            <UserAvatar user={author} className="w-10 h-10" />
+          )}
         </Link>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <Link
-              to={authorHandle ? `/profile/${authorHandle}` : '#'}
+              to={actorDisplay.link}
               className="text-white font-medium hover:underline"
             >
-              {getDisplayName(author)}
+              {actorDisplay.name}
             </Link>
-            <span className="text-zinc-500 text-xs">{formatHandle(author)}</span>
+            {actorDisplay.handleLabel ? (
+              <span className="text-zinc-500 text-xs">{actorDisplay.handleLabel}</span>
+            ) : null}
+            {isDuoActor ? (
+              <span className="text-[10px] uppercase tracking-wide text-violet-400/80 bg-violet-500/10 px-1.5 py-0.5 rounded">
+                Duo
+              </span>
+            ) : null}
             {isRepost && (
               <span className="text-zinc-500 text-xs flex items-center gap-1">
                 <Repeat2 size={12} /> Republication

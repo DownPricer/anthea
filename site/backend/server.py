@@ -763,6 +763,120 @@ def is_duo_wall_post(post: dict) -> bool:
     return False
 
 
+async def find_duo_doc_for_post(post: dict) -> Optional[dict]:
+    """Résout le profil duo depuis pair_key (canonique) ou legacy _id."""
+    candidates = []
+    for key in (post.get("owner_id"), post.get("duo_id"), post.get("actor_id")):
+        if key and key not in candidates:
+            candidates.append(key)
+    for key in candidates:
+        doc = await db.duo_profiles.find_one({"pair_key": key})
+        if doc:
+            return apply_duo_defaults(doc)
+    for key in candidates:
+        try:
+            doc = await db.duo_profiles.find_one({"_id": ObjectId(key)})
+            if doc:
+                return apply_duo_defaults(doc)
+        except Exception:
+            continue
+    return None
+
+
+async def is_duo_member_user(user_id: str, duo_doc: dict) -> bool:
+    members = await get_duo_members(db, duo_doc)
+    return user_id in {str(m["_id"]) for m in members}
+
+
+async def can_delete_post(user_id: str, post: dict, duo_doc: Optional[dict] = None) -> bool:
+    creator = post.get("created_by_user_id") or post.get("author_id")
+    if creator == user_id:
+        return True
+    if is_duo_wall_post(post):
+        if not duo_doc:
+            duo_doc = await find_duo_doc_for_post(post)
+        if duo_doc:
+            return await is_duo_member_user(user_id, duo_doc)
+    return False
+
+
+async def can_view_post_doc(viewer_id: str, post: dict) -> bool:
+    if is_duo_wall_post(post):
+        duo_doc = await find_duo_doc_for_post(post)
+        if not duo_doc:
+            return False
+        return await can_view_duo_post(viewer_id, post, duo_doc)
+    author = await get_user_doc_by_id(post.get("author_id"))
+    if not author:
+        return False
+    return await can_view_post(viewer_id, post, author)
+
+
+async def resolve_post_actor(post: dict, duo_doc: Optional[dict] = None) -> dict:
+    """Identité publique affichée — duo ou utilisateur."""
+    actor_type = post.get("actor_type")
+    actor_id = post.get("actor_id")
+
+    if not actor_type:
+        if is_duo_wall_post(post):
+            actor_type = "duo"
+            actor_id = post.get("owner_id") or post.get("duo_id")
+        else:
+            actor_type = "user"
+            actor_id = post.get("author_id") or post.get("created_by_user_id")
+
+    if actor_type == "duo":
+        if not duo_doc:
+            duo_doc = await find_duo_doc_for_post(post)
+        if duo_doc:
+            members = await get_duo_members(db, duo_doc)
+            tag = duo_tag_from_doc(duo_doc)
+            pair_key = duo_doc.get("pair_key") or duo_wall_owner_key(
+                duo_doc,
+                str(members[0]["_id"]) if members else "",
+                str(members[1]["_id"]) if len(members) > 1 else "",
+            )
+            member_cards = []
+            for m in members:
+                member_cards.append({
+                    "id": str(m["_id"]),
+                    "username": m.get("username"),
+                    "handle": m.get("handle") or m.get("username"),
+                    "display_name": m.get("display_name"),
+                    "avatar_url": m.get("avatar_url"),
+                    "accent_color": m.get("accent_color"),
+                })
+            return {
+                "type": "duo",
+                "id": pair_key or str(duo_doc["_id"]),
+                "name": duo_doc.get("name") or "Duo",
+                "handle": tag,
+                "tag": tag,
+                "avatar_url": duo_doc.get("avatar_url"),
+                "member_avatars": [m.get("avatar_url") for m in members],
+                "member_colors": [m.get("accent_color") for m in members],
+                "members": member_cards,
+            }
+
+    user_id = actor_id or post.get("author_id") or post.get("created_by_user_id")
+    author = await get_user_doc_by_id(user_id) if user_id else None
+    if not author:
+        return {
+            "type": "user",
+            "id": user_id,
+            "name": post.get("author_display_name") or "Utilisateur",
+            "handle": post.get("author_handle") or post.get("author_username"),
+            "avatar_url": post.get("author_avatar_url"),
+        }
+    return {
+        "type": "user",
+        "id": str(author["_id"]),
+        "name": author.get("display_name") or author.get("username"),
+        "handle": author.get("handle") or author.get("username"),
+        "avatar_url": author.get("avatar_url"),
+    }
+
+
 def user_wall_posts_query(author_id: str) -> dict:
     """Posts du mur personnel — exclut les publications mur duo."""
     return {
@@ -867,17 +981,14 @@ async def serialize_post(
     include_all_comments: bool = False,
     duo_doc: Optional[dict] = None,
 ) -> Optional[dict]:
-    duo_id = post.get("duo_id")
-    if duo_id and not duo_doc:
-        try:
-            duo_doc = await db.duo_profiles.find_one({"_id": ObjectId(duo_id)})
-        except Exception:
-            duo_doc = None
-
-    if duo_id and duo_doc:
+    is_duo = is_duo_wall_post(post)
+    if is_duo:
+        if not duo_doc:
+            duo_doc = await find_duo_doc_for_post(post)
+        if not duo_doc:
+            return None
         if not await can_view_duo_post(viewer_id, post, duo_doc):
             return None
-        author = author or await get_user_doc_by_id(post.get("author_id"))
     else:
         if author is None:
             author = await get_user_doc_by_id(post.get("author_id"))
@@ -886,14 +997,26 @@ async def serialize_post(
         if not await can_view_post(viewer_id, post, author):
             return None
 
-    author_id = str(author["_id"]) if author else post.get("author_id")
+    actor = await resolve_post_actor(post, duo_doc=duo_doc)
+    created_by_user_id = post.get("created_by_user_id") or post.get("author_id")
+    author_id = created_by_user_id
+    if author is None and not is_duo:
+        author = await get_user_doc_by_id(author_id)
+
     likes = post.get("likes") or []
     comments = post.get("comments") or []
     serialized_comments = [_serialize_post_comment(c, viewer_id) for c in comments]
 
+    actor_type = post.get("actor_type") or ("duo" if is_duo else "user")
+    actor_id = post.get("actor_id") or post.get("owner_id") or post.get("duo_id") or author_id
+
     result = {
         "id": str(post["_id"]),
-        "author_id": author_id,
+        "author_id": post.get("author_id") or created_by_user_id,
+        "created_by_user_id": created_by_user_id,
+        "actor_type": actor_type,
+        "actor_id": actor_id,
+        "actor": actor,
         "author_username": post.get("author_username") or (author.get("username") if author else None),
         "author_handle": post.get("author_handle") or ((author.get("handle") or author.get("username")) if author else None),
         "author_display_name": post.get("author_display_name") or (author.get("display_name") if author else None),
@@ -912,13 +1035,14 @@ async def serialize_post(
         "duo_id": post.get("duo_id"),
         "owner_type": post.get("owner_type"),
         "owner_id": post.get("owner_id"),
-        "duo_name": duo_doc.get("name") if duo_doc else None,
-        "duo_tag": duo_tag_from_doc(duo_doc) if duo_doc else None,
+        "duo_name": duo_doc.get("name") if duo_doc else actor.get("name") if actor.get("type") == "duo" else None,
+        "duo_tag": duo_tag_from_doc(duo_doc) if duo_doc else actor.get("tag") if actor.get("type") == "duo" else None,
         "source_post_id": post.get("source_post_id"),
         "visibility": post.get("visibility", "public"),
         "likes_count": len(likes),
         "comments_count": len(comments),
         "is_liked": viewer_id in likes,
+        "can_delete": await can_delete_post(viewer_id, post, duo_doc),
         "preview_comment": serialized_comments[-1] if serialized_comments else None,
         "comments": serialized_comments if include_all_comments else (
             [serialized_comments[-1]] if serialized_comments else []
@@ -1227,6 +1351,8 @@ async def can_view_duo_post(viewer_id: str, post: dict, duo_doc: dict) -> bool:
         return False
     if visibility == "friends":
         return access in ("friend", "follower")
+    if visibility == "duo":
+        return access in ("follower", "friend", "public")
     return True
 
 async def can_view_user_stats(viewer_id: str, target_user: dict) -> bool:
@@ -1758,20 +1884,39 @@ async def get_social_feed(
     followed_duo_ids = {d["duo_id"] for d in duo_follow_docs}
 
     own_duo_ids = set()
+    own_duo_pair_keys = set()
     if user.get("partner_id"):
         own_duo = await _get_duo_profile_for_user(user["id"], user["partner_id"])
         if own_duo:
             own_duo_ids.add(str(own_duo["_id"]))
+            if own_duo.get("pair_key"):
+                own_duo_pair_keys.add(own_duo["pair_key"])
+
+    followed_duo_pair_keys = set()
+    for did in followed_duo_ids:
+        try:
+            fdoc = await db.duo_profiles.find_one({"_id": ObjectId(did)})
+            if fdoc and fdoc.get("pair_key"):
+                followed_duo_pair_keys.add(fdoc["pair_key"])
+        except Exception:
+            continue
 
     candidate_posts = await db.posts.find({}).sort("created_at", -1).limit(200).to_list(200)
     scored = []
     now = datetime.now(timezone.utc)
 
+    def _post_duo_keys(p: dict) -> set:
+        keys = {p.get("duo_id"), p.get("owner_id"), p.get("actor_id")}
+        return {k for k in keys if k}
+
     for post in candidate_posts:
         author_id = post.get("author_id")
-        author = await get_user_doc_by_id(author_id)
-        if not author:
-            continue
+        if is_duo_wall_post(post):
+            author = None
+        else:
+            author = await get_user_doc_by_id(author_id)
+            if not author:
+                continue
         serialized = await serialize_post(post, user["id"], author)
         if not serialized:
             continue
@@ -1780,17 +1925,18 @@ async def get_social_feed(
         comments_n = len(post.get("comments") or [])
         visibility = post.get("visibility", "public")
         duo_id = post.get("duo_id")
+        post_duo_keys = _post_duo_keys(post)
         is_following_author = author_id in following_ids
         is_mutual = is_following_author and await is_following(author_id, user["id"])
 
         feed_source = "trending"
         priority = 1
 
-        if duo_id:
-            if duo_id in own_duo_ids:
+        if is_duo_wall_post(post) or duo_id:
+            if post_duo_keys & own_duo_pair_keys or post_duo_keys & own_duo_ids:
                 feed_source = "own_duo"
                 priority = 5
-            elif duo_id in followed_duo_ids:
+            elif post_duo_keys & followed_duo_pair_keys or duo_id in followed_duo_ids:
                 feed_source = "duo_followed"
                 priority = 4
             elif is_mutual:
@@ -1799,7 +1945,7 @@ async def get_social_feed(
             elif is_following_author:
                 feed_source = "following"
                 priority = 2
-            elif visibility == "public":
+            elif visibility in ("public", "duo"):
                 feed_source = "trending"
                 priority = 1
             else:
@@ -3473,6 +3619,9 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         duo_id = duo_wall_owner_key(duo_doc, user["id"], user["partner_id"])
         if not duo_id:
             raise HTTPException(status_code=400, detail="Impossible d'identifier le duo")
+        members = await get_duo_members(db, duo_doc)
+        if user["id"] not in {str(m["_id"]) for m in members}:
+            raise HTTPException(status_code=403, detail="Non autorisé à publier pour ce duo")
 
     if post_type in ("workout", "workout_photo", "duo", "duo_repost", "duo_common_session") and partner_session_id:
         try:
@@ -3591,8 +3740,11 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
 
     post_doc = {
         "author_id": user["id"],
+        "created_by_user_id": user["id"],
         "owner_type": owner_type,
         "owner_id": owner_id,
+        "actor_type": owner_type,
+        "actor_id": owner_id,
         "author_username": user.get("username"),
         "author_handle": user.get("handle") or user.get("username"),
         "author_display_name": user.get("display_name"),
@@ -3834,7 +3986,8 @@ async def delete_post(post_id: str, user: dict = Depends(get_current_user)):
         post = None
     if not post:
         raise HTTPException(status_code=404, detail="Publication introuvable")
-    if post.get("author_id") != user["id"]:
+    duo_doc = await find_duo_doc_for_post(post) if is_duo_wall_post(post) else None
+    if not await can_delete_post(user["id"], post, duo_doc):
         raise HTTPException(status_code=403, detail="Non autorisé")
 
     await db.posts.delete_one({"_id": ObjectId(post_id)})
@@ -3851,10 +4004,7 @@ async def toggle_post_like(post_id: str, user: dict = Depends(get_current_user))
     if not post:
         raise HTTPException(status_code=404, detail="Publication introuvable")
 
-    author = await get_user_doc_by_id(post.get("author_id"))
-    if not author:
-        raise HTTPException(status_code=404, detail="Publication introuvable")
-    if not await can_view_post(user["id"], post, author):
+    if not await can_view_post_doc(user["id"], post):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
     likes = post.get("likes") or []
@@ -3863,12 +4013,14 @@ async def toggle_post_like(post_id: str, user: dict = Depends(get_current_user))
         likes = [uid for uid in likes if uid != user["id"]]
     else:
         likes = likes + [user["id"]]
-        await create_notification(
-            post.get("author_id"),
-            "like",
-            user,
-            post_id=post_id,
-        )
+        notify_target = post.get("created_by_user_id") or post.get("author_id")
+        if notify_target and notify_target != user["id"]:
+            await create_notification(
+                notify_target,
+                "like",
+                user,
+                post_id=post_id,
+            )
 
     await db.posts.update_one({"_id": ObjectId(post_id)}, {"$set": {"likes": likes}})
     return {"likes_count": len(likes), "is_liked": user["id"] in likes}
@@ -3891,10 +4043,7 @@ async def add_post_comment(
     if not post:
         raise HTTPException(status_code=404, detail="Publication introuvable")
 
-    author = await get_user_doc_by_id(post.get("author_id"))
-    if not author:
-        raise HTTPException(status_code=404, detail="Publication introuvable")
-    if not await can_view_post(user["id"], post, author):
+    if not await can_view_post_doc(user["id"], post):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
     comment = {
@@ -3914,7 +4063,7 @@ async def add_post_comment(
         {"$push": {"comments": comment}},
     )
     await create_notification(
-        post.get("author_id"),
+        post.get("created_by_user_id") or post.get("author_id"),
         "comment",
         user,
         post_id=post_id,
@@ -3938,8 +4087,7 @@ async def get_post_comments(post_id: str, user: dict = Depends(get_current_user)
     if not post:
         raise HTTPException(status_code=404, detail="Publication introuvable")
 
-    author = await get_user_doc_by_id(post.get("author_id"))
-    if not author or not await can_view_post(user["id"], post, author):
+    if not await can_view_post_doc(user["id"], post):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
     comments = [_serialize_post_comment(c, user["id"]) for c in (post.get("comments") or [])]
@@ -3959,8 +4107,7 @@ async def toggle_comment_like(
     if not post:
         raise HTTPException(status_code=404, detail="Publication introuvable")
 
-    author = await get_user_doc_by_id(post.get("author_id"))
-    if not author or not await can_view_post(user["id"], post, author):
+    if not await can_view_post_doc(user["id"], post):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
     comments = post.get("comments") or []
@@ -3999,7 +4146,7 @@ async def create_repost(data: RepostCreate, user: dict = Depends(get_current_use
         if not post:
             raise HTTPException(status_code=404, detail="Publication introuvable")
         author = await get_user_doc_by_id(post.get("author_id"))
-        if not author or not await can_view_post(user["id"], post, author):
+        if not await can_view_post_doc(user["id"], post):
             raise HTTPException(status_code=403, detail="Publication non accessible")
 
         existing = await db.reposts.find_one({

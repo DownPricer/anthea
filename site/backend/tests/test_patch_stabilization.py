@@ -223,6 +223,157 @@ def test_compute_best_streak_from_calendar():
     assert compute_best_streak_from_calendar(neutral_days) == 0
 
 
+def test_duo_post_owner_actor_fields():
+    """Champs attendus pour une publication mur duo."""
+    from server import duo_wall_owner_key, duo_pair_key, DUO_WALL_POST_TYPES
+
+    a = "507f1f77bcf86cd799439011"
+    b = "507f191e810c19729de860ea"
+    pk = duo_pair_key(a, b)
+    duo_doc = {"pair_key": pk, "_id": "profile123", "name": "LesGuerriers", "short_id": 1042}
+    owner_id = duo_wall_owner_key(duo_doc, a, b)
+    assert owner_id == pk
+
+    member_id = a
+    post_doc = {
+        "author_id": member_id,
+        "created_by_user_id": member_id,
+        "owner_type": "duo",
+        "owner_id": owner_id,
+        "actor_type": "duo",
+        "actor_id": owner_id,
+        "duo_id": owner_id,
+        "type": "duo_free",
+        "visibility": "duo",
+    }
+    assert post_doc["owner_type"] == "duo"
+    assert post_doc["owner_id"] == pk
+    assert post_doc["actor_type"] == "duo"
+    assert post_doc["actor_id"] == pk
+    assert post_doc["created_by_user_id"] == member_id
+    assert post_doc["author_id"] == member_id
+    assert post_doc["type"] in DUO_WALL_POST_TYPES
+
+
+def test_is_duo_wall_post_legacy_without_actor_type():
+    from server import is_duo_wall_post
+
+    legacy = {
+        "duo_id": "aaa_bbb",
+        "author_id": "user1",
+        "type": "duo_free",
+    }
+    assert is_duo_wall_post(legacy) is True
+    assert legacy.get("actor_type") is None
+
+
+def test_resolve_post_actor_legacy_duo():
+    import asyncio
+    from server import resolve_post_actor
+
+    duo_doc = {
+        "_id": "profile123",
+        "pair_key": "aaa_bbb",
+        "name": "LesGuerriers",
+        "short_id": 1042,
+    }
+    members = [
+        {"_id": "507f1f77bcf86cd799439011", "username": "u1", "avatar_url": "/a.jpg", "accent_color": "#FF0000"},
+        {"_id": "507f191e810c19729de860ea", "username": "u2", "avatar_url": "/b.jpg", "accent_color": "#00FF00"},
+    ]
+
+    async def _run():
+        import server as srv
+        orig = srv.get_duo_members
+        async def fake_members(db, doc):
+            return members
+        srv.get_duo_members = fake_members
+        try:
+            post = {
+                "duo_id": "aaa_bbb",
+                "owner_type": "duo",
+                "owner_id": "aaa_bbb",
+                "author_id": "507f1f77bcf86cd799439011",
+                "type": "duo_free",
+            }
+            actor = await resolve_post_actor(post, duo_doc=duo_doc)
+            assert actor["type"] == "duo"
+            assert actor["id"] == "aaa_bbb"
+            assert actor["name"] == "LesGuerriers"
+            assert actor["handle"] == "LesGuerriers#1042"
+            assert len(actor["member_avatars"]) == 2
+        finally:
+            srv.get_duo_members = orig
+
+    asyncio.get_event_loop().run_until_complete(_run())
+
+
+def test_resolve_post_actor_user():
+    import asyncio
+    from server import resolve_post_actor
+
+    async def _run():
+        import server as srv
+        orig = srv.get_user_doc_by_id
+        async def fake_user(uid):
+            if uid == "user1":
+                return {
+                    "_id": "user1",
+                    "username": "alice",
+                    "handle": "alice",
+                    "display_name": "Alice",
+                    "avatar_url": "/alice.jpg",
+                }
+            return None
+        srv.get_user_doc_by_id = fake_user
+        try:
+            post = {
+                "author_id": "user1",
+                "created_by_user_id": "user1",
+                "owner_type": "user",
+                "owner_id": "user1",
+                "actor_type": "user",
+                "actor_id": "user1",
+                "type": "free",
+            }
+            actor = await resolve_post_actor(post)
+            assert actor["type"] == "user"
+            assert actor["id"] == "user1"
+            assert actor["name"] == "Alice"
+            assert actor["handle"] == "alice"
+        finally:
+            srv.get_user_doc_by_id = orig
+
+    asyncio.get_event_loop().run_until_complete(_run())
+
+
+def test_duo_wall_query_finds_pair_key_posts():
+    from server import duo_wall_posts_query
+
+    pk = "507f1f77bcf86cd799439011_507f191e810c19729de860ea"
+    profile_id = "legacyProfileId"
+    q = duo_wall_posts_query(pk, profile_id)
+    sample_new = {"owner_type": "duo", "owner_id": pk, "duo_id": pk}
+    sample_legacy = {"duo_id": profile_id, "author_id": "u1", "type": "duo_free"}
+    assert any(clause.items() <= sample_new.items() for clause in q["$or"])
+    assert {"duo_id": profile_id} in q["$or"]
+    assert {"duo_id": pk} in q["$or"]
+
+
+def test_user_wall_excludes_actor_type_duo():
+    from server import is_duo_wall_post
+
+    post = {
+        "owner_type": "duo",
+        "owner_id": "pk",
+        "actor_type": "duo",
+        "actor_id": "pk",
+        "author_id": "member1",
+        "type": "duo_free",
+    }
+    assert is_duo_wall_post(post) is True
+
+
 if __name__ == "__main__":
     test_estimate_calories_by_difficulty()
     test_normalize_accent_color()

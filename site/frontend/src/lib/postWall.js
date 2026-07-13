@@ -10,8 +10,10 @@ const DUO_WALL_TYPES = new Set([
 export function isUserWallPost(post) {
   if (!post) return false;
   if (post.owner_type === 'duo') return false;
+  if (post.actor_type === 'duo') return false;
   if (post.owner_type === 'user') return true;
   if (post.duo_id) return false;
+  if (post.actor?.type === 'duo') return false;
   if (DUO_WALL_TYPES.has(post.type)) return false;
   return true;
 }
