@@ -34,9 +34,3 @@ export function vibrateShort(pattern = 40) {
     navigator.vibrate(pattern);
   }
 }
-
-export function openSpotify(playlistUrl) {
-  const fallback = 'https://open.spotify.com';
-  const url = playlistUrl?.trim() || fallback;
-  window.open(url, '_blank', 'noopener,noreferrer');
-}

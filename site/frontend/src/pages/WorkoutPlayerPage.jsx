@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import { workoutsApi, sessionsApi, streakApi, partnerApi } from '../lib/api';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { estimateCalories, formatCalories } from '../lib/calories';
-import { playShortBeep, vibrateShort, openSpotify } from '../lib/workoutFeedback';
+import { playShortBeep, vibrateShort } from '../lib/workoutFeedback';
 import { LiveWorkoutChat } from '../components/LiveWorkoutChat';
 import { ShareWorkoutDialog } from '../components/social/ShareWorkoutDialog';
 import { Button } from '../components/ui/button';
@@ -389,10 +389,6 @@ export function WorkoutPlayerPage() {
     }
     if (timerRef.current) clearInterval(timerRef.current);
     if (totalTimeRef.current) clearInterval(totalTimeRef.current);
-  };
-
-  const handleOpenMusic = () => {
-    openSpotify(user?.spotify_playlist_url);
   };
 
   // STOP MODAL HANDLERS
@@ -1038,13 +1034,6 @@ export function WorkoutPlayerPage() {
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-[#141414] border-white/10 w-52">
-            <DropdownMenuItem
-              onClick={handleOpenMusic}
-              className="text-white focus:bg-white/10 cursor-pointer"
-            >
-              <Music size={16} className="mr-2" />
-              Ouvrir Spotify
-            </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setMusicMode(!musicMode)}
               className="text-white focus:bg-white/10 cursor-pointer"

@@ -176,7 +176,6 @@ export function SettingsPage() {
   const [openSection, setOpenSection] = useState(SECTION_IDS.profile);
   const [ttsEnabled, setTtsEnabled] = useState(user?.tts_enabled !== false);
   const [musicMode, setMusicMode] = useState(!!user?.music_mode);
-  const [spotifyPlaylistUrl, setSpotifyPlaylistUrl] = useState(user?.spotify_playlist_url || '');
   const [accentColor, setAccentColor] = useState(user?.accent_color || '');
   const [accountVisibility, setAccountVisibility] = useState(user?.account_visibility || 'private');
   const [statsVisibility, setStatsVisibility] = useState(user?.stats_visibility || (user?.show_stats ? 'public' : 'me'));
@@ -184,6 +183,7 @@ export function SettingsPage() {
   const [privacyAdvancedOpen, setPrivacyAdvancedOpen] = useState(false);
   const [savingPrefs, setSavingPrefs] = useState(false);
   const [savingPlayer, setSavingPlayer] = useState(false);
+  const [playerDirty, setPlayerDirty] = useState(false);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [badges, setBadges] = useState([]);
   const [badgeSummary, setBadgeSummary] = useState(null);
@@ -198,15 +198,14 @@ export function SettingsPage() {
   const [agendaEverOpened, setAgendaEverOpened] = useState(false);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || playerDirty) return;
     setTtsEnabled(user.tts_enabled !== false);
     setMusicMode(!!user.music_mode);
-    setSpotifyPlaylistUrl(user.spotify_playlist_url || '');
     setAccentColor(user.accent_color || '');
     setAccountVisibility(user.account_visibility || 'private');
     setStatsVisibility(user.stats_visibility || (user.show_stats ? 'public' : 'me'));
     setActivityVisibility(user.activity_visibility || (user.show_recent_activity ? 'public' : 'me'));
-  }, [user]);
+  }, [user, playerDirty]);
 
   useEffect(() => {
     if (accountVisibility === 'private') {
@@ -301,12 +300,15 @@ export function SettingsPage() {
     const result = await updateProfile({
       tts_enabled: ttsEnabled,
       music_mode: musicMode,
-      spotify_playlist_url: spotifyPlaylistUrl.trim() || null,
     });
     setSavingPlayer(false);
     if (result.success) {
+      setPlayerDirty(false);
       toast.success('Préférences player enregistrées');
     } else {
+      setTtsEnabled(user?.tts_enabled !== false);
+      setMusicMode(!!user?.music_mode);
+      setPlayerDirty(false);
       toast.error(result.error);
     }
   };
@@ -587,7 +589,14 @@ export function SettingsPage() {
                 <Volume2 className="text-zinc-400" size={20} />
                 <span className="text-white">Annonces vocales</span>
               </div>
-              <Switch checked={ttsEnabled} onCheckedChange={setTtsEnabled} data-testid="tts-toggle" />
+              <Switch
+                checked={ttsEnabled}
+                onCheckedChange={(checked) => {
+                  setTtsEnabled(checked);
+                  setPlayerDirty(true);
+                }}
+                data-testid="tts-toggle"
+              />
             </div>
 
             <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
@@ -595,25 +604,22 @@ export function SettingsPage() {
                 <Music className="text-zinc-400" size={20} />
                 <div>
                   <span className="text-white block">Mode musique</span>
-                  <span className="text-zinc-500 text-xs">Bips courts, compatible Spotify</span>
+                  <span className="text-zinc-500 text-xs">Bips courts à la place des annonces longues</span>
                 </div>
               </div>
-              <Switch checked={musicMode} onCheckedChange={setMusicMode} data-testid="music-mode-toggle" />
-            </div>
-
-            <div className="rounded-xl bg-white/5 p-3 space-y-2">
-              <Label className="text-zinc-400 text-sm">Lien playlist Spotify (optionnel)</Label>
-              <Input
-                value={spotifyPlaylistUrl}
-                onChange={(e) => setSpotifyPlaylistUrl(e.target.value)}
-                placeholder="https://open.spotify.com/playlist/..."
-                className="h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white text-sm"
+              <Switch
+                checked={musicMode}
+                onCheckedChange={(checked) => {
+                  setMusicMode(checked);
+                  setPlayerDirty(true);
+                }}
+                data-testid="music-mode-toggle"
               />
             </div>
 
             <Button
               onClick={handleSavePlayer}
-              disabled={savingPlayer}
+              disabled={savingPlayer || !playerDirty}
               className="w-full h-11 rounded-xl btn-primary text-white"
             >
               {savingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer le player'}

@@ -1,39 +1,35 @@
 import { useEffect, useState } from 'react';
-import { Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import {
   mergeNotificationPrefs,
   NOTIFICATION_PREF_GROUPS,
 } from '../../lib/notificationPrefs';
 import { Switch } from '../ui/switch';
-import { Button } from '../ui/button';
 import { toast } from 'sonner';
 
 export function NotificationPrefsSection() {
   const { user, updateProfile } = useAuth();
   const [prefs, setPrefs] = useState(() => mergeNotificationPrefs(user?.notification_prefs));
-  const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
+  const [savingKeys, setSavingKeys] = useState(() => new Set());
 
   useEffect(() => {
     setPrefs(mergeNotificationPrefs(user?.notification_prefs));
-    setDirty(false);
   }, [user?.notification_prefs]);
 
-  const setPref = (key, value) => {
-    setPrefs((prev) => ({ ...prev, [key]: value }));
-    setDirty(true);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    const result = await updateProfile({ notification_prefs: prefs });
-    setSaving(false);
-    if (result.success) {
-      setDirty(false);
-      toast.success('Préférences de notifications enregistrées');
-    } else {
-      toast.error(result.error);
+  const updatePreference = async (key, checked) => {
+    const previous = prefs;
+    const next = { ...prefs, [key]: Boolean(checked) };
+    setPrefs(next);
+    setSavingKeys((current) => new Set(current).add(key));
+    const result = await updateProfile({ notification_prefs: next });
+    setSavingKeys((current) => {
+      const updated = new Set(current);
+      updated.delete(key);
+      return updated;
+    });
+    if (!result.success) {
+      setPrefs(previous);
+      toast.error(result.error || 'Préférence non enregistrée');
     }
   };
 
@@ -55,7 +51,9 @@ export function NotificationPrefsSection() {
                 <span className="text-white text-sm min-w-0 leading-snug">{label}</span>
                 <Switch
                   checked={!!prefs[key]}
-                  onCheckedChange={(v) => setPref(key, v)}
+                  onCheckedChange={(checked) => updatePreference(key, checked)}
+                  disabled={!user || savingKeys.size > 0}
+                  aria-label={label}
                   data-testid={`notif-pref-${key}`}
                 />
               </div>
@@ -64,14 +62,6 @@ export function NotificationPrefsSection() {
         </div>
       ))}
 
-      <Button
-        type="button"
-        onClick={handleSave}
-        disabled={saving || !dirty}
-        className="w-full h-11 rounded-xl btn-primary text-white"
-      >
-        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer les notifications'}
-      </Button>
     </div>
   );
 }
