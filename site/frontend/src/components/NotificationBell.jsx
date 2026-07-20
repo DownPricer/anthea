@@ -51,7 +51,7 @@ export function NotificationBell({
         type="button"
         onClick={() => navigate(target)}
         data-testid={testId}
-        className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+        className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
         aria-label={filter === 'duo' ? 'Notifications duo' : 'Notifications'}
       >
         <Bell size={20} />

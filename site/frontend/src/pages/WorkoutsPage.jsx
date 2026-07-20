@@ -491,7 +491,6 @@ function SelectedDaySummary({ state, myAccent }) {
   const labels = [];
   if (state.both_completed) labels.push('Duo ✓');
   else {
-    if (state.my_completed) labels.push('Toi ✓');
     if (state.partner_completed) labels.push('Partenaire ✓');
   }
   if (state.rest) labels.push('Repos');

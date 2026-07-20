@@ -262,8 +262,11 @@ export function HomePage() {
   );
 
   return (
-    <div data-testid="home-page" className="p-5 animate-fade-in">
-      <div className="space-y-6">
+    <div
+      data-testid="home-page"
+      className="w-full max-w-7xl mx-auto p-5 animate-fade-in"
+    >
+      <div className="mx-auto w-full max-w-4xl space-y-6">
         <PageHeader
           title="Accueil"
           subtitle={format(new Date(), 'EEEE d MMMM', { locale: fr })}
@@ -274,7 +277,7 @@ export function HomePage() {
                 type="button"
                 onClick={() => navigate('/search')}
                 data-testid="home-search-btn"
-                className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
                 aria-label="Rechercher"
               >
                 <Search size={20} />
@@ -289,7 +292,7 @@ export function HomePage() {
                   type="button"
                   onClick={() => navigate('/notifications')}
                   data-testid="home-notifications-btn"
-                  className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                  className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
                   aria-label="Notifications"
                 >
                   <Bell size={20} />
@@ -298,7 +301,7 @@ export function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate('/profile')}
-                className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center overflow-hidden"
+                className="inline-flex size-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
                 aria-label="Mon profil"
               >
                 <UserAvatar user={user} className="w-full h-full" />
@@ -329,7 +332,7 @@ export function HomePage() {
         )}
       </div>
 
-      <div className="mt-6 space-y-6 max-w-3xl">
+      <div className="mx-auto mt-6 w-full max-w-4xl space-y-6">
           {/* Next Workout Card */}
           {todayLoading ? (
             <div className="card p-5 relative overflow-hidden">
