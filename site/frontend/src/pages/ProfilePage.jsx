@@ -23,6 +23,7 @@ import {
   Trophy,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { PageHeader } from '../components/layout/PageHeader';
 import {
   canViewProfileSection,
   isOwnProfile,
@@ -278,23 +279,24 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
 
   return (
     <div data-testid="profile-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-3xl mx-auto">
-      <header className="mb-5 flex items-center justify-between md:mb-6">
-        <h1 className="text-xl md:text-2xl font-bold text-white font-['Outfit']">
-          {isOwn ? 'Mon profil' : 'Profil'}
-        </h1>
-        {isOwn ? (
-          <div className="flex items-center gap-2">
-            <NotificationBell data-testid="profile-notification-bell" />
-            <Link
-              to="/settings"
-              className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-            >
-              <Settings size={18} />
-              <span className="hidden sm:inline">Paramètres</span>
-            </Link>
-          </div>
-        ) : null}
-      </header>
+      <PageHeader
+        title={isOwn ? 'Mon profil' : 'Profil'}
+        subtitle={isOwn ? 'Votre activité et vos succès' : null}
+        actions={
+          isOwn ? (
+            <div className="flex items-center gap-2">
+              <NotificationBell data-testid="profile-notification-bell" />
+              <Link
+                to="/settings"
+                className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                <Settings size={18} />
+                <span className="hidden sm:inline">Paramètres</span>
+              </Link>
+            </div>
+          ) : null
+        }
+      />
 
       <div className="space-y-5">
         <ProfileHeader

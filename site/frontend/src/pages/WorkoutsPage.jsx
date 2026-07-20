@@ -37,6 +37,7 @@ import {
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { PageHeader } from '../components/layout/PageHeader';
 
 export function WorkoutsPage() {
   const { user } = useAuth();
@@ -328,16 +329,19 @@ export function WorkoutsPage() {
 
   return (
     <div data-testid="workouts-page" className="p-5 animate-fade-in">
-      <header className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold text-white font-['Outfit']">Séances</h1>
-        <Button
-          onClick={() => navigate('/create')}
-          size="sm"
-          className="bg-[var(--theme-primary)] text-white rounded-full px-4"
-        >
-          <Plus size={18} className="mr-1" /> Nouvelle
-        </Button>
-      </header>
+      <PageHeader
+        title="Mes séances"
+        subtitle="Votre programme et vos séances planifiées"
+        actions={
+          <Button
+            onClick={() => navigate('/create')}
+            size="sm"
+            className="bg-[var(--theme-primary)] text-white rounded-full px-4"
+          >
+            <Plus size={18} className="mr-1" /> Nouvelle
+          </Button>
+        }
+      />
 
       {liveSession && <PartnerLiveStatus liveSession={liveSession} className="mb-4" />}
 

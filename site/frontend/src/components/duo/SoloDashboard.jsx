@@ -28,6 +28,7 @@ import {
   CollapsibleTrigger,
 } from '../ui/collapsible';
 import { toast } from 'sonner';
+import { PageHeader } from '../layout/PageHeader';
 
 function filterSoloBadges(badges = []) {
   return badges.filter((b) => !b.id?.startsWith('duo_') && b.family !== 'duo');
@@ -117,12 +118,11 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
 
   return (
     <div data-testid="duo-page-solo" className="p-5 animate-fade-in">
-      <header className="mb-6">
-        <h1 className="text-2xl font-bold text-white font-['Outfit']" data-testid="solo-page-title">
-          {duoNav.label}
-        </h1>
-        <p className="text-zinc-500 text-sm mt-1">Ton tableau de bord personnel</p>
-      </header>
+      <PageHeader
+        title={duoNav?.label || 'Duo'}
+        subtitle="Votre progression à deux"
+        titleTestId="solo-page-title"
+      />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">

@@ -73,6 +73,7 @@ import {
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { PageHeader } from '../components/layout/PageHeader';
 
 const QUICK_REACTIONS = [
   { type: 'bravo', emoji: '👏', label: 'Bravo' },
@@ -541,8 +542,14 @@ export function DuoPage() {
 
   return (
     <div data-testid="duo-page" className="p-5 animate-fade-in">
-      {/* Header with duo avatars */}
-      <header className="mb-6 space-y-4">
+      <PageHeader
+        title="Duo"
+        subtitle="Votre progression à deux"
+        actions={<NotificationBell filter="duo" includeAll data-testid="duo-notification-bell" />}
+      />
+
+      {/* Identité Duo */}
+      <div className="mb-6 space-y-4">
         <div className="flex items-center gap-4">
           <div className="flex -space-x-3">
             <div
@@ -568,15 +575,15 @@ export function DuoPage() {
                 to={duoProfilePath(duoStats.duo_profile.tag)}
                 className="group block"
               >
-                <h1 className="text-xl font-bold text-white font-['Outfit'] group-hover:text-[var(--theme-primary)] transition-colors">
+                <p className="text-lg font-semibold text-white font-['Outfit'] group-hover:text-[var(--theme-primary)] transition-colors">
                   {duoStats.duo_profile.name || `${user?.display_name || user?.username} & ${partner.display_name || partner.username}`}
-                </h1>
+                </p>
                 <p className="text-zinc-500 text-sm font-mono">{duoStats.duo_profile.tag}</p>
               </Link>
             ) : (
-              <h1 className="text-xl font-bold text-white font-['Outfit']">
+              <p className="text-lg font-semibold text-white font-['Outfit']">
                 {user?.display_name || user?.username} & {partner.display_name || partner.username}
-              </h1>
+              </p>
             )}
             <p className="text-zinc-500 text-sm">
               {user?.relation_type === 'coach' ? 'Coach & Élève' : 'Partenaires'}
@@ -587,7 +594,6 @@ export function DuoPage() {
               </p>
             )}
           </div>
-          <NotificationBell filter="duo" includeAll data-testid="duo-notification-bell" />
         </div>
 
         {pendingDuoFollow && (
@@ -646,7 +652,7 @@ export function DuoPage() {
             <ChevronRight className="text-zinc-500 group-hover:text-[var(--theme-primary)] shrink-0" size={20} />
           </Link>
         ) : null}
-      </header>
+      </div>
 
       {liveSession && (
         <PartnerLiveStatus liveSession={liveSession} className="mb-4" />

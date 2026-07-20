@@ -38,6 +38,7 @@ import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
 import { UserAvatar } from '../components/UserAvatar';
+import { PageHeader } from '../components/layout/PageHeader';
 import { getPublicHandle } from '../lib/userProfile';
 import { toast } from 'sonner';
 
@@ -263,49 +264,48 @@ export function HomePage() {
   return (
     <div data-testid="home-page" className="p-5 animate-fade-in">
       <div className="space-y-6">
-        {/* Header */}
-        <header className="flex items-center justify-between">
-          <div>
-            <p className="text-zinc-400 text-sm capitalize">
-              {format(new Date(), 'EEEE d MMMM', { locale: fr })}
-            </p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => navigate('/search')}
-              data-testid="home-search-btn"
-              className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-              aria-label="Rechercher"
-            >
-              <Search size={20} />
-            </button>
-            <div className="relative">
-              {(unreadNotifications > 0 || partnerRequests.length > 0) && (
-                <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white">
-                  {unreadNotifications + partnerRequests.length}
-                </span>
-              )}
+        <PageHeader
+          title="Accueil"
+          subtitle={format(new Date(), 'EEEE d MMMM', { locale: fr })}
+          subtitleClassName="capitalize"
+          actions={
+            <>
               <button
                 type="button"
-                onClick={() => navigate('/notifications')}
-                data-testid="home-notifications-btn"
+                onClick={() => navigate('/search')}
+                data-testid="home-search-btn"
                 className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
-                aria-label="Notifications"
+                aria-label="Rechercher"
               >
-                <Bell size={20} />
+                <Search size={20} />
               </button>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate('/profile')}
-              className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center overflow-hidden"
-              aria-label="Mon profil"
-            >
-              <UserAvatar user={user} className="w-full h-full" />
-            </button>
-          </div>
-        </header>
+              <div className="relative">
+                {(unreadNotifications > 0 || partnerRequests.length > 0) && (
+                  <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white">
+                    {unreadNotifications + partnerRequests.length}
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => navigate('/notifications')}
+                  data-testid="home-notifications-btn"
+                  className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center text-zinc-400 hover:text-white transition-colors"
+                  aria-label="Notifications"
+                >
+                  <Bell size={20} />
+                </button>
+              </div>
+              <button
+                type="button"
+                onClick={() => navigate('/profile')}
+                className="w-11 h-11 rounded-full bg-[#141414] border border-white/10 flex items-center justify-center overflow-hidden"
+                aria-label="Mon profil"
+              >
+                <UserAvatar user={user} className="w-full h-full" />
+              </button>
+            </>
+          }
+        />
 
         {/* Partner requests notification */}
         {partnerRequests.length > 0 && (

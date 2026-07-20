@@ -12,6 +12,7 @@ import { NotificationPrefsSection } from '../components/settings/NotificationPre
 import { ProfileEditDialog } from '../components/profile/ProfileEditDialog';
 import { AvatarCropDialog } from '../components/profile/AvatarCropDialog';
 import { BadgeArtwork } from '../components/badges/BadgeArtwork';
+import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -429,13 +430,11 @@ export function SettingsPage() {
 
   return (
     <div data-testid="settings-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto">
-      <header className="mb-6">
-        <div className="flex items-center gap-3">
-          <Settings size={24} className="text-[var(--theme-primary)]" />
-          <h1 className="text-2xl font-bold text-white font-['Outfit']">Paramètres</h1>
-        </div>
-        <p className="text-zinc-500 text-sm mt-1">Personnalisez votre expérience</p>
-      </header>
+      <PageHeader
+        title="Paramètres"
+        subtitle="Personnalisez votre expérience"
+        leading={<Settings size={24} className="text-[var(--theme-primary)] shrink-0 mt-0.5" />}
+      />
 
       <Accordion
         type="single"

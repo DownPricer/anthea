@@ -173,6 +173,7 @@ export function AnnualHeatmap({
                       key={key}
                       type="button"
                       title={heatmapDayTitle(info, dateLabel)}
+                      aria-label={heatmapDayTitle(info, dateLabel)}
                       onClick={() => setSelectedDay(date)}
                       className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm transition-transform ${
                         isSelected ? 'ring-1 ring-white scale-125' : 'hover:scale-110'
@@ -192,29 +193,6 @@ export function AnnualHeatmap({
               </div>
             </div>
           ))}
-        </div>
-        <div className="flex flex-wrap justify-center gap-3 text-[10px] text-zinc-500 pt-2 border-t border-white/5">
-          <span className="flex items-center gap-1">
-            <span className="w-2.5 h-2.5 rounded-sm bg-white/[0.04]" /> Aucune séance
-          </span>
-          <span className="flex items-center gap-1">
-            <span
-              className="w-2.5 h-2.5 rounded-sm"
-              style={{ backgroundColor: accentColor || 'var(--theme-primary)' }}
-            />{' '}
-            Solo
-          </span>
-          {partnerColor ? (
-            <span className="flex items-center gap-1">
-              <span
-                className="w-2.5 h-2.5 rounded-sm"
-                style={{
-                  background: `linear-gradient(135deg, ${accentColor || 'var(--theme-primary)'} 0 50%, ${partnerColor} 50% 100%)`,
-                }}
-              />{' '}
-              Duo
-            </span>
-          ) : null}
         </div>
       </div>
 

@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Flame, X, BedDouble } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { heatmapDayTitle } from '@/lib/heatmapDayStyle';
 
 export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onDayClick, isToday }) {
   return (
@@ -22,6 +23,8 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
           my_missed: myMissed,
           rest,
         } = state;
+        const dateLabel = format(day, 'EEEE d MMMM', { locale: fr });
+        const a11yLabel = heatmapDayTitle(state, dateLabel);
 
         return (
           <button
@@ -29,6 +32,8 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
             type="button"
             onClick={() => onDayClick?.(day)}
             data-testid={`week-day-${dateStr}`}
+            title={a11yLabel}
+            aria-label={a11yLabel}
             className={cn(
               'relative flex-1 min-w-0 py-2.5 px-1 rounded-2xl text-center transition-all border',
               current && 'ring-1 ring-[var(--theme-primary)] border-[var(--theme-primary)]/40',

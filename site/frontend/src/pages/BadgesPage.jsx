@@ -4,6 +4,7 @@ import { ChevronLeft, Loader2, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { badgesApi } from '../lib/api';
 import { BadgesCatalogView } from '../components/badges/BadgesCatalog';
+import { PageHeader } from '../components/layout/PageHeader';
 
 export function BadgesPage() {
   const { user } = useAuth();
@@ -54,25 +55,21 @@ export function BadgesPage() {
       data-testid="badges-page"
       className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto"
     >
-      <header className="mb-6 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
-          aria-label="Retour"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <div className="flex-1">
-          <h1 className="text-xl font-bold text-white font-['Outfit']">
-            {scope === 'duo' ? 'Badges du Duo' : 'Mes badges'}
-          </h1>
-          <p className="text-zinc-500 text-sm">
-            {unlocked}/{total} débloqués
-          </p>
-        </div>
-        <Trophy size={22} className="text-[var(--theme-primary)]" />
-      </header>
+      <PageHeader
+        title={scope === 'duo' ? 'Badges du Duo' : 'Mes badges'}
+        subtitle={`${unlocked}/${total} débloqués`}
+        leading={
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
+            aria-label="Retour"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        }
+        actions={<Trophy size={22} className="text-[var(--theme-primary)]" />}
+      />
 
       <div className="mb-4 flex gap-2">
         <Link

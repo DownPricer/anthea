@@ -10,6 +10,7 @@ import { getPublicHandle } from '../lib/userProfile';
 import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { formatApiError } from '../lib/api';
+import { PageHeader } from '../components/layout/PageHeader';
 
 function notificationLabel(notif) {
   switch (notif.type) {
@@ -151,17 +152,20 @@ export function NotificationsPage() {
 
   return (
     <div data-testid="notifications-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto">
-      <header className="mb-5 flex items-center gap-3">
-        <button
-          type="button"
-          onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
-          aria-label="Retour"
-        >
-          <ChevronLeft size={20} />
-        </button>
-        <h1 className="text-xl font-bold text-white font-['Outfit']">Notifications</h1>
-      </header>
+      <PageHeader
+        title="Notifications"
+        subtitle={filterDuo ? 'Activité de votre Duo' : 'Votre activité récente'}
+        leading={
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
+            aria-label="Retour"
+          >
+            <ChevronLeft size={20} />
+          </button>
+        }
+      />
 
       <div className="flex gap-2 mb-4">
         <Button
