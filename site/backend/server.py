@@ -31,7 +31,20 @@ from datetime import datetime, timezone, timedelta
 from contextlib import asynccontextmanager
 
 from program_volume_seed import ensure_program_volume_templates
-from badges import evaluate_all_badges, evaluate_duo_social_badges, find_badge_for_user
+from badges import (
+    evaluate_all_badges,
+    evaluate_duo_social_badges,
+    find_badge_for_user,
+    get_badge_definition,
+    canonical_badge_id,
+    catalog_badge_to_public,
+)
+from badge_progress import (
+    BadgeProgressService,
+    schedule_badge_evaluation,
+    trigger_solo_evaluation,
+    trigger_duo_evaluation,
+)
 from challenges import pick_weekly_challenge, compute_challenge_progress
 from duo_social import (
     apply_duo_defaults,
@@ -376,6 +389,7 @@ class PostCreate(BaseModel):
     workout_session_id: Optional[str] = None
     partner_session_id: Optional[str] = None
     badge_id: Optional[str] = None
+    pair_key: Optional[str] = None
     duo_session_id: Optional[str] = None
     duo_id: Optional[str] = None
     post_on_duo_wall: bool = False
@@ -1378,17 +1392,15 @@ def normalize_upload_path(url: Optional[str]) -> Optional[str]:
 
 async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
     """Stats communes duo — source unique pour /duo/stats et /duos/{tag}/stats."""
-    from badges import merge_duo_badges, evaluate_all_badges, evaluate_duo_social_badges
-
     together = await compute_together_stats(db, user_a_id, user_b_id)
     streak = await calculate_streak(user_a_id, user_b_id)
-    social_badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
-    legacy_badges = await evaluate_all_badges(db, user_a_id, user_b_id, streak)
-    badges = merge_duo_badges(social_badges, legacy_badges)
+    pair_key = duo_pair_key(user_a_id, user_b_id)
+    service = BadgeProgressService(db)
+    duo_catalog = await service.get_duo_catalog_with_progress(pair_key)
+    badges = list(duo_catalog.get("badges") or [])
     challenge = await get_current_challenge(user_a_id, user_b_id, streak)
 
     if challenge and challenge.get("status") == "completed":
-        pair_key = duo_pair_key(user_a_id, user_b_id)
         week_key = challenge.get("week_key", "")
         existing = await db.challenge_completions.find_one({"pair_key": pair_key, "week_key": week_key})
         if not existing:
@@ -1403,13 +1415,16 @@ async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
                 "created_at": datetime.now(timezone.utc).isoformat(),
             })
             together["challenges_completed"] = together.get("challenges_completed", 0) + 1
-            social_badges = await evaluate_duo_social_badges(db, user_a_id, user_b_id, together)
-            legacy_badges = await evaluate_all_badges(db, user_a_id, user_b_id, streak)
-            badges = merge_duo_badges(social_badges, legacy_badges)
+            schedule_badge_evaluation(
+                trigger_duo_evaluation(db, pair_key, notify_user_ids=[user_a_id, user_b_id])
+            )
+            duo_catalog = await service.get_duo_catalog_with_progress(pair_key)
+            badges = list(duo_catalog.get("badges") or [])
 
     sessions = together.get("sessions_together", 0)
     total_time = together.get("total_training_time", 0)
     unlocked = [b for b in badges if b.get("unlocked")]
+    summary = duo_catalog.get("summary") or {}
 
     return {
         **together,
@@ -1425,8 +1440,9 @@ async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
         "challenges_completed": together.get("challenges_completed", 0),
         "badges": badges,
         "duo_badges": badges,
-        "badges_unlocked": len(unlocked),
-        "badges_total": len(badges),
+        "badges_unlocked": summary.get("unlocked", len(unlocked)),
+        "badges_total": summary.get("total", len(badges)),
+        "badges_summary": summary,
         "current_challenge": challenge,
     }
 
@@ -1606,6 +1622,11 @@ async def lifespan(app: FastAPI):
     await db.posts.create_index([("duo_id", 1), ("created_at", -1)])
     await db.posts.create_index([("owner_type", 1), ("owner_id", 1), ("created_at", -1)])
     await db.posts.create_index("badge_id")
+    try:
+        badge_service = BadgeProgressService(db)
+        await badge_service.ensure_indexes()
+    except Exception as exc:
+        logger.warning("Badge indexes setup failed: %s", exc)
     repaired_posts = await repair_duo_wall_post_ownership()
     if repaired_posts:
         logger.info("Repaired %s duo wall posts ownership fields", repaired_posts)
@@ -2475,12 +2496,13 @@ async def get_user_profile_stats(handle: str, user: dict = Depends(get_current_u
         calculated = await calculate_streak(target_id, target.get("partner_id"))
         manual = await _get_manual_streak_override(target_id, target.get("partner_id")) if target.get("partner_id") else None
         streak = manual if manual is not None else calculated
-        badges = await get_duo_badges(target_id, target.get("partner_id"), streak_value=streak) if can_badges else []
+        badges = await get_duo_badges(target_id, None, streak_value=streak) if can_badges else []
+        solo_unlocked = [b for b in badges if b.get("unlocked") and b.get("scope") != "duo"]
         result["duo_stats"] = {
             "streak": streak,
             "badges": badges if can_badges else [],
-            "badges_unlocked": len([b for b in badges if b.get("unlocked")]) if can_badges else 0,
-            "badges_total": len(badges) if can_badges else 0,
+            "badges_unlocked": len(solo_unlocked) if can_badges else 0,
+            "badges_total": len([b for b in badges if b.get("scope") != "duo"]) if can_badges else 0,
         }
 
     if can_stats:
@@ -2622,6 +2644,10 @@ async def accept_partner_request(request_id: str, user: dict = Depends(get_curre
         user,
         request_id=request_id,
         skip_if_exists=True,
+    )
+    pair_key = duo_pair_key(user["id"], req["from_user_id"])
+    schedule_badge_evaluation(
+        trigger_duo_evaluation(db, pair_key, notify_user_ids=[user["id"], req["from_user_id"]])
     )
     return {"message": "Partner request accepted"}
 
@@ -2796,6 +2822,10 @@ async def _apply_duo_profile_update(duo_doc: dict, data: DuoProfileUpdate, user:
     updates["updated_at"] = datetime.now(timezone.utc).isoformat()
     await db.duo_profiles.update_one({"_id": duo_doc["_id"]}, {"$set": updates})
     updated = await db.duo_profiles.find_one({"_id": duo_doc["_id"]})
+    pair_key = duo_doc.get("pair_key") or duo_pair_key(user["id"], user["partner_id"])
+    schedule_badge_evaluation(
+        trigger_duo_evaluation(db, pair_key, notify_user_ids=[user["id"], user["partner_id"]])
+    )
     return await serialize_duo_profile_for_viewer(updated, user["id"])
 
 
@@ -3344,6 +3374,7 @@ async def create_template(data: WorkoutTemplateCreate, user: dict = Depends(get_
     result = await db.workout_templates.insert_one(template_doc)
     template_doc["id"] = str(result.inserted_id)
     template_doc.pop("_id", None)  # Remove ObjectId before returning
+    schedule_badge_evaluation(trigger_solo_evaluation(db, user["id"]))
     return template_doc
 
 @api_router.put("/templates/{template_id}")
@@ -3811,6 +3842,15 @@ async def create_session(data: WorkoutSessionCreate, user: dict = Depends(get_cu
     
     session_doc["id"] = str(result.inserted_id)
     session_doc.pop("_id", None)  # Remove ObjectId before returning
+
+    if data.status == "completed":
+        schedule_badge_evaluation(trigger_solo_evaluation(db, user["id"]))
+        if user.get("partner_id"):
+            pair_key = duo_pair_key(user["id"], user["partner_id"])
+            schedule_badge_evaluation(
+                trigger_duo_evaluation(db, pair_key, notify_user_ids=[user["id"], user["partner_id"]])
+            )
+
     return session_doc
 
 @api_router.get("/sessions")
@@ -4171,7 +4211,13 @@ async def add_reaction(session_id: str, data: ReactionCreate, user: dict = Depen
     }
     
     await db.workout_sessions.update_one({"_id": ObjectId(session_id)}, {"$push": {"reactions": reaction}})
-    
+
+    if user.get("partner_id") and session.get("user_id") == user.get("partner_id"):
+        pair_key = duo_pair_key(user["id"], user["partner_id"])
+        schedule_badge_evaluation(
+            trigger_duo_evaluation(db, pair_key, notify_user_ids=[user["id"], user["partner_id"]])
+        )
+
     updated = await db.workout_sessions.find_one({"_id": ObjectId(session_id)})
     return {"reactions": updated.get("reactions", [])}
 
@@ -4284,22 +4330,29 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         elif post_type in ("duo", "duo_badge") and data.badge_id:
             if not user.get("partner_id"):
                 raise HTTPException(status_code=400, detail="Badge duo requiert un partenaire")
-            from badges import merge_duo_badges, evaluate_all_badges, evaluate_duo_social_badges
-            together = await compute_together_stats(db, user["id"], user["partner_id"])
-            streak = await calculate_streak(user["id"], user["partner_id"])
-            social_badges = await evaluate_duo_social_badges(db, user["id"], user["partner_id"], together)
-            legacy_badges = await evaluate_all_badges(db, user["id"], user["partner_id"], streak)
-            duo_badges = merge_duo_badges(social_badges, legacy_badges)
-            badge = next((b for b in duo_badges if b.get("id") == data.badge_id), None)
-            if not badge or not badge.get("unlocked"):
+            pair_key = duo_pair_key(user["id"], user["partner_id"])
+            if data.pair_key and data.pair_key != pair_key:
+                raise HTTPException(status_code=400, detail="pair_key incorrect")
+            service = BadgeProgressService(db)
+            badge = await service.find_unlocked_badge("duo", pair_key, data.badge_id)
+            if not badge:
+                # Fallback évaluation live (migration)
+                catalog = await service.get_duo_catalog_with_progress(pair_key)
+                cid = canonical_badge_id(data.badge_id)
+                badge = next((b for b in (catalog.get("badges") or []) if b.get("id") == cid and b.get("unlocked")), None)
+            if not badge:
                 raise HTTPException(status_code=400, detail="Badge duo non débloqué")
-            badge_name = badge.get("name")
-            badge_icon = badge.get("icon")
-            badge_rarity = badge.get("rarity") or "Commun"
+            definition = get_badge_definition(badge["id"])
+            if not definition or definition.get("scope") != "duo":
+                raise HTTPException(status_code=400, detail="Badge duo invalide")
+            # Toujours reconstruire depuis le catalogue serveur
+            badge_name = definition.get("name")
+            badge_icon = definition.get("icon_key")
+            from badge_catalog import RARITY_LABELS
+            badge_rarity = RARITY_LABELS.get(definition.get("rarity"), "Commun")
             if not title:
                 title = f"Badge duo : {badge_name}"
             if not data.description and post_type == "duo_badge":
-                # message par défaut — le champ description peut rester None côté create
                 pass
         elif post_type == "duo_challenge":
             if not user.get("partner_id"):
@@ -4317,15 +4370,22 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
     elif post_type == "badge":
         if not data.badge_id:
             raise HTTPException(status_code=400, detail="Badge requis")
-        streak = await _get_user_streak_value(user["id"])
-        badge = await find_badge_for_user(
-            db, user["id"], user.get("partner_id"), streak, data.badge_id
-        )
-        if not badge or not badge.get("unlocked"):
+        service = BadgeProgressService(db)
+        badge = await service.find_unlocked_badge("solo", user["id"], data.badge_id)
+        if not badge:
+            streak = await _get_user_streak_value(user["id"])
+            catalog = await service.get_solo_catalog_with_progress(user["id"], streak_value=streak)
+            cid = canonical_badge_id(data.badge_id)
+            badge = next((b for b in (catalog.get("badges") or []) if b.get("id") == cid and b.get("unlocked")), None)
+        if not badge:
             raise HTTPException(status_code=400, detail="Badge non débloqué")
-        badge_name = badge.get("name")
-        badge_icon = badge.get("icon")
-        badge_rarity = badge.get("rarity") or "Commun"
+        definition = get_badge_definition(badge["id"])
+        if not definition or definition.get("scope") != "solo":
+            raise HTTPException(status_code=400, detail="Badge solo invalide")
+        from badge_catalog import RARITY_LABELS
+        badge_name = definition.get("name")
+        badge_icon = definition.get("icon_key")
+        badge_rarity = RARITY_LABELS.get(definition.get("rarity"), "Commun")
         if not title:
             title = f"J'ai obtenu le badge {badge_name}"
     elif post_type == "duo_repost":
@@ -4401,6 +4461,11 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
             "actor_id": post_doc.get("actor_id"),
             "created_by_user_id": post_doc.get("created_by_user_id"),
         })
+        if user.get("partner_id"):
+            pk = duo_pair_key(user["id"], user["partner_id"])
+            schedule_badge_evaluation(
+                trigger_duo_evaluation(db, pk, notify_user_ids=[user["id"], user["partner_id"]])
+            )
 
     if not user.get("show_posts"):
         await db.users.update_one(
@@ -5278,12 +5343,109 @@ async def build_streak_calendar(
     return days_out
 
 
+# ============ BADGES API (catalogue + progression) ============
+
+@api_router.get("/badges/catalog")
+async def get_badges_catalog(
+    scope: str = "solo",
+    user: dict = Depends(get_current_user),
+):
+    if scope not in ("solo", "duo"):
+        raise HTTPException(status_code=400, detail="scope doit être solo ou duo")
+    service = BadgeProgressService(db)
+    if scope == "solo":
+        streak = await _get_user_streak_value(user["id"])
+        # Évaluation opportuniste (non bloquante pour la réponse suivante)
+        schedule_badge_evaluation(trigger_solo_evaluation(db, user["id"], streak_value=streak))
+        return await service.get_solo_catalog_with_progress(user["id"], streak_value=streak)
+    if not user.get("partner_id"):
+        raise HTTPException(status_code=400, detail="Aucun Duo actif")
+    pair_key = duo_pair_key(user["id"], user["partner_id"])
+    schedule_badge_evaluation(
+        trigger_duo_evaluation(db, pair_key, notify_user_ids=[user["id"], user["partner_id"]])
+    )
+    return await service.get_duo_catalog_with_progress(pair_key)
+
+
+@api_router.get("/users/me/badges")
+async def get_my_badges(user: dict = Depends(get_current_user)):
+    service = BadgeProgressService(db)
+    streak = await _get_user_streak_value(user["id"])
+    return await service.get_solo_catalog_with_progress(user["id"], streak_value=streak)
+
+
+@api_router.get("/users/me/badges/{badge_id}")
+async def get_my_badge_detail(badge_id: str, user: dict = Depends(get_current_user)):
+    service = BadgeProgressService(db)
+    streak = await _get_user_streak_value(user["id"])
+    catalog = await service.get_solo_catalog_with_progress(user["id"], streak_value=streak)
+    cid = canonical_badge_id(badge_id)
+    badge = next((b for b in (catalog.get("badges") or []) if b.get("id") == cid), None)
+    if not badge:
+        raise HTTPException(status_code=404, detail="Badge introuvable")
+    return badge
+
+
+@api_router.get("/users/{user_id}/badges")
+async def get_user_badges(user_id: str, viewer: dict = Depends(get_current_user)):
+    try:
+        target = await db.users.find_one({"_id": ObjectId(user_id)})
+    except Exception:
+        target = None
+    if not target:
+        target = await db.users.find_one({"handle": user_id}) or await db.users.find_one({"username": user_id})
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+    target_id = str(target["_id"])
+    access = await get_profile_access_level(viewer["id"], target)
+    if access == "limited":
+        raise HTTPException(status_code=403, detail="Profil privé")
+    badges_vis = resolve_visibility_value(target, "badges_visibility", "show_badges", default_public=True)
+    if not visibility_allows(access, badges_vis):
+        raise HTTPException(status_code=403, detail="Badges privés")
+    service = BadgeProgressService(db)
+    streak = await _get_user_streak_value(target_id)
+    return await service.get_solo_catalog_with_progress(target_id, streak_value=streak)
+
+
+@api_router.get("/duos/{pair_key}/badges")
+async def get_duo_pair_badges(pair_key: str, user: dict = Depends(get_current_user)):
+    duo_doc = await db.duo_profiles.find_one({"pair_key": pair_key})
+    if not duo_doc:
+        # allow short_id / tag resolution via existing helper
+        try:
+            duo_doc = await find_duo_by_tag(db, pair_key)
+        except Exception:
+            duo_doc = None
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Duo introuvable")
+    resolved = resolve_duo_pair_key(duo_doc)
+    members = await get_duo_members(db, duo_doc)
+    access = await get_duo_access_level(db, user["id"], duo_doc, members)
+    if not can_view_duo_section(duo_doc, access, "badges"):
+        raise HTTPException(status_code=403, detail="Badges Duo privés")
+    service = BadgeProgressService(db)
+    return await service.get_duo_catalog_with_progress(resolved)
+
+
+@api_router.get("/duos/{pair_key}/badges/{badge_id}")
+async def get_duo_badge_detail(pair_key: str, badge_id: str, user: dict = Depends(get_current_user)):
+    catalog = await get_duo_pair_badges(pair_key, user)
+    cid = canonical_badge_id(badge_id)
+    badge = next((b for b in (catalog.get("badges") or []) if b.get("id") == cid), None)
+    if not badge:
+        raise HTTPException(status_code=404, detail="Badge introuvable")
+    return badge
+
+
 @api_router.get("/duo/stats")
 async def get_duo_stats(user: dict = Depends(get_current_user)):
     calculated = await calculate_streak(user["id"], user.get("partner_id"))
     manual = await _get_manual_streak_override(user["id"], user.get("partner_id")) if user.get("partner_id") else None
     streak = manual if manual is not None else calculated
-    badges = await get_duo_badges(user["id"], user.get("partner_id"), streak_value=streak)
+    service = BadgeProgressService(db)
+    solo_catalog = await service.get_solo_catalog_with_progress(user["id"], streak_value=streak)
+    badges = list(solo_catalog.get("badges") or [])
     challenge = await get_current_challenge(user["id"], user.get("partner_id"), streak_value=streak)
 
     if not user.get("partner_id"):
@@ -5312,6 +5474,8 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
                     "created_at": datetime.now(timezone.utc).isoformat(),
                 })
                 challenges_completed += 1
+                schedule_badge_evaluation(trigger_solo_evaluation(db, user["id"], streak_value=streak))
+        summary = solo_catalog.get("summary") or {}
         return {
             "streak": streak,
             "streak_calculated": calculated,
@@ -5321,8 +5485,9 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
             "this_week_partner": 0,
             "badges": badges,
             "current_challenge": challenge,
-            "badges_unlocked": len([b for b in badges if b.get("unlocked")]),
-            "badges_total": len(badges),
+            "badges_unlocked": summary.get("unlocked", len([b for b in badges if b.get("unlocked")])),
+            "badges_total": summary.get("total", len(badges)),
+            "badges_summary": summary,
             "challenges_completed": challenges_completed,
             "scope": "solo",
         }
@@ -5344,7 +5509,8 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
 
     together = await assemble_duo_common_stats(user["id"], user["partner_id"])
     duo_social_badges = together.get("duo_badges") or together.get("badges") or []
-    all_badges = badges + [b for b in duo_social_badges if b.get("id") not in {x.get("id") for x in badges}]
+    # Séparation stricte : badges = solo, duo_badges = duo
+    all_badges_for_compat = badges + [b for b in duo_social_badges if b.get("id") not in {x.get("id") for x in badges}]
 
     duo_profile = None
     duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
@@ -5364,22 +5530,32 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "challenges_completed": together.get("challenges_completed", 0),
         "this_week_user": user_sessions,
         "this_week_partner": partner_sessions,
-        "badges": all_badges,
+        "badges": badges,
         "duo_badges": duo_social_badges,
+        "badges_all": all_badges_for_compat,
         "current_challenge": together.get("current_challenge", challenge),
-        "badges_unlocked": len([b for b in all_badges if b.get("unlocked")]),
-        "badges_total": len(all_badges),
+        "badges_unlocked": solo_catalog.get("summary", {}).get("unlocked", 0),
+        "badges_total": solo_catalog.get("summary", {}).get("total", 50),
+        "duo_badges_unlocked": together.get("badges_unlocked", 0),
+        "duo_badges_total": together.get("badges_total", 50),
+        "badges_summary": solo_catalog.get("summary"),
+        "duo_badges_summary": together.get("badges_summary"),
         "duo_profile": duo_profile,
         "sessions_together": together.get("sessions_together", 0),
         "total_training_time": together.get("total_training_time", 0),
     }
 
+
 async def get_duo_badges(user_id: str, partner_id: Optional[str], streak_value: Optional[int] = None) -> List[dict]:
-    if streak_value is None and partner_id:
-        streak_value = await calculate_streak(user_id, partner_id)
-    elif streak_value is None:
-        streak_value = 0
-    return await evaluate_all_badges(db, user_id, partner_id, streak_value)
+    """Retourne le catalogue Solo (et Duo si partenaire) via le moteur canonique."""
+    service = BadgeProgressService(db)
+    solo = await service.get_solo_catalog_with_progress(user_id, streak_value=streak_value)
+    badges = list(solo.get("badges") or [])
+    if partner_id:
+        pair_key = duo_pair_key(user_id, partner_id)
+        duo = await service.get_duo_catalog_with_progress(pair_key)
+        badges = badges + list(duo.get("badges") or [])
+    return badges
 
 
 async def get_current_challenge(

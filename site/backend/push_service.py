@@ -97,8 +97,14 @@ PUSH_TYPE_PAYLOADS = {
     "badge_unlocked": {
         "title": "Badge débloqué",
         "body": "Vous avez débloqué un nouveau badge !",
-        "url": "/badges",
+        "url": "/profile?tab=badges",
         "tag": "badge-unlocked",
+    },
+    "duo_badge_unlocked": {
+        "title": "Nouveau badge Duo",
+        "body": "Votre Duo a obtenu un nouveau succès !",
+        "url": "/duo?tab=stats&section=badges",
+        "tag": "duo-badge-unlocked",
     },
     "partner_activity": {
         "title": "Activité du partenaire",
