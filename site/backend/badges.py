@@ -1,16 +1,36 @@
-"""Catalogue et évaluation des badges Anthea."""
-from datetime import datetime, timedelta, timezone
+"""API badges — catalogue canonique + compatibilité historique.
+
+Le catalogue versionné vit dans `badge_catalog`.
+L'évaluation / déblocage persistent est dans `badge_progress`.
+"""
+from __future__ import annotations
+
 from typing import Any, Dict, Iterable, List, Optional
 
+from badge_catalog import (
+    ALL_BADGES,
+    BADGE_BY_ID,
+    CATALOG_VERSION,
+    DUO_BADGES,
+    LEGACY_BADGE_ID_MAP,
+    LEGACY_ORPHAN_BADGE_IDS,
+    RARITY_LABELS,
+    RARITY_POINTS,
+    SOLO_BADGES,
+    canonical_badge_id,
+    get_badge_definition,
+    get_catalog,
+    rarity_summary,
+    validate_catalog,
+)
 
+# Alias rétrocompatibilité
+BADGE_ID_ALIASES = dict(LEGACY_BADGE_ID_MAP)
 BADGE_CATEGORY_ALIASES = {
     "duo_social": "duo",
     "social_duo": "duo",
     "couple": "duo",
 }
-
-# Alias d'identifiants — uniquement les doublons réels (même badge, ID historique différent).
-BADGE_ID_ALIASES: Dict[str, str] = {}
 
 
 def normalize_badge_category(family: Optional[str]) -> str:
@@ -19,22 +39,16 @@ def normalize_badge_category(family: Optional[str]) -> str:
     return BADGE_CATEGORY_ALIASES.get(str(family).strip().lower(), family)
 
 
-def canonical_badge_id(badge_id: Optional[str]) -> str:
-    if not badge_id:
-        return ""
-    return BADGE_ID_ALIASES.get(badge_id, badge_id)
-
-
 def is_duo_category_badge(badge: dict) -> bool:
-    family = normalize_badge_category(badge.get("family"))
+    family = normalize_badge_category(badge.get("family") or badge.get("scope") or badge.get("category"))
     if family == "duo":
         return True
     bid = str(badge.get("id", ""))
-    return bid.startswith("duo_")
+    return bid.startswith("duo_") or badge.get("scope") == "duo"
 
 
 def merge_duo_badges(*badge_lists: Iterable[dict]) -> List[dict]:
-    """Fusionne badges duo historiques + V2, catégorie unique « duo »."""
+    """Fusionne listes de badges duo (historique + catalogue) sans doublon d'ID."""
     merged: Dict[str, dict] = {}
     for badges in badge_lists:
         for raw in badges or []:
@@ -45,8 +59,10 @@ def merge_duo_badges(*badge_lists: Iterable[dict]) -> List[dict]:
                 continue
             normalized = {
                 **raw,
+                "id": cid,
                 "family": "duo",
-                "category": "duo",
+                "category": raw.get("category") or "duo",
+                "scope": "duo",
             }
             existing = merged.get(cid)
             if not existing:
@@ -55,38 +71,20 @@ def merge_duo_badges(*badge_lists: Iterable[dict]) -> List[dict]:
             if normalized.get("unlocked") and not existing.get("unlocked"):
                 merged[cid] = normalized
             elif normalized.get("unlocked") == existing.get("unlocked"):
-                if (normalized.get("current") or 0) > (existing.get("current") or 0):
+                cur_n = normalized.get("current") or 0
+                cur_e = existing.get("current") or 0
+                if isinstance(cur_n, (int, float)) and isinstance(cur_e, (int, float)) and cur_n > cur_e:
                     merged[cid] = normalized
     return list(merged.values())
 
 
-BADGE_RARITY_OVERRIDES = {
-    "vol_100": "Diamant",
-    "streak_30": "Diamant",
-    "streak_3_weeks": "Légendaire",
-    "vol_50": "Légendaire",
-    "duo_month": "Légendaire",
-    "coach_25": "Légendaire",
-    "challenge_10": "Légendaire",
-    "vol_25": "Épique",
-    "streak_14": "Épique",
-    "duo_7": "Épique",
-    "coach_10": "Épique",
-    "challenge_3": "Épique",
-    "vol_10": "Rare",
-    "streak_7": "Rare",
-    "duo_3": "Rare",
-    "duo_likes_10": "Rare",
-    "coach_first": "Rare",
-    "challenge_1": "Rare",
-}
-
-
 def badge_rarity_for(badge_id: str, target: int = 1) -> str:
-    if badge_id in BADGE_RARITY_OVERRIDES:
-        return BADGE_RARITY_OVERRIDES[badge_id]
+    """Retourne le label FR de rareté (catalogue prioritaire)."""
+    definition = get_badge_definition(badge_id)
+    if definition:
+        return RARITY_LABELS.get(definition.get("rarity", "common"), "Commun")
     if target >= 100:
-        return "Diamant"
+        return "Légendaire"
     if target >= 50:
         return "Légendaire"
     if target >= 25:
@@ -94,6 +92,63 @@ def badge_rarity_for(badge_id: str, target: int = 1) -> str:
     if target >= 10:
         return "Rare"
     return "Commun"
+
+
+def catalog_badge_to_public(definition: dict, *, unlocked: bool = False, progress: Optional[dict] = None) -> dict:
+    """Sérialise une définition catalogue vers le format API historique + v2."""
+    rarity_key = definition.get("rarity") or "common"
+    progress = progress or {}
+    current = progress.get("current", 0)
+    target = progress.get("target", definition.get("condition_value") or 1)
+    if isinstance(target, dict):
+        # conditions multiples — exposer tel quel
+        percentage = progress.get("percentage", 0)
+    else:
+        try:
+            t = float(target) if target else 1
+            c = float(current) if isinstance(current, (int, float)) else 0
+            percentage = progress.get("percentage")
+            if percentage is None:
+                percentage = min(100, round((c / t) * 100)) if t > 0 else (100 if unlocked else 0)
+        except (TypeError, ZeroDivisionError):
+            percentage = 0
+    name = definition.get("name")
+    description = definition.get("description")
+    if definition.get("is_secret") and not unlocked:
+        name = "Succès secret"
+        description = "Continuez pour découvrir ce succès."
+    return {
+        "id": definition["id"],
+        "name": name,
+        "description": description,
+        "icon": definition.get("icon_key") or "trophy",
+        "icon_key": definition.get("icon_key") or "trophy",
+        "family": definition.get("scope"),
+        "scope": definition.get("scope"),
+        "category": definition.get("category"),
+        "rarity": RARITY_LABELS.get(rarity_key, "Commun"),
+        "rarity_key": rarity_key,
+        "unlocked": unlocked,
+        "current": current,
+        "target": target,
+        "progress": percentage if not isinstance(percentage, dict) else percentage,
+        "progress_detail": progress,
+        "condition_type": definition.get("condition_type"),
+        "condition_value": definition.get("condition_value"),
+        "condition_params": definition.get("condition_params") or {},
+        "reward_points": definition.get("reward_points", RARITY_POINTS.get(rarity_key, 10)),
+        "is_secret": bool(definition.get("is_secret")),
+        "enabled": bool(definition.get("enabled", True)),
+        "sort_order": definition.get("sort_order", 0),
+        "unlocked_at": progress.get("unlocked_at"),
+        "version": definition.get("version", CATALOG_VERSION),
+    }
+
+
+# ─── Évaluateurs legacy (conservés pour ne pas casser les imports pendant la transition) ───
+# Le moteur canonique est BadgeProgressService dans badge_progress.py.
+
+from datetime import datetime, timedelta, timezone  # noqa: E402
 
 
 def _badge(
@@ -107,333 +162,74 @@ def _badge(
     target: int = 1,
     rarity: Optional[str] = None,
 ) -> dict:
+    definition = get_badge_definition(badge_id)
+    if definition:
+        return catalog_badge_to_public(
+            definition,
+            unlocked=unlocked,
+            progress={"current": current, "target": target},
+        )
     resolved_rarity = rarity or badge_rarity_for(badge_id, target)
     return {
         "id": badge_id,
         "name": name,
         "description": description,
         "icon": icon,
+        "icon_key": icon,
         "family": family,
+        "scope": "duo" if family == "duo" or str(badge_id).startswith("duo_") else "solo",
         "rarity": resolved_rarity,
+        "rarity_key": {
+            "Commun": "common",
+            "Rare": "rare",
+            "Épique": "epic",
+            "Légendaire": "legendary",
+            "Diamant": "legendary",
+        }.get(resolved_rarity, "common"),
         "unlocked": unlocked,
         "current": current,
         "target": target,
         "progress": min(100, round((current / target) * 100)) if target > 0 else (100 if unlocked else 0),
+        "enabled": True,
+        "is_secret": False,
     }
 
 
 async def evaluate_all_badges(db, user_id: str, partner_id: Optional[str], streak_value: int) -> List[dict]:
-    """Retourne tous les badges (débloqués et verrouillés) avec progression."""
-    now = datetime.now(timezone.utc)
-    month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).isoformat()
-
-    user_completed = await db.workout_sessions.count_documents(
-        {"user_id": user_id, "status": "completed"}
-    )
-    duo_completed = 0
-    partner_completed = 0
-    encouragements_sent = 0
-    likes_received = 0
-    coach_sessions_created = 0
-    coach_sessions_scheduled = 0
-
-    if partner_id:
-        duo_completed = await db.workout_sessions.count_documents(
-            {
-                "user_id": {"$in": [user_id, partner_id]},
-                "status": "completed",
-            }
-        )
-        partner_completed = await db.workout_sessions.count_documents(
-            {"user_id": partner_id, "status": "completed"}
-        )
-        # Encouragements = réactions + commentaires de l'utilisateur sur les séances du partenaire
-        partner_sessions = await db.workout_sessions.find(
-            {"user_id": partner_id}, {"reactions": 1, "comments": 1}
-        ).to_list(500)
-        for s in partner_sessions:
-            for r in s.get("reactions", []):
-                if r.get("user_id") == user_id:
-                    encouragements_sent += 1
-            for c in s.get("comments", []):
-                if c.get("user_id") == user_id:
-                    encouragements_sent += 1
-        my_sessions = await db.workout_sessions.find(
-            {"user_id": user_id}, {"likes": 1}
-        ).to_list(500)
-        for s in my_sessions:
-            likes_received += len(s.get("likes", []))
-
-        coach_sessions_created = await db.scheduled_workouts.count_documents(
-            {"creator_id": user_id, "for_user_id": partner_id}
-        )
-        coach_sessions_scheduled = coach_sessions_created
-
-    badges: List[dict] = []
-
-    # A — Régularité (streak)
-    streak_targets = [
-        ("streak_3", "Échauffé", "3 jours de streak", 3),
-        ("streak_7", "Semaine de feu", "7 jours de streak", 7),
-        ("streak_14", "Régulier", "14 jours de streak", 14),
-        ("streak_30", "Inarrêtable", "30 jours de streak", 30),
-    ]
-    for bid, name, desc, target in streak_targets:
-        badges.append(
-            _badge(bid, name, desc, "flame", "regularity", streak_value >= target, streak_value, target)
-        )
-    badges.append(
-        _badge(
-            "streak_3_weeks",
-            "Trois semaines solides",
-            "21 jours de streak sans casser",
-            "zap",
-            "regularity",
-            streak_value >= 21,
-            streak_value,
-            21,
-        )
-    )
-    month_active = await db.workout_sessions.count_documents(
-        {"user_id": user_id, "status": "completed", "created_at": {"$gte": month_start}}
-    )
-    badges.append(
-        _badge(
-            "month_active",
-            "Mois actif",
-            "Au moins une séance terminée ce mois-ci",
-            "calendar",
-            "regularity",
-            month_active >= 1,
-            min(month_active, 1),
-            1,
-        )
-    )
-
-    # B — Volume
-    for count, bid, name, desc in [
-        (5, "vol_5", "Premiers pas+", "5 séances terminées"),
-        (10, "vol_10", "En forme", "10 séances terminées"),
-        (25, "vol_25", "Assidu", "25 séances terminées"),
-        (50, "vol_50", "Athlète", "50 séances terminées"),
-        (100, "vol_100", "Légende", "100 séances terminées"),
-    ]:
-        badges.append(
-            _badge(bid, name, desc, "trophy", "volume", user_completed >= count, user_completed, count)
-        )
-
-    if partner_id:
-        # C — Duo
-        duo_pairs = await _count_duo_same_days(db, user_id, partner_id)
-        badges.extend(
-            [
-                _badge(
-                    "duo_first",
-                    "Première fois à deux",
-                    "Première séance duo terminée",
-                    "heart",
-                    "duo",
-                    duo_completed >= 1,
-                    min(duo_completed, 1),
-                    1,
-                ),
-                _badge(
-                    "duo_3",
-                    "Trio dynamique",
-                    "3 séances ensemble (duo)",
-                    "users",
-                    "duo",
-                    duo_completed >= 3,
-                    duo_completed,
-                    3,
-                ),
-                _badge(
-                    "duo_7",
-                    "Semaine duo",
-                    "7 séances duo au total",
-                    "flame",
-                    "duo",
-                    duo_completed >= 7,
-                    duo_completed,
-                    7,
-                ),
-                _badge(
-                    "duo_week_active",
-                    "Semaine active en duo",
-                    "Les deux actifs cette semaine",
-                    "sparkles",
-                    "duo",
-                    await _duo_week_both_active(db, user_id, partner_id),
-                    1,
-                    1,
-                ),
-                _badge(
-                    "duo_month",
-                    "Mois duo",
-                    "Mois actif pour le duo",
-                    "crown",
-                    "duo",
-                    duo_completed >= 4,
-                    duo_completed,
-                    4,
-                ),
-                _badge(
-                    "duo_encourage_10",
-                    "Supporter",
-                    "10 encouragements envoyés",
-                    "message",
-                    "duo",
-                    encouragements_sent >= 10,
-                    encouragements_sent,
-                    10,
-                ),
-                _badge(
-                    "duo_likes_10",
-                    "Apprécié",
-                    "10 likes reçus sur tes séances",
-                    "star",
-                    "duo",
-                    likes_received >= 10,
-                    likes_received,
-                    10,
-                ),
-                _badge(
-                    "duo_presence_5",
-                    "Présence duo",
-                    "5 jours où vous vous êtes entraînés tous les deux",
-                    "check",
-                    "duo",
-                    duo_pairs >= 5,
-                    duo_pairs,
-                    5,
-                ),
-            ]
-        )
-
-        # D — Coach
-        badges.extend(
-            [
-                _badge(
-                    "coach_first",
-                    "Premier coaching",
-                    "Première séance créée pour ton élève",
-                    "clipboard",
-                    "coach",
-                    coach_sessions_created >= 1,
-                    min(coach_sessions_created, 1),
-                    1,
-                ),
-                _badge(
-                    "coach_10",
-                    "Planificateur",
-                    "10 séances programmées pour l'élève",
-                    "calendar",
-                    "coach",
-                    coach_sessions_scheduled >= 10,
-                    coach_sessions_scheduled,
-                    10,
-                ),
-                _badge(
-                    "coach_25",
-                    "Coach pro",
-                    "25 séances programmées",
-                    "award",
-                    "coach",
-                    coach_sessions_scheduled >= 25,
-                    coach_sessions_scheduled,
-                    25,
-                ),
-                _badge(
-                    "coach_diligent",
-                    "Élève assidu",
-                    "Ton partenaire a terminé 10 séances",
-                    "graduation",
-                    "coach",
-                    partner_completed >= 10,
-                    partner_completed,
-                    10,
-                ),
-                _badge(
-                    "coach_month",
-                    "Coaching actif",
-                    "1 mois de séances programmées",
-                    "medal",
-                    "coach",
-                    coach_sessions_scheduled >= 4,
-                    coach_sessions_scheduled,
-                    4,
-                ),
-            ]
-        )
-
-    # E — Défis
+    """Compatibilité : délègue au moteur de progression s'il est disponible."""
     try:
-        challenges_won = await db.challenge_completions.count_documents({"user_id": user_id})
+        from badge_progress import BadgeProgressService
+
+        service = BadgeProgressService(db)
+        result = await service.get_solo_catalog_with_progress(user_id, streak_value=streak_value)
+        badges = result.get("badges") or []
+        if partner_id:
+            pair_key = "_".join(sorted([user_id, partner_id]))
+            duo = await service.get_duo_catalog_with_progress(pair_key)
+            # Ancien comportement : stats duo mélangeaient solo+duo
+            badges = badges + (duo.get("badges") or [])
+        return badges
     except Exception:
-        challenges_won = 0
-
-    badges.extend(
-        [
-            _badge(
-                "challenge_1",
-                "Défi relevé",
-                "Premier défi hebdo réussi",
-                "target",
-                "challenge",
-                challenges_won >= 1,
-                challenges_won,
-                1,
-            ),
-            _badge(
-                "challenge_3",
-                "Série de défis",
-                "3 défis hebdo réussis",
-                "target",
-                "challenge",
-                challenges_won >= 3,
-                challenges_won,
-                3,
-            ),
-            _badge(
-                "challenge_10",
-                "Chasseur de défis",
-                "10 défis réussis",
-                "target",
-                "challenge",
-                challenges_won >= 10,
-                challenges_won,
-                10,
-            ),
+        # Fallback minimal si le moteur n'est pas encore chargé
+        return [
+            catalog_badge_to_public(b, unlocked=False, progress={"current": 0, "target": b.get("condition_value") or 1})
+            for b in get_catalog("solo", include_disabled=False)
         ]
-    )
-
-    return badges
 
 
 async def find_badge_for_user(
     db, user_id: str, partner_id: Optional[str], streak_value: int, badge_id: str
 ) -> Optional[dict]:
-    """Retourne un badge du catalogue s'il existe pour l'utilisateur."""
+    cid = canonical_badge_id(badge_id)
+    definition = get_badge_definition(cid)
+    if not definition:
+        return None
     badges = await evaluate_all_badges(db, user_id, partner_id, streak_value)
     for badge in badges:
-        if badge.get("id") == badge_id:
+        if badge.get("id") == cid or canonical_badge_id(badge.get("id")) == cid:
             return badge
-    return None
-
-
-async def _count_duo_same_days(db, user_id: str, partner_id: str) -> int:
-    """Jours où les deux ont au moins une séance terminée."""
-    mine = await db.workout_sessions.find(
-        {"user_id": user_id, "status": "completed"},
-        {"created_at": 1},
-    ).to_list(2000)
-    partner = await db.workout_sessions.find(
-        {"user_id": partner_id, "status": "completed"},
-        {"created_at": 1},
-    ).to_list(2000)
-    my_days = {s.get("created_at", "")[:10] for s in mine if s.get("created_at")}
-    partner_days = {s.get("created_at", "")[:10] for s in partner if s.get("created_at")}
-    return len(my_days & partner_days)
+    # Badge hors scope évalué — retourner définition verrouillée
+    return catalog_badge_to_public(definition, unlocked=False)
 
 
 DUO_SOCIAL_BADGE_DEFS = [
@@ -447,55 +243,45 @@ DUO_SOCIAL_BADGE_DEFS = [
 
 
 async def evaluate_duo_social_badges(db, user_a_id: str, user_b_id: str, together_stats: dict) -> List[dict]:
-    """Badges duo basés uniquement sur l'activité commune."""
-    from duo_social import compute_together_stats
+    """Compatibilité : badges duo via le moteur canonique."""
+    try:
+        from badge_progress import BadgeProgressService
 
-    stats = together_stats or await compute_together_stats(db, user_a_id, user_b_id)
-    sessions = stats.get("sessions_together", 0)
-    streak = stats.get("duo_streak_current", 0)
-    challenges = stats.get("challenges_completed", 0)
-
-    badges: List[dict] = []
-    for bid, name, desc, icon, target, rarity in DUO_SOCIAL_BADGE_DEFS:
-        if bid == "duo_together_first":
-            current = min(sessions, 1)
-            unlocked = sessions >= 1
-        elif bid == "duo_streak_7":
-            current = streak
-            unlocked = streak >= 7
-        elif bid == "duo_streak_30":
-            current = streak
-            unlocked = streak >= 30
-        elif bid == "duo_challenge_week":
-            current = min(challenges, 1)
-            unlocked = challenges >= 1
-        elif bid == "duo_regular":
-            current = sessions
-            unlocked = sessions >= 15
-        elif bid == "duo_legendary":
-            current = sessions
-            unlocked = sessions >= 50
-        else:
-            current = 0
-            unlocked = False
-        badges.append(
-            _badge(
-                bid, name, desc, icon, "duo",
-                unlocked, current, target, rarity=rarity,
-            )
-        )
-    return badges
+        pair_key = "_".join(sorted([user_a_id, user_b_id]))
+        service = BadgeProgressService(db)
+        result = await service.get_duo_catalog_with_progress(pair_key)
+        return result.get("badges") or []
+    except Exception:
+        return [
+            catalog_badge_to_public(b, unlocked=False, progress={"current": 0, "target": b.get("condition_value") or 1})
+            for b in get_catalog("duo", include_disabled=False)
+        ]
 
 
-async def _duo_week_both_active(db, user_id: str, partner_id: str) -> bool:
-    today = datetime.now(timezone.utc)
-    week_start = (today - timedelta(days=today.weekday())).replace(
-        hour=0, minute=0, second=0, microsecond=0
-    ).isoformat()
-    u = await db.workout_sessions.count_documents(
-        {"user_id": user_id, "status": "completed", "created_at": {"$gte": week_start}}
-    )
-    p = await db.workout_sessions.count_documents(
-        {"user_id": partner_id, "status": "completed", "created_at": {"$gte": week_start}}
-    )
-    return u >= 1 and p >= 1
+__all__ = [
+    "ALL_BADGES",
+    "BADGE_BY_ID",
+    "BADGE_CATEGORY_ALIASES",
+    "BADGE_ID_ALIASES",
+    "CATALOG_VERSION",
+    "DUO_BADGES",
+    "DUO_SOCIAL_BADGE_DEFS",
+    "LEGACY_BADGE_ID_MAP",
+    "LEGACY_ORPHAN_BADGE_IDS",
+    "RARITY_LABELS",
+    "RARITY_POINTS",
+    "SOLO_BADGES",
+    "badge_rarity_for",
+    "canonical_badge_id",
+    "catalog_badge_to_public",
+    "evaluate_all_badges",
+    "evaluate_duo_social_badges",
+    "find_badge_for_user",
+    "get_badge_definition",
+    "get_catalog",
+    "is_duo_category_badge",
+    "merge_duo_badges",
+    "normalize_badge_category",
+    "rarity_summary",
+    "validate_catalog",
+]
