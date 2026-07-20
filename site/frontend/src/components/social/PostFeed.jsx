@@ -202,7 +202,7 @@ export function PostFeed({
 
             onUpdate={load}
 
-            onDelete={() => load()}
+            onDelete={(id) => setItems((current) => current.filter((p) => (p?.id || p?._repostId) !== id))}
 
             isRepost={!!post.is_repost}
 

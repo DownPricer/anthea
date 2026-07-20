@@ -16,6 +16,7 @@ import { Button } from '../ui/button';
 import {
   getFeedCache,
   setFeedCache,
+  removePostFromFeedCaches,
   isPostNew,
   markFeedSeenNow,
   markPostSeen,
@@ -58,7 +59,7 @@ function NewBadge() {
   );
 }
 
-function renderPostItem(post, user, theme, onUpdate, options = {}) {
+function renderPostItem(post, user, theme, onUpdate, onDelete, options = {}) {
   const { showTrendingRank = false } = options;
   const isNew = isPostNew(post);
 
@@ -94,12 +95,12 @@ function renderPostItem(post, user, theme, onUpdate, options = {}) {
         ) : null}
         {isNew ? <NewBadge /> : null}
       </div>
-      <PostCard post={post} viewer={user} onUpdate={onUpdate} />
+      <PostCard post={post} viewer={user} onUpdate={onUpdate} onDelete={onDelete} />
     </div>
   );
 }
 
-function FeedList({ posts, loading, emptyDescription, user, theme, onUpdate, showTrendingRank }) {
+function FeedList({ posts, loading, emptyDescription, user, theme, onUpdate, onDelete, showTrendingRank }) {
   const safePosts = normalizeArray(posts);
 
   if (loading && safePosts.length === 0) {
@@ -119,7 +120,7 @@ function FeedList({ posts, loading, emptyDescription, user, theme, onUpdate, sho
   return (
     <div className="space-y-4">
       {safePosts.map((post) =>
-        renderPostItem(post, user, theme, onUpdate, { showTrendingRank })
+        renderPostItem(post, user, theme, onUpdate, onDelete, { showTrendingRank })
       )}
     </div>
   );
@@ -227,6 +228,26 @@ export function HomeFeed() {
 
   const handlePostUpdate = () => refreshScope(scope);
 
+  const handlePostDelete = useCallback((postId) => {
+    if (!postId) return;
+    removePostFromFeedCaches(postId);
+    setFollowingPosts((prev) => {
+      const next = prev.filter((p) => p?.id !== postId);
+      setFeedCache('following', { posts: next });
+      return next;
+    });
+    setGlobalPosts((prev) => {
+      const next = prev.filter((p) => p?.id !== postId);
+      setFeedCache('global', { posts: next });
+      return next;
+    });
+    setTrendingPosts((prev) => {
+      const next = prev.filter((p) => p?.id !== postId);
+      setFeedCache('trending', { posts: next });
+      return next;
+    });
+  }, []);
+
   return (
     <section data-testid="home-feed" className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -259,6 +280,7 @@ export function HomeFeed() {
             user={user}
             theme={theme}
             onUpdate={handlePostUpdate}
+            onDelete={handlePostDelete}
           />
           {followingCursor ? (
             <Button
@@ -286,7 +308,7 @@ export function HomeFeed() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {normalizeArray(trendingPosts).map((post) => (
                   <div key={`trend-${post.id}`} className="card p-1">
-                    {renderPostItem(post, user, theme, handlePostUpdate, { showTrendingRank: true })}
+                    {renderPostItem(post, user, theme, handlePostUpdate, handlePostDelete, { showTrendingRank: true })}
                   </div>
                 ))}
               </div>
@@ -304,6 +326,7 @@ export function HomeFeed() {
               user={user}
               theme={theme}
               onUpdate={handlePostUpdate}
+              onDelete={handlePostDelete}
             />
             {globalCursor ? (
               <Button

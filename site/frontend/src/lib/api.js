@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { invalidateFeedCache } from './feedCache';
+import { invalidateFeedCache, removePostFromFeedCaches } from './feedCache';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -151,7 +151,11 @@ export const postsApi = {
   getRepostsByHandle: (handle, params = {}) =>
     api.get(`/users/${encodeURIComponent(handle)}/reposts`, { params }),
   getOne: (id) => api.get(`/posts/${id}`),
-  delete: (id) => api.delete(`/posts/${id}`),
+  delete: async (id) => {
+    const response = await api.delete(`/posts/${id}`);
+    removePostFromFeedCaches(id);
+    return response;
+  },
   toggleLike: (id) => api.post(`/posts/${id}/like`),
   addComment: (id, data) => api.post(`/posts/${id}/comment`, data),
   getComments: (id) => api.get(`/posts/${id}/comments`),

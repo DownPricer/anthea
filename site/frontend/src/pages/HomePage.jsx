@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, duoApi, partnerApi, streakApi, notificationsApi } from '../lib/api';
+import { workoutsApi, partnerApi, streakApi, notificationsApi } from '../lib/api';
 import { Button } from '../components/ui/button';
 import {
   Dialog,
@@ -9,7 +9,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '../components/ui/dialog';
-import { useDuoNavLabel } from '../hooks/useDuoNavLabel';
 import {
   Play,
   Calendar,
@@ -27,12 +26,10 @@ import {
   Undo2,
   RotateCcw,
   Search,
-  ChartNoAxesColumnIncreasing,
 } from 'lucide-react';
 import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useTheme } from '../context/ThemeContext';
-import { BadgesGrid } from '../components/BadgesGrid';
 import { WeekAgendaStrip } from '../components/agenda/WeekAgendaStrip';
 import { HomeFeed } from '../components/social/HomeFeed';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
@@ -48,18 +45,15 @@ export function HomePage() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
-  const duoNav = useDuoNavLabel();
   
   const [todayWorkouts, setTodayWorkouts] = useState([]);
   const [calendarDayMap, setCalendarDayMap] = useState({});
-  const [duoStats, setDuoStats] = useState(null);
   const [partner, setPartner] = useState(null);
   const [partnerRequests, setPartnerRequests] = useState([]);
   const [streakDays, setStreakDays] = useState([]);
   const [streakDaysLoading, setStreakDaysLoading] = useState(false);
   const [todayLoading, setTodayLoading] = useState(true);
   const [weekLoading, setWeekLoading] = useState(true);
-  const [sidebarLoading, setSidebarLoading] = useState(true);
   const [showStreakModal, setShowStreakModal] = useState(false);
   const [selectedDay, setSelectedDay] = useState(null);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
@@ -91,7 +85,6 @@ export function HomePage() {
 
     setTodayLoading(true);
     setWeekLoading(true);
-    setSidebarLoading(true);
     setStreakDays([]);
     setStreakDaysLoading(false);
     streakDaysRangeRef.current = { start: null, end: null, loaded: false };
@@ -127,20 +120,15 @@ export function HomePage() {
     // Sections secondaires : ne doivent pas bloquer l'affichage initial.
     scheduleNonBlocking(async () => {
       try {
-        const [duoRes, partnerRes, requestsRes] = await Promise.all([
-          duoApi.getStats(),
+        const [partnerRes, requestsRes] = await Promise.all([
           partnerApi.getInfo(),
           partnerApi.getRequests(),
         ]);
         if (!isActive()) return;
-        setDuoStats(duoRes.data);
         setPartner(partnerRes.data);
         setPartnerRequests(requestsRes.data || []);
       } catch (error) {
         console.error('Failed to load home secondary data:', error);
-      } finally {
-        if (!isActive()) return;
-        setSidebarLoading(false);
       }
     });
   }, []);
@@ -226,12 +214,8 @@ export function HomePage() {
     try {
       await streakApi.markRestDay(dateStr);
       setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'rest' }]);
-      setDuoStats((prev) => prev); // will refresh
       toast.success('Jour de repos marqué');
       setShowStreakModal(false);
-      // Refresh stats
-      const statsRes = await duoApi.getStats();
-      setDuoStats(statsRes.data);
     } catch {
       toast.error('Erreur');
     }
@@ -244,8 +228,6 @@ export function HomePage() {
       setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'skip' }]);
       toast.success('Streak abandonnée pour ce jour');
       setShowStreakModal(false);
-      const statsRes = await duoApi.getStats();
-      setDuoStats(statsRes.data);
     } catch {
       toast.error('Erreur');
     }
@@ -258,8 +240,6 @@ export function HomePage() {
       setStreakDays((prev) => prev.filter((d) => d.date !== dateStr));
       toast.success('Marqueur supprimé');
       setShowStreakModal(false);
-      const statsRes = await duoApi.getStats();
-      setDuoStats(statsRes.data);
     } catch {
       toast.error('Erreur');
     }
@@ -349,8 +329,7 @@ export function HomePage() {
         )}
       </div>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-12">
-        <div className="space-y-6 lg:col-span-7">
+      <div className="mt-6 space-y-6 max-w-3xl">
           {/* Next Workout Card */}
           {todayLoading ? (
             <div className="card p-5 relative overflow-hidden">
@@ -498,128 +477,6 @@ export function HomePage() {
           )}
 
           <HomeFeed />
-        </div>
-
-        <div className="space-y-6 lg:col-span-5">
-          {/* Duo Stats Card */}
-          {sidebarLoading ? (
-            <div className="card p-5">
-              <div className="space-y-4">
-                <div className="h-5 w-52 rounded bg-white/5 animate-pulse" />
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="h-20 rounded-xl bg-white/5 animate-pulse col-span-3 sm:col-span-1" />
-                  <div className="h-20 rounded-xl bg-white/5 animate-pulse" />
-                  <div className="h-20 rounded-xl bg-white/5 animate-pulse" />
-                </div>
-              </div>
-            </div>
-          ) : partner && duoStats && (
-            <div className="card p-5">
-          <Link
-            to={`/profile/${getPublicHandle(partner) || partner.username}`}
-            className="flex items-center gap-3 mb-4 hover:opacity-90 transition-opacity"
-          >
-            <div className="flex -space-x-3">
-              <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)] flex items-center justify-center border-2 border-[#141414]">
-                <span className="text-white text-sm font-bold">
-                  {user?.display_name?.[0] || user?.username?.[0] || 'M'}
-                </span>
-              </div>
-              <div className="w-10 h-10 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center border-2 border-[#141414]">
-                <span className="text-white text-sm font-bold">
-                  {partner.display_name?.[0] || partner.username?.[0] || 'P'}
-                </span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <p className="text-white font-medium">Duo avec {partner.display_name || partner.username}</p>
-              <p className="text-zinc-500 text-sm">{user?.relation_type === 'coach' ? 'Coach' : 'Partenaire'}</p>
-            </div>
-            <ChevronRight className="text-[var(--theme-primary)]" size={20} />
-          </Link>
-
-          <div className="grid grid-cols-3 gap-3">
-            <div className="text-center p-3 rounded-xl bg-white/5 col-span-3 sm:col-span-1">
-              <div className="flex items-center justify-center gap-1 mb-1">
-                <Flame
-                  size={18}
-                  className={(duoStats.streak || 0) > 0 ? 'text-orange-500' : 'text-zinc-600'}
-                  fill="currentColor"
-                />
-                <span className="text-orange-300/80 text-sm font-semibold">×</span>
-                <span className="text-xl font-bold text-white tabular-nums">
-                  {duoStats.streak || 0}
-                </span>
-              </div>
-              <p className="text-zinc-500 text-xs">Streak</p>
-            </div>
-            <div className="text-center p-3 rounded-xl bg-white/5">
-              <p className="text-xl font-bold text-white">{duoStats.this_week_user}</p>
-              <p className="text-zinc-500 text-xs">Toi</p>
-            </div>
-            <div className="text-center p-3 rounded-xl bg-white/5">
-              <p className="text-xl font-bold text-white">{duoStats.this_week_partner}</p>
-              <p className="text-zinc-500 text-xs">{partner.display_name?.split(' ')[0] || partner.username}</p>
-            </div>
-          </div>
-            </div>
-          )}
-
-          {!partner && duoStats && (
-            <Link
-              to="/duo"
-              data-testid="home-solo-card"
-              className="card p-5 block hover:border-[var(--theme-primary)]/30 transition-colors"
-            >
-              <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)]/20 flex items-center justify-center">
-                  <ChartNoAxesColumnIncreasing className="text-[var(--theme-primary)]" size={20} />
-                </div>
-                <div className="flex-1">
-                  <p className="text-white font-medium">{duoNav.label} — ton tableau de bord</p>
-                  <p className="text-zinc-500 text-sm">Stats, badges et défis personnels</p>
-                </div>
-                <ChevronRight className="text-[var(--theme-primary)]" size={20} />
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <div className="text-center p-3 rounded-xl bg-white/5 col-span-3 sm:col-span-1">
-                  <div className="flex items-center justify-center gap-1 mb-1">
-                    <Flame
-                      size={18}
-                      className={(duoStats.streak || 0) > 0 ? 'text-orange-500' : 'text-zinc-600'}
-                      fill="currentColor"
-                    />
-                    <span className="text-xl font-bold text-white tabular-nums">{duoStats.streak || 0}</span>
-                  </div>
-                  <p className="text-zinc-500 text-xs">Streak</p>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-white/5">
-                  <p className="text-xl font-bold text-white">{duoStats.this_week_user ?? 0}</p>
-                  <p className="text-zinc-500 text-xs">Cette semaine</p>
-                </div>
-                <div className="text-center p-3 rounded-xl bg-white/5">
-                  <p className="text-xl font-bold text-white">{duoStats.badges_unlocked ?? 0}</p>
-                  <p className="text-zinc-500 text-xs">Badges</p>
-                </div>
-              </div>
-            </Link>
-          )}
-
-          {/* Badges */}
-          {duoStats?.badges?.length > 0 && (
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-lg font-semibold text-white font-['Outfit']">Badges</h2>
-                <Link to="/duo" className="text-[var(--theme-primary)] text-sm">
-                  Tout voir
-                </Link>
-              </div>
-              <div className="flex w-full justify-center">
-                <BadgesGrid badges={duoStats.badges.filter((b) => b.unlocked).slice(0, 8)} compact />
-              </div>
-            </div>
-          )}
-        </div>
       </div>
 
       {/* Streak Day Modal */}

@@ -2,6 +2,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Dumbbell, Plus, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
+import { useDuoUnreadCount } from '../../hooks/useDuoUnreadCount';
 
 const baseNavItems = [
   { path: '/', icon: Home, label: 'Accueil' },
@@ -13,9 +14,10 @@ const baseNavItems = [
 export function DesktopNav() {
   const location = useLocation();
   const duoNav = useDuoNavLabel();
+  const { count: duoUnread, badge: duoBadge } = useDuoUnreadCount();
   const navItems = [
     ...baseNavItems.slice(0, 3),
-    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label },
+    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label, isDuo: true },
     ...baseNavItems.slice(3),
   ];
 
@@ -41,10 +43,14 @@ export function DesktopNav() {
         <nav className="mt-4 flex-1 space-y-1 overflow-y-auto min-h-0">
           {navItems.map((item) => {
             const Icon = item.icon;
+            const ariaLabel = item.isDuo && duoUnread > 0
+              ? `${item.label}, ${duoUnread > 9 ? 'plus de 9' : duoUnread} notification${duoUnread > 1 ? 's' : ''} Duo non lue${duoUnread > 1 ? 's' : ''}`
+              : item.label;
             return (
               <NavLink
                 key={item.path}
                 to={item.path}
+                aria-label={ariaLabel}
                 className={({ isActive }) =>
                   cn(
                     'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
@@ -54,7 +60,17 @@ export function DesktopNav() {
                   )
                 }
               >
-                <Icon size={18} />
+                <span className="relative inline-flex">
+                  <Icon size={18} />
+                  {item.isDuo && duoBadge ? (
+                    <span
+                      data-testid="nav-duo-unread-badge-desktop"
+                      className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white"
+                    >
+                      {duoBadge}
+                    </span>
+                  ) : null}
+                </span>
                 <span className="text-sm font-medium">{item.label}</span>
               </NavLink>
             );
@@ -82,4 +98,3 @@ export function DesktopNav() {
     </aside>
   );
 }
-

@@ -1,15 +1,17 @@
 import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Dumbbell, Plus, User } from 'lucide-react';
 import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
+import { useDuoUnreadCount } from '../../hooks/useDuoUnreadCount';
 
 export function BottomNav() {
   const location = useLocation();
   const duoNav = useDuoNavLabel();
+  const { count: duoUnread, badge: duoBadge } = useDuoUnreadCount();
   const navItems = [
     { path: '/', icon: Home, label: 'Accueil' },
     { path: '/workouts', icon: Dumbbell, label: 'Séances' },
     { path: '/create', icon: Plus, label: '', isCenter: true },
-    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label },
+    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label, isDuo: true },
     { path: '/profile', icon: User, label: 'Profil' },
   ];
 
@@ -49,16 +51,31 @@ export function BottomNav() {
           );
         }
 
+        const ariaLabel = item.isDuo && duoUnread > 0
+          ? `${item.label}, ${duoUnread > 9 ? 'plus de 9' : duoUnread} notification${duoUnread > 1 ? 's' : ''} Duo non lue${duoUnread > 1 ? 's' : ''}`
+          : item.label;
+
         return (
           <div key={item.path} className="flex justify-center pb-2">
             <NavLink
               to={item.path}
               data-testid={`nav-${item.label.toLowerCase() || 'home'}`}
+              aria-label={ariaLabel}
               className={`flex flex-col items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors ${
                 isActive ? 'text-[var(--theme-primary)]' : 'text-zinc-500 hover:text-white'
               }`}
             >
-              <Icon size={22} strokeWidth={1.5} />
+              <span className="relative inline-flex">
+                <Icon size={22} strokeWidth={1.5} />
+                {item.isDuo && duoBadge ? (
+                  <span
+                    data-testid="nav-duo-unread-badge"
+                    className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white"
+                  >
+                    {duoBadge}
+                  </span>
+                ) : null}
+              </span>
               <span>{item.label}</span>
             </NavLink>
           </div>

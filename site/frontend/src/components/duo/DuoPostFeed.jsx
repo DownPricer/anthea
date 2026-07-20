@@ -284,6 +284,8 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
                 onUpdate={load}
 
+                onDelete={(id) => setPosts((current) => current.filter((p) => p?.id !== id))}
+
                 showRepostAction={false}
 
               />

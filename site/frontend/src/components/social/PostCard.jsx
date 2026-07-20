@@ -158,11 +158,13 @@ export function PostCard({
 
   const handleDelete = async () => {
     if (!window.confirm('Supprimer cette publication ?')) return;
+    const deletedId = post.id;
+    onDelete?.(deletedId);
     try {
-      await postsApi.delete(post.id);
+      await postsApi.delete(deletedId);
       toast.success('Publication supprimée');
-      onDelete?.(post.id);
     } catch (error) {
+      onUpdate?.();
       toast.error(formatApiError(error));
     }
   };

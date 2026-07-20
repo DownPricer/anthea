@@ -23,6 +23,33 @@ export function invalidateFeedCache() {
   feedCache.trending = { posts: [], windowDays: 7 };
 }
 
+/** Retire un post des caches following / global / trending. */
+export function removePostFromFeedCaches(postId) {
+  if (!postId) return;
+  ['following', 'global', 'trending'].forEach((scope) => {
+    const cached = feedCache[scope];
+    if (!cached?.posts?.length) return;
+    feedCache[scope] = {
+      ...cached,
+      posts: cached.posts.filter((p) => p?.id !== postId),
+    };
+  });
+}
+
+/** Réinsère un post en tête des caches où il était présent (rollback). */
+export function restorePostInFeedCaches(post, scopes = ['following', 'global', 'trending']) {
+  if (!post?.id) return;
+  scopes.forEach((scope) => {
+    const cached = feedCache[scope];
+    if (!cached) return;
+    const without = (cached.posts || []).filter((p) => p?.id !== post.id);
+    feedCache[scope] = {
+      ...cached,
+      posts: [post, ...without],
+    };
+  });
+}
+
 const SEEN_AT_KEY = 'feed_last_seen_at';
 const SEEN_IDS_KEY = 'feed_seen_post_ids';
 
