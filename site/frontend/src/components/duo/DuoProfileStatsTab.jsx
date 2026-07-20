@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Loader2, Flame, Trophy, Target, Clock, Calendar, Zap, Medal } from 'lucide-react';
-import { DuoBadgesGrid } from './DuoBadgeCard';
-import { ShareDuoBadgeDialog } from './ShareDuoBadgeDialog';
+import { BadgesPreview, BadgesCatalogView } from '../badges/BadgesCatalog';
 import { ProfileEmptyState } from '../profile/ProfileEmptyState';
 import { formatDuration } from '../../lib/userProfile';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
+import { useState } from 'react';
 
 export function DuoProfileStatsTab({
   stats,
@@ -17,12 +17,8 @@ export function DuoProfileStatsTab({
   duoProfile,
   onBadgeShared,
 }) {
+  const navigate = useNavigate();
   const [showAllBadges, setShowAllBadges] = useState(false);
-  const [selectedBadge, setSelectedBadge] = useState(null);
-
-  const handleBadgeClick = (badge) => {
-    setSelectedBadge(badge);
-  };
 
   if (!canViewStats && !canViewBadges && !canViewChallenges) {
     return (
@@ -59,14 +55,16 @@ export function DuoProfileStatsTab({
     );
   }
 
-  const duoBadges = (stats?.badges || []).filter((b) => {
+  const duoBadges = (stats?.duo_badges || stats?.badges || []).filter((b) => {
     const family = b.family === 'duo_social' ? 'duo' : b.family;
-    return family === 'duo' || b.id?.startsWith('duo_');
+    return family === 'duo' || b.scope === 'duo' || b.id?.startsWith('duo_');
   });
-  const unlockedBadges = duoBadges.filter((b) => b.unlocked);
-  const displayedBadges = showAllBadges ? duoBadges : unlockedBadges.slice(0, 6);
-  const duoBadgesUnlockedCount = unlockedBadges.length;
+  const duoBadgesUnlockedCount =
+    stats?.duo_badges_unlocked ??
+    stats?.badges_unlocked ??
+    duoBadges.filter((b) => b.unlocked).length;
   const canPublish = Boolean(duoProfile?.is_member);
+  const pairKey = duoProfile?.pair_key || null;
 
   return (
     <div className="space-y-6" data-testid="duo-profile-stats">
@@ -131,50 +129,52 @@ export function DuoProfileStatsTab({
       ) : null}
 
       {canViewBadges ? (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Badges Duo</h3>
-            {duoBadges.length > unlockedBadges.length || duoBadges.length > 6 ? (
+        showAllBadges ? (
+          <div>
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Tous les badges Duo</h3>
               <button
                 type="button"
-                onClick={() => setShowAllBadges((v) => !v)}
+                onClick={() => setShowAllBadges(false)}
                 className="text-xs text-[var(--theme-primary)] hover:underline"
                 data-testid="duo-badges-toggle-all"
               >
-                {showAllBadges ? 'Réduire' : 'Voir tous les badges'}
+                Réduire
               </button>
-            ) : null}
-          </div>
-          {displayedBadges.length > 0 ? (
-            <div className="flex w-full justify-center">
-              <DuoBadgesGrid
-                badges={displayedBadges}
-                onBadgeClick={handleBadgeClick}
-              />
             </div>
-          ) : (
-            <ProfileEmptyState
-              title="Aucun badge duo"
-              description="Entraînez-vous ensemble pour débloquer des badges."
+            <BadgesCatalogView
+              badges={duoBadges}
+              summary={stats?.badges_summary || stats?.duo_badges_summary}
+              scope="duo"
+              canPublish={canPublish}
+              pairKey={pairKey}
+              onShared={onBadgeShared}
             />
-          )}
-          {canPublish ? (
-            <p className="text-center text-zinc-600 text-[11px] mt-3">
-              Touchez un badge débloqué pour le publier sur le mur Duo
-            </p>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <BadgesPreview
+            badges={duoBadges}
+            summary={
+              stats?.duo_badges_summary ||
+              stats?.badges_summary || {
+                unlocked: duoBadgesUnlockedCount,
+                total: stats?.duo_badges_total ?? stats?.badges_total ?? duoBadges.length,
+              }
+            }
+            scope="duo"
+            canPublish={canPublish}
+            pairKey={pairKey}
+            onShared={onBadgeShared}
+            onSeeAll={() => {
+              if (duoProfile?.is_member) {
+                navigate('/badges?scope=duo');
+              } else {
+                setShowAllBadges(true);
+              }
+            }}
+          />
+        )
       ) : null}
-
-      <ShareDuoBadgeDialog
-        badge={selectedBadge}
-        open={Boolean(selectedBadge)}
-        onOpenChange={(open) => { if (!open) setSelectedBadge(null); }}
-        onShared={() => {
-          onBadgeShared?.();
-          setSelectedBadge(null);
-        }}
-      />
     </div>
   );
 }

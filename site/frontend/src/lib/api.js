@@ -202,9 +202,20 @@ export const duoApi = {
   getDetailedStats: (period = '30', targetUser = null) =>
     api.get('/duo/detailed-stats', { params: { period, target_user: targetUser } }),
   getBadges: () => api.get('/duo/stats').then((r) => r.data?.badges || []),
+  getDuoBadges: () => api.get('/badges/catalog', { params: { scope: 'duo' } }).then((r) => r.data),
   getProfile: () => api.get('/duo/profile'),
   updateProfile: (data) => api.patch('/duo/profile', data),
   updateRoles: (pairKey, roles) => api.patch(`/duos/${encodeURIComponent(pairKey)}/roles`, { roles }),
+};
+
+export const badgesApi = {
+  getCatalog: (scope = 'solo') => api.get('/badges/catalog', { params: { scope } }),
+  getMyBadges: () => api.get('/users/me/badges'),
+  getMyBadge: (badgeId) => api.get(`/users/me/badges/${encodeURIComponent(badgeId)}`),
+  getUserBadges: (userId) => api.get(`/users/${encodeURIComponent(userId)}/badges`),
+  getDuoBadges: (pairKey) => api.get(`/duos/${encodeURIComponent(pairKey)}/badges`),
+  getDuoBadge: (pairKey, badgeId) =>
+    api.get(`/duos/${encodeURIComponent(pairKey)}/badges/${encodeURIComponent(badgeId)}`),
 };
 
 // Duo profiles API (public)

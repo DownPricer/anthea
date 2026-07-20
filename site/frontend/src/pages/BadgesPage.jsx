@@ -1,25 +1,53 @@
 import { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Loader2, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { duoApi } from '../lib/api';
-import { BadgesGrid } from '../components/BadgesGrid';
+import { badgesApi } from '../lib/api';
+import { BadgesCatalogView } from '../components/badges/BadgesCatalog';
 
 export function BadgesPage() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const scope = searchParams.get('scope') === 'duo' ? 'duo' : 'solo';
   const [badges, setBadges] = useState([]);
+  const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [pairKey, setPairKey] = useState(null);
 
   useEffect(() => {
-    duoApi
-      .getStats()
-      .then(({ data }) => setBadges(data?.badges || []))
-      .catch(() => setBadges([]))
-      .finally(() => setLoading(false));
-  }, [user?.id]);
+    let cancelled = false;
+    setLoading(true);
+    const loader =
+      scope === 'duo'
+        ? badgesApi.getCatalog('duo')
+        : badgesApi.getMyBadges();
+    loader
+      .then(({ data }) => {
+        if (cancelled) return;
+        setBadges(data?.badges || []);
+        setSummary(data?.summary || null);
+        if (scope === 'duo' && user?.partner_id) {
+          const pk = [user.id, user.partner_id].sort().join('_');
+          setPairKey(pk);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setBadges([]);
+          setSummary(null);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id, user?.partner_id, scope]);
 
-  const unlocked = badges.filter((b) => b.unlocked).length;
+  const unlocked = summary?.unlocked ?? badges.filter((b) => b.unlocked).length;
+  const total = summary?.total ?? badges.length;
 
   return (
     <div
@@ -36,34 +64,61 @@ export function BadgesPage() {
           <ChevronLeft size={20} />
         </button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold text-white font-['Outfit']">Tous les badges</h1>
-          <p className="text-zinc-500 text-sm">{unlocked}/{badges.length} débloqués</p>
+          <h1 className="text-xl font-bold text-white font-['Outfit']">
+            {scope === 'duo' ? 'Badges du Duo' : 'Mes badges'}
+          </h1>
+          <p className="text-zinc-500 text-sm">
+            {unlocked}/{total} débloqués
+          </p>
         </div>
         <Trophy size={22} className="text-[var(--theme-primary)]" />
       </header>
+
+      <div className="mb-4 flex gap-2">
+        <Link
+          to="/badges?scope=solo"
+          className={`px-3 py-1.5 rounded-lg text-xs border ${
+            scope === 'solo'
+              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
+              : 'border-white/10 text-zinc-500'
+          }`}
+        >
+          Solo
+        </Link>
+        {user?.partner_id ? (
+          <Link
+            to="/badges?scope=duo"
+            className={`px-3 py-1.5 rounded-lg text-xs border ${
+              scope === 'duo'
+                ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
+                : 'border-white/10 text-zinc-500'
+            }`}
+          >
+            Duo
+          </Link>
+        ) : null}
+      </div>
 
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
         </div>
-      ) : badges.length === 0 ? (
-        <div className="text-center py-20 text-zinc-500 text-sm">
-          Aucun badge disponible pour le moment.
-        </div>
       ) : (
-        <div className="flex justify-center">
-          <div className="w-full max-w-md mx-auto">
-            <BadgesGrid badges={badges} showShare />
-          </div>
-        </div>
+        <BadgesCatalogView
+          badges={badges}
+          summary={summary}
+          scope={scope}
+          canPublish={scope === 'solo' || Boolean(user?.partner_id)}
+          pairKey={pairKey}
+        />
       )}
 
       <div className="mt-8 text-center">
         <Link
-          to="/profile"
+          to={scope === 'duo' ? '/duo' : '/profile'}
           className="text-[var(--theme-primary)] text-sm hover:underline"
         >
-          Retour au profil
+          {scope === 'duo' ? 'Retour au Duo' : 'Retour au profil'}
         </Link>
       </div>
     </div>

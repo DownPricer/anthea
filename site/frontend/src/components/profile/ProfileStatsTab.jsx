@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Activity,
   BarChart3,
@@ -14,6 +15,7 @@ import { formatCalories } from '../../lib/calories';
 import { canViewProfileSection, formatDuration } from '../../lib/userProfile';
 import { SessionHistoryCard } from '../history/SessionHistoryCard';
 import { computeBestStreak } from '../../lib/streakUtils';
+import { BadgesPreview } from '../badges/BadgesCatalog';
 
 function StatCard({ icon: Icon, label, value, sub }) {
   if (value == null || value === '') return null;
@@ -89,6 +91,14 @@ export function ProfileStatsTab({
   const streak = duoStats?.streak;
   const badgesUnlocked = canShowBadges ? duoStats?.badges_unlocked : null;
   const badgesTotal = canShowBadges ? duoStats?.badges_total : null;
+  const navigate = useNavigate();
+  const soloBadges = useMemo(
+    () =>
+      (duoStats?.badges || []).filter(
+        (b) => b.scope === 'solo' || (!b.scope && !String(b.id || '').startsWith('duo_'))
+      ),
+    [duoStats?.badges]
+  );
 
   const statItems = [
     {
@@ -183,6 +193,21 @@ export function ProfileStatsTab({
             />
           ))}
         </div>
+      ) : null}
+
+      {canShowBadges ? (
+        <BadgesPreview
+          badges={soloBadges}
+          summary={
+            duoStats?.badges_summary || {
+              unlocked: badgesUnlocked ?? 0,
+              total: badgesTotal ?? 50,
+            }
+          }
+          scope="solo"
+          canPublish={isOwn}
+          onSeeAll={() => navigate('/badges?scope=solo')}
+        />
       ) : null}
 
       {recentSessions.length > 0 ? (

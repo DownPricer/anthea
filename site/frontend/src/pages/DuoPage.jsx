@@ -851,19 +851,24 @@ export function DuoPage() {
                 </div>
               ) : null}
 
-              {/* Badges — accordéon */}
-              {statsBootLoading && !duoStats?.badges ? (
+              {/* Badges Duo — aperçu */}
+              {statsBootLoading && !(duoStats?.duo_badges || duoStats?.badges) ? (
                 <DuoBadgesSkeleton />
-              ) : duoStats?.badges?.length > 0 ? (
+              ) : (duoStats?.duo_badges || duoStats?.badges)?.length > 0 ? (
                 <Collapsible open={badgesOpen} onOpenChange={setBadgesOpen}>
                   <div className="card overflow-hidden">
                     <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
                       <div className="flex items-center gap-2">
                         <Trophy size={16} className="text-[var(--theme-primary)]" />
-                        <h2 className="text-sm font-medium text-white">Badges</h2>
+                        <h2 className="text-sm font-medium text-white">Badges Duo</h2>
                         <span className="text-xs text-zinc-500 px-2 py-0.5 rounded-full bg-white/5">
-                          {duoStats.badges_unlocked ?? duoStats.badges.filter((b) => b.unlocked).length}
-                          /{duoStats.badges_total ?? duoStats.badges.length}
+                          {duoStats.duo_badges_unlocked
+                            ?? duoStats.badges_unlocked
+                            ?? (duoStats.duo_badges || duoStats.badges).filter((b) => b.unlocked).length}
+                          /
+                          {duoStats.duo_badges_total
+                            ?? duoStats.badges_total
+                            ?? (duoStats.duo_badges || duoStats.badges).length}
                         </span>
                       </div>
                       <ChevronDown
@@ -874,13 +879,20 @@ export function DuoPage() {
                     <CollapsibleContent className="px-4 pb-4 border-t border-white/5">
                       <div className="flex w-full justify-center pt-3">
                         <DuoBadgesGrid
-                          badges={duoStats.badges}
+                          badges={(duoStats.duo_badges || duoStats.badges).filter(
+                            (b) => b.scope === 'duo' || b.id?.startsWith('duo_') || b.family === 'duo'
+                          )}
                           onBadgeClick={(badge) => setSelectedDuoBadge(badge)}
                         />
                       </div>
-                      <p className="text-center text-zinc-600 text-[11px] mt-3">
-                        Touchez un badge débloqué pour le publier sur le mur Duo
-                      </p>
+                      <button
+                        type="button"
+                        onClick={() => navigate('/badges?scope=duo')}
+                        className="mt-3 w-full text-center text-[var(--theme-primary)] text-xs hover:underline"
+                        data-testid="duo-see-all-badges"
+                      >
+                        Voir tous les badges
+                      </button>
                     </CollapsibleContent>
                   </div>
                 </Collapsible>
