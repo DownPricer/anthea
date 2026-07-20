@@ -7,13 +7,11 @@ import {
   UserPlus,
   Loader2,
   History,
-  ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { duoApi, sessionsApi, streakApi } from '../../lib/api';
 import { ProfileStatsTab } from '../profile/ProfileStatsTab';
-import { BadgesGrid } from '../BadgesGrid';
 import { SessionHistoryCard } from '../history/SessionHistoryCard';
 import { AnnualHeatmap } from '../agenda/AnnualHeatmap';
 import { getAccentForUser } from '../../lib/userAccent';
@@ -22,13 +20,9 @@ import { formatCalories } from '../../lib/calories';
 import { formatDuration } from '../../lib/userProfile';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../ui/collapsible';
 import { toast } from 'sonner';
 import { PageHeader } from '../layout/PageHeader';
+import { BadgeArtwork } from '../badges/BadgeArtwork';
 
 function filterSoloBadges(badges = []) {
   return badges.filter((b) => !b.id?.startsWith('duo_') && b.family !== 'duo');
@@ -44,9 +38,15 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
   const [statsLoading, setStatsLoading] = useState(true);
   const [historySessions, setHistorySessions] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [badgesOpen, setBadgesOpen] = useState(false);
 
   const soloBadges = useMemo(() => filterSoloBadges(duoStats?.badges), [duoStats?.badges]);
+  const recentSoloBadges = useMemo(
+    () => [...(soloBadges || [])]
+      .filter((b) => b?.unlocked && b?.id)
+      .sort((a, b) => String(b?.unlocked_at || b?.unlockedAt || '').localeCompare(String(a?.unlocked_at || a?.unlockedAt || '')))
+      .slice(0, 3),
+    [soloBadges]
+  );
   const accentColor = getAccentForUser(user, theme);
   const bestStreak = useMemo(() => computeBestStreak(calendarDays), [calendarDays]);
   const heatmapYear = new Date().getFullYear();
@@ -248,31 +248,6 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             )}
           </div>
 
-          <Collapsible open={badgesOpen} onOpenChange={setBadgesOpen}>
-            <CollapsibleTrigger className="flex items-center justify-between w-full card p-4">
-              <div className="flex items-center gap-2">
-                <Trophy className="text-[var(--theme-primary)]" size={18} />
-                <span className="text-white font-medium">Badges Solo</span>
-                <span className="text-zinc-500 text-sm">
-                  ({soloBadges.filter((b) => b.unlocked).length}/{soloBadges.length})
-                </span>
-              </div>
-              <ChevronDown
-                className={`text-zinc-500 transition-transform ${badgesOpen ? 'rotate-180' : ''}`}
-                size={18}
-              />
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-4">
-              {soloBadges.length > 0 ? (
-                <BadgesGrid badges={soloBadges} />
-              ) : (
-                <p className="text-zinc-500 text-sm text-center py-4">
-                  Entraîne-toi pour débloquer tes premiers badges !
-                </p>
-              )}
-            </CollapsibleContent>
-          </Collapsible>
-
           <div className="card p-4">
             <AnnualHeatmap
               year={heatmapYear}
@@ -320,6 +295,45 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             detailedStats={detailedStats}
             calendarDays={calendarDays}
           />
+
+          <div className="mt-6 card p-4 min-w-0 overflow-hidden">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-white font-medium">Mes badges</p>
+                <p className="text-zinc-500 text-xs">
+                  {soloBadges.filter((b) => b.unlocked).length} badges débloqués sur {soloBadges.length || 50}
+                </p>
+              </div>
+              <Button
+                asChild
+                size="sm"
+                variant="outline"
+                className="rounded-full border-white/15 text-white shrink-0"
+                data-testid="solo-stats-open-badges"
+              >
+                <Link to="/badges?scope=solo">Afficher les badges</Link>
+              </Button>
+            </div>
+            {recentSoloBadges.length > 0 ? (
+              <div className="mt-3 flex items-center gap-3">
+                {recentSoloBadges.map((badge) => (
+                  <div key={badge.id} className="min-w-0 w-16 overflow-hidden text-center" title={badge.name}>
+                    <BadgeArtwork
+                      rarity={badge.rarity_key || badge.rarity}
+                      iconKey={badge.icon_key || badge.icon || 'trophy'}
+                      locked={false}
+                      size={40}
+                      className="mx-auto shrink-0 size-10"
+                    />
+                    <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-zinc-400">
+                      {badge.name}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+
           <div className="mt-6 card p-4">
             <AnnualHeatmap
               year={heatmapYear}

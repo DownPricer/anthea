@@ -9,8 +9,7 @@ import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, notificationsApi, duoProfilesApi, formatApiError } from '../lib/api';
 import { SoloDashboard } from '../components/duo/SoloDashboard';
 import { NotificationBell } from '../components/NotificationBell';
-import { DuoBadgesGrid } from '../components/duo/DuoBadgeCard';
-import { ShareDuoBadgeDialog } from '../components/duo/ShareDuoBadgeDialog';
+import { BadgeArtwork } from '../components/badges/BadgeArtwork';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import {
@@ -76,7 +75,7 @@ const QUICK_REACTIONS = [
   { type: 'strong', emoji: '💪', label: "T'as géré" },
 ];
 
-const DUO_TABS = ['activity', 'stats', 'history', 'badges'];
+const DUO_TABS = ['activity', 'stats', 'history'];
 
 function initialDuoTab(searchParams) {
   const requested = searchParams.get('tab');
@@ -239,7 +238,6 @@ export function DuoPage() {
   const [exportPeriod, setExportPeriod] = useState('30d');
   const [exportStartDate, setExportStartDate] = useState('');
   const [exportEndDate, setExportEndDate] = useState('');
-  const [selectedDuoBadge, setSelectedDuoBadge] = useState(null);
 
   const { liveSession } = usePartnerLiveSession(!!partner);
 
@@ -760,6 +758,14 @@ export function DuoPage() {
       ? duoViewStats
       : (memberStats ? normalizeStatsView(memberStats) : null);
 
+  const recentDuoBadges = (() => {
+    const list = Array.isArray(duoStats?.duo_badges) ? duoStats.duo_badges : [];
+    return [...list]
+      .filter((b) => b?.unlocked && b?.id)
+      .sort((a, b) => String(b?.unlocked_at || b?.unlockedAt || '').localeCompare(String(a?.unlocked_at || a?.unlockedAt || '')))
+      .slice(0, 3);
+  })();
+
   const hasWellbeingData = [
     selectedStats?.wellbeing?.fatigue_before,
     selectedStats?.wellbeing?.fatigue_after,
@@ -869,7 +875,7 @@ export function DuoPage() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 bg-[#141414] p-1 rounded-2xl border border-white/10">
+        <TabsList className="grid w-full grid-cols-3 bg-[#141414] p-1 rounded-2xl border border-white/10">
           <TabsTrigger
             value="activity"
             data-testid="tab-activity"
@@ -890,13 +896,6 @@ export function DuoPage() {
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
             Historique
-          </TabsTrigger>
-          <TabsTrigger
-            value="badges"
-            data-testid="tab-badges"
-            className="rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
-          >
-            Badges
           </TabsTrigger>
         </TabsList>
 
@@ -1082,56 +1081,6 @@ export function DuoPage() {
 
             </div>
           </div>
-        </TabsContent>
-
-        <TabsContent value="badges" className="space-y-4">
-          {statsBootLoading && !(duoStats?.duo_badges || duoStats?.badges) ? (
-            <DuoBadgesSkeleton />
-          ) : (duoStats?.duo_badges || duoStats?.badges)?.length > 0 ? (
-            <>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <h2 className="text-white font-medium">Badges Duo</h2>
-                  <p className="text-zinc-500 text-xs">
-                    {duoStats.duo_badges_unlocked
-                      ?? (duoStats.duo_badges || []).filter((badge) => badge.unlocked).length}
-                    {' / '}
-                    {duoStats.duo_badges_total ?? (duoStats.duo_badges || []).length}
-                    {' débloqués'}
-                  </p>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  onClick={() => navigate('/badges?scope=duo')}
-                  className="rounded-full border-white/15 text-white"
-                  data-testid="duo-see-all-badges"
-                >
-                  Catalogue
-                </Button>
-              </div>
-              <DuoBadgesGrid
-                badges={(duoStats.duo_badges || duoStats.badges).filter(
-                  (badge) =>
-                    badge.scope === 'duo'
-                    || badge.id?.startsWith('duo_')
-                    || badge.family === 'duo'
-                )}
-                onBadgeClick={(badge) => setSelectedDuoBadge(badge)}
-              />
-            </>
-          ) : (
-            <div className="card p-6 text-center text-sm text-zinc-500">
-              Aucun badge Duo disponible.
-            </div>
-          )}
-          <ShareDuoBadgeDialog
-            badge={selectedDuoBadge}
-            open={Boolean(selectedDuoBadge)}
-            onOpenChange={(open) => { if (!open) setSelectedDuoBadge(null); }}
-            onShared={() => setSelectedDuoBadge(null)}
-          />
         </TabsContent>
 
         {/* History Tab */}
@@ -1381,6 +1330,44 @@ export function DuoPage() {
                     </p>
                   </div>
                 ) : null}
+
+                <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-white font-medium">Badges du Duo</p>
+                      <p className="text-zinc-500 text-xs">
+                        {duoStats.duo_badges_unlocked ?? 0} badges débloqués sur {duoStats.duo_badges_total ?? 50}
+                      </p>
+                    </div>
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="rounded-full border-white/15 text-white shrink-0"
+                      data-testid="duo-stats-open-badges"
+                    >
+                      <Link to="/badges?scope=duo">Afficher les badges</Link>
+                    </Button>
+                  </div>
+                  {recentDuoBadges.length > 0 ? (
+                    <div className="mt-3 flex items-center gap-3">
+                      {recentDuoBadges.map((badge) => (
+                        <div key={badge.id} className="min-w-0 w-16 overflow-hidden text-center" title={badge.name}>
+                          <BadgeArtwork
+                            rarity={badge.rarity_key || badge.rarity}
+                            iconKey={badge.icon_key || badge.icon || 'trophy'}
+                            locked={false}
+                            size={40}
+                            className="mx-auto shrink-0 size-10"
+                          />
+                          <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-zinc-400">
+                            {badge.name}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             ) : (
               <div className="card p-8 text-center">
