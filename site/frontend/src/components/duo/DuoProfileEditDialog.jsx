@@ -49,6 +49,7 @@ import {
   Users,
   Palette,
   Star,
+  Check,
 } from 'lucide-react';
 
 function useIsMobile(breakpoint = 768) {
@@ -140,9 +141,6 @@ function buildInitialForm(profile) {
     challenges_visibility: resolveDuoVis(profile, 'challenges_visibility', 'show_challenges', 'followers'),
     banner_url: profile?.banner_url ?? null,
     member_roles: roles,
-    featured_badge_ids: Array.isArray(profile?.featured_badge_ids)
-      ? profile.featured_badge_ids.slice(0, 3)
-      : [],
   };
 }
 
@@ -175,6 +173,16 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   const [discardOpen, setDiscardOpen] = useState(false);
   const [unlockedBadges, setUnlockedBadges] = useState([]);
   const [badgesLoading, setBadgesLoading] = useState(false);
+  const [selectedBadgeIds, setSelectedBadgeIds] = useState(() =>
+    Array.isArray(duoProfile?.featured_badge_ids)
+      ? duoProfile.featured_badge_ids.slice(0, 3)
+      : []
+  );
+  const [baselineBadgeIds, setBaselineBadgeIds] = useState(() =>
+    Array.isArray(duoProfile?.featured_badge_ids)
+      ? duoProfile.featured_badge_ids.slice(0, 3)
+      : []
+  );
   const bannerInputRef = useRef(null);
   const pendingCloseRef = useRef(false);
 
@@ -199,6 +207,11 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     setBannerPreview(null);
     setBannerRemoved(false);
     setBannerChanged(false);
+    const featuredIds = Array.isArray(profile?.featured_badge_ids)
+      ? profile.featured_badge_ids.slice(0, 3)
+      : [];
+    setSelectedBadgeIds(featuredIds);
+    setBaselineBadgeIds(featuredIds);
   }, []);
 
   useEffect(() => {
@@ -267,11 +280,18 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     if (!rolesEqual(form.member_roles, baseline.member_roles)) {
       payload.member_roles = form.member_roles;
     }
-    if (!idsEqual(form.featured_badge_ids || [], baseline.featured_badge_ids || [])) {
-      payload.featured_badge_ids = form.featured_badge_ids || [];
+    if (!idsEqual(selectedBadgeIds, baselineBadgeIds)) {
+      payload.featured_badge_ids = selectedBadgeIds;
     }
     return payload;
-  }, [form, baseline, bannerChanged, bannerRemoved]);
+  }, [
+    form,
+    baseline,
+    bannerChanged,
+    bannerRemoved,
+    selectedBadgeIds,
+    baselineBadgeIds,
+  ]);
 
   const isDirty = Object.keys(dirtyPayload).length > 0;
 
@@ -333,16 +353,15 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   };
 
   const toggleFeaturedBadge = (badgeId) => {
-    setForm((f) => {
-      const current = f.featured_badge_ids || [];
+    setSelectedBadgeIds((current) => {
       if (current.includes(badgeId)) {
-        return { ...f, featured_badge_ids: current.filter((id) => id !== badgeId) };
+        return current.filter((id) => id !== badgeId);
       }
       if (current.length >= 3) {
         toast.error('Maximum 3 badges mis en avant');
-        return f;
+        return current;
       }
-      return { ...f, featured_badge_ids: [...current, badgeId] };
+      return [...current, badgeId];
     });
   };
 
@@ -357,6 +376,11 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       const { data } = await duoApi.updateProfile(dirtyPayload);
       invalidateDuoDomain('stats', data?.pair_key || duoProfile?.pair_key);
       invalidateDuoDomain('profile', data?.pair_key || duoProfile?.pair_key);
+      const savedIds = Array.isArray(data?.featured_badge_ids)
+        ? data.featured_badge_ids.slice(0, 3)
+        : [];
+      setSelectedBadgeIds(savedIds);
+      setBaselineBadgeIds(savedIds);
       toast.success('Profil duo mis à jour');
       onSaved?.(data);
       onOpenChange(false);
@@ -567,7 +591,9 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
         </h3>
         <p className="text-zinc-500 text-xs">
           Choisissez jusqu&apos;à 3 badges débloqués à afficher sur le profil.
-          {' '}({(form.featured_badge_ids || []).length}/3)
+        </p>
+        <p className="text-sm font-medium text-white">
+          {selectedBadgeIds.length} badge{selectedBadgeIds.length > 1 ? 's' : ''} sélectionné{selectedBadgeIds.length > 1 ? 's' : ''} sur 3
         </p>
         {badgesLoading ? (
           <div className="flex justify-center py-4">
@@ -578,19 +604,34 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
         ) : (
           <div className="grid grid-cols-3 gap-2">
             {unlockedBadges.map((badge) => {
-              const selected = (form.featured_badge_ids || []).includes(badge.id);
-              const order = (form.featured_badge_ids || []).indexOf(badge.id);
+              const selected = selectedBadgeIds.includes(badge.id);
+              const order = selectedBadgeIds.indexOf(badge.id);
               return (
                 <button
                   key={badge.id}
                   type="button"
                   onClick={() => toggleFeaturedBadge(badge.id)}
-                  className={`min-w-0 overflow-hidden rounded-xl border p-2 text-center transition-colors ${
+                  aria-pressed={selected}
+                  className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-center transition-colors ${
                     selected
-                      ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)]'
+                      ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)] ring-1 ring-[var(--theme-primary)]/40'
                       : 'border-white/10 bg-white/5 hover:border-white/20'
                   }`}
                 >
+                  <span
+                    className={`absolute left-1.5 top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                      selected
+                        ? 'bg-[var(--theme-primary)] text-white'
+                        : 'bg-black/40 text-zinc-500'
+                    }`}
+                  >
+                    {selected ? (
+                      <>
+                        <Check size={10} className="mr-0.5" />
+                        {order + 1}
+                      </>
+                    ) : '—'}
+                  </span>
                   <BadgeArtwork
                     rarity={badge.rarity_key || badge.rarity}
                     iconKey={badge.icon_key || badge.icon || 'trophy'}
@@ -602,7 +643,9 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
                     {badge.name}
                   </p>
                   {selected ? (
-                    <span className="text-[9px] text-[var(--theme-primary)]">#{order + 1}</span>
+                    <span className="text-[9px] font-medium text-[var(--theme-primary)]">
+                      Sélectionné
+                    </span>
                   ) : null}
                 </button>
               );

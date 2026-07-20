@@ -2883,8 +2883,10 @@ async def _apply_duo_profile_update(duo_doc: dict, data: DuoProfileUpdate, user:
         seen = set()
         for raw in raw_ids:
             bid = canonical_badge_id(str(raw))
-            if not bid or bid in seen:
-                continue
+            if not bid:
+                raise HTTPException(status_code=400, detail="ID de badge vide")
+            if bid in seen:
+                raise HTTPException(status_code=400, detail="Badge dupliqué")
             definition = get_badge_definition(bid)
             if not definition or definition.get("scope") != "duo":
                 raise HTTPException(status_code=400, detail=f"Badge duo invalide: {raw}")

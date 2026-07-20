@@ -293,12 +293,15 @@ function DuoActivityList({ activity, loading, canView, members }) {
       {activity.map((item, idx) => {
         if (item.type === 'common_session') {
           return (
-            <div key={`common-${item.date}-${idx}`} className="card p-4 border border-amber-500/20">
+            <div
+              key={`common-${item.date}-${idx}`}
+              className="card min-w-0 overflow-visible border border-amber-500/20 p-4"
+            >
               <p className="text-amber-300 text-xs uppercase tracking-wide mb-2">Séance commune</p>
               <p className="text-zinc-500 text-xs mb-3">
                 {item.date && format(parseISO(item.date), 'd MMMM yyyy', { locale: fr })}
               </p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <ActivityMini session={item.session_a} member={memberMap[item.session_a?.user_id]} />
                 <ActivityMini session={item.session_b} member={memberMap[item.session_b?.user_id]} />
               </div>
@@ -308,15 +311,24 @@ function DuoActivityList({ activity, loading, canView, members }) {
         const session = item.session;
         const member = memberMap[session?.user_id];
         return (
-          <div key={session?.id || idx} className="card p-4 flex items-center gap-3">
+          <div
+            key={session?.id || idx}
+            className="card flex min-w-0 items-center gap-3 overflow-visible p-4"
+          >
             <UserAvatar user={member} className="w-10 h-10 shrink-0" />
             <div className="flex-1 min-w-0">
               <p className="text-white text-sm font-medium truncate">
                 {getDisplayName(member)} — {session?.workout_title}
               </p>
-              <p className="text-zinc-500 text-xs flex items-center gap-2 mt-0.5">
+              <p className="mt-0.5 flex flex-wrap items-center gap-2 text-xs text-zinc-500">
                 <Clock size={12} />
                 {formatDuration(session?.total_time || 0)}
+                {session?.status ? <span>· {session.status}</span> : null}
+                {session?.created_at ? (
+                  <span>
+                    · {format(parseISO(session.created_at), 'd MMM yyyy', { locale: fr })}
+                  </span>
+                ) : null}
               </p>
             </div>
           </div>
@@ -329,9 +341,15 @@ function DuoActivityList({ activity, loading, canView, members }) {
 function ActivityMini({ session, member }) {
   if (!session) return null;
   return (
-    <div className="rounded-lg bg-white/5 p-2">
+    <div className="min-w-0 overflow-visible rounded-lg bg-white/5 p-2">
       <p className="text-white text-xs font-medium truncate">{getDisplayName(member)}</p>
-      <p className="text-zinc-500 text-[10px] truncate">{session.workout_title}</p>
+      <p className="line-clamp-2 break-words text-[10px] text-zinc-500">
+        {session.workout_title || 'Séance'}
+      </p>
+      <p className="mt-1 text-[10px] text-zinc-500">
+        {formatDuration(session.total_time || 0)}
+        {session.status ? ` · ${session.status}` : ''}
+      </p>
     </div>
   );
 }

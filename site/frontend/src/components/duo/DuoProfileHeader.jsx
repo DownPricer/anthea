@@ -14,8 +14,8 @@ import {
 } from '../../lib/duoProfile';
 import { formatHandle, getDisplayName, getPublicHandle } from '../../lib/userProfile';
 import { resolveMediaUrl } from '../../lib/api';
-import { BadgeArtwork } from '../badges/BadgeArtwork';
 import { useAuth } from '../../context/AuthContext';
+import { FeaturedBadgeMini } from './FeaturedBadgeMini';
 
 export function DuoProfileHeader({
   duoProfile,
@@ -109,30 +109,22 @@ export function DuoProfileHeader({
         <p className="text-zinc-500 text-sm mt-1">{relationLabel}</p>
 
         {featured.length > 0 ? (
-          <div className="flex items-center gap-2 mt-4" data-testid="duo-featured-badges">
+          <div
+            className="mt-4 grid w-full grid-cols-3 items-start justify-items-center gap-2 sm:flex sm:justify-center sm:gap-4"
+            data-testid="duo-featured-badges"
+          >
             {featured.map((badge) => (
-              <div
-                key={badge.id}
-                className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-black/20 p-2 w-[4.5rem]"
-                title={badge.name}
-              >
-                <BadgeArtwork
-                  rarity={badge.rarity_key || badge.rarity}
-                  iconKey={badge.icon_key || badge.icon}
-                  locked={false}
-                  size={40}
-                  className="mx-auto shrink-0 size-10"
-                />
-                <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[9px] text-zinc-300">
-                  {badge.name}
-                </p>
-              </div>
+              <FeaturedBadgeMini key={badge.id} badge={badge} />
             ))}
           </div>
         ) : duoProfile.is_member ? (
-          <p className="text-zinc-600 text-xs mt-3">
-            Choisissez jusqu&apos;à 3 badges à mettre en avant dans les réglages Duo.
-          </p>
+          <button
+            type="button"
+            onClick={onEdit}
+            className="mt-3 text-left text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+          >
+            Choisir des badges mis en avant
+          </button>
         ) : null}
 
         <div className="flex items-center gap-3 mt-3 flex-wrap">
