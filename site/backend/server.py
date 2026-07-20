@@ -5695,7 +5695,7 @@ async def get_duo_activity(limit: int = 10, user: dict = Depends(get_current_use
 
 @api_router.get("/duo/detailed-stats")
 async def get_detailed_stats(
-    period: str = "30",  # 7, 30, 90, all
+    period: str = "30",  # 7, 30, 90, year, all
     target_user: Optional[str] = None,  # user_id to get stats for
     user: dict = Depends(get_current_user)
 ):
@@ -5719,8 +5719,17 @@ async def get_detailed_stats(
     today = datetime.now(timezone.utc)
     if period == "all":
         start_date = None
+    elif period == "year":
+        start_date = today.replace(
+            month=1, day=1, hour=0, minute=0, second=0, microsecond=0
+        ).isoformat()
     else:
-        days = int(period)
+        try:
+            days = int(period)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Période invalide")
+        if days not in (7, 30, 90):
+            raise HTTPException(status_code=400, detail="Période invalide")
         start_date = (today - timedelta(days=days)).isoformat()
     
     # Build query

@@ -212,7 +212,7 @@ export function CommonDuoSessionCard({
 
       data-testid={`common-duo-session-${item?.date || 'unknown'}`}
 
-      className={`card p-4 space-y-4 border border-amber-500/30 ${className}`}
+      className={`card min-w-0 overflow-visible p-4 space-y-4 border border-amber-500/30 ${className}`}
 
       style={gradient}
 

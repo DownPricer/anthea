@@ -4,11 +4,6 @@ import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { useDuoNavLabel } from '../hooks/useDuoNavLabel';
 import { formatCalories } from '../lib/calories';
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '../components/ui/collapsible';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, notificationsApi, duoProfilesApi, formatApiError } from '../lib/api';
@@ -25,7 +20,6 @@ import {
   DuoBadgesSkeleton,
   DuoActivitySkeleton,
 } from '../components/duo/DuoSkeletons';
-import { getAccentForUser } from '../lib/userAccent';
 import { duoProfilePath, getDuoRoleLabel } from '../lib/duoProfile';
 import {
   getDuoCache,
@@ -66,8 +60,7 @@ import {
   Activity,
   Download,
   History,
-  CheckCircle2,
-  ChevronDown,
+  Users,
   Flame as FlameIcon,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -83,6 +76,19 @@ const QUICK_REACTIONS = [
   { type: 'strong', emoji: '💪', label: "T'as géré" },
 ];
 
+const DUO_TABS = ['activity', 'stats', 'history', 'badges'];
+
+function initialDuoTab(searchParams) {
+  const requested = searchParams.get('tab');
+  if (DUO_TABS.includes(requested)) return requested;
+  try {
+    const saved = sessionStorage.getItem('duo-active-tab');
+    return DUO_TABS.includes(saved) ? saved : 'activity';
+  } catch {
+    return 'activity';
+  }
+}
+
 export function DuoPage() {
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
@@ -91,9 +97,10 @@ export function DuoPage() {
   const [searchParams] = useSearchParams();
   const [pendingDuoFollow, setPendingDuoFollow] = useState(null);
   
-  const [activeTab, setActiveTab] = useState('stats');
+  const [activeTab, setActiveTab] = useState(() => initialDuoTab(searchParams));
   const [sessions, setSessions] = useState([]);
   const [duoStats, setDuoStats] = useState(null);
+  const [duoProfile, setDuoProfile] = useState(null);
   const [partner, setPartner] = useState(null);
   /** Boot: partner résolu (null = solo, object = duo). false tant que /partner/info n'a pas répondu. */
   const [partnerReady, setPartnerReady] = useState(false);
@@ -108,6 +115,7 @@ export function DuoPage() {
   const [statsPeriod, setStatsPeriod] = useState('30');
   const [statsTarget, setStatsTarget] = useState('duo'); // 'duo' | 'me' | 'partner'
   const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState(null);
   const [canModerateStreak, setCanModerateStreak] = useState(false);
   const [coachStreakInput, setCoachStreakInput] = useState('');
   const [exemptDateStr, setExemptDateStr] = useState(() => format(new Date(), 'yyyy-MM-dd'));
@@ -121,16 +129,20 @@ export function DuoPage() {
   const [exportPeriod, setExportPeriod] = useState('30d');
   const [exportStartDate, setExportStartDate] = useState('');
   const [exportEndDate, setExportEndDate] = useState('');
-  const [badgesOpen, setBadgesOpen] = useState(false);
   const [selectedDuoBadge, setSelectedDuoBadge] = useState(null);
 
   const { liveSession } = usePartnerLiveSession(!!partner);
 
-  const pairKey = partner?.id && user?.id
-    ? [user.id, partner.id].sort().join('_')
-    : user?.partner_id && user?.id
-      ? [user.id, user.partner_id].sort().join('_')
-      : 'solo';
+  const duoMembers = Array.isArray(duoProfile?.members) ? duoProfile.members : [];
+  const viewerMember = duoMembers.find((member) => String(member?.id) === String(user?.id));
+  const partnerMember = duoMembers.find((member) => String(member?.id) !== String(user?.id));
+  const viewerUserId = viewerMember?.id || user?.id;
+  const partnerUserId = partnerMember?.id || user?.partner_id || partner?.id;
+  const pairKey = duoProfile?.pair_key || (
+    viewerUserId && partnerUserId
+      ? [viewerUserId, partnerUserId].map(String).sort().join('_')
+      : 'solo'
+  );
 
   const loadDuoNotifications = useCallback(async () => {
     const cacheParts = ['duo', 'notifications', pairKey];
@@ -163,30 +175,49 @@ export function DuoPage() {
 
   useEffect(() => {
     const tab = searchParams.get('tab');
-    if (tab && ['activity', 'stats', 'history'].includes(tab)) {
+    if (tab && DUO_TABS.includes(tab)) {
       setActiveTab(tab);
+      try {
+        sessionStorage.setItem('duo-active-tab', tab);
+      } catch {
+        /* stockage indisponible */
+      }
     }
   }, [searchParams]);
 
   useEffect(() => {
-    if (activeTab === 'stats' && partner && statsTarget !== 'duo') {
+    if (activeTab === 'stats' && partnerUserId) {
       loadDetailedStats();
     }
-    if (activeTab === 'history' && partner) {
+    if (activeTab === 'history' && partnerUserId) {
       loadHistory();
     }
     // Intentionally omit loader fns — they close over current filters
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, statsPeriod, statsTarget, partner, historyFilter, historyTarget]);
+  }, [activeTab, statsPeriod, statsTarget, partnerUserId, historyFilter, historyTarget]);
+
+  const handleTabChange = (tab) => {
+    setActiveTab(tab);
+    try {
+      sessionStorage.setItem('duo-active-tab', tab);
+    } catch {
+      /* stockage indisponible */
+    }
+  };
 
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const params = { limit: 100, target_user: historyTarget === 'me' ? user.id : partner?.id };
+      const params = {
+        limit: 100,
+        target_user: historyTarget === 'me' ? viewerUserId : partnerUserId,
+      };
       if (historyFilter !== 'all') params.status = historyFilter;
       const { data } = await sessionsApi.getHistory(params);
       const enriched = (data || []).map((s) => {
-        const member = String(s.user_id) === String(user?.id) ? user : partner;
+        const member = String(s.user_id) === String(viewerUserId)
+          ? (viewerMember || user)
+          : (partnerMember || partner);
         return {
           ...s,
           display_name: getDisplayName(member) || s.username,
@@ -291,7 +322,20 @@ export function DuoPage() {
       }
     })();
 
-    // 2) Stats (+ badges + challenge inclus) — parallèle
+    // 2) Profil Duo — source canonique des deux membres et du pair_key.
+    const profilePromise = (async () => {
+      try {
+        const { data } = await duoApi.getProfile();
+        if (gen === loadGenRef.current) setDuoProfile(data || null);
+        return data;
+      } catch (error) {
+        console.error('Failed to load duo profile', error);
+        if (gen === loadGenRef.current) setDuoProfile(null);
+        return null;
+      }
+    })();
+
+    // 3) Stats (+ badges + challenge inclus) — parallèle
     const statsPromise = (async () => {
       const pkHint = pairKey;
       const statsKey = duoCacheKey('stats', pkHint);
@@ -325,7 +369,7 @@ export function DuoPage() {
       }
     })();
 
-    // 3) Activity feed — parallèle, ne bloque pas le header
+    // 4) Activity feed — parallèle, ne bloque pas le header
     const activityPromise = (async () => {
       const actKey = duoCacheKey('activity', pairKey);
       const cached = getDuoCache(actKey);
@@ -351,7 +395,7 @@ export function DuoPage() {
       }
     })();
 
-    // 4) Coach status — parallèle, non bloquant
+    // 5) Coach status — parallèle, non bloquant
     const coachPromise = (async () => {
       try {
         const { data } = await streakApi.getCoachStatus();
@@ -363,7 +407,13 @@ export function DuoPage() {
       }
     })();
 
-    await Promise.all([partnerPromise, statsPromise, activityPromise, coachPromise]);
+    await Promise.all([
+      partnerPromise,
+      profilePromise,
+      statsPromise,
+      activityPromise,
+      coachPromise,
+    ]);
     endTotal();
   };
 
@@ -412,21 +462,56 @@ export function DuoPage() {
   };
 
   const loadDetailedStats = async () => {
-    if (!partner) return;
+    if (!viewerUserId || !partnerUserId) return;
     const cacheKey = duoCacheKey('detailedStats', pairKey, statsPeriod, statsTarget);
     const cached = getDuoCache(cacheKey);
     if (cached) {
       setDetailedStats(cached);
+      setStatsError(null);
+      setStatsLoading(false);
       return;
     }
     setStatsLoading(true);
+    setStatsError(null);
+    setDetailedStats(null);
     try {
-      const targetUserId = statsTarget === 'partner' ? partner.id : user?.id;
-      const { data } = await duoApi.getDetailedStats(statsPeriod, targetUserId);
+      let data;
+      if (statsTarget === 'duo') {
+        const [viewerResponse, partnerResponse] = await Promise.all([
+          duoApi.getDetailedStats(statsPeriod, viewerUserId),
+          duoApi.getDetailedStats(statsPeriod, partnerUserId),
+        ]);
+        const viewerStats = viewerResponse.data;
+        const partnerStats = partnerResponse.data;
+        data = {
+          viewer: viewerStats,
+          partner: partnerStats,
+          period: statsPeriod,
+          summary: {
+            total_sessions:
+              (viewerStats?.summary?.total_sessions || 0)
+              + (partnerStats?.summary?.total_sessions || 0),
+            total_completed:
+              (viewerStats?.summary?.total_completed || 0)
+              + (partnerStats?.summary?.total_completed || 0),
+            total_time:
+              (viewerStats?.summary?.total_time || 0)
+              + (partnerStats?.summary?.total_time || 0),
+            total_calories:
+              (viewerStats?.summary?.total_calories || 0)
+              + (partnerStats?.summary?.total_calories || 0),
+          },
+        };
+      } else {
+        const targetUserId = statsTarget === 'partner' ? partnerUserId : viewerUserId;
+        const response = await duoApi.getDetailedStats(statsPeriod, targetUserId);
+        data = response.data;
+      }
       setDetailedStats(data);
       setDuoCache(cacheKey, data, DUO_STALE.detailedStats);
     } catch (error) {
       console.error('Failed to load detailed stats:', error);
+      setStatsError(formatApiError(error));
     } finally {
       setStatsLoading(false);
     }
@@ -518,6 +603,9 @@ export function DuoPage() {
     );
   }
 
+  const viewerLabel = getDisplayName(viewerMember || user);
+  const partnerLabel = getDisplayName(partnerMember || partner);
+
   const handleAcceptDuoFollow = async () => {
     if (!pendingDuoFollow?.request_id) return;
     try {
@@ -548,54 +636,8 @@ export function DuoPage() {
         actions={<NotificationBell filter="duo" includeAll data-testid="duo-notification-bell" />}
       />
 
-      {/* Identité Duo */}
+      {/* Accès compact au profil Duo */}
       <div className="mb-6 space-y-4">
-        <div className="flex items-center gap-4">
-          <div className="flex -space-x-3">
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center border-2 border-[#0A0A0A] z-10"
-              style={{ background: getAccentForUser(user, theme) }}
-            >
-              <span className="text-white font-bold">
-                {user?.display_name?.[0] || user?.username?.[0] || 'M'}
-              </span>
-            </div>
-            <div
-              className="w-12 h-12 rounded-full flex items-center justify-center border-2 border-[#0A0A0A]"
-              style={{ background: getAccentForUser(partner, theme) }}
-            >
-              <span className="text-white font-bold">
-                {partner.display_name?.[0] || partner.username?.[0] || 'P'}
-              </span>
-            </div>
-          </div>
-          <div className="flex-1 min-w-0">
-            {duoStats?.duo_profile?.tag ? (
-              <Link
-                to={duoProfilePath(duoStats.duo_profile.tag)}
-                className="group block"
-              >
-                <p className="text-lg font-semibold text-white font-['Outfit'] group-hover:text-[var(--theme-primary)] transition-colors">
-                  {duoStats.duo_profile.name || `${user?.display_name || user?.username} & ${partner.display_name || partner.username}`}
-                </p>
-                <p className="text-zinc-500 text-sm font-mono">{duoStats.duo_profile.tag}</p>
-              </Link>
-            ) : (
-              <p className="text-lg font-semibold text-white font-['Outfit']">
-                {user?.display_name || user?.username} & {partner.display_name || partner.username}
-              </p>
-            )}
-            <p className="text-zinc-500 text-sm">
-              {user?.relation_type === 'coach' ? 'Coach & Élève' : 'Partenaires'}
-            </p>
-            {partner?.show_presence && partner.connected_today && (
-              <p className="text-xs text-green-400 mt-1 flex items-center gap-1">
-                <CheckCircle2 size={12} /> Connecté aujourd&apos;hui
-              </p>
-            )}
-          </div>
-        </div>
-
         {pendingDuoFollow && (
           <div
             data-testid="duo-notification-bar"
@@ -644,10 +686,15 @@ export function DuoPage() {
               size="md"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold truncate group-hover:text-[var(--theme-primary)] transition-colors">
-                {duoStats.duo_profile.name || 'Duo'}
+              <p className="text-white font-semibold truncate transition-colors group-hover:text-[var(--theme-primary)]">
+                Profil du Duo
               </p>
-              <p className="text-zinc-500 text-sm">Voir le profil</p>
+              <p className="truncate text-xs text-zinc-500">
+                {user?.relation_type === 'coach' ? 'Coach & Élève' : 'Partenaires'}
+                {' · '}
+                <span className="font-mono">{duoStats.duo_profile.tag}</span>
+              </p>
+              <p className="text-xs text-zinc-400">Voir le profil</p>
             </div>
             <ChevronRight className="text-zinc-500 group-hover:text-[var(--theme-primary)] shrink-0" size={20} />
           </Link>
@@ -659,8 +706,8 @@ export function DuoPage() {
       )}
 
       {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">
+      <Tabs value={activeTab} onValueChange={handleTabChange} className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 bg-[#141414] p-1 rounded-2xl border border-white/10">
           <TabsTrigger
             value="activity"
             data-testid="tab-activity"
@@ -681,6 +728,13 @@ export function DuoPage() {
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
             Historique
+          </TabsTrigger>
+          <TabsTrigger
+            value="badges"
+            data-testid="tab-badges"
+            className="rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+          >
+            Badges
           </TabsTrigger>
         </TabsList>
 
@@ -864,54 +918,52 @@ export function DuoPage() {
                 </div>
               ) : null}
 
-              {/* Badges Duo — aperçu */}
-              {statsBootLoading && !(duoStats?.duo_badges || duoStats?.badges) ? (
-                <DuoBadgesSkeleton />
-              ) : (duoStats?.duo_badges || duoStats?.badges)?.length > 0 ? (
-                <Collapsible open={badgesOpen} onOpenChange={setBadgesOpen}>
-                  <div className="card overflow-hidden">
-                    <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
-                      <div className="flex items-center gap-2">
-                        <Trophy size={16} className="text-[var(--theme-primary)]" />
-                        <h2 className="text-sm font-medium text-white">Badges Duo</h2>
-                        <span className="text-xs text-zinc-500 px-2 py-0.5 rounded-full bg-white/5">
-                          {duoStats.duo_badges_unlocked
-                            ?? duoStats.badges_unlocked
-                            ?? (duoStats.duo_badges || duoStats.badges).filter((b) => b.unlocked).length}
-                          /
-                          {duoStats.duo_badges_total
-                            ?? duoStats.badges_total
-                            ?? (duoStats.duo_badges || duoStats.badges).length}
-                        </span>
-                      </div>
-                      <ChevronDown
-                        size={18}
-                        className={`text-zinc-400 transition-transform ${badgesOpen ? 'rotate-180' : ''}`}
-                      />
-                    </CollapsibleTrigger>
-                    <CollapsibleContent className="px-4 pb-4 border-t border-white/5">
-                      <div className="flex w-full justify-center pt-3">
-                        <DuoBadgesGrid
-                          badges={(duoStats.duo_badges || duoStats.badges).filter(
-                            (b) => b.scope === 'duo' || b.id?.startsWith('duo_') || b.family === 'duo'
-                          )}
-                          onBadgeClick={(badge) => setSelectedDuoBadge(badge)}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => navigate('/badges?scope=duo')}
-                        className="mt-3 w-full text-center text-[var(--theme-primary)] text-xs hover:underline"
-                        data-testid="duo-see-all-badges"
-                      >
-                        Voir tous les badges
-                      </button>
-                    </CollapsibleContent>
-                  </div>
-                </Collapsible>
-              ) : null}
             </div>
           </div>
+        </TabsContent>
+
+        <TabsContent value="badges" className="space-y-4">
+          {statsBootLoading && !(duoStats?.duo_badges || duoStats?.badges) ? (
+            <DuoBadgesSkeleton />
+          ) : (duoStats?.duo_badges || duoStats?.badges)?.length > 0 ? (
+            <>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-white font-medium">Badges Duo</h2>
+                  <p className="text-zinc-500 text-xs">
+                    {duoStats.duo_badges_unlocked
+                      ?? (duoStats.duo_badges || []).filter((badge) => badge.unlocked).length}
+                    {' / '}
+                    {duoStats.duo_badges_total ?? (duoStats.duo_badges || []).length}
+                    {' débloqués'}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  onClick={() => navigate('/badges?scope=duo')}
+                  className="rounded-full border-white/15 text-white"
+                  data-testid="duo-see-all-badges"
+                >
+                  Catalogue
+                </Button>
+              </div>
+              <DuoBadgesGrid
+                badges={(duoStats.duo_badges || duoStats.badges).filter(
+                  (badge) =>
+                    badge.scope === 'duo'
+                    || badge.id?.startsWith('duo_')
+                    || badge.family === 'duo'
+                )}
+                onBadgeClick={(badge) => setSelectedDuoBadge(badge)}
+              />
+            </>
+          ) : (
+            <div className="card p-6 text-center text-sm text-zinc-500">
+              Aucun badge Duo disponible.
+            </div>
+          )}
           <ShareDuoBadgeDialog
             badge={selectedDuoBadge}
             open={Boolean(selectedDuoBadge)}
@@ -1034,65 +1086,59 @@ export function DuoPage() {
         {/* Stats Tab */}
         <TabsContent value="stats" className="space-y-6">
           {/* Filters */}
-          <div className="flex gap-3 flex-wrap">
-            <div
-              className="flex flex-1 min-w-0 rounded-xl bg-[#141414] border border-white/10 p-1"
-              data-testid="stats-view-selector"
-              role="tablist"
-              aria-label="Vue des statistiques"
-            >
-              {[
-                { value: 'duo', label: 'Duo' },
-                { value: 'me', label: 'Moi' },
-                { value: 'partner', label: 'Partenaire' },
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  type="button"
-                  role="tab"
-                  aria-selected={statsTarget === opt.value}
-                  onClick={() => setStatsTarget(opt.value)}
-                  className={`flex-1 min-w-0 px-2 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors truncate ${
-                    statsTarget === opt.value
-                      ? 'bg-[var(--theme-primary)] text-white'
-                      : 'text-zinc-400 hover:text-white'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          <div className="flex flex-wrap items-end gap-3" data-testid="stats-view-selector">
+            <div className="min-w-[13rem] space-y-1.5">
+              <label className="text-xs text-zinc-500">Afficher les statistiques de :</label>
+              <Select value={statsTarget} onValueChange={setStatsTarget}>
+                <SelectTrigger className="h-10 w-full rounded-full border-white/10 bg-[#141414] text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  <SelectItem value="duo" className="text-white">Duo</SelectItem>
+                  <SelectItem value="me" className="text-white">{viewerLabel}</SelectItem>
+                  <SelectItem value="partner" className="text-white">{partnerLabel}</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            {statsTarget !== 'duo' ? (
+            <div className="w-36 space-y-1.5">
+              <label className="text-xs text-zinc-500">Période</label>
               <Select value={statsPeriod} onValueChange={setStatsPeriod}>
-                <SelectTrigger className="w-32 h-12 rounded-xl bg-[#141414] border-white/10 text-white shrink-0">
+                <SelectTrigger className="h-10 w-full rounded-full border-white/10 bg-[#141414] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
                   <SelectItem value="7" className="text-white">7 jours</SelectItem>
                   <SelectItem value="30" className="text-white">30 jours</SelectItem>
-                  <SelectItem value="90" className="text-white">3 mois</SelectItem>
+                  <SelectItem value="90" className="text-white">90 jours</SelectItem>
+                  <SelectItem value="year" className="text-white">Cette année</SelectItem>
                   <SelectItem value="all" className="text-white">Tout</SelectItem>
                 </SelectContent>
               </Select>
-            ) : null}
+            </div>
           </div>
 
-          {statsTarget === 'duo' ? (
-            statsBootLoading && !duoStats ? (
-              <div className="flex justify-center py-12">
-                <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
-              </div>
-            ) : duoStats ? (
+          {statsLoading ? (
+            <DuoStatsCardsSkeleton />
+          ) : statsError ? (
+            <div className="card p-8 text-center">
+              <BarChart3 className="mx-auto mb-4 text-red-400" size={32} />
+              <p className="text-red-300">Impossible de charger les statistiques.</p>
+              <p className="mt-1 text-xs text-zinc-500">{statsError}</p>
+            </div>
+          ) : statsTarget === 'duo' ? (
+            detailedStats?.summary?.total_sessions > 0 && duoStats ? (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
                     <Target className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase truncate">Séances communes</span>
+                    <span className="text-zinc-400 text-xs uppercase truncate">Activités combinées</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
-                    {duoStats.total_workouts_together ?? duoStats.sessions_together ?? 0}
+                    {detailedStats.summary.total_sessions}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">non additionnées</p>
+                  <p className="text-zinc-500 text-xs mt-1">
+                    {detailedStats.summary.total_completed} terminées
+                  </p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
@@ -1100,67 +1146,58 @@ export function DuoPage() {
                     <span className="text-zinc-400 text-xs uppercase truncate">Durée combinée</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
-                    {formatDuration(duoStats.total_training_time_together || duoStats.total_time || 0)}
+                    {formatDuration(detailedStats.summary.total_time)}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">temps additionné</p>
+                  <p className="text-zinc-500 text-xs mt-1">deux membres</p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
-                    <Flame className="text-orange-400 shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase truncate">Streak Duo</span>
+                    <FlameIcon className="text-orange-400 shrink-0" size={16} />
+                    <span className="text-zinc-400 text-xs uppercase truncate">Calories combinées</span>
                   </div>
-                  <p className="text-2xl font-bold text-white">
-                    {duoStats.duo_streak_current ?? duoStats.streak ?? 0}
+                  <p className="text-2xl font-bold text-orange-300">
+                    {formatCalories(detailedStats.summary.total_calories)}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">
-                    record {duoStats.duo_streak_best ?? duoStats.best_streak ?? '—'}
-                  </p>
+                  <p className="text-zinc-500 text-xs mt-1">estimation</p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
-                    <Trophy className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase truncate">Badges Duo</span>
+                    <Users className="text-[var(--theme-primary)] shrink-0" size={16} />
+                    <span className="text-zinc-400 text-xs uppercase truncate">Séances communes</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
-                    {duoStats.duo_badges_unlocked ?? duoStats.badges_unlocked ?? 0}
+                    {duoStats.total_workouts_together ?? duoStats.sessions_together ?? 0}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">
-                    / {duoStats.duo_badges_total ?? duoStats.badges_total ?? 50}
-                  </p>
+                  <p className="text-zinc-500 text-xs mt-1">non doublées</p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-2">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase">Cette semaine</span>
-                  </div>
-                  <div className="flex gap-4">
+                  <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <p className="text-xl font-bold text-white">{duoStats.this_week_user ?? 0}</p>
-                      <p className="text-zinc-500 text-xs">Moi</p>
-                    </div>
-                    <div>
-                      <p className="text-xl font-bold text-white">{duoStats.this_week_partner ?? 0}</p>
-                      <p className="text-zinc-500 text-xs">Partenaire</p>
-                    </div>
-                    <div>
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <Flame className="text-orange-400" size={14} />
+                        <p className="text-xs uppercase text-zinc-500">Streak Duo</p>
+                      </div>
                       <p className="text-xl font-bold text-white">
-                        {(duoStats.this_week_user || 0) + (duoStats.this_week_partner || 0)}
+                        {duoStats.duo_streak_current ?? duoStats.streak ?? 0}
                       </p>
-                      <p className="text-zinc-500 text-xs">Activités</p>
+                      <p className="text-xs text-zinc-500">
+                        record {duoStats.duo_streak_best ?? '—'}
+                      </p>
+                    </div>
+                    <div>
+                      <div className="mb-1 flex items-center gap-1.5">
+                        <Trophy className="text-[var(--theme-primary)]" size={14} />
+                        <p className="text-xs uppercase text-zinc-500">Badges Duo</p>
+                      </div>
+                      <p className="text-xl font-bold text-white">
+                        {duoStats.duo_badges_unlocked ?? 0}
+                      </p>
+                      <p className="text-xs text-zinc-500">
+                        / {duoStats.duo_badges_total ?? 50}
+                      </p>
                     </div>
                   </div>
                 </div>
-                {duoStats.estimated_calories != null ? (
-                  <div className="card p-4 min-w-0 overflow-hidden col-span-2">
-                    <div className="flex items-center gap-2 mb-2">
-                      <FlameIcon className="text-orange-400 shrink-0" size={16} />
-                      <span className="text-zinc-400 text-xs uppercase">Calories combinées</span>
-                    </div>
-                    <p className="text-2xl font-bold text-orange-300">
-                      {formatCalories(duoStats.estimated_calories)}
-                    </p>
-                  </div>
-                ) : null}
                 {duoStats.current_challenge ? (
                   <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -1180,11 +1217,7 @@ export function DuoPage() {
                 <p className="text-zinc-400">Aucune donnée Duo disponible</p>
               </div>
             )
-          ) : statsLoading ? (
-            <div className="flex justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
-            </div>
-          ) : detailedStats ? (
+          ) : detailedStats?.summary?.total_sessions > 0 ? (
             <>
               {/* Summary Cards */}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -1436,7 +1469,7 @@ function SessionCard({
   return (
     <div
       data-testid={`session-card-${session.id}`}
-      className="card p-4 space-y-3 min-w-0 overflow-hidden"
+      className="card min-w-0 space-y-3 overflow-visible p-4"
     >
       <div className="flex items-start gap-3 min-w-0">
         <UserAvatar user={member || { display_name: displayName }} className="w-10 h-10 shrink-0" />
