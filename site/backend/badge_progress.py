@@ -505,6 +505,14 @@ class BadgeProgressService:
         if streak_value is not None:
             best = max(best, int(streak_value or 0))
 
+        completed_sorted = sorted(
+            completed,
+            key=lambda s: s.get("created_at") or "",
+        )
+        timeline_completed_at = [
+            s.get("created_at") for s in completed_sorted if s.get("created_at")
+        ]
+
         metrics = {
             "completed_workouts": len(completed),
             "total_active_days": len(active_days),
@@ -528,6 +536,22 @@ class BadgeProgressService:
             "total_active_weeks": active_weeks,
             "workouts_before_hour": dict(before_hour),
             "workouts_after_hour": dict(after_hour),
+            # Timelines pour migration historique (non exposées à l'API)
+            "_timeline_completed_at": timeline_completed_at,
+            "_timeline_active_days": active_days,
+            "_timeline_sessions": [
+                {
+                    "created_at": s.get("created_at"),
+                    "total_time": int(s.get("total_time") or 0),
+                    "calories": (
+                        int(s["estimated_calories"])
+                        if s.get("estimated_calories") is not None
+                        else _estimate_calories(int(s.get("total_time") or 0), s.get("difficulty_felt"))
+                    ),
+                }
+                for s in completed_sorted
+                if s.get("created_at")
+            ],
         }
         self._cache_set(cache_key, metrics)
         return metrics
@@ -778,6 +802,8 @@ class BadgeProgressService:
             "duo_max_active_weeks_in_month": max_active_weeks_month,
             "duo_combined_completed_workouts": combined,
             "unlocked_duo_badge_ids": list(unlocked_ids),
+            "_timeline_common_days": common_days,
+            "_timeline_duo_created_at": duo_doc.get("created_at") if duo_doc else None,
         }
         self._cache_set(cache_key, metrics)
         return metrics
@@ -799,11 +825,12 @@ class BadgeProgressService:
         progress: dict,
         notify: bool = True,
         notify_user_ids: Optional[List[str]] = None,
+        unlocked_at: Optional[str] = None,
     ) -> Optional[dict]:
         if not progress.get("eligible") or not definition.get("enabled", True):
             return None
         badge_id = definition["id"]
-        now = _now_iso()
+        unlock_ts = unlocked_at or _now_iso()
         current = progress.get("current")
         if isinstance(current, dict):
             progress_value = current
@@ -817,7 +844,7 @@ class BadgeProgressService:
             doc = {
                 "user_id": owner_id,
                 "badge_id": badge_id,
-                "unlocked_at": now,
+                "unlocked_at": unlock_ts,
                 "progress_when_unlocked": progress_value,
                 "catalog_version": CATALOG_VERSION,
             }
@@ -833,7 +860,7 @@ class BadgeProgressService:
             doc = {
                 "pair_key": owner_id,
                 "badge_id": badge_id,
-                "unlocked_at": now,
+                "unlocked_at": unlock_ts,
                 "progress_when_unlocked": progress_value,
                 "catalog_version": CATALOG_VERSION,
             }
@@ -842,9 +869,145 @@ class BadgeProgressService:
             except Exception:
                 return None
 
+        notifications_sent = 0
         if notify:
-            await self._notify_unlock(scope, owner_id, definition, notify_user_ids=notify_user_ids)
+            notifications_sent = await self._notify_unlock(
+                scope, owner_id, definition, notify_user_ids=notify_user_ids
+            )
+        doc["_notifications_sent"] = notifications_sent
         return doc
+
+    @staticmethod
+    def infer_unlock_at(definition: dict, metrics: dict) -> Optional[str]:
+        """Déduit une date historique fiable quand c'est possible, sinon None."""
+        ctype = definition.get("condition_type")
+        target = definition.get("condition_value") or 1
+        try:
+            target_n = int(target) if not isinstance(target, dict) else 1
+        except (TypeError, ValueError):
+            target_n = 1
+
+        completed_at = metrics.get("_timeline_completed_at") or []
+        active_days = metrics.get("_timeline_active_days") or []
+        sessions = metrics.get("_timeline_sessions") or []
+        common_days = metrics.get("_timeline_common_days") or []
+        duo_created = metrics.get("_timeline_duo_created_at")
+
+        def _nth_iso(items: List[str], n: int) -> Optional[str]:
+            if n <= 0 or len(items) < n:
+                return None
+            return items[n - 1]
+
+        def _day_to_iso(day: Optional[str]) -> Optional[str]:
+            if not day:
+                return None
+            # Normalise en ISO date début de journée UTC
+            return f"{day}T12:00:00+00:00"
+
+        # Seuils sur nombre de séances terminées
+        if ctype in (
+            "completed_workouts",
+            "completed_without_abandon",
+            "completed_without_skipped_exercise",
+        ):
+            return _nth_iso(completed_at, target_n)
+
+        if ctype == "total_active_days":
+            return _day_to_iso(_nth_iso(active_days, target_n))
+
+        if ctype in ("best_streak_days",):
+            # Première fenêtre de streak atteignant la cible
+            if len(active_days) < target_n:
+                return None
+            for i in range(target_n - 1, len(active_days)):
+                window = active_days[i - target_n + 1 : i + 1]
+                ok = True
+                for j in range(1, len(window)):
+                    prev = datetime.strptime(window[j - 1], "%Y-%m-%d").date()
+                    cur = datetime.strptime(window[j], "%Y-%m-%d").date()
+                    if (cur - prev).days != 1:
+                        ok = False
+                        break
+                if ok:
+                    return _day_to_iso(window[-1])
+            return None
+
+        if ctype in ("total_workout_minutes", "total_calories"):
+            cum = 0
+            for s in sessions:
+                if ctype == "total_workout_minutes":
+                    cum += int(s.get("total_time") or 0) // 60
+                else:
+                    cum += max(0, int(s.get("calories") or 0))
+                if cum >= target_n:
+                    return s.get("created_at")
+            return None
+
+        if ctype == "single_workout_duration_minutes":
+            for s in sessions:
+                mins = int(s.get("total_time") or 0) / 60
+                if mins >= target_n:
+                    return s.get("created_at")
+            return None
+
+        if ctype in (
+            "duo_common_workouts",
+            "duo_common_active_days",
+            "duo_common_workouts_without_abandon",
+        ):
+            return _day_to_iso(_nth_iso(common_days, target_n))
+
+        if ctype == "duo_best_streak_days":
+            if len(common_days) < target_n:
+                return None
+            for i in range(target_n - 1, len(common_days)):
+                window = common_days[i - target_n + 1 : i + 1]
+                ok = True
+                for j in range(1, len(window)):
+                    prev = datetime.strptime(window[j - 1], "%Y-%m-%d").date()
+                    cur = datetime.strptime(window[j], "%Y-%m-%d").date()
+                    if (cur - prev).days != 1:
+                        ok = False
+                        break
+                if ok:
+                    return _day_to_iso(window[-1])
+            return None
+
+        if ctype == "duo_common_minutes":
+            # Approximation : jour commun où le cumul de minutes atteint la cible
+            # (métrique exacte recalculée côté get_duo_metrics — on utilise le N-ième jour
+            # si minutes moyennes suffisent, sinon dernier jour commun)
+            if not common_days:
+                return None
+            if target_n <= 60 and len(common_days) >= 1:
+                return _day_to_iso(common_days[0])
+            idx = min(len(common_days), max(1, target_n // 60))
+            return _day_to_iso(common_days[idx - 1])
+
+        if ctype == "duo_created":
+            return duo_created
+
+        if ctype == "duo_age_and_common_workouts":
+            params = definition.get("condition_params") or {}
+            min_workouts = int(params.get("minimum_common_workouts") or 0)
+            workout_at = _day_to_iso(_nth_iso(common_days, min_workouts)) if min_workouts else None
+            age_days = int(params.get("minimum_age_days") or 0)
+            age_at = None
+            if duo_created and age_days:
+                dt = _parse_dt(duo_created)
+                if dt:
+                    age_at = (dt + timedelta(days=age_days)).isoformat()
+            candidates = [c for c in (workout_at, age_at) if c]
+            return max(candidates) if candidates else None
+
+        # Fallback faible : première activité connue
+        if completed_at:
+            return completed_at[0]
+        if common_days:
+            return _day_to_iso(common_days[0])
+        if duo_created:
+            return duo_created
+        return None
 
     async def _notify_unlock(
         self,
@@ -852,7 +1015,7 @@ class BadgeProgressService:
         owner_id: str,
         definition: dict,
         notify_user_ids: Optional[List[str]] = None,
-    ) -> None:
+    ) -> int:
         try:
             from push_service import notify_push
         except Exception:
@@ -880,6 +1043,7 @@ class BadgeProgressService:
             tag = f"badge-{definition['id']}"
 
         now = _now_iso()
+        sent = 0
         for rid in recipients:
             if not rid:
                 continue
@@ -904,6 +1068,7 @@ class BadgeProgressService:
                     "created_at": now,
                     "url": url,
                 })
+                sent += 1
             except Exception as exc:
                 logger.warning("badge notif insert failed: %s", exc)
 
@@ -920,6 +1085,7 @@ class BadgeProgressService:
                     )
                 except Exception as exc:
                     logger.warning("badge push failed: %s", exc)
+        return sent
 
     async def evaluate_solo_badges(
         self, user_id: str, *, streak_value: Optional[int] = None, notify: bool = True

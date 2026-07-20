@@ -496,3 +496,113 @@ def test_notification_only_on_first_unlock(service, db):
     count2 = len(db.notifications.docs)
     assert count1 >= 1
     assert count2 == count1
+
+
+def test_infer_unlock_at_uses_nth_session():
+    definition = get_badge_definition("solo_three_workouts")
+    metrics = {
+        "_timeline_completed_at": [
+            "2024-01-01T10:00:00+00:00",
+            "2024-01-02T10:00:00+00:00",
+            "2024-01-05T10:00:00+00:00",
+        ],
+    }
+    at = BadgeProgressService.infer_unlock_at(definition, metrics)
+    assert at == "2024-01-05T10:00:00+00:00"
+
+
+def test_historical_unlock_preserves_date(service, db):
+    historical = "2024-06-15T08:00:00+00:00"
+    definition = get_badge_definition("solo_first_workout")
+    doc = _run(
+        service.unlock_badge_if_eligible(
+            scope="solo",
+            owner_id="u_hist",
+            definition=definition,
+            progress={"eligible": True, "current": 1, "target": 1},
+            notify=False,
+            unlocked_at=historical,
+        )
+    )
+    assert doc is not None
+    assert doc["unlocked_at"] == historical
+    assert len(db.notifications.docs) == 0
+
+
+def test_migration_process_solo_dry_run_no_writes(service, db):
+    from recalculate_badges import _empty_summary, _process_solo
+
+    day1 = "2024-03-01T09:00:00+00:00"
+    day2 = "2024-03-02T09:00:00+00:00"
+    day3 = "2024-03-03T09:00:00+00:00"
+    for d in (day1, day2, day3):
+        db.workout_sessions.docs.append({
+            "user_id": "u_mig",
+            "status": "completed",
+            "created_at": d,
+            "total_time": 600,
+            "estimated_calories": 50,
+        })
+    summary = _empty_summary(dry_run=True, notify=False)
+    before_badges = len(db.user_badges.docs)
+    before_notifs = len(db.notifications.docs)
+    _run(_process_solo(service, "u_mig", dry_run=True, notify=False, summary=summary))
+    assert len(db.user_badges.docs) == before_badges
+    assert len(db.notifications.docs) == before_notifs
+    assert summary["badges_added"] >= 2
+    assert summary["notifications_sent"] == 0
+
+
+def test_migration_process_solo_write_no_notify_by_default(service, db):
+    from recalculate_badges import _empty_summary, _process_solo
+
+    day1 = "2024-04-01T09:00:00+00:00"
+    db.workout_sessions.docs.append({
+        "user_id": "u_mig2",
+        "status": "completed",
+        "created_at": day1,
+        "total_time": 600,
+        "estimated_calories": 50,
+    })
+    summary = _empty_summary(dry_run=False, notify=False)
+    _run(_process_solo(service, "u_mig2", dry_run=False, notify=False, summary=summary))
+    assert summary["badges_added"] >= 1
+    assert summary["notifications_sent"] == 0
+    assert len(db.notifications.docs) == 0
+    unlocked = _run(service.get_unlocked_solo("u_mig2"))
+    assert "solo_first_workout" in unlocked
+    assert unlocked["solo_first_workout"]["unlocked_at"] == day1
+
+
+def test_migration_does_not_recreate_present_badges(service, db):
+    from recalculate_badges import _empty_summary, _process_solo
+
+    day1 = "2024-05-01T09:00:00+00:00"
+    db.workout_sessions.docs.append({
+        "user_id": "u_mig3",
+        "status": "completed",
+        "created_at": day1,
+        "total_time": 600,
+    })
+    db.user_badges.docs.append({
+        "user_id": "u_mig3",
+        "badge_id": "solo_first_workout",
+        "unlocked_at": day1,
+    })
+    summary = _empty_summary(dry_run=False, notify=False)
+    _run(_process_solo(service, "u_mig3", dry_run=False, notify=False, summary=summary))
+    assert summary["badges_already_present"] >= 1
+    assert len([d for d in db.user_badges.docs if d["badge_id"] == "solo_first_workout"]) == 1
+
+
+def test_normal_trigger_still_notifies(service, db):
+    """L'usage normal (notify=True) continue d'envoyer des notifications."""
+    now = datetime.now(timezone.utc).isoformat()
+    db.workout_sessions.docs.append({
+        "user_id": "u_live",
+        "status": "completed",
+        "created_at": now,
+        "total_time": 600,
+    })
+    _run(service.evaluate_solo_badges("u_live", notify=True))
+    assert len(db.notifications.docs) >= 1
