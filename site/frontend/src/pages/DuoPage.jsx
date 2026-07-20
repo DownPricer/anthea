@@ -26,7 +26,7 @@ import {
   DuoActivitySkeleton,
 } from '../components/duo/DuoSkeletons';
 import { getAccentForUser } from '../lib/userAccent';
-import { duoProfilePath } from '../lib/duoProfile';
+import { duoProfilePath, getDuoRoleLabel } from '../lib/duoProfile';
 import {
   getDuoCache,
   setDuoCache,
@@ -35,6 +35,8 @@ import {
   duoTime,
 } from '../lib/duoCache';
 import { DuoMembersAvatar } from '../components/duo/DuoMembersAvatar';
+import { UserAvatar } from '../components/UserAvatar';
+import { getDisplayName } from '../lib/userProfile';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -88,7 +90,7 @@ export function DuoPage() {
   const [searchParams] = useSearchParams();
   const [pendingDuoFollow, setPendingDuoFollow] = useState(null);
   
-  const [activeTab, setActiveTab] = useState('activity');
+  const [activeTab, setActiveTab] = useState('stats');
   const [sessions, setSessions] = useState([]);
   const [duoStats, setDuoStats] = useState(null);
   const [partner, setPartner] = useState(null);
@@ -103,7 +105,7 @@ export function DuoPage() {
   // Stats state
   const [detailedStats, setDetailedStats] = useState(null);
   const [statsPeriod, setStatsPeriod] = useState('30');
-  const [statsTarget, setStatsTarget] = useState('partner'); // 'me' or 'partner'
+  const [statsTarget, setStatsTarget] = useState('duo'); // 'duo' | 'me' | 'partner'
   const [statsLoading, setStatsLoading] = useState(false);
   const [canModerateStreak, setCanModerateStreak] = useState(false);
   const [coachStreakInput, setCoachStreakInput] = useState('');
@@ -166,7 +168,7 @@ export function DuoPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (activeTab === 'stats' && partner) {
+    if (activeTab === 'stats' && partner && statsTarget !== 'duo') {
       loadDetailedStats();
     }
     if (activeTab === 'history' && partner) {
@@ -182,7 +184,15 @@ export function DuoPage() {
       const params = { limit: 100, target_user: historyTarget === 'me' ? user.id : partner?.id };
       if (historyFilter !== 'all') params.status = historyFilter;
       const { data } = await sessionsApi.getHistory(params);
-      setHistorySessions(data || []);
+      const enriched = (data || []).map((s) => {
+        const member = String(s.user_id) === String(user?.id) ? user : partner;
+        return {
+          ...s,
+          display_name: getDisplayName(member) || s.username,
+          username: getDisplayName(member) || s.username,
+        };
+      });
+      setHistorySessions(enriched);
     } catch {
       toast.error('Impossible de charger l\'historique');
     } finally {
@@ -653,18 +663,18 @@ export function DuoPage() {
             Activité
           </TabsTrigger>
           <TabsTrigger
-            value="history"
-            data-testid="tab-history"
-            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
-          >
-            Historique
-          </TabsTrigger>
-          <TabsTrigger
             value="stats"
             data-testid="tab-stats"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
             Stats
+          </TabsTrigger>
+          <TabsTrigger
+            value="history"
+            data-testid="tab-history"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+          >
+            Historique
           </TabsTrigger>
         </TabsList>
 
@@ -912,10 +922,10 @@ export function DuoPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#141414] border-white/10">
+                <SelectItem value="me" className="text-white">Moi</SelectItem>
                 <SelectItem value="partner" className="text-white">
                   {partner?.display_name || partner?.username || 'Partenaire'}
                 </SelectItem>
-                <SelectItem value="me" className="text-white">Moi</SelectItem>
               </SelectContent>
             </Select>
             {['all', 'completed', 'abandoned'].map((f) => (
@@ -1018,32 +1028,153 @@ export function DuoPage() {
         {/* Stats Tab */}
         <TabsContent value="stats" className="space-y-6">
           {/* Filters */}
-          <div className="flex gap-3">
-            <Select value={statsTarget} onValueChange={setStatsTarget}>
-              <SelectTrigger className="flex-1 h-12 rounded-xl bg-[#141414] border-white/10 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#141414] border-white/10">
-                <SelectItem value="partner" className="text-white">
-                  {partner.display_name || partner.username}
-                </SelectItem>
-                <SelectItem value="me" className="text-white">Moi</SelectItem>
-              </SelectContent>
-            </Select>
-            <Select value={statsPeriod} onValueChange={setStatsPeriod}>
-              <SelectTrigger className="w-32 h-12 rounded-xl bg-[#141414] border-white/10 text-white">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-[#141414] border-white/10">
-                <SelectItem value="7" className="text-white">7 jours</SelectItem>
-                <SelectItem value="30" className="text-white">30 jours</SelectItem>
-                <SelectItem value="90" className="text-white">3 mois</SelectItem>
-                <SelectItem value="all" className="text-white">Tout</SelectItem>
-              </SelectContent>
-            </Select>
+          <div className="flex gap-3 flex-wrap">
+            <div
+              className="flex flex-1 min-w-0 rounded-xl bg-[#141414] border border-white/10 p-1"
+              data-testid="stats-view-selector"
+              role="tablist"
+              aria-label="Vue des statistiques"
+            >
+              {[
+                { value: 'duo', label: 'Duo' },
+                { value: 'me', label: 'Moi' },
+                { value: 'partner', label: 'Partenaire' },
+              ].map((opt) => (
+                <button
+                  key={opt.value}
+                  type="button"
+                  role="tab"
+                  aria-selected={statsTarget === opt.value}
+                  onClick={() => setStatsTarget(opt.value)}
+                  className={`flex-1 min-w-0 px-2 py-2.5 rounded-lg text-xs sm:text-sm font-medium transition-colors truncate ${
+                    statsTarget === opt.value
+                      ? 'bg-[var(--theme-primary)] text-white'
+                      : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {statsTarget !== 'duo' ? (
+              <Select value={statsPeriod} onValueChange={setStatsPeriod}>
+                <SelectTrigger className="w-32 h-12 rounded-xl bg-[#141414] border-white/10 text-white shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  <SelectItem value="7" className="text-white">7 jours</SelectItem>
+                  <SelectItem value="30" className="text-white">30 jours</SelectItem>
+                  <SelectItem value="90" className="text-white">3 mois</SelectItem>
+                  <SelectItem value="all" className="text-white">Tout</SelectItem>
+                </SelectContent>
+              </Select>
+            ) : null}
           </div>
 
-          {statsLoading ? (
+          {statsTarget === 'duo' ? (
+            statsBootLoading && !duoStats ? (
+              <div className="flex justify-center py-12">
+                <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+              </div>
+            ) : duoStats ? (
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <div className="card p-4 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Target className="text-[var(--theme-primary)] shrink-0" size={16} />
+                    <span className="text-zinc-400 text-xs uppercase truncate">Séances communes</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {duoStats.total_workouts_together ?? duoStats.sessions_together ?? 0}
+                  </p>
+                  <p className="text-zinc-500 text-xs mt-1">non additionnées</p>
+                </div>
+                <div className="card p-4 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Clock className="text-[var(--theme-primary)] shrink-0" size={16} />
+                    <span className="text-zinc-400 text-xs uppercase truncate">Durée combinée</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {formatDuration(duoStats.total_training_time_together || duoStats.total_time || 0)}
+                  </p>
+                  <p className="text-zinc-500 text-xs mt-1">temps additionné</p>
+                </div>
+                <div className="card p-4 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Flame className="text-orange-400 shrink-0" size={16} />
+                    <span className="text-zinc-400 text-xs uppercase truncate">Streak Duo</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {duoStats.duo_streak_current ?? duoStats.streak ?? 0}
+                  </p>
+                  <p className="text-zinc-500 text-xs mt-1">
+                    record {duoStats.duo_streak_best ?? duoStats.best_streak ?? '—'}
+                  </p>
+                </div>
+                <div className="card p-4 min-w-0 overflow-hidden">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Trophy className="text-[var(--theme-primary)] shrink-0" size={16} />
+                    <span className="text-zinc-400 text-xs uppercase truncate">Badges Duo</span>
+                  </div>
+                  <p className="text-2xl font-bold text-white">
+                    {duoStats.duo_badges_unlocked ?? duoStats.badges_unlocked ?? 0}
+                  </p>
+                  <p className="text-zinc-500 text-xs mt-1">
+                    / {duoStats.duo_badges_total ?? duoStats.badges_total ?? 50}
+                  </p>
+                </div>
+                <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-2">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Calendar className="text-[var(--theme-primary)] shrink-0" size={16} />
+                    <span className="text-zinc-400 text-xs uppercase">Cette semaine</span>
+                  </div>
+                  <div className="flex gap-4">
+                    <div>
+                      <p className="text-xl font-bold text-white">{duoStats.this_week_user ?? 0}</p>
+                      <p className="text-zinc-500 text-xs">Moi</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-white">{duoStats.this_week_partner ?? 0}</p>
+                      <p className="text-zinc-500 text-xs">Partenaire</p>
+                    </div>
+                    <div>
+                      <p className="text-xl font-bold text-white">
+                        {(duoStats.this_week_user || 0) + (duoStats.this_week_partner || 0)}
+                      </p>
+                      <p className="text-zinc-500 text-xs">Activités</p>
+                    </div>
+                  </div>
+                </div>
+                {duoStats.estimated_calories != null ? (
+                  <div className="card p-4 min-w-0 overflow-hidden col-span-2">
+                    <div className="flex items-center gap-2 mb-2">
+                      <FlameIcon className="text-orange-400 shrink-0" size={16} />
+                      <span className="text-zinc-400 text-xs uppercase">Calories combinées</span>
+                    </div>
+                    <p className="text-2xl font-bold text-orange-300">
+                      {formatCalories(duoStats.estimated_calories)}
+                    </p>
+                  </div>
+                ) : null}
+                {duoStats.current_challenge ? (
+                  <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-4">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Zap className="text-[var(--theme-primary)] shrink-0" size={16} />
+                      <span className="text-white font-medium text-sm">Défi Duo</span>
+                    </div>
+                    <p className="text-zinc-400 text-sm mb-2">{duoStats.current_challenge.title}</p>
+                    <p className="text-zinc-500 text-xs">
+                      {duoStats.current_challenge.current}/{duoStats.current_challenge.target}
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            ) : (
+              <div className="card p-8 text-center">
+                <BarChart3 className="mx-auto text-zinc-500 mb-4" size={32} />
+                <p className="text-zinc-400">Aucune donnée Duo disponible</p>
+              </div>
+            )
+          ) : statsLoading ? (
             <div className="flex justify-center py-12">
               <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
             </div>
@@ -1251,6 +1382,13 @@ export function DuoPage() {
   );
 }
 
+function resolveSessionMember(session, user, partner) {
+  if (!session) return null;
+  if (session.user_id && user?.id && String(session.user_id) === String(user.id)) return user;
+  if (session.user_id && partner?.id && String(session.user_id) === String(partner.id)) return partner;
+  return null;
+}
+
 function SessionCard({
   session,
   user,
@@ -1265,65 +1403,84 @@ function SessionCard({
   setCommentText,
   onComment,
 }) {
-  const isOwn = session.user_id === user?.id;
+  const member = resolveSessionMember(session, user, partner);
+  const isOwn = member && user?.id && String(member.id) === String(user.id);
+  const displayName = getDisplayName(member) || session.display_name || session.username || 'Membre';
+  const roleLabel = getDuoRoleLabel(member?.duo_role);
+  const statusLabel =
+    session.status === 'completed'
+      ? 'Terminée'
+      : session.status === 'abandoned'
+        ? 'Abandonnée'
+        : session.status === 'in_progress'
+          ? 'En cours'
+          : session.status || '';
   const formatDuration = (seconds) => {
-    const mins = Math.floor(seconds / 60);
+    const mins = Math.floor((seconds || 0) / 60);
     return `${mins} min`;
   };
+  const dateLabel = session.created_at
+    ? format(parseISO(session.created_at), "d MMM · HH:mm", { locale: fr })
+    : '';
+  const calories = session.estimated_calories;
+  const exercisesDone = session.exercises_completed;
+  const exercisesTotal = session.exercises_total;
+  const isCommon = Boolean(session.is_common_session || session.type === 'common_session');
 
   return (
     <div
       data-testid={`session-card-${session.id}`}
-      className="card p-4 space-y-4"
+      className="card p-4 space-y-3 min-w-0 overflow-hidden"
     >
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div
-          className={`w-10 h-10 rounded-full flex items-center justify-center ${
-            isOwn ? 'bg-[var(--theme-primary)]' : 'bg-[var(--theme-secondary)]'
-          }`}
-        >
-          <span className="text-white text-sm font-bold">
-            {session.username?.[0]?.toUpperCase() || 'U'}
-          </span>
-        </div>
+      <div className="flex items-start gap-3 min-w-0">
+        <UserAvatar user={member || { display_name: displayName }} className="w-10 h-10 shrink-0" />
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <span className="text-white font-medium">{session.username}</span>
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <span className="text-white font-medium truncate">{displayName}</span>
+            {roleLabel && roleLabel !== 'Membre' ? (
+              <span className="text-[10px] text-zinc-500 shrink-0">— {roleLabel}</span>
+            ) : null}
             {session.status === 'completed' && (
-              <Trophy size={14} className="text-green-500" />
+              <Trophy size={14} className="text-green-500 shrink-0" />
             )}
           </div>
-          <p className="text-zinc-500 text-sm">{session.workout_title}</p>
+          <p className="text-white text-sm font-medium truncate mt-0.5">
+            {session.workout_title || session.title || 'Séance'}
+          </p>
+          <p className="text-zinc-500 text-xs mt-0.5 line-clamp-2 break-words">
+            {[dateLabel, statusLabel, isCommon ? 'Séance commune' : null]
+              .filter(Boolean)
+              .join(' · ')}
+          </p>
         </div>
-        <span className="text-zinc-500 text-xs">
-          {format(parseISO(session.created_at), 'd MMM', { locale: fr })}
-        </span>
       </div>
 
-      {/* Stats */}
-      <div className="flex gap-4 text-sm">
+      <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
         <div className="flex items-center gap-1 text-zinc-400">
           <Clock size={14} />
           <span>{formatDuration(session.total_time)}</span>
         </div>
-        <div className="flex items-center gap-1 text-zinc-400">
-          <Zap size={14} />
-          <span>{session.exercises_completed}/{session.exercises_total}</span>
-        </div>
-        {session.difficulty_felt && (
+        {(exercisesDone != null || exercisesTotal != null) && (
           <div className="flex items-center gap-1 text-zinc-400">
-            <span>Diff: {session.difficulty_felt}/10</span>
+            <Zap size={14} />
+            <span>
+              {exercisesDone ?? 0}
+              {exercisesTotal != null ? `/${exercisesTotal}` : ''} exo{(exercisesTotal || exercisesDone) > 1 ? 's' : ''}
+            </span>
           </div>
         )}
+        {calories != null && calories > 0 ? (
+          <div className="flex items-center gap-1 text-orange-400/80">
+            <Flame size={14} />
+            <span>{formatCalories(calories)}</span>
+          </div>
+        ) : null}
       </div>
 
-      {/* Notes */}
       {session.notes && (
-        <p className="text-zinc-400 text-sm italic">"{session.notes}"</p>
+        <p className="text-zinc-400 text-sm italic line-clamp-2">"{session.notes}"</p>
       )}
 
-      {/* Reactions display */}
       {session.reactions?.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {session.reactions.slice(-5).map((r, i) => (
@@ -1334,7 +1491,6 @@ function SessionCard({
         </div>
       )}
 
-      {/* Actions */}
       <div className="flex items-center gap-2 pt-2 border-t border-white/5">
         <button
           onClick={() => onLike(session.id)}
@@ -1348,7 +1504,6 @@ function SessionCard({
           <span className="text-sm">{session.likes?.length || 0}</span>
         </button>
 
-        {/* Quick reactions */}
         {QUICK_REACTIONS.slice(0, 3).map((reaction) => (
           <button
             key={reaction.type}
@@ -1375,24 +1530,30 @@ function SessionCard({
         </button>
       </div>
 
-      {/* Comments */}
       {(activeCommentSession === session.id || session.comments?.length > 0) && (
         <div className="space-y-3 pt-2">
-          {session.comments?.map((comment) => (
-            <div key={comment.id} className="flex gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#141414] flex items-center justify-center flex-shrink-0">
-                <span className="text-[10px] text-white font-medium">
-                  {comment.username?.[0]?.toUpperCase()}
-                </span>
+          {session.comments?.map((comment) => {
+            const commentMember = resolveSessionMember(
+              { user_id: comment.user_id },
+              user,
+              partner
+            );
+            const commentName = getDisplayName(commentMember) || comment.username || 'Membre';
+            return (
+              <div key={comment.id} className="flex gap-2 min-w-0">
+                <UserAvatar
+                  user={commentMember || { display_name: commentName }}
+                  className="w-6 h-6 shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-zinc-400 text-sm break-words">
+                    <span className="text-white font-medium">{commentName}</span>{' '}
+                    {comment.text}
+                  </p>
+                </div>
               </div>
-              <div className="flex-1">
-                <p className="text-zinc-400 text-sm">
-                  <span className="text-white font-medium">{comment.username}</span>{' '}
-                  {comment.text}
-                </p>
-              </div>
-            </div>
-          ))}
+            );
+          })}
 
           {activeCommentSession === session.id && (
             <div className="flex gap-2">

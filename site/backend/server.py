@@ -3153,10 +3153,11 @@ async def get_duo_activity_feed(limit: int = 20, user: dict = Depends(get_curren
     import asyncio
 
     session_projection = {
-        "_id": 1, "user_id": 1, "created_at": 1, "completed_at": 1, "status": 1,
+        "_id": 1, "user_id": 1, "username": 1, "created_at": 1, "completed_at": 1, "status": 1,
         "title": 1, "workout_title": 1, "total_time": 1, "estimated_calories": 1,
-        "likes": 1, "reactions": 1, "comments": 1, "exercises_completed": 1,
-        "template_id": 1, "scheduled_workout_id": 1,
+        "likes": 1, "reactions": 1, "comments": 1, "exercises_completed": 1, "exercises_total": 1,
+        "template_id": 1, "scheduled_workout_id": 1, "is_common_session": 1, "notes": 1,
+        "difficulty_felt": 1,
     }
 
     if not user.get("partner_id"):

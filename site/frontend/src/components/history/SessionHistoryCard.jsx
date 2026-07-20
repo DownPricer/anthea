@@ -36,9 +36,9 @@ export function SessionHistoryCard({ session, canAdjustTime, onAdjustTime }) {
               {st.label}
             </span>
           </div>
-          <p className="text-zinc-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
+            <p className="text-zinc-500 text-xs mt-1 flex items-center gap-2 flex-wrap">
             <span className="inline-flex items-center gap-1">
-              <User size={11} /> {session.username}
+              <User size={11} /> {session.display_name || session.username || 'Membre'}
             </span>
             {session.created_at && (
               <span>
