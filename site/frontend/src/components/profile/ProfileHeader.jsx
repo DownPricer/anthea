@@ -37,7 +37,11 @@ export function ProfileHeader({
   const displayName = getDisplayName(profileUser);
   const handle = formatHandle(profileUser);
   const bio = profileUser?.bio?.trim();
-  const featuredIds = profileUser?.featured_badges || [];
+  const featuredIds = Array.isArray(profileUser?.featured_badge_ids)
+    ? profileUser.featured_badge_ids
+    : Array.isArray(profileUser?.featured_badges) && profileUser.featured_badges.length
+      ? profileUser.featured_badges.map((b) => (typeof b === 'string' ? b : b?.id)).filter(Boolean)
+      : [];
   const showBadges = isOwn || !isLimited;
 
   return (

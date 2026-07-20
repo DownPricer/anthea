@@ -2,7 +2,7 @@ import { Trophy } from 'lucide-react';
 
 export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty = true }) {
   const featured = featuredIds
-    .map((id) => badges.find((b) => b.id === id && b.unlocked))
+    .map((id) => badges.find((b) => String(b.id) === String(id) && b.unlocked))
     .filter(Boolean)
     .slice(0, 3);
 

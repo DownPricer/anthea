@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { Loader2, Camera, X } from 'lucide-react';
+import { Loader2, Camera, X, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { UserAvatar } from '../UserAvatar';
 import { Button } from '../ui/button';
@@ -72,7 +72,6 @@ function buildInitialForm(user) {
     bio: user?.bio || '',
     fitness_level: user?.fitness_level || 'beginner',
     main_goal: user?.main_goal || '',
-    featured_badges: Array.isArray(user?.featured_badges) ? [...user.featured_badges] : [],
   };
 }
 
@@ -101,13 +100,25 @@ export function ProfileEditDialog({
   const [saving, setSaving] = useState(false);
   const [avatarPreview, setAvatarPreview] = useState(null);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [selectedBadgeIds, setSelectedBadgeIds] = useState([]);
+  const [baselineBadgeIds, setBaselineBadgeIds] = useState([]);
+  const [featuredTouched, setFeaturedTouched] = useState(false);
   const fileInputRef = useRef(null);
+  const savedFeaturedIdsRef = useRef([]);
 
   const syncFromUser = useCallback((u) => {
     const next = buildInitialForm(u);
     setForm(next);
     setBaseline(next);
     setAvatarPreview(null);
+    savedFeaturedIdsRef.current = Array.isArray(u?.featured_badge_ids)
+      ? u.featured_badge_ids.map(String)
+      : Array.isArray(u?.featured_badges)
+        ? u.featured_badges.map(String)
+        : [];
+    setSelectedBadgeIds([]);
+    setBaselineBadgeIds([]);
+    setFeaturedTouched(false);
   }, []);
 
   useEffect(() => {
@@ -136,11 +147,11 @@ export function ProfileEditDialog({
     if ((form.main_goal || '') !== (baseline.main_goal || '')) {
       payload.main_goal = form.main_goal;
     }
-    if (!idsEqual(form.featured_badges || [], baseline.featured_badges || [])) {
-      payload.featured_badges = form.featured_badges || [];
+    if (!idsEqual(selectedBadgeIds, baselineBadgeIds)) {
+      payload.featured_badge_ids = selectedBadgeIds;
     }
     return payload;
-  }, [form, baseline]);
+  }, [form, baseline, selectedBadgeIds, baselineBadgeIds]);
 
   const isDirty = Object.keys(dirtyPayload).length > 0;
 
@@ -168,7 +179,43 @@ export function ProfileEditDialog({
     onAvatarFileSelected?.(file);
   };
 
-  const unlockedBadges = badges.filter((b) => b.unlocked);
+  const unlockedSoloBadges = useMemo(
+    () => (badges || [])
+      .filter((b) => b?.unlocked && b?.id)
+      .filter((b) => {
+        const id = String(b.id);
+        if (b.scope === 'duo') return false;
+        if (b.family === 'duo') return false;
+        if (id.startsWith('duo_')) return false;
+        return true;
+      }),
+    [badges]
+  );
+
+  useEffect(() => {
+    if (!open) return;
+    if (featuredTouched) return;
+    const unlockedIdSet = new Set(unlockedSoloBadges.map((b) => String(b.id)));
+    const savedIds = Array.isArray(savedFeaturedIdsRef.current)
+      ? savedFeaturedIdsRef.current
+      : [];
+    const validIds = savedIds
+      .map(String)
+      .filter((id) => unlockedIdSet.has(id))
+      .slice(0, 3);
+    setSelectedBadgeIds(validIds);
+    setBaselineBadgeIds(validIds);
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[Personal Featured Badges]', {
+        userFeaturedIds: user?.featured_badge_ids,
+        userFeaturedBadges: user?.featured_badges,
+        unlockedSoloBadgeIds: unlockedSoloBadges?.map((badge) => badge.id),
+        selectedBadgeIds: validIds,
+      });
+    }
+  }, [open, unlockedSoloBadges, featuredTouched, user?.featured_badge_ids, user?.featured_badges, user]);
+
   const previewUser = {
     ...user,
     avatar_url: avatarPreview || form.avatar_url || user?.avatar_url,
@@ -176,17 +223,18 @@ export function ProfileEditDialog({
     updated_at: user?.updated_at,
   };
 
-  const toggleFeaturedBadge = (badgeId) => {
-    setForm((prev) => {
-      const current = prev.featured_badges || [];
-      if (current.includes(badgeId)) {
-        return { ...prev, featured_badges: current.filter((id) => id !== badgeId) };
+  function toggleFeaturedBadge(badgeId) {
+    const id = String(badgeId);
+    setFeaturedTouched(true);
+    setSelectedBadgeIds((current) => {
+      if (current.includes(id)) {
+        return current.filter((item) => item !== id);
       }
       if (current.length >= 3) {
-        toast.info('Maximum 3 badges mis en avant');
-        return prev;
+        toast.error('Vous pouvez mettre en avant jusqu’à 3 badges.');
+        return current;
       }
-      return { ...prev, featured_badges: [...current, badgeId] };
+      return [...current, id];
     });
   };
 
@@ -205,11 +253,19 @@ export function ProfileEditDialog({
       bio: form.bio.trim(),
       fitness_level: form.fitness_level,
       main_goal: form.main_goal,
-      featured_badges: form.featured_badges,
+      featured_badge_ids: selectedBadgeIds,
     });
     setSaving(false);
 
     if (result?.success) {
+      const returnedIds = Array.isArray(result?.user?.featured_badge_ids)
+        ? result.user.featured_badge_ids.map(String)
+        : Array.isArray(result?.user?.featured_badges)
+          ? result.user.featured_badges.map((b) => (typeof b === 'string' ? b : b?.id)).filter(Boolean).map(String)
+          : [];
+      setSelectedBadgeIds(returnedIds.slice(0, 3));
+      setBaselineBadgeIds(returnedIds.slice(0, 3));
+      setFeaturedTouched(false);
       toast.success('Profil mis à jour !');
       onOpenChange(false);
     } else if (result?.error) {
@@ -339,29 +395,54 @@ export function ProfileEditDialog({
         </div>
       </div>
 
-      {unlockedBadges.length > 0 ? (
+      {unlockedSoloBadges.length > 0 ? (
         <div className="space-y-2">
           <div>
             <Label className="text-zinc-400 text-sm">Badges mis en avant</Label>
             <p className="text-zinc-600 text-xs mt-0.5">
-              Jusqu&apos;à 3 ({(form.featured_badges || []).length}/3)
+              {selectedBadgeIds.length} badge{selectedBadgeIds.length > 1 ? 's' : ''} sélectionné{selectedBadgeIds.length > 1 ? 's' : ''} sur 3
             </p>
           </div>
-          <div className="flex flex-wrap gap-2">
-            {unlockedBadges.map((badge) => {
-              const selected = (form.featured_badges || []).includes(badge.id);
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            {unlockedSoloBadges.map((badge) => {
+              const selectedIndex = selectedBadgeIds.indexOf(String(badge.id));
+              const isSelected = selectedIndex >= 0;
               return (
                 <button
                   key={badge.id}
                   type="button"
                   onClick={() => toggleFeaturedBadge(badge.id)}
-                  className={`rounded-full px-3 py-1.5 text-xs font-medium border transition-colors ${
-                    selected
-                      ? 'bg-[var(--theme-surface-active)] border-[var(--theme-primary)] text-white'
-                      : 'bg-white/5 border-white/10 text-zinc-400 hover:text-white'
+                  aria-pressed={isSelected}
+                  className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-left transition-colors ${
+                    isSelected
+                      ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)] ring-1 ring-[var(--theme-primary)]/40'
+                      : 'border-white/10 bg-white/5 hover:border-white/20'
                   }`}
                 >
-                  {badge.name}
+                  <span
+                    className={`absolute right-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                      isSelected ? 'bg-[var(--theme-primary)] text-white' : 'bg-black/30 text-zinc-500'
+                    }`}
+                  >
+                    {isSelected ? (
+                      <>
+                        <Check size={12} className="mr-1" />
+                        {selectedIndex + 1}
+                      </>
+                    ) : '—'}
+                  </span>
+                  <p className="text-white text-sm font-medium min-w-0 line-clamp-2 break-words pr-10">
+                    {badge.name}
+                  </p>
+                  {isSelected ? (
+                    <p className="mt-1 text-[11px] font-medium text-[var(--theme-primary)]">
+                      Sélectionné
+                    </p>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-zinc-500">
+                      Appuyer pour sélectionner
+                    </p>
+                  )}
                 </button>
               );
             })}

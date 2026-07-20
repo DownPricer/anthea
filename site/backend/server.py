@@ -102,6 +102,7 @@ class UserUpdate(BaseModel):
     avatar_url: Optional[str] = None
     handle: Optional[str] = None
     featured_badges: Optional[List[str]] = None
+    featured_badge_ids: Optional[List[str]] = None
     gender: Optional[str] = None
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
@@ -538,10 +539,12 @@ LIVE_ACTIVE_PHASES = ("countdown", "exercise", "rest")
 def serialize_user(user: dict) -> dict:
     partner_link = None
     handle = user.get("handle") or user.get("username")
-    featured = user.get("featured_badges") or []
-    if not isinstance(featured, list):
-        featured = []
-    featured = [str(b) for b in featured[:3]]
+    raw_ids = user.get("featured_badge_ids")
+    if raw_ids is None:
+        raw_ids = user.get("featured_badges") or []
+    if not isinstance(raw_ids, list):
+        raw_ids = []
+    featured_ids = [str(b) for b in raw_ids[:3]]
     return {
         "id": str(user["_id"]) if "_id" in user else user.get("id"),
         "username": user.get("username"),
@@ -549,7 +552,9 @@ def serialize_user(user: dict) -> dict:
         "bio": user.get("bio"),
         "avatar_url": user.get("avatar_url"),
         "handle": handle,
-        "featured_badges": featured,
+        "featured_badge_ids": featured_ids,
+        # legacy compat (ids)
+        "featured_badges": featured_ids,
         "gender": user.get("gender"),
         "fitness_level": user.get("fitness_level"),
         "main_goal": user.get("main_goal"),
@@ -679,10 +684,12 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
     access = await get_profile_access_level(viewer_id, profile_user)
     relation = await get_follow_relation(viewer_id, profile_id)
     handle = profile_user.get("handle") or profile_user.get("username")
-    featured = profile_user.get("featured_badges") or []
-    if not isinstance(featured, list):
-        featured = []
-    featured = [str(b) for b in featured[:3]]
+    raw_ids = profile_user.get("featured_badge_ids")
+    if raw_ids is None:
+        raw_ids = profile_user.get("featured_badges") or []
+    if not isinstance(raw_ids, list):
+        raw_ids = []
+    featured_ids = [str(b) for b in raw_ids[:3]]
 
     base = {
         "id": profile_id,
@@ -701,6 +708,7 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
 
     if access == "limited":
         base["bio"] = None
+        base["featured_badge_ids"] = []
         base["featured_badges"] = []
         base["show_stats"] = False
         base["show_badges"] = False
@@ -728,7 +736,8 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
         return access == "own"
 
     base["bio"] = profile_user.get("bio")
-    base["featured_badges"] = featured
+    base["featured_badge_ids"] = featured_ids
+    base["featured_badges"] = []  # enrichi plus bas
     stats_vis = _resolve_visibility("stats_visibility", "show_stats", default_public=False)
     badges_vis = _resolve_visibility("badges_visibility", "show_badges", default_public=True)
     activity_vis = _resolve_visibility("activity_visibility", "show_recent_activity", default_public=False)
@@ -753,7 +762,54 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
     else:
         base["show_sessions"] = access in ("own", "friend", "follower")
     base["show_posts"] = _visibility_allows(posts_vis)
+
+    # Featured solo badges: enrichit depuis catalogue + badges réellement débloqués
+    if base.get("is_own") or base.get("show_badges"):
+        try:
+            unlocked_map = await BadgeProgressService(db).get_unlocked_solo(profile_id)
+        except Exception:
+            unlocked_map = {}
+        cards = []
+        for bid in list(base.get("featured_badge_ids") or [])[:3]:
+            definition = get_badge_definition(bid)
+            if not definition or definition.get("scope") != "solo":
+                continue
+            if unlocked_map and bid not in unlocked_map:
+                continue
+            cards.append(catalog_badge_to_public(definition, unlocked=True))
+        base["featured_badges"] = cards
+        base["featured_badge_ids"] = [c.get("id") for c in cards if c.get("id")]
+    else:
+        base["featured_badge_ids"] = []
+        base["featured_badges"] = []
     return base
+
+
+def clean_featured_badge_ids(raw_ids, unlocked_map: dict) -> List[str]:
+    if raw_ids is None:
+        return []
+    if not isinstance(raw_ids, list):
+        raise HTTPException(status_code=400, detail="featured_badge_ids doit être une liste")
+    if len(raw_ids) > 3:
+        raise HTTPException(status_code=400, detail="Maximum 3 badges mis en avant")
+    cleaned: List[str] = []
+    seen = set()
+    for raw in raw_ids:
+        bid = canonical_badge_id(str(raw))
+        if not bid:
+            raise HTTPException(status_code=400, detail="ID de badge vide")
+        if bid in seen:
+            raise HTTPException(status_code=400, detail="Badge dupliqué")
+        definition = get_badge_definition(bid)
+        if not definition or definition.get("scope") != "solo":
+            raise HTTPException(status_code=400, detail=f"Badge solo invalide: {raw}")
+        if bid not in (unlocked_map or {}):
+            raise HTTPException(status_code=400, detail=f"Badge non débloqué: {raw}")
+        seen.add(bid)
+        cleaned.append(bid)
+        if len(cleaned) >= 3:
+            break
+    return cleaned
 
 async def serialize_search_user(user_doc: dict, viewer_id: str) -> dict:
     profile_id = str(user_doc["_id"])
@@ -1858,13 +1914,17 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
         set_data["handle"] = normalized_handle
         payload.pop("handle")
 
-    if "featured_badges" in payload:
-        badges = payload.pop("featured_badges") or []
-        if not isinstance(badges, list):
-            raise HTTPException(status_code=400, detail="featured_badges doit être une liste")
-        if len(badges) > 3:
-            raise HTTPException(status_code=400, detail="Maximum 3 badges mis en avant")
-        set_data["featured_badges"] = [str(b) for b in badges[:3]]
+    # Featured badges perso (solo) — source canonique: featured_badge_ids
+    if "featured_badge_ids" in payload or "featured_badges" in payload:
+        raw_ids = payload.pop("featured_badge_ids", None)
+        if raw_ids is None:
+            # compat legacy: featured_badges contenait les IDs
+            raw_ids = payload.pop("featured_badges", None)
+        unlocked_map = await BadgeProgressService(db).get_unlocked_solo(user["id"])
+        cleaned = clean_featured_badge_ids(raw_ids or [], unlocked_map)
+        set_data["featured_badge_ids"] = cleaned
+        # legacy compat (ids en base)
+        set_data["featured_badges"] = cleaned
 
     if "notification_prefs" in payload:
         raw_prefs = payload.pop("notification_prefs")
@@ -1931,7 +1991,23 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
         await db.users.update_one({"_id": ObjectId(user["id"])}, op)
 
     updated_user = await db.users.find_one({"_id": ObjectId(user["id"])})
-    return serialize_user(updated_user)
+    base = serialize_user(updated_user)
+    # enrichit featured_badges pour le profil perso
+    try:
+        unlocked_map = await BadgeProgressService(db).get_unlocked_solo(user["id"])
+    except Exception:
+        unlocked_map = {}
+    cards = []
+    for bid in list(base.get("featured_badge_ids") or [])[:3]:
+        definition = get_badge_definition(bid)
+        if not definition or definition.get("scope") != "solo":
+            continue
+        if unlocked_map and bid not in unlocked_map:
+            continue
+        cards.append(catalog_badge_to_public(definition, unlocked=True))
+    base["featured_badges"] = cards
+    base["featured_badge_ids"] = [c.get("id") for c in cards if c.get("id")]
+    return base
 
 # ============ PARTNER ROUTES ============
 
