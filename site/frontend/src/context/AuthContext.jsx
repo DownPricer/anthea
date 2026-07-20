@@ -1,5 +1,7 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi, formatApiError } from '../lib/api';
+import { setAppLocale } from '../i18n';
+import { writeStoredTimeFormat } from '../i18n/storage';
 
 const AuthContext = createContext(null);
 
@@ -28,6 +30,19 @@ export function AuthProvider({ children }) {
     window.addEventListener('auth:logout', handleLogout);
     return () => window.removeEventListener('auth:logout', handleLogout);
   }, [checkAuth]);
+
+  // Applique les préférences côté user (sans F5) + persiste en local pour éviter le flash.
+  useEffect(() => {
+    if (!user || typeof user !== 'object') return;
+    const locale = user?.locale;
+    if (locale) {
+      setAppLocale(locale).catch(() => {});
+    }
+    const tf = user?.time_format;
+    if (tf) {
+      writeStoredTimeFormat(tf);
+    }
+  }, [user]);
 
   const login = async (username, password) => {
     try {

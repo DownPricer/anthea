@@ -1,0 +1,20 @@
+{
+  "languageRegion": {
+    "title": "Idioma y región",
+    "language": {
+      "label": "Idioma",
+      "fr-FR": "Francés",
+      "en-US": "Inglés",
+      "es-ES": "Español"
+    },
+    "timeFormat": {
+      "label": "Formato de hora",
+      "auto": "Automático",
+      "12h": "12 horas",
+      "24h": "24 horas"
+    },
+    "saveSuccess": "Preferencias guardadas",
+    "saveError": "No se pudieron guardar las preferencias"
+  }
+}
+

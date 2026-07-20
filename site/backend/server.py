@@ -103,6 +103,8 @@ class UserUpdate(BaseModel):
     handle: Optional[str] = None
     featured_badges: Optional[List[str]] = None
     featured_badge_ids: Optional[List[str]] = None
+    locale: Optional[str] = None
+    time_format: Optional[str] = None
     gender: Optional[str] = None
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
@@ -133,6 +135,8 @@ class UserResponse(BaseModel):
     avatar_url: Optional[str] = None
     handle: Optional[str] = None
     featured_badges: List[str] = Field(default_factory=list)
+    locale: Optional[str] = None
+    time_format: str = "auto"
     gender: Optional[str] = None
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
@@ -166,6 +170,9 @@ class UserResponse(BaseModel):
     is_own: bool = False
     is_limited: bool = False
     created_at: str
+
+SUPPORTED_LOCALES = ("fr-FR", "en-US", "es-ES")
+SUPPORTED_TIME_FORMATS = ("auto", "12h", "24h")
 
 class NotificationResponse(BaseModel):
     id: str
@@ -555,6 +562,8 @@ def serialize_user(user: dict) -> dict:
         "featured_badge_ids": featured_ids,
         # legacy compat (ids)
         "featured_badges": featured_ids,
+        "locale": user.get("locale"),
+        "time_format": user.get("time_format") or "auto",
         "gender": user.get("gender"),
         "fitness_level": user.get("fitness_level"),
         "main_goal": user.get("main_goal"),
@@ -1913,6 +1922,23 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
             raise HTTPException(status_code=400, detail="Cet arobase est déjà pris")
         set_data["handle"] = normalized_handle
         payload.pop("handle")
+
+    if "locale" in payload:
+        loc = payload.pop("locale")
+        if loc is None or str(loc).strip() == "":
+            unset_data["locale"] = ""
+        else:
+            loc = str(loc)
+            if loc not in SUPPORTED_LOCALES:
+                raise HTTPException(status_code=400, detail="locale invalide")
+            set_data["locale"] = loc
+
+    if "time_format" in payload:
+        tf = payload.pop("time_format")
+        tf = "auto" if tf is None or str(tf).strip() == "" else str(tf)
+        if tf not in SUPPORTED_TIME_FORMATS:
+            raise HTTPException(status_code=400, detail="time_format invalide")
+        set_data["time_format"] = tf
 
     # Featured badges perso (solo) — source canonique: featured_badge_ids
     if "featured_badge_ids" in payload or "featured_badges" in payload:

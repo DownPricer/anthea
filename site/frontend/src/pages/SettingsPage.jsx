@@ -3,6 +3,9 @@ import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { badgesApi, partnerApi, uploadsApi } from '../lib/api';
+import { useTranslation } from 'react-i18next';
+import { setAppLocale } from '../i18n';
+import { readStoredLocale, readStoredTimeFormat, writeStoredTimeFormat } from '../i18n/storage';
 import { applyAccentToDocument, normalizeAccentColor, resolveUserAccent, getAccentForUser } from '../lib/userAccent';
 import { blobToDataUrl, revokePreviewUrl } from '../lib/imageCompress';
 import { AnnualHeatmap } from '../components/agenda/AnnualHeatmap';
@@ -51,6 +54,7 @@ import {
   Award,
   Bell,
   Play,
+  Globe,
   LogOut,
 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -73,6 +77,7 @@ const SECTION_IDS = {
   player: 'player',
   badges: 'badges',
   agenda: 'agenda',
+  locale: 'locale',
   account: 'account',
 };
 
@@ -169,6 +174,7 @@ function SectionIcon({ icon: Icon }) {
 }
 
 export function SettingsPage() {
+  const { t } = useTranslation('settings');
   const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
@@ -196,6 +202,9 @@ export function SettingsPage() {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const [reopenProfileAfterCrop, setReopenProfileAfterCrop] = useState(false);
   const [agendaEverOpened, setAgendaEverOpened] = useState(false);
+  const [locale, setLocale] = useState(() => user?.locale || readStoredLocale() || 'fr-FR');
+  const [timeFormat, setTimeFormat] = useState(() => user?.time_format || readStoredTimeFormat());
+  const [savingLocale, setSavingLocale] = useState(false);
 
   useEffect(() => {
     if (!user || playerDirty) return;
@@ -205,7 +214,33 @@ export function SettingsPage() {
     setAccountVisibility(user.account_visibility || 'private');
     setStatsVisibility(user.stats_visibility || (user.show_stats ? 'public' : 'me'));
     setActivityVisibility(user.activity_visibility || (user.show_recent_activity ? 'public' : 'me'));
+    setLocale(user.locale || readStoredLocale() || 'fr-FR');
+    setTimeFormat(user.time_format || readStoredTimeFormat());
   }, [user, playerDirty]);
+
+  const persistLocalePrefs = async (nextLocale, nextTimeFormat) => {
+    setSavingLocale(true);
+    try {
+      await setAppLocale(nextLocale);
+      writeStoredTimeFormat(nextTimeFormat);
+      setLocale(nextLocale);
+      setTimeFormat(nextTimeFormat);
+
+      const result = await updateProfile({
+        locale: nextLocale,
+        time_format: nextTimeFormat,
+      });
+      if (result?.success) {
+        toast.success(t('languageRegion.saveSuccess'));
+      } else {
+        toast.error(result?.error || t('languageRegion.saveError'));
+      }
+    } catch (e) {
+      toast.error(t('languageRegion.saveError'));
+    } finally {
+      setSavingLocale(false);
+    }
+  };
 
   useEffect(() => {
     if (accountVisibility === 'private') {
@@ -686,6 +721,65 @@ export function SettingsPage() {
                 ) : null}
               </>
             )}
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value={SECTION_IDS.locale} className="card border-0 rounded-2xl overflow-hidden px-0">
+          <AccordionTrigger className={triggerClass} data-testid="settings-section-locale">
+            <span className="flex items-center">
+              <SectionIcon icon={Globe} />
+              {t('languageRegion.title')}
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 space-y-3">
+            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3 gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <Globe size={16} className="text-zinc-500 shrink-0" />
+                <span className="text-white text-sm">{t('languageRegion.language.label')}</span>
+              </div>
+              <Select
+                value={locale}
+                onValueChange={(v) => {
+                  const next = v || 'fr-FR';
+                  persistLocalePrefs(next, timeFormat);
+                }}
+                disabled={savingLocale}
+              >
+                <SelectTrigger className="w-40 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  <SelectItem value="fr-FR" className="text-white">{t('languageRegion.language.fr-FR')}</SelectItem>
+                  <SelectItem value="en-US" className="text-white">{t('languageRegion.language.en-US')}</SelectItem>
+                  <SelectItem value="es-ES" className="text-white">{t('languageRegion.language.es-ES')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3 gap-3">
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="text-white text-sm">{t('languageRegion.timeFormat.label')}</span>
+              </div>
+              <Select
+                value={timeFormat}
+                onValueChange={(v) => {
+                  const next = v || 'auto';
+                  writeStoredTimeFormat(next);
+                  setTimeFormat(next);
+                  persistLocalePrefs(locale, next);
+                }}
+                disabled={savingLocale}
+              >
+                <SelectTrigger className="w-40 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-[#141414] border-white/10">
+                  <SelectItem value="auto" className="text-white">{t('languageRegion.timeFormat.auto')}</SelectItem>
+                  <SelectItem value="24h" className="text-white">{t('languageRegion.timeFormat.24h')}</SelectItem>
+                  <SelectItem value="12h" className="text-white">{t('languageRegion.timeFormat.12h')}</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </AccordionContent>
         </AccordionItem>
 
