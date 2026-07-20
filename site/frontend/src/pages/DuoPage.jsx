@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
@@ -17,8 +17,22 @@ import { NotificationBell } from '../components/NotificationBell';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
+import {
+  DuoHeaderSkeleton,
+  DuoStatsCardsSkeleton,
+  DuoChallengeSkeleton,
+  DuoBadgesSkeleton,
+  DuoActivitySkeleton,
+} from '../components/duo/DuoSkeletons';
 import { getAccentForUser } from '../lib/userAccent';
 import { duoProfilePath } from '../lib/duoProfile';
+import {
+  getDuoCache,
+  setDuoCache,
+  duoCacheKey,
+  DUO_STALE,
+  duoTime,
+} from '../lib/duoCache';
 import { DuoAvatar } from '../components/duo/DuoAvatar';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
@@ -77,9 +91,13 @@ export function DuoPage() {
   const [sessions, setSessions] = useState([]);
   const [duoStats, setDuoStats] = useState(null);
   const [partner, setPartner] = useState(null);
-  const [loading, setLoading] = useState(true);
+  /** Boot: partner résolu (null = solo, object = duo). false tant que /partner/info n'a pas répondu. */
+  const [partnerReady, setPartnerReady] = useState(false);
+  const [statsBootLoading, setStatsBootLoading] = useState(true);
+  const [activityLoading, setActivityLoading] = useState(true);
   const [commentText, setCommentText] = useState('');
   const [activeCommentSession, setActiveCommentSession] = useState(null);
+  const loadGenRef = useRef(0);
   
   // Stats state
   const [detailedStats, setDetailedStats] = useState(null);
@@ -103,17 +121,30 @@ export function DuoPage() {
 
   const { liveSession } = usePartnerLiveSession(!!partner);
 
+  const pairKey = partner?.id && user?.id
+    ? [user.id, partner.id].sort().join('_')
+    : user?.partner_id && user?.id
+      ? [user.id, user.partner_id].sort().join('_')
+      : 'solo';
+
   const loadDuoNotifications = useCallback(async () => {
+    const cacheParts = ['duo', 'notifications', pairKey];
+    const cached = getDuoCache(cacheParts);
+    if (cached) {
+      setPendingDuoFollow(cached);
+      return;
+    }
     try {
       const { data } = await notificationsApi.list(30, 'duo');
       const pending = (data || []).find(
         (n) => n.type === 'duo_follow_request' && !n.read && n.request_id
-      );
-      setPendingDuoFollow(pending || null);
+      ) || null;
+      setPendingDuoFollow(pending);
+      setDuoCache(cacheParts, pending, DUO_STALE.notifications);
     } catch {
       setPendingDuoFollow(null);
     }
-  }, []);
+  }, [pairKey]);
 
   useEffect(() => {
     loadData();
@@ -139,6 +170,8 @@ export function DuoPage() {
     if (activeTab === 'history' && partner) {
       loadHistory();
     }
+    // Intentionally omit loader fns — they close over current filters
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab, statsPeriod, statsTarget, partner, historyFilter, historyTarget]);
 
   const loadHistory = async () => {
@@ -213,22 +246,112 @@ export function DuoPage() {
   };
 
   const loadData = async () => {
-    try {
-      const [feedRes, statsRes, partnerRes, coachRes] = await Promise.all([
-        duoApi.getActivityFeed(20),
-        duoApi.getStats(),
-        partnerApi.getInfo(),
-        streakApi.getCoachStatus().catch(() => ({ data: { can_moderate: false } })),
-      ]);
-      setSessions(feedRes.data || []);
-      setDuoStats(statsRes.data);
-      setPartner(partnerRes.data);
-      setCanModerateStreak(!!coachRes.data?.can_moderate);
-    } catch (error) {
-      console.error('Failed to load duo data:', error);
-    } finally {
-      setLoading(false);
+    const gen = ++loadGenRef.current;
+    const endTotal = duoTime('total');
+    const endPartner = duoTime('partner');
+    const endStats = duoTime('stats');
+    const endActivity = duoTime('activity');
+    const endCoach = duoTime('coach');
+
+    const partnerCacheKey = duoCacheKey('partner', user?.id || 'anon');
+    const cachedPartner = getDuoCache(partnerCacheKey);
+    if (cachedPartner !== null && cachedPartner !== undefined) {
+      setPartner(cachedPartner || null);
+      setPartnerReady(true);
     }
+
+    // 1) Partner en priorité — débloque le shell (header / Solo)
+    const partnerPromise = (async () => {
+      try {
+        const { data } = await partnerApi.getInfo();
+        if (gen !== loadGenRef.current) return data;
+        setPartner(data || null);
+        setDuoCache(partnerCacheKey, data || null, DUO_STALE.partner);
+        return data;
+      } catch (error) {
+        console.error('Failed to load partner', error);
+        if (gen === loadGenRef.current) setPartner(null);
+        return null;
+      } finally {
+        endPartner();
+        if (gen === loadGenRef.current) setPartnerReady(true);
+      }
+    })();
+
+    // 2) Stats (+ badges + challenge inclus) — parallèle
+    const statsPromise = (async () => {
+      const pkHint = pairKey;
+      const statsKey = duoCacheKey('stats', pkHint);
+      const cached = getDuoCache(statsKey);
+      if (cached) {
+        setDuoStats(cached);
+        setStatsBootLoading(false);
+        endStats();
+        return cached;
+      }
+      try {
+        const { data } = await duoApi.getStats();
+        if (gen !== loadGenRef.current) return data;
+        setDuoStats(data);
+        const pk = data?.duo_profile?.pair_key || pkHint;
+        setDuoCache(duoCacheKey('stats', pk), data, DUO_STALE.stats);
+        if (data?.badges) {
+          setDuoCache(duoCacheKey('badges', pk), data.badges, DUO_STALE.badges);
+        }
+        if (data?.current_challenge) {
+          const weekKey = data.current_challenge.week_key || 'current';
+          setDuoCache(duoCacheKey('challenges', pk, weekKey), data.current_challenge, DUO_STALE.challenges);
+        }
+        return data;
+      } catch (error) {
+        console.error('Failed to load duo stats', error);
+        return null;
+      } finally {
+        endStats();
+        if (gen === loadGenRef.current) setStatsBootLoading(false);
+      }
+    })();
+
+    // 3) Activity feed — parallèle, ne bloque pas le header
+    const activityPromise = (async () => {
+      const actKey = duoCacheKey('activity', pairKey);
+      const cached = getDuoCache(actKey);
+      if (cached) {
+        setSessions(cached);
+        setActivityLoading(false);
+        endActivity();
+        return cached;
+      }
+      try {
+        const { data } = await duoApi.getActivityFeed(20);
+        if (gen !== loadGenRef.current) return data;
+        const list = data || [];
+        setSessions(list);
+        setDuoCache(actKey, list, DUO_STALE.activity);
+        return list;
+      } catch (error) {
+        console.error('Failed to load activity', error);
+        return [];
+      } finally {
+        endActivity();
+        if (gen === loadGenRef.current) setActivityLoading(false);
+      }
+    })();
+
+    // 4) Coach status — parallèle, non bloquant
+    const coachPromise = (async () => {
+      try {
+        const { data } = await streakApi.getCoachStatus();
+        if (gen === loadGenRef.current) setCanModerateStreak(!!data?.can_moderate);
+      } catch {
+        if (gen === loadGenRef.current) setCanModerateStreak(false);
+      } finally {
+        endCoach();
+      }
+    })();
+
+    await Promise.all([partnerPromise, statsPromise, activityPromise, coachPromise]);
+    endTotal();
   };
 
   const handleCoachSetStreak = async () => {
@@ -277,11 +400,18 @@ export function DuoPage() {
 
   const loadDetailedStats = async () => {
     if (!partner) return;
+    const cacheKey = duoCacheKey('detailedStats', pairKey, statsPeriod, statsTarget);
+    const cached = getDuoCache(cacheKey);
+    if (cached) {
+      setDetailedStats(cached);
+      return;
+    }
     setStatsLoading(true);
     try {
       const targetUserId = statsTarget === 'partner' ? partner.id : user?.id;
       const { data } = await duoApi.getDetailedStats(statsPeriod, targetUserId);
       setDetailedStats(data);
+      setDuoCache(cacheKey, data, DUO_STALE.detailedStats);
     } catch (error) {
       console.error('Failed to load detailed stats:', error);
     } finally {
@@ -346,10 +476,20 @@ export function DuoPage() {
     return `${mins} min`;
   };
 
-  if (loading) {
+  if (!partnerReady) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+      <div data-testid="duo-page" className="p-5 animate-fade-in">
+        <DuoHeaderSkeleton />
+        <div className="grid gap-6 lg:grid-cols-12 mt-6">
+          <div className="lg:col-span-7 space-y-4">
+            <DuoChallengeSkeleton />
+            <DuoActivitySkeleton />
+          </div>
+          <div className="lg:col-span-5 space-y-4">
+            <DuoStatsCardsSkeleton />
+            <DuoBadgesSkeleton />
+          </div>
+        </div>
       </div>
     );
   }
@@ -360,6 +500,7 @@ export function DuoPage() {
         duoStats={duoStats}
         duoNav={duoNav}
         initialSessions={sessions.filter((s) => s.user_id === user?.id)}
+        statsLoading={statsBootLoading}
       />
     );
   }
@@ -533,7 +674,9 @@ export function DuoPage() {
           <div className="grid gap-6 lg:grid-cols-12">
             <div className="space-y-6 lg:col-span-7">
               {/* Weekly challenge */}
-              {duoStats?.current_challenge && (
+              {statsBootLoading && !duoStats?.current_challenge ? (
+                <DuoChallengeSkeleton />
+              ) : duoStats?.current_challenge ? (
                 <div className="card p-4 border-[var(--theme-primary)]/30">
                   <div className="flex items-center gap-3 mb-2">
                     <Zap className="text-[var(--theme-primary)]" size={18} />
@@ -552,7 +695,7 @@ export function DuoPage() {
                     {duoStats.current_challenge.current}/{duoStats.current_challenge.target}
                   </p>
                 </div>
-              )}
+              ) : null}
 
               {canModerateStreak && duoStats && partner && (
                 <div className="card p-4 border border-dashed border-white/15">
@@ -629,7 +772,9 @@ export function DuoPage() {
               {/* Activity feed */}
               <div>
                 <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">Activité récente</h2>
-                {sessions.length === 0 ? (
+                {activityLoading && sessions.length === 0 ? (
+                  <DuoActivitySkeleton />
+                ) : sessions.length === 0 ? (
                   <div className="card p-6 text-center">
                     <p className="text-zinc-500">Pas encore d'activité</p>
                   </div>
@@ -670,7 +815,9 @@ export function DuoPage() {
 
             <div className="space-y-6 lg:col-span-5">
               {/* Duo Stats Card */}
-              {duoStats && (
+              {statsBootLoading && !duoStats ? (
+                <DuoStatsCardsSkeleton />
+              ) : duoStats ? (
                 <div className="card p-4">
                   <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-2">
                     <div className="text-center">
@@ -700,10 +847,12 @@ export function DuoPage() {
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Badges — accordéon */}
-              {duoStats?.badges?.length > 0 && (
+              {statsBootLoading && !duoStats?.badges ? (
+                <DuoBadgesSkeleton />
+              ) : duoStats?.badges?.length > 0 ? (
                 <Collapsible open={badgesOpen} onOpenChange={setBadgesOpen}>
                   <div className="card overflow-hidden">
                     <CollapsibleTrigger className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
@@ -727,7 +876,7 @@ export function DuoPage() {
                     </CollapsibleContent>
                   </div>
                 </Collapsible>
-              )}
+              ) : null}
             </div>
           </div>
         </TabsContent>

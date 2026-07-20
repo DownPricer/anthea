@@ -33,7 +33,7 @@ function filterSoloBadges(badges = []) {
   return badges.filter((b) => !b.id?.startsWith('duo_') && b.family !== 'duo');
 }
 
-export function SoloDashboard({ duoStats, duoNav, initialSessions = [] }) {
+export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoading: parentStatsLoading }) {
   const { user } = useAuth();
   const { theme } = useTheme();
   const [searchParams] = useSearchParams();
@@ -48,6 +48,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [] }) {
   const soloBadges = useMemo(() => filterSoloBadges(duoStats?.badges), [duoStats?.badges]);
   const accentColor = getAccentForUser(user, theme);
   const bestStreak = useMemo(() => computeBestStreak(calendarDays), [calendarDays]);
+  const heatmapYear = new Date().getFullYear();
 
   useEffect(() => {
     const tab = searchParams.get('tab');
@@ -70,12 +71,9 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [] }) {
     if (!user?.id) return;
     setStatsLoading(true);
     try {
-      const end = new Date();
-      const start = new Date();
-      start.setFullYear(start.getFullYear() - 1);
       const [detailedRes, calendarRes] = await Promise.all([
         duoApi.getDetailedStats('all', user.id),
-        streakApi.getCalendar(start.toISOString().slice(0, 10), end.toISOString().slice(0, 10)),
+        streakApi.getCalendar(`${heatmapYear}-01-01`, `${heatmapYear}-12-31`),
       ]);
       setDetailedStats(detailedRes.data);
       setCalendarDays(calendarRes.data?.days || []);
@@ -277,9 +275,11 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [] }) {
 
           <div className="card p-4">
             <AnnualHeatmap
+              year={heatmapYear}
               userId={user?.id}
               title="Agenda annuel"
               accentColor={accentColor}
+              initialDays={calendarDays.length ? calendarDays : null}
             />
           </div>
         </TabsContent>
@@ -322,9 +322,11 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [] }) {
           />
           <div className="mt-6 card p-4">
             <AnnualHeatmap
+              year={heatmapYear}
               userId={user?.id}
               title="Agenda annuel"
               accentColor={accentColor}
+              initialDays={calendarDays.length ? calendarDays : null}
             />
           </div>
         </TabsContent>

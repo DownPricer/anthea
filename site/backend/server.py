@@ -1545,6 +1545,10 @@ async def lifespan(app: FastAPI):
     await db.scheduled_workouts.create_index([("for_user_id", 1), ("scheduled_date", 1)])
     await db.workout_sessions.create_index([("user_id", 1), ("created_at", -1)])
     await db.challenge_completions.create_index([("user_id", 1), ("week_key", 1)], unique=True)
+    await db.challenge_completions.create_index([("pair_key", 1), ("week_key", 1)])
+    await db.challenge_completions.create_index("pair_key")
+    await db.challenge_completions.create_index("week_key")
+    await db.challenge_completions.create_index("created_at")
     await db.session_time_audit.create_index("session_id")
     await db.workout_progress.create_index([("user_id", 1), ("saved_at", -1)])
     await db.live_workout_messages.create_index([("pair_key", 1), ("created_at", -1)])
@@ -1557,11 +1561,15 @@ async def lifespan(app: FastAPI):
     await db.duo_profiles.create_index("pair_key", unique=True)
     await db.duo_profiles.create_index("short_id")
     await db.duo_profiles.create_index("name")
+    await db.push_subscriptions.create_index([("user_id", 1), ("endpoint", 1)], unique=True)
+    await db.push_subscriptions.create_index("user_id")
+    await db.push_subscriptions.create_index("revoked_at")
 
     await db.posts.create_index([("author_id", 1), ("created_at", -1)])
     await db.posts.create_index("created_at")
     await db.posts.create_index([("duo_id", 1), ("created_at", -1)])
     await db.posts.create_index([("owner_type", 1), ("owner_id", 1), ("created_at", -1)])
+    await db.posts.create_index("badge_id")
     repaired_posts = await repair_duo_wall_post_ownership()
     if repaired_posts:
         logger.info("Repaired %s duo wall posts ownership fields", repaired_posts)
@@ -1571,6 +1579,7 @@ async def lifespan(app: FastAPI):
     await db.duo_follows.create_index([("duo_id", 1), ("follower_id", 1)], unique=True)
     await db.duo_follows.create_index([("follower_id", 1), ("status", 1)])
     await db.duo_follows.create_index([("duo_id", 1), ("status", 1)])
+    await db.duo_follows.create_index("status")
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -2944,22 +2953,39 @@ async def get_duo_profile_by_tag(tag: str, user: dict = Depends(get_current_user
 async def get_duo_activity_feed(limit: int = 20, user: dict = Depends(get_current_user)):
     """Fil d'activité privé avec séances communes regroupées."""
     from duo_social import _serialize_session_ref
+    import asyncio
+
+    session_projection = {
+        "_id": 1, "user_id": 1, "created_at": 1, "completed_at": 1, "status": 1,
+        "title": 1, "workout_title": 1, "total_time": 1, "estimated_calories": 1,
+        "likes": 1, "reactions": 1, "comments": 1, "exercises_completed": 1,
+        "template_id": 1, "scheduled_workout_id": 1,
+    }
 
     if not user.get("partner_id"):
-        sessions = await db.workout_sessions.find({"user_id": user["id"]}).sort(
-            "created_at", -1
-        ).limit(limit).to_list(limit)
+        sessions = await db.workout_sessions.find(
+            {"user_id": user["id"]}, session_projection
+        ).sort("created_at", -1).limit(limit).to_list(limit)
         return [
             {**_serialize_session_ref({**s, "id": str(s["_id"])}, user["id"]), "type": "session"}
             for s in sessions
         ]
 
-    sessions_a = await db.workout_sessions.find(
-        {"user_id": user["id"]}
+    sessions_a_coro = db.workout_sessions.find(
+        {"user_id": user["id"]}, session_projection
     ).sort("created_at", -1).limit(100).to_list(100)
-    sessions_b = await db.workout_sessions.find(
-        {"user_id": user["partner_id"]}
+    sessions_b_coro = db.workout_sessions.find(
+        {"user_id": user["partner_id"]}, session_projection
     ).sort("created_at", -1).limit(100).to_list(100)
+    reposts_coro = db.reposts.find(
+        {"user_id": user["id"]},
+        {"_id": 1, "workout_session_id": 1},
+    ).to_list(500)
+    duo_doc_coro = _get_duo_profile_for_user(user["id"], user["partner_id"])
+
+    sessions_a, sessions_b, user_reposts, duo_doc = await asyncio.gather(
+        sessions_a_coro, sessions_b_coro, reposts_coro, duo_doc_coro
+    )
 
     for s in sessions_a:
         s["id"] = str(s["_id"])
@@ -2968,7 +2994,6 @@ async def get_duo_activity_feed(limit: int = 20, user: dict = Depends(get_curren
 
     items = build_common_sessions(sessions_a, sessions_b, user["id"], user["partner_id"])
 
-    user_reposts = await db.reposts.find({"user_id": user["id"]}).to_list(500)
     repost_by_session = {}
     for repost in user_reposts:
         sid = repost.get("workout_session_id")
@@ -2976,15 +3001,22 @@ async def get_duo_activity_feed(limit: int = 20, user: dict = Depends(get_curren
             continue
         repost_by_session[sid] = str(repost["_id"])
 
-    duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
     wall_by_session = {}
     if duo_doc:
         duo_id = str(duo_doc["_id"])
-        wall_posts = await db.posts.find({
-            "duo_id": duo_id,
-            "author_id": user["id"],
-            "workout_session_id": {"$exists": True, "$ne": None},
-        }).to_list(500)
+        pair_key = resolve_duo_pair_key(duo_doc)
+        or_clauses = [{"duo_id": duo_id}]
+        if pair_key and pair_key != duo_id:
+            or_clauses.append({"duo_id": pair_key})
+            or_clauses.append({"owner_type": "duo", "owner_id": pair_key})
+        wall_posts = await db.posts.find(
+            {
+                "author_id": user["id"],
+                "workout_session_id": {"$exists": True, "$ne": None},
+                "$or": or_clauses,
+            },
+            {"_id": 1, "workout_session_id": 1},
+        ).to_list(500)
         for post in wall_posts:
             sid = post.get("workout_session_id")
             if sid:

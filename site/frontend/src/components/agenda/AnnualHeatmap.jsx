@@ -22,9 +22,13 @@ export function AnnualHeatmap({
   title = 'Agenda annuel',
   accentColor = null,
   partnerColor = null,
+  /** Jours déjà chargés (évite un 2e fetch calendar) */
+  initialDays = null,
 }) {
-  const [dayMap, setDayMap] = useState({});
-  const [loading, setLoading] = useState(true);
+  const [dayMap, setDayMap] = useState(() =>
+    initialDays ? calendarDaysToMap(initialDays) : {}
+  );
+  const [loading, setLoading] = useState(!initialDays);
   const [selectedDay, setSelectedDay] = useState(null);
   const gridRef = useRef(null);
 
@@ -40,6 +44,11 @@ export function AnnualHeatmap({
   }, [year]);
 
   const load = useCallback(async () => {
+    if (initialDays && Array.isArray(initialDays)) {
+      setDayMap(calendarDaysToMap(initialDays));
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const startStr = `${year}-01-01`;
@@ -52,7 +61,7 @@ export function AnnualHeatmap({
     } finally {
       setLoading(false);
     }
-  }, [year, userId]);
+  }, [year, userId, initialDays]);
 
   useEffect(() => {
     load();
