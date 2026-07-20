@@ -1,8 +1,8 @@
 import { useState } from 'react';
 import { Loader2, Flame, Trophy, Target, Clock, Calendar, Zap, Medal } from 'lucide-react';
-import { BadgesGrid } from '../BadgesGrid';
+import { DuoBadgesGrid } from './DuoBadgeCard';
+import { ShareDuoBadgeDialog } from './ShareDuoBadgeDialog';
 import { ProfileEmptyState } from '../profile/ProfileEmptyState';
-import { ShareDuoBadgeButton } from './ShareDuoBadgeDialog';
 import { formatDuration } from '../../lib/userProfile';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -18,6 +18,11 @@ export function DuoProfileStatsTab({
   onBadgeShared,
 }) {
   const [showAllBadges, setShowAllBadges] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState(null);
+
+  const handleBadgeClick = (badge) => {
+    setSelectedBadge(badge);
+  };
 
   if (!canViewStats && !canViewBadges && !canViewChallenges) {
     return (
@@ -59,8 +64,9 @@ export function DuoProfileStatsTab({
     return family === 'duo' || b.id?.startsWith('duo_');
   });
   const unlockedBadges = duoBadges.filter((b) => b.unlocked);
-  const displayedBadges = showAllBadges ? duoBadges : unlockedBadges;
+  const displayedBadges = showAllBadges ? duoBadges : unlockedBadges.slice(0, 6);
   const duoBadgesUnlockedCount = unlockedBadges.length;
+  const canPublish = Boolean(duoProfile?.is_member);
 
   return (
     <div className="space-y-6" data-testid="duo-profile-stats">
@@ -127,33 +133,24 @@ export function DuoProfileStatsTab({
       {canViewBadges ? (
         <div>
           <div className="flex items-center justify-between mb-3">
-            <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Duo</h3>
+            <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">Badges Duo</h3>
             {duoBadges.length > unlockedBadges.length || duoBadges.length > 6 ? (
               <button
                 type="button"
                 onClick={() => setShowAllBadges((v) => !v)}
                 className="text-xs text-[var(--theme-primary)] hover:underline"
+                data-testid="duo-badges-toggle-all"
               >
-                {showAllBadges ? 'Réduire' : 'Voir tous les badges duo'}
+                {showAllBadges ? 'Réduire' : 'Voir tous les badges'}
               </button>
             ) : null}
           </div>
           {displayedBadges.length > 0 ? (
-            <div className="space-y-3">
-              <div className="flex w-full justify-center">
-                <BadgesGrid badges={displayedBadges} />
-              </div>
-              {duoProfile?.is_member && unlockedBadges.length > 0 ? (
-                <p className="text-center text-zinc-500 text-xs">
-                  Publier un badge :{' '}
-                  {unlockedBadges.map((badge, i) => (
-                    <span key={badge.id}>
-                      {i > 0 ? ' · ' : ''}
-                      <ShareDuoBadgeButton badge={badge} onShared={onBadgeShared} />
-                    </span>
-                  ))}
-                </p>
-              ) : null}
+            <div className="flex w-full justify-center">
+              <DuoBadgesGrid
+                badges={displayedBadges}
+                onBadgeClick={handleBadgeClick}
+              />
             </div>
           ) : (
             <ProfileEmptyState
@@ -161,8 +158,23 @@ export function DuoProfileStatsTab({
               description="Entraînez-vous ensemble pour débloquer des badges."
             />
           )}
+          {canPublish ? (
+            <p className="text-center text-zinc-600 text-[11px] mt-3">
+              Touchez un badge débloqué pour le publier sur le mur Duo
+            </p>
+          ) : null}
         </div>
       ) : null}
+
+      <ShareDuoBadgeDialog
+        badge={selectedBadge}
+        open={Boolean(selectedBadge)}
+        onOpenChange={(open) => { if (!open) setSelectedBadge(null); }}
+        onShared={() => {
+          onBadgeShared?.();
+          setSelectedBadge(null);
+        }}
+      />
     </div>
   );
 }

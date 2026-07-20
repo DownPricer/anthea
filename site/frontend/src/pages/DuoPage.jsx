@@ -15,6 +15,8 @@ import { sessionsApi, duoApi, partnerApi, streakApi, notificationsApi, duoProfil
 import { SoloDashboard } from '../components/duo/SoloDashboard';
 import { NotificationBell } from '../components/NotificationBell';
 import { BadgesGrid } from '../components/BadgesGrid';
+import { DuoBadgesGrid } from '../components/duo/DuoBadgeCard';
+import { ShareDuoBadgeDialog } from '../components/duo/ShareDuoBadgeDialog';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import {
@@ -118,6 +120,7 @@ export function DuoPage() {
   const [exportStartDate, setExportStartDate] = useState('');
   const [exportEndDate, setExportEndDate] = useState('');
   const [badgesOpen, setBadgesOpen] = useState(false);
+  const [selectedDuoBadge, setSelectedDuoBadge] = useState(null);
 
   const { liveSession } = usePartnerLiveSession(!!partner);
 
@@ -871,14 +874,26 @@ export function DuoPage() {
                     </CollapsibleTrigger>
                     <CollapsibleContent className="px-4 pb-4 border-t border-white/5">
                       <div className="flex w-full justify-center pt-3">
-                        <BadgesGrid badges={duoStats.badges} />
+                        <DuoBadgesGrid
+                          badges={duoStats.badges}
+                          onBadgeClick={(badge) => setSelectedDuoBadge(badge)}
+                        />
                       </div>
+                      <p className="text-center text-zinc-600 text-[11px] mt-3">
+                        Touchez un badge débloqué pour le publier sur le mur Duo
+                      </p>
                     </CollapsibleContent>
                   </div>
                 </Collapsible>
               ) : null}
             </div>
           </div>
+          <ShareDuoBadgeDialog
+            badge={selectedDuoBadge}
+            open={Boolean(selectedDuoBadge)}
+            onOpenChange={(open) => { if (!open) setSelectedDuoBadge(null); }}
+            onShared={() => setSelectedDuoBadge(null)}
+          />
         </TabsContent>
 
         {/* History Tab */}

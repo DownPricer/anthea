@@ -4216,8 +4216,12 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         elif post_type in ("duo", "duo_badge") and data.badge_id:
             if not user.get("partner_id"):
                 raise HTTPException(status_code=400, detail="Badge duo requiert un partenaire")
+            from badges import merge_duo_badges, evaluate_all_badges, evaluate_duo_social_badges
             together = await compute_together_stats(db, user["id"], user["partner_id"])
-            duo_badges = await evaluate_duo_social_badges(db, user["id"], user["partner_id"], together)
+            streak = await calculate_streak(user["id"], user["partner_id"])
+            social_badges = await evaluate_duo_social_badges(db, user["id"], user["partner_id"], together)
+            legacy_badges = await evaluate_all_badges(db, user["id"], user["partner_id"], streak)
+            duo_badges = merge_duo_badges(social_badges, legacy_badges)
             badge = next((b for b in duo_badges if b.get("id") == data.badge_id), None)
             if not badge or not badge.get("unlocked"):
                 raise HTTPException(status_code=400, detail="Badge duo non débloqué")
@@ -4226,6 +4230,9 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
             badge_rarity = badge.get("rarity") or "Commun"
             if not title:
                 title = f"Badge duo : {badge_name}"
+            if not data.description and post_type == "duo_badge":
+                # message par défaut — le champ description peut rester None côté create
+                pass
         elif post_type == "duo_challenge":
             if not user.get("partner_id"):
                 raise HTTPException(status_code=400, detail="Défi duo requiert un partenaire")
