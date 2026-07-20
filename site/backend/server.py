@@ -396,6 +396,10 @@ class SessionTimeAdjust(BaseModel):
 class PushSubscriptionCreate(BaseModel):
     endpoint: str
     keys: dict
+    user_agent: Optional[str] = None
+
+class PushUnsubscribeBody(BaseModel):
+    endpoint: str
 
 class DuoStatsResponse(BaseModel):
     streak: int
@@ -783,6 +787,28 @@ async def create_notification(
     if duo_tag:
         doc["duo_tag"] = duo_tag
     await db.notifications.insert_one(doc)
+    try:
+        from push_service import notify_push
+        actor_name = (
+            actor.get("display_name")
+            or actor.get("username")
+            or actor.get("handle")
+            or "Quelqu'un"
+        )
+        url = "/notifications"
+        if notif_type and str(notif_type).startswith("duo_"):
+            url = "/notifications?filter=duo"
+        if post_id:
+            url = f"/notifications"
+        await notify_push(
+            db,
+            recipient_id,
+            notif_type,
+            actor_name=actor_name,
+            url=url,
+        )
+    except Exception:
+        pass
 
 def serialize_notification(doc: dict) -> dict:
     out = {
@@ -2516,7 +2542,14 @@ async def send_partner_request(data: PartnerRequest, user: dict = Depends(get_cu
     
     result = await db.partner_requests.insert_one(request_doc)
     request_doc["id"] = str(result.inserted_id)
-    request_doc.pop("_id", None)  # Remove ObjectId before returning
+    request_doc.pop("_id", None)
+    await create_notification(
+        str(target["_id"]),
+        "duo_partner_request",
+        user,
+        request_id=request_doc["id"],
+        skip_if_exists=True,
+    )
     return request_doc
 
 @api_router.get("/partner/requests")
@@ -2573,6 +2606,13 @@ async def accept_partner_request(request_id: str, user: dict = Depends(get_curre
             }},
         )
 
+    await create_notification(
+        req["from_user_id"],
+        "duo_partner_accepted",
+        user,
+        request_id=request_id,
+        skip_if_exists=True,
+    )
     return {"message": "Partner request accepted"}
 
 @api_router.post("/partner/reject/{request_id}")
@@ -2582,6 +2622,13 @@ async def reject_partner_request(request_id: str, user: dict = Depends(get_curre
         raise HTTPException(status_code=404, detail="Request not found")
     
     await db.partner_requests.update_one({"_id": ObjectId(request_id)}, {"$set": {"status": "rejected"}})
+    await create_notification(
+        req["from_user_id"],
+        "duo_partner_rejected",
+        user,
+        request_id=request_id,
+        skip_if_exists=True,
+    )
     return {"message": "Partner request rejected"}
 
 @api_router.delete("/partner/unlink")
@@ -3944,19 +3991,72 @@ async def adjust_session_time(
     return {"status": "ok", "total_time": body.total_time}
 
 
+@api_router.get("/push/status")
+async def push_status(user: dict = Depends(get_current_user)):
+    from push_service import is_push_configured, VAPID_PUBLIC_KEY
+    count = await db.push_subscriptions.count_documents({
+        "user_id": user["id"],
+        "$or": [{"revoked_at": None}, {"revoked_at": {"$exists": False}}],
+    })
+    return {
+        "configured": is_push_configured(),
+        "public_key": VAPID_PUBLIC_KEY if is_push_configured() else None,
+        "subscriptions": count,
+    }
+
+
 @api_router.post("/push/subscribe")
 async def subscribe_push(data: PushSubscriptionCreate, user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    keys = data.keys or {}
     await db.push_subscriptions.update_one(
         {"user_id": user["id"], "endpoint": data.endpoint},
         {"$set": {
             "user_id": user["id"],
             "endpoint": data.endpoint,
-            "keys": data.keys,
-            "updated_at": datetime.now(timezone.utc).isoformat(),
-        }},
+            "p256dh": keys.get("p256dh"),
+            "auth": keys.get("auth"),
+            "keys": keys,
+            "user_agent": data.user_agent,
+            "updated_at": now,
+            "revoked_at": None,
+        }, "$setOnInsert": {"created_at": now}},
         upsert=True,
     )
     return {"status": "ok"}
+
+
+@api_router.delete("/push/unsubscribe")
+async def unsubscribe_push(data: PushUnsubscribeBody, user: dict = Depends(get_current_user)):
+    now = datetime.now(timezone.utc).isoformat()
+    result = await db.push_subscriptions.update_one(
+        {"user_id": user["id"], "endpoint": data.endpoint},
+        {"$set": {"revoked_at": now, "updated_at": now}},
+    )
+    return {"status": "ok", "revoked": result.modified_count > 0}
+
+
+@api_router.post("/push/test")
+async def test_push(user: dict = Depends(get_current_user)):
+    from push_service import is_push_configured, send_web_push_to_user, build_push_payload
+    if not is_push_configured():
+        raise HTTPException(status_code=503, detail="Push non configuré (VAPID manquant)")
+    payload = build_push_payload(
+        "follow_request",
+        title="Notification de test",
+        body="Si vous lisez ceci avec l’onglet fermé, Web Push fonctionne.",
+        url="/notifications",
+        tag="push-test",
+    )
+    # Override tag for test
+    payload["tag"] = "push-test"
+    result = await send_web_push_to_user(db, user["id"], payload)
+    if result.get("sent", 0) < 1:
+        raise HTTPException(
+            status_code=400,
+            detail=result.get("reason") or "Aucun appareil abonné",
+        )
+    return {"status": "ok", **result}
 
 
 @api_router.get("/sessions/{session_id}")

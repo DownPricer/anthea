@@ -188,7 +188,10 @@ export function resolveMediaUrl(value) {
 
 // Push API (PWA)
 export const pushApi = {
+  status: () => api.get('/push/status'),
   subscribe: (data) => api.post('/push/subscribe', data),
+  unsubscribe: (data) => api.delete('/push/unsubscribe', { data }),
+  test: () => api.post('/push/test'),
 };
 
 // Duo API

@@ -3,11 +3,11 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { duoApi, partnerApi } from '../lib/api';
-import { isPushConfigured } from '../lib/env';
 import { applyAccentToDocument, normalizeAccentColor, resolveUserAccent, getAccentForUser } from '../lib/userAccent';
 import { BadgesGrid } from '../components/BadgesGrid';
 import { AnnualHeatmap } from '../components/agenda/AnnualHeatmap';
 import { PartnerSettingsSection } from '../components/settings/PartnerSettingsSection';
+import { PushNotificationsCard } from '../components/settings/PushNotificationsCard';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -28,7 +28,6 @@ import {
   History,
   Palette,
   Volume2,
-  Bell,
   Music,
   Heart,
   Check,
@@ -42,7 +41,6 @@ import {
   Award,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { setupPushNotifications } from '../lib/pushNotifications';
 
 const ACCENT_PRESETS = [
   { value: '', label: 'Thème par défaut' },
@@ -498,31 +496,7 @@ export function SettingsPage() {
               />
             </div>
 
-            {isPushConfigured() ? (
-              <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
-                <div className="flex items-center gap-3">
-                  <Bell className="text-zinc-400" size={20} />
-                  <div>
-                    <span className="text-white block">Notifications</span>
-                    <span className="text-zinc-500 text-xs">Séances, streak, badges</span>
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  className="rounded-full border-white/15 text-white"
-                  onClick={async () => {
-                    const r = await setupPushNotifications();
-                    if (r.ok) toast.success('Notifications activées');
-                    else if (r.reason === 'denied') toast.info('Autorise les notifications dans les réglages du navigateur');
-                    else toast.error("Impossible d'activer les notifications");
-                  }}
-                >
-                  Activer
-                </Button>
-              </div>
-            ) : null}
+            <PushNotificationsCard />
           </div>
 
           <Button

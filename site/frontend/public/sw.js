@@ -1,17 +1,51 @@
-/* Service worker minimal — notifications push à brancher côté serveur */
+/* Service worker FitMatch — Web Push */
+self.addEventListener('install', (event) => {
+  self.skipWaiting();
+});
+
+self.addEventListener('activate', (event) => {
+  event.waitUntil(clients.claim());
+});
+
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Anthea';
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+
+  const title = data.title || 'FitMatch';
   const options = {
     body: data.body || '',
-    icon: '/logo192.png',
-    badge: '/logo192.png',
-    data: data.url || '/',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/badge-72.png',
+    tag: data.tag || 'fitmatch',
+    renotify: Boolean(data.tag),
+    data: {
+      url: data.url || '/',
+    },
   };
+
   event.waitUntil(self.registration.showNotification(title, options));
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  event.waitUntil(clients.openWindow(event.notification.data || '/'));
+  const targetUrl = event.notification.data?.url || '/';
+
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url && 'focus' in client) {
+          client.focus();
+          if (client.navigate) {
+            return client.navigate(targetUrl);
+          }
+          return clients.openWindow(targetUrl);
+        }
+      }
+      return clients.openWindow(targetUrl);
+    })
+  );
 });
