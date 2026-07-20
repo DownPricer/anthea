@@ -43,7 +43,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 
-export function PartnerSettingsSection() {
+export function PartnerSettingsSection({ embedded = false }) {
   const { user, refreshUser } = useAuth();
   const [partner, setPartner] = useState(null);
   const [partnerRequests, setPartnerRequests] = useState([]);
@@ -141,85 +141,79 @@ export function PartnerSettingsSection() {
     }
   };
 
-  return (
-    <>
-    <section id="partner-settings" className="card p-5 space-y-4">
-      <div className="flex items-start gap-3">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5">
-          <Heart size={18} className="text-[var(--theme-primary)]" />
+  const addPartnerDialog = !partner ? (
+    <Dialog open={partnerDialogOpen} onOpenChange={setPartnerDialogOpen}>
+      <DialogTrigger asChild>
+        <Button size="sm" className="bg-[var(--theme-primary)] text-white shrink-0">
+          <UserPlus size={16} className="mr-1" /> Ajouter
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="bg-[#141414] border-white/10">
+        <DialogHeader>
+          <DialogTitle className="text-white">Trouver un partenaire</DialogTitle>
+          <DialogDescription className="text-zinc-500">
+            Recherchez un utilisateur et envoyez une demande de liaison.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+            <Input
+              value={searchQuery}
+              onChange={(e) => handleSearch(e.target.value)}
+              placeholder="Rechercher par pseudo..."
+              className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+            />
+          </div>
+          <div>
+            <Label className="text-zinc-400 text-sm">Type de relation</Label>
+            <Select value={selectedRelationType} onValueChange={setSelectedRelationType}>
+              <SelectTrigger className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-[#141414] border-white/10">
+                <SelectItem value="partner" className="text-white">Partenaire</SelectItem>
+                <SelectItem value="coach" className="text-white">Coach</SelectItem>
+                <SelectItem value="coach_partner" className="text-white">Coach + Partenaire</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {searching && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="w-6 h-6 animate-spin text-[var(--theme-primary)]" />
+            </div>
+          )}
+          <div className="max-h-60 overflow-y-auto space-y-2">
+            {searchResults.map((result) => (
+              <button
+                key={result.id}
+                type="button"
+                onClick={() => handleSendRequest(result.username)}
+                className="w-full p-3 flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+              >
+                <div className="w-10 h-10 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
+                  <span className="text-white font-medium">
+                    {result.display_name?.[0] || result.username?.[0] || '?'}
+                  </span>
+                </div>
+                <div className="flex-1 text-left">
+                  <p className="text-white font-medium">{result.display_name || result.username}</p>
+                  <p className="text-zinc-500 text-sm">{result.handle ? `@${result.handle}` : `@${result.username}`}</p>
+                </div>
+                <UserPlus size={18} className="text-[var(--theme-primary)]" />
+              </button>
+            ))}
+          </div>
         </div>
-        <div className="flex-1">
-          <h2 className="text-lg font-semibold text-white font-['Outfit']">Partenaire / Duo</h2>
-          <p className="text-zinc-500 text-sm mt-0.5">Gérer votre relation et quitter le duo</p>
-        </div>
-        {!partner && (
-          <Dialog open={partnerDialogOpen} onOpenChange={setPartnerDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="bg-[var(--theme-primary)] text-white shrink-0">
-                <UserPlus size={16} className="mr-1" /> Ajouter
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="bg-[#141414] border-white/10">
-              <DialogHeader>
-                <DialogTitle className="text-white">Trouver un partenaire</DialogTitle>
-                <DialogDescription className="text-zinc-500">
-                  Recherchez un utilisateur et envoyez une demande de liaison.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
-                  <Input
-                    value={searchQuery}
-                    onChange={(e) => handleSearch(e.target.value)}
-                    placeholder="Rechercher par pseudo..."
-                    className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
-                  />
-                </div>
-                <div>
-                  <Label className="text-zinc-400 text-sm">Type de relation</Label>
-                  <Select value={selectedRelationType} onValueChange={setSelectedRelationType}>
-                    <SelectTrigger className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-[#141414] border-white/10">
-                      <SelectItem value="partner" className="text-white">Partenaire</SelectItem>
-                      <SelectItem value="coach" className="text-white">Coach</SelectItem>
-                      <SelectItem value="coach_partner" className="text-white">Coach + Partenaire</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-                {searching && (
-                  <div className="flex justify-center py-4">
-                    <Loader2 className="w-6 h-6 animate-spin text-[var(--theme-primary)]" />
-                  </div>
-                )}
-                <div className="max-h-60 overflow-y-auto space-y-2">
-                  {searchResults.map((result) => (
-                    <button
-                      key={result.id}
-                      type="button"
-                      onClick={() => handleSendRequest(result.username)}
-                      className="w-full p-3 flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
-                    >
-                      <div className="w-10 h-10 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
-                        <span className="text-white font-medium">
-                          {result.display_name?.[0] || result.username?.[0] || '?'}
-                        </span>
-                      </div>
-                      <div className="flex-1 text-left">
-                        <p className="text-white font-medium">{result.display_name || result.username}</p>
-                        <p className="text-zinc-500 text-sm">{result.handle ? `@${result.handle}` : `@${result.username}`}</p>
-                      </div>
-                      <UserPlus size={18} className="text-[var(--theme-primary)]" />
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </DialogContent>
-          </Dialog>
-        )}
-      </div>
+      </DialogContent>
+    </Dialog>
+  ) : null;
+
+  const body = (
+    <div className="space-y-4">
+      {embedded && !partner ? (
+        <div className="flex justify-end">{addPartnerDialog}</div>
+      ) : null}
 
       {partner ? (
         <div className="space-y-3">
@@ -309,32 +303,55 @@ export function PartnerSettingsSection() {
           ))}
         </div>
       )}
-    </section>
+    </div>
+  );
 
-    <AlertDialog open={unlinkDialogOpen} onOpenChange={setUnlinkDialogOpen}>
-      <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
-        <AlertDialogHeader>
-          <AlertDialogTitle>Délier votre partenaire ?</AlertDialogTitle>
-          <AlertDialogDescription className="text-zinc-400">
-            Vous quitterez le duo. Cette action peut être annulée en créant une nouvelle relation.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter className="gap-2 sm:gap-0">
-          <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
-            Annuler
-          </AlertDialogCancel>
-          <AlertDialogAction
-            onClick={(e) => {
-              e.preventDefault();
-              handleUnlinkPartner();
-            }}
-            className="bg-red-600 text-white hover:bg-red-700"
-          >
-            Délier
-          </AlertDialogAction>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
+  return (
+    <>
+      {embedded ? (
+        <div id="partner-settings" className="space-y-4">
+          {body}
+        </div>
+      ) : (
+        <section id="partner-settings" className="card p-5 space-y-4">
+          <div className="flex items-start gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5">
+              <Heart size={18} className="text-[var(--theme-primary)]" />
+            </div>
+            <div className="flex-1">
+              <h2 className="text-lg font-semibold text-white font-['Outfit']">Partenaire / Duo</h2>
+              <p className="text-zinc-500 text-sm mt-0.5">Gérer votre relation et quitter le duo</p>
+            </div>
+            {addPartnerDialog}
+          </div>
+          {body}
+        </section>
+      )}
+
+      <AlertDialog open={unlinkDialogOpen} onOpenChange={setUnlinkDialogOpen}>
+        <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Délier votre partenaire ?</AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400">
+              Vous quitterez le duo. Cette action peut être annulée en créant une nouvelle relation.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 sm:gap-0">
+            <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
+              Annuler
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleUnlinkPartner();
+              }}
+              className="bg-red-600 text-white hover:bg-red-700"
+            >
+              Délier
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

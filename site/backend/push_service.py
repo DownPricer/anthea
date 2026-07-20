@@ -94,6 +94,12 @@ PUSH_TYPE_PAYLOADS = {
         "url": "/duo",
         "tag": "challenge-ending",
     },
+    "challenge_completed": {
+        "title": "Défi réussi",
+        "body": "Un défi a été terminé avec succès.",
+        "url": "/duo",
+        "tag": "challenge-completed",
+    },
     "badge_unlocked": {
         "title": "Badge débloqué",
         "body": "Vous avez débloqué un nouveau badge !",
@@ -112,6 +118,18 @@ PUSH_TYPE_PAYLOADS = {
         "url": "/duo",
         "tag": "partner-activity",
     },
+    "partner_workout_started": {
+        "title": "Séance en cours",
+        "body": "{actor} a commencé une séance.",
+        "url": "/duo",
+        "tag": "partner-workout-started",
+    },
+    "partner_workout_completed": {
+        "title": "Séance terminée",
+        "body": "{actor} a terminé une séance.",
+        "url": "/duo",
+        "tag": "partner-workout-completed",
+    },
     "like": {
         "title": "Nouveau like",
         "body": "{actor} a aimé votre publication.",
@@ -124,7 +142,98 @@ PUSH_TYPE_PAYLOADS = {
         "url": "/notifications",
         "tag": "comment",
     },
+    "followed_user_post": {
+        "title": "Nouvelle publication",
+        "body": "{actor} a publié quelque chose.",
+        "url": "/notifications",
+        "tag": "followed-user-post",
+    },
+    "streak_reminder": {
+        "title": "Rappel de streak",
+        "body": "N'oubliez pas votre série d'entraînement.",
+        "url": "/agenda",
+        "tag": "streak-reminder",
+    },
 }
+
+# Préférences utilisateur → types de notif (clés persistées sur le profil).
+DEFAULT_NOTIFICATION_PREFS: Dict[str, bool] = {
+    "partner_workout_started": True,
+    "partner_workout_completed": True,
+    "scheduled_workout_reminder": True,
+    "followed_user_post": False,
+    "post_comment": True,
+    "post_like": True,
+    "follow_request": True,
+    "follow_accepted": True,
+    "duo_request": True,
+    "duo_activity": True,
+    "solo_badge_unlocked": True,
+    "duo_badge_unlocked": True,
+    "challenge_ending": True,
+    "challenge_completed": True,
+    "streak_reminder": False,
+}
+
+# Types critiques non désactivables (sécurité / compte).
+ALWAYS_PUSH_TYPES = frozenset({
+    "security_alert",
+    "account_security",
+    "password_changed",
+})
+
+NOTIF_TYPE_TO_PREF: Dict[str, str] = {
+    "partner_workout_started": "partner_workout_started",
+    "partner_workout_completed": "partner_workout_completed",
+    "partner_activity": "partner_workout_completed",
+    "session_reminder": "scheduled_workout_reminder",
+    "session_soon": "scheduled_workout_reminder",
+    "followed_user_post": "followed_user_post",
+    "comment": "post_comment",
+    "like": "post_like",
+    "follow_request": "follow_request",
+    "new_follower": "follow_accepted",
+    "follow_accepted": "follow_accepted",
+    "follow_back": "follow_accepted",
+    "duo_partner_request": "duo_request",
+    "duo_partner_accepted": "duo_activity",
+    "duo_partner_rejected": "duo_activity",
+    "duo_follow_request": "duo_request",
+    "duo_follow_accepted": "duo_activity",
+    "duo_new_post": "duo_activity",
+    "badge_unlocked": "solo_badge_unlocked",
+    "duo_badge_unlocked": "duo_badge_unlocked",
+    "challenge_ending": "challenge_ending",
+    "challenge_completed": "challenge_completed",
+    "streak_reminder": "streak_reminder",
+}
+
+
+def default_notification_prefs() -> Dict[str, bool]:
+    return dict(DEFAULT_NOTIFICATION_PREFS)
+
+
+def merge_notification_prefs(raw: Optional[Dict[str, Any]]) -> Dict[str, bool]:
+    merged = default_notification_prefs()
+    if not isinstance(raw, dict):
+        return merged
+    for key in DEFAULT_NOTIFICATION_PREFS:
+        if key in raw:
+            merged[key] = bool(raw[key])
+    return merged
+
+
+def push_allowed_for_prefs(notif_type: str, prefs: Optional[Dict[str, Any]]) -> bool:
+    """Retourne False si l'utilisateur a désactivé cette catégorie de push."""
+    if not notif_type:
+        return True
+    if notif_type in ALWAYS_PUSH_TYPES or str(notif_type).startswith("security_"):
+        return True
+    pref_key = NOTIF_TYPE_TO_PREF.get(notif_type)
+    if not pref_key:
+        return True
+    merged = merge_notification_prefs(prefs)
+    return bool(merged.get(pref_key, True))
 
 
 def is_push_configured() -> bool:
@@ -219,6 +328,20 @@ async def send_web_push_to_user(db, user_id: str, payload: Dict[str, Any]) -> Di
     return {"sent": sent, "expired": expired}
 
 
+async def _load_user_notification_prefs(db, recipient_id: str) -> Optional[Dict[str, Any]]:
+    try:
+        from bson import ObjectId
+        user_doc = await db.users.find_one(
+            {"_id": ObjectId(str(recipient_id))},
+            {"notification_prefs": 1},
+        )
+    except Exception:
+        user_doc = None
+    if user_doc is None:
+        return None
+    return user_doc.get("notification_prefs")
+
+
 async def notify_push(
     db,
     recipient_id: str,
@@ -228,15 +351,23 @@ async def notify_push(
     url: Optional[str] = None,
     title: Optional[str] = None,
     body: Optional[str] = None,
+    tag: Optional[str] = None,
+    skip_pref_check: bool = False,
 ) -> None:
     """Fire-and-forget friendly wrapper — n'échoue jamais l'appelant."""
     try:
+        if not skip_pref_check:
+            prefs = await _load_user_notification_prefs(db, recipient_id)
+            if not push_allowed_for_prefs(notif_type, prefs):
+                return
+
         payload = build_push_payload(
             notif_type,
             actor_name=actor_name,
             url=url,
             title=title,
             body=body,
+            tag=tag,
         )
         await send_web_push_to_user(db, recipient_id, payload)
     except Exception as exc:

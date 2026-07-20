@@ -122,6 +122,7 @@ class UserUpdate(BaseModel):
     badges_visibility: Optional[Literal["public", "followers", "me"]] = None
     activity_visibility: Optional[Literal["public", "followers", "me"]] = None
     posts_visibility: Optional[Literal["public", "followers", "me"]] = None
+    notification_prefs: Optional[Dict[str, bool]] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -152,6 +153,7 @@ class UserResponse(BaseModel):
     badges_visibility: Optional[Literal["public", "followers", "me"]] = None
     activity_visibility: Optional[Literal["public", "followers", "me"]] = None
     posts_visibility: Optional[Literal["public", "followers", "me"]] = None
+    notification_prefs: Optional[Dict[str, bool]] = None
     partner_id: Optional[str] = None
     partner_username: Optional[str] = None
     relation_type: Optional[str] = None
@@ -569,6 +571,7 @@ def serialize_user(user: dict) -> dict:
         "badges_visibility": user.get("badges_visibility"),
         "activity_visibility": user.get("activity_visibility"),
         "posts_visibility": user.get("posts_visibility"),
+        "notification_prefs": _serialize_notification_prefs(user.get("notification_prefs")),
         "partner_id": user.get("partner_id"),
         "partner_username": user.get("partner_username"),
         "relation_type": user.get("relation_type"),
@@ -576,6 +579,14 @@ def serialize_user(user: dict) -> dict:
         "following_count": int(user.get("following_count") or 0),
         "created_at": user.get("created_at", datetime.now(timezone.utc).isoformat())
     }
+
+
+def _serialize_notification_prefs(raw) -> dict:
+    try:
+        from push_service import merge_notification_prefs
+        return merge_notification_prefs(raw if isinstance(raw, dict) else None)
+    except Exception:
+        return {}
 
 async def is_following(follower_id: str, following_id: str) -> bool:
     if not follower_id or not following_id:
@@ -768,6 +779,11 @@ async def create_notification(
     request_id: Optional[str] = None,
     duo_id: Optional[str] = None,
     duo_tag: Optional[str] = None,
+    push_url: Optional[str] = None,
+    push_tag: Optional[str] = None,
+    push_title: Optional[str] = None,
+    push_body: Optional[str] = None,
+    skip_push: bool = False,
 ) -> None:
     actor_id = actor["id"]
     if recipient_id == actor_id:
@@ -804,6 +820,8 @@ async def create_notification(
     if duo_tag:
         doc["duo_tag"] = duo_tag
     await db.notifications.insert_one(doc)
+    if skip_push:
+        return
     try:
         from push_service import notify_push
         actor_name = (
@@ -812,17 +830,20 @@ async def create_notification(
             or actor.get("handle")
             or "Quelqu'un"
         )
-        url = "/notifications"
-        if notif_type and str(notif_type).startswith("duo_"):
+        url = push_url or "/notifications"
+        if not push_url and notif_type and str(notif_type).startswith("duo_"):
             url = "/notifications?filter=duo"
-        if post_id:
-            url = f"/notifications"
+        if not push_url and notif_type == "partner_workout_started":
+            url = "/duo"
         await notify_push(
             db,
             recipient_id,
             notif_type,
             actor_name=actor_name,
             url=url,
+            title=push_title,
+            body=push_body,
+            tag=push_tag,
         )
     except Exception:
         pass
@@ -1837,6 +1858,13 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
         if len(badges) > 3:
             raise HTTPException(status_code=400, detail="Maximum 3 badges mis en avant")
         set_data["featured_badges"] = [str(b) for b in badges[:3]]
+
+    if "notification_prefs" in payload:
+        raw_prefs = payload.pop("notification_prefs")
+        if raw_prefs is not None and not isinstance(raw_prefs, dict):
+            raise HTTPException(status_code=400, detail="notification_prefs invalide")
+        from push_service import merge_notification_prefs
+        set_data["notification_prefs"] = merge_notification_prefs(raw_prefs)
 
     if "account_visibility" in payload:
         vis = payload.pop("account_visibility")
@@ -3719,7 +3747,13 @@ async def save_workout_progress(workout_id: str, data: WorkoutProgressSave, user
         raise HTTPException(status_code=404, detail="Workout not found")
     if workout.get("is_draft"):
         raise HTTPException(status_code=403, detail="Impossible de démarrer un brouillon")
-    
+
+    existing = await db.workout_progress.find_one({
+        "workout_id": workout_id,
+        "user_id": user["id"],
+    })
+    already_notified = bool(existing.get("partner_start_notified")) if existing else False
+
     progress_doc = {
         "workout_id": workout_id,
         "user_id": user["id"],
@@ -3730,22 +3764,45 @@ async def save_workout_progress(workout_id: str, data: WorkoutProgressSave, user
         "exercises_completed": data.exercises_completed,
         "workout_title": data.workout_title or workout.get("title"),
         "phase": data.phase,
-        "saved_at": datetime.now(timezone.utc).isoformat()
+        "saved_at": datetime.now(timezone.utc).isoformat(),
+        "partner_start_notified": already_notified,
     }
-    
+
     # Upsert progress
     await db.workout_progress.update_one(
         {"workout_id": workout_id, "user_id": user["id"]},
         {"$set": progress_doc},
         upsert=True
     )
-    
+
     # Update workout status
     await db.scheduled_workouts.update_one(
         {"_id": ObjectId(workout_id)},
         {"$set": {"status": "in_progress"}}
     )
-    
+
+    # Une notif Push/in-app au partenaire lié, une seule fois par séance (tag stable).
+    if (
+        not already_notified
+        and user.get("partner_id")
+        and data.phase in LIVE_ACTIVE_PHASES
+    ):
+        try:
+            await create_notification(
+                user["partner_id"],
+                "partner_workout_started",
+                user,
+                push_url="/duo",
+                push_tag=f"partner-workout-started-{workout_id}",
+            )
+            await db.workout_progress.update_one(
+                {"workout_id": workout_id, "user_id": user["id"]},
+                {"$set": {"partner_start_notified": True}},
+            )
+            progress_doc["partner_start_notified"] = True
+        except Exception:
+            pass
+
     return {"message": "Progress saved", "progress": progress_doc}
 
 @api_router.get("/workouts/{workout_id}/progress")

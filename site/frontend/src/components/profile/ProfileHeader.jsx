@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom';
-import { Settings, UserPlus, UserMinus, Pencil, Lock, Heart, Loader2 } from 'lucide-react';
+import { UserPlus, UserMinus, Pencil, Lock, Heart, Loader2 } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
 import { ProfileFeaturedBadges } from './ProfileFeaturedBadges';
 import { Button } from '../ui/button';
@@ -44,17 +43,6 @@ export function ProfileHeader({
   return (
     <section className="card overflow-hidden">
       <div className="relative px-5 pt-5 pb-4 md:px-8 md:pt-8">
-        {isOwn ? (
-          <Link
-            to="/settings"
-            data-testid="profile-settings-link"
-            className="absolute right-4 top-4 md:hidden flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-            aria-label="Paramètres"
-          >
-            <Settings size={20} />
-          </Link>
-        ) : null}
-
         <div className="flex flex-col sm:flex-row sm:items-start gap-5">
           <UserAvatar
             user={profileUser}
