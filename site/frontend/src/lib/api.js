@@ -203,7 +203,8 @@ export const duoApi = {
     api.get('/duo/detailed-stats', { params: { period, target_user: targetUser } }),
   getBadges: () => api.get('/duo/stats').then((r) => r.data?.badges || []),
   getProfile: () => api.get('/duo/profile'),
-  updateProfile: (data) => api.put('/duo/profile', data),
+  updateProfile: (data) => api.patch('/duo/profile', data),
+  updateRoles: (pairKey, roles) => api.patch(`/duos/${encodeURIComponent(pairKey)}/roles`, { roles }),
 };
 
 // Duo profiles API (public)

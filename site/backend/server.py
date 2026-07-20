@@ -19,7 +19,7 @@ from bson import ObjectId
 import os
 import logging
 from pydantic import BaseModel, Field, ConfigDict
-from typing import List, Optional, Literal
+from typing import List, Optional, Literal, Dict
 import random
 from collections import defaultdict
 import uuid
@@ -175,6 +175,7 @@ class DuoProfileUpdate(BaseModel):
     relation_type: Optional[str] = None
     avatar_url: Optional[str] = None
     banner_url: Optional[str] = None
+    clear_banner: Optional[bool] = None
     account_visibility: Optional[Literal["public", "private"]] = None
     show_stats: Optional[bool] = None
     show_badges: Optional[bool] = None
@@ -186,6 +187,7 @@ class DuoProfileUpdate(BaseModel):
     badges_visibility: Optional[Literal["public", "followers", "members"]] = None
     activity_visibility: Optional[Literal["public", "followers", "members"]] = None
     challenges_visibility: Optional[Literal["public", "followers", "members"]] = None
+    member_roles: Optional[Dict[str, Literal["coach", "leader", "member"]]] = None
 
 class ImageUpload(BaseModel):
     image_data: str
@@ -1455,8 +1457,13 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
             "display_name": m.get("display_name"),
             "avatar_url": m.get("avatar_url"),
             "accent_color": m.get("accent_color"),
-            "is_coach": mid == duo_doc.get("coach_member_id"),
+            "is_coach": mid == duo_doc.get("coach_member_id") or (duo_doc.get("member_roles") or {}).get(mid) == "coach",
             "is_student": mid == duo_doc.get("student_member_id"),
+            "is_leader": mid == duo_doc.get("leader_member_id") or (duo_doc.get("member_roles") or {}).get(mid) == "leader",
+            "duo_role": (duo_doc.get("member_roles") or {}).get(mid)
+                or ("coach" if mid == duo_doc.get("coach_member_id") else None)
+                or ("leader" if mid == duo_doc.get("leader_member_id") else None)
+                or "member",
             "is_limited": access_member == "limited",
         }
         if access_member != "limited":
@@ -1485,7 +1492,10 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
         "access_level": access,
         "coach_member_id": duo_doc.get("coach_member_id"),
         "student_member_id": duo_doc.get("student_member_id"),
+        "leader_member_id": duo_doc.get("leader_member_id"),
+        "member_roles": duo_doc.get("member_roles") or {},
         "created_at": duo_doc.get("created_at"),
+        "updated_at": duo_doc.get("updated_at"),
     }
 
     follow_doc = await get_duo_follow_doc(db, duo_id, viewer_id)
@@ -2684,22 +2694,18 @@ async def get_own_duo_profile(user: dict = Depends(get_current_user)):
     return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
 
 
-@api_router.put("/duo/profile")
-async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_current_user)):
-    if not user.get("partner_id"):
-        raise HTTPException(status_code=400, detail="Aucun partenaire lié")
-
-    duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
-    if not duo_doc:
-        raise HTTPException(status_code=404, detail="Profil duo introuvable")
-
+async def _apply_duo_profile_update(duo_doc: dict, data: DuoProfileUpdate, user: dict) -> dict:
+    """Mise à jour partielle ($set) — n'écrase jamais les champs absents du payload."""
     updates = {}
-    if data.name is not None:
+    payload = data.model_dump(exclude_unset=True)
+
+    if "name" in payload and data.name is not None:
         clean = re.sub(r"[^a-zA-Z0-9À-ÿ\s]", "", data.name.strip())[:32]
         if len(clean) < 2:
             raise HTTPException(status_code=400, detail="Nom de duo invalide")
         updates["name"] = clean.replace(" ", "")
-    if data.relation_type is not None:
+
+    if "relation_type" in payload and data.relation_type is not None:
         rel = normalize_duo_relation(data.relation_type)
         updates["relation_type"] = rel
         members = await get_duo_members(db, duo_doc)
@@ -2715,12 +2721,16 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
             {"_id": ObjectId(user["partner_id"])},
             {"$set": {"relation_type": rel}},
         )
-    if data.avatar_url is not None:
+
+    if "avatar_url" in payload:
         updates["avatar_url"] = normalize_upload_path(data.avatar_url)
-    if data.banner_url is not None:
+
+    # Bannière : champ absent → conserver ; clear_banner/null → supprimer ; valeur → remplacer
+    if payload.get("clear_banner") is True or ("banner_url" in payload and data.banner_url is None):
+        updates["banner_url"] = None
+    elif "banner_url" in payload and data.banner_url is not None:
         updates["banner_url"] = normalize_upload_path(data.banner_url)
 
-    payload = data.model_dump(exclude_unset=True)
     duo_vis_fields = {
         "stats_visibility": "show_stats",
         "wall_visibility": "show_posts",
@@ -2728,12 +2738,15 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
         "activity_visibility": "show_recent_activity",
         "challenges_visibility": "show_challenges",
     }
+
     if payload.get("account_visibility") == "public":
+        updates["account_visibility"] = "public"
         updates["wall_visibility"] = "public"
         updates["badges_visibility"] = "public"
         updates["show_posts"] = True
         updates["show_badges"] = True
     elif payload.get("account_visibility") == "private":
+        updates["account_visibility"] = "private"
         updates["wall_visibility"] = "followers"
         updates["badges_visibility"] = "followers"
         updates["show_posts"] = True
@@ -2748,12 +2761,34 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
             updates[legacy_key] = value in ("public", "followers")
 
     for field in (
-        "account_visibility", "show_stats", "show_badges",
+        "show_stats", "show_badges",
         "show_recent_activity", "show_posts", "show_challenges",
     ):
-        val = getattr(data, field, None)
-        if val is not None and field not in updates:
-            updates[field] = val
+        if field in payload and payload[field] is not None and field not in updates:
+            updates[field] = payload[field]
+
+    if "member_roles" in payload and data.member_roles is not None:
+        members = await get_duo_members(db, duo_doc)
+        member_ids = {str(m["_id"]) for m in members}
+        roles = {}
+        for uid, role in data.member_roles.items():
+            if uid not in member_ids:
+                raise HTTPException(status_code=400, detail="Utilisateur extérieur au Duo")
+            if role not in ("coach", "leader", "member"):
+                raise HTTPException(status_code=400, detail="Rôle invalide")
+            roles[uid] = role
+        updates["member_roles"] = roles
+        coach_ids = [uid for uid, r in roles.items() if r == "coach"]
+        leader_ids = [uid for uid, r in roles.items() if r == "leader"]
+        updates["coach_member_id"] = coach_ids[0] if coach_ids else None
+        # leader stocké aussi pour affichage ; student_member_id = l'autre si coach_student
+        if coach_ids and len(members) >= 2:
+            other = next((mid for mid in member_ids if mid != coach_ids[0]), None)
+            updates["student_member_id"] = other
+        if leader_ids:
+            updates["leader_member_id"] = leader_ids[0]
+        else:
+            updates["leader_member_id"] = None
 
     if not updates:
         return await serialize_duo_profile_for_viewer(duo_doc, user["id"])
@@ -2763,6 +2798,39 @@ async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_cu
     updated = await db.duo_profiles.find_one({"_id": duo_doc["_id"]})
     return await serialize_duo_profile_for_viewer(updated, user["id"])
 
+
+@api_router.put("/duo/profile")
+async def update_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_current_user)):
+    if not user.get("partner_id"):
+        raise HTTPException(status_code=400, detail="Aucun partenaire lié")
+    duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Profil duo introuvable")
+    return await _apply_duo_profile_update(duo_doc, data, user)
+
+
+@api_router.patch("/duo/profile")
+async def patch_duo_profile(data: DuoProfileUpdate, user: dict = Depends(get_current_user)):
+    """Alias PATCH — même sémantique partielle que PUT."""
+    return await update_duo_profile(data, user)
+
+
+@api_router.patch("/duos/{pair_key}/roles")
+async def patch_duo_roles(pair_key: str, body: dict, user: dict = Depends(get_current_user)):
+    """Met à jour les rôles des deux membres uniquement."""
+    if not user.get("partner_id"):
+        raise HTTPException(status_code=400, detail="Aucun partenaire lié")
+    duo_doc = await _get_duo_profile_for_user(user["id"], user["partner_id"])
+    if not duo_doc:
+        raise HTTPException(status_code=404, detail="Profil duo introuvable")
+    resolved = resolve_duo_pair_key(duo_doc)
+    if pair_key not in (resolved, str(duo_doc["_id"]), duo_doc.get("pair_key")):
+        raise HTTPException(status_code=403, detail="Duo non autorisé")
+    roles = body.get("roles") or body.get("member_roles") or {}
+    if not isinstance(roles, dict) or not roles:
+        raise HTTPException(status_code=400, detail="roles requis")
+    data = DuoProfileUpdate(member_roles=roles)
+    return await _apply_duo_profile_update(duo_doc, data, user)
 
 @api_router.get("/duos/{tag}/stats")
 async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)):

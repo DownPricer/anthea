@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -18,6 +18,7 @@ import {
 } from '../ui/select';
 import { DUO_RELATION_OPTIONS } from '../../lib/duoProfile';
 import { duoApi, uploadsApi, formatApiError, resolveMediaUrl } from '../../lib/api';
+import { invalidateDuoDomain } from '../../lib/duoCache';
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 import { toast } from 'sonner';
 import {
@@ -81,23 +82,49 @@ function PrivacyRow({ icon: Icon, label, locked, lockedLabel, value, onChange, o
   );
 }
 
+function buildInitialForm(profile) {
+  if (!profile) {
+    return {
+      name: '',
+      relation_type: 'partners',
+      account_visibility: 'private',
+      wall_visibility: 'followers',
+      badges_visibility: 'followers',
+      stats_visibility: 'followers',
+      activity_visibility: 'followers',
+      challenges_visibility: 'followers',
+      banner_url: null,
+    };
+  }
+  return {
+    name: profile.name ?? '',
+    relation_type: profile.relation_type ?? 'partners',
+    account_visibility: profile.account_visibility ?? 'private',
+    wall_visibility: resolveDuoVis(profile, 'wall_visibility', 'show_posts', 'followers'),
+    badges_visibility: resolveDuoVis(profile, 'badges_visibility', 'show_badges', 'public'),
+    stats_visibility: resolveDuoVis(profile, 'stats_visibility', 'show_stats', 'followers'),
+    activity_visibility: resolveDuoVis(profile, 'activity_visibility', 'show_recent_activity', 'followers'),
+    challenges_visibility: resolveDuoVis(profile, 'challenges_visibility', 'show_challenges', 'followers'),
+    banner_url: profile.banner_url ?? null,
+  };
+}
+
+/**
+ * Formulaire Modifier le Duo — envoie uniquement les champs modifiés (PATCH sémantique).
+ * Bannière : absente = conserver ; null explicite = supprimer ; nouveau chemin = remplacer.
+ */
 export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }) {
-  const [name, setName] = useState('');
-  const [relationType, setRelationType] = useState('partners');
-  const [visibility, setVisibility] = useState('private');
-  const [wallVisibility, setWallVisibility] = useState('followers');
-  const [badgesVisibility, setBadgesVisibility] = useState('public');
-  const [statsVisibility, setStatsVisibility] = useState('followers');
-  const [activityVisibility, setActivityVisibility] = useState('followers');
-  const [challengesVisibility, setChallengesVisibility] = useState('followers');
-  const [privacyOpen, setPrivacyOpen] = useState(true);
-  const [bannerUrl, setBannerUrl] = useState('');
+  const [form, setForm] = useState(() => buildInitialForm(duoProfile));
+  const [baseline, setBaseline] = useState(() => buildInitialForm(duoProfile));
   const [bannerPreview, setBannerPreview] = useState(null);
+  const [bannerRemoved, setBannerRemoved] = useState(false);
+  const [bannerChanged, setBannerChanged] = useState(false);
+  const [privacyOpen, setPrivacyOpen] = useState(true);
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [saving, setSaving] = useState(false);
   const bannerInputRef = useRef(null);
 
-  const isPublicDuo = visibility === 'public';
+  const isPublicDuo = form.account_visibility === 'public';
 
   const configurableOptions = isPublicDuo
     ? [
@@ -111,17 +138,12 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       ];
 
   const syncFromProfile = (profile) => {
-    if (!profile) return;
-    setName(profile.name || '');
-    setRelationType(profile.relation_type || 'partners');
-    setVisibility(profile.account_visibility || 'private');
-    setWallVisibility(resolveDuoVis(profile, 'wall_visibility', 'show_posts', 'followers'));
-    setBadgesVisibility(resolveDuoVis(profile, 'badges_visibility', 'show_badges', 'public'));
-    setStatsVisibility(resolveDuoVis(profile, 'stats_visibility', 'show_stats', 'followers'));
-    setActivityVisibility(resolveDuoVis(profile, 'activity_visibility', 'show_recent_activity', 'followers'));
-    setChallengesVisibility(resolveDuoVis(profile, 'challenges_visibility', 'show_challenges', 'followers'));
-    setBannerUrl(profile.banner_url || '');
+    const next = buildInitialForm(profile);
+    setForm(next);
+    setBaseline(next);
     setBannerPreview(null);
+    setBannerRemoved(false);
+    setBannerChanged(false);
   };
 
   const handleOpen = (isOpen) => {
@@ -130,6 +152,49 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   };
 
   useEffect(() => () => revokePreviewUrl(bannerPreview), [bannerPreview]);
+
+  const dirtyPayload = useMemo(() => {
+    const payload = {};
+    if ((form.name || '').trim() !== (baseline.name || '').trim()) {
+      payload.name = form.name.trim();
+    }
+    if (form.relation_type !== baseline.relation_type) {
+      payload.relation_type = form.relation_type;
+    }
+    if (form.account_visibility !== baseline.account_visibility) {
+      payload.account_visibility = form.account_visibility;
+    }
+    if (form.stats_visibility !== baseline.stats_visibility) {
+      payload.stats_visibility = form.stats_visibility;
+    }
+    if (form.activity_visibility !== baseline.activity_visibility) {
+      payload.activity_visibility = form.activity_visibility;
+    }
+    if (form.challenges_visibility !== baseline.challenges_visibility) {
+      payload.challenges_visibility = form.challenges_visibility;
+    }
+    // Mur / badges suivent le compte — uniquement si la visibilité compte change
+    if (form.account_visibility !== baseline.account_visibility) {
+      if (form.account_visibility === 'public') {
+        payload.wall_visibility = 'public';
+        payload.badges_visibility = 'public';
+      } else {
+        payload.wall_visibility = 'followers';
+        payload.badges_visibility = 'followers';
+      }
+    }
+    if (bannerChanged) {
+      if (bannerRemoved) {
+        payload.banner_url = null;
+        payload.clear_banner = true;
+      } else if (form.banner_url) {
+        payload.banner_url = form.banner_url;
+      }
+    }
+    return payload;
+  }, [form, baseline, bannerChanged, bannerRemoved]);
+
+  const isDirty = Object.keys(dirtyPayload).length > 0;
 
   const handleBannerPick = async (event) => {
     const file = event.target.files?.[0];
@@ -142,7 +207,9 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
       const stored = uploadPathFromResponse(data);
       if (!stored) throw new Error('Réponse upload invalide');
-      setBannerUrl(stored);
+      setForm((f) => ({ ...f, banner_url: stored }));
+      setBannerRemoved(false);
+      setBannerChanged(true);
       toast.success('Bannière importée');
     } catch (error) {
       toast.error(error.message || 'Échec import bannière');
@@ -152,26 +219,25 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     }
   };
 
+  const handleRemoveBanner = () => {
+    if (!window.confirm('Supprimer la bannière du duo ?')) return;
+    setForm((f) => ({ ...f, banner_url: null }));
+    setBannerPreview(null);
+    setBannerRemoved(true);
+    setBannerChanged(true);
+  };
+
   const handleSave = async () => {
+    if (!isDirty) return;
+    if (dirtyPayload.name != null && dirtyPayload.name.length < 2) {
+      toast.error('Nom de duo invalide');
+      return;
+    }
     setSaving(true);
     try {
-      const payload = {
-        name: name.trim(),
-        relation_type: relationType,
-        account_visibility: visibility,
-        banner_url: bannerUrl.trim() || null,
-        stats_visibility: statsVisibility,
-        activity_visibility: activityVisibility,
-        challenges_visibility: challengesVisibility,
-      };
-      if (isPublicDuo) {
-        payload.wall_visibility = 'public';
-        payload.badges_visibility = 'public';
-      } else {
-        payload.wall_visibility = 'followers';
-        payload.badges_visibility = 'followers';
-      }
-      const { data } = await duoApi.updateProfile(payload);
+      const { data } = await duoApi.updateProfile(dirtyPayload);
+      invalidateDuoDomain('stats', data?.pair_key || duoProfile?.pair_key);
+      invalidateDuoDomain('profile', data?.pair_key || duoProfile?.pair_key);
       toast.success('Profil duo mis à jour');
       onSaved?.(data);
       onOpenChange(false);
@@ -182,7 +248,8 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     }
   };
 
-  const bannerDisplay = bannerPreview || resolveMediaUrl(bannerUrl);
+  const bannerDisplay = bannerPreview
+    || (!bannerRemoved ? resolveMediaUrl(form.banner_url) : null);
 
   return (
     <Dialog open={open} onOpenChange={handleOpen}>
@@ -195,6 +262,12 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
         </DialogHeader>
 
         <div className="space-y-4 mt-2">
+          {isDirty ? (
+            <p className="text-amber-400/90 text-xs" data-testid="duo-unsaved-hint">
+              Modifications non enregistrées
+            </p>
+          ) : null}
+
           <div>
             <Label className="text-zinc-400">Bannière</Label>
             <div
@@ -230,18 +303,15 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
                 {uploadingBanner ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} className="mr-1" />}
                 Importer
               </Button>
-              {bannerUrl ? (
+              {(form.banner_url || baseline.banner_url) && !bannerRemoved ? (
                 <Button
                   type="button"
                   size="sm"
                   variant="ghost"
-                  onClick={() => {
-                    setBannerUrl('');
-                    setBannerPreview(null);
-                  }}
+                  onClick={handleRemoveBanner}
                   className="text-zinc-400"
                 >
-                  Retirer
+                  Supprimer la bannière
                 </Button>
               ) : null}
             </div>
@@ -250,8 +320,8 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
           <div>
             <Label className="text-zinc-400">Nom du duo</Label>
             <Input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              value={form.name}
+              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
               maxLength={32}
               className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
               placeholder="Les Guerriers"
@@ -263,7 +333,10 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
           <div>
             <Label className="text-zinc-400">Type de relation</Label>
-            <Select value={relationType} onValueChange={setRelationType}>
+            <Select
+              value={form.relation_type}
+              onValueChange={(v) => setForm((f) => ({ ...f, relation_type: v }))}
+            >
               <SelectTrigger className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
                 <SelectValue />
               </SelectTrigger>
@@ -283,7 +356,10 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
                 <Shield size={16} className="text-[var(--theme-primary)]" />
                 <span className="text-white text-sm font-medium">Confidentialité</span>
               </div>
-              <Select value={visibility} onValueChange={setVisibility}>
+              <Select
+                value={form.account_visibility}
+                onValueChange={(v) => setForm((f) => ({ ...f, account_visibility: v }))}
+              >
                 <SelectTrigger className="w-36 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs">
                   <SelectValue />
                 </SelectTrigger>
@@ -320,22 +396,22 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
                 <PrivacyRow
                   icon={BarChart3}
                   label="Statistiques communes"
-                  value={statsVisibility}
-                  onChange={setStatsVisibility}
+                  value={form.stats_visibility}
+                  onChange={(v) => setForm((f) => ({ ...f, stats_visibility: v }))}
                   options={configurableOptions}
                 />
                 <PrivacyRow
                   icon={Activity}
                   label="Activité du duo"
-                  value={activityVisibility}
-                  onChange={setActivityVisibility}
+                  value={form.activity_visibility}
+                  onChange={(v) => setForm((f) => ({ ...f, activity_visibility: v }))}
                   options={configurableOptions}
                 />
                 <PrivacyRow
                   icon={Target}
                   label="Défi de la semaine"
-                  value={challengesVisibility}
-                  onChange={setChallengesVisibility}
+                  value={form.challenges_visibility}
+                  onChange={(v) => setForm((f) => ({ ...f, challenges_visibility: v }))}
                   options={configurableOptions}
                 />
               </div>
@@ -345,8 +421,9 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saving || name.trim().length < 2 || uploadingBanner}
+            disabled={saving || !isDirty || uploadingBanner}
             className="w-full btn-primary text-white rounded-xl"
+            data-testid="duo-settings-save"
           >
             {saving ? <Loader2 className="animate-spin" size={18} /> : 'Enregistrer'}
           </Button>
