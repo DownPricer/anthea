@@ -89,6 +89,114 @@ function initialDuoTab(searchParams) {
   }
 }
 
+function getMemberUserId(member) {
+  return member?.user_id || member?.id || null;
+}
+
+function toStatsPeriodParam(period) {
+  // Backend attend 7 / 30 / 90 / year / all
+  if (period === '7d') return '7';
+  if (period === '30d') return '30';
+  if (period === '90d') return '90';
+  if (period === 'year') return 'year';
+  if (period === 'all') return 'all';
+  return '30';
+}
+
+function normalizeStatsView(payload) {
+  const base = {
+    summary: {
+      workouts: 0,
+      duration_minutes: 0,
+      calories: null,
+      active_days: 0,
+      streak: 0,
+    },
+    wellbeing: {
+      fatigue_before: null,
+      fatigue_after: null,
+      mood_before: null,
+      mood_after: null,
+    },
+    recent_sessions: [],
+    charts: [],
+    _extras: {
+      completion_rate: null,
+      total_sessions: 0,
+      total_completed: 0,
+      total_abandoned: 0,
+      avg_time_minutes: null,
+      this_week: null,
+      this_month: null,
+      calories_week: null,
+      calories_month: null,
+      difficulty: null,
+      daily: [],
+      weekly: [],
+    },
+  };
+
+  if (!payload || typeof payload !== 'object') return base;
+
+  const summary = payload.summary || payload?.data?.summary || null;
+  const averages = payload.averages || payload?.data?.averages || null;
+  const recent = payload.recent_sessions || payload?.data?.recent_sessions || [];
+  const daily = payload.daily_stats || payload?.data?.daily_stats || [];
+  const weekly = payload.weekly_stats || payload?.data?.weekly_stats || [];
+
+  const totalSessions = Number(summary?.total_sessions ?? 0) || 0;
+  const totalTimeSec = Number(summary?.total_time ?? 0) || 0;
+  const totalCalories = summary?.total_calories;
+
+  const activeDays = Array.isArray(daily)
+    ? daily.filter((d) => (Number(d?.count ?? 0) || 0) > 0).length
+    : 0;
+
+  return {
+    ...base,
+    summary: {
+      ...base.summary,
+      workouts: totalSessions,
+      duration_minutes: Math.round(totalTimeSec / 60),
+      calories: Number.isFinite(Number(totalCalories)) ? Number(totalCalories) : null,
+      active_days: activeDays,
+      streak: 0,
+    },
+    wellbeing: {
+      ...base.wellbeing,
+      fatigue_before: averages?.fatigue_before ?? null,
+      fatigue_after: averages?.fatigue_after ?? null,
+      mood_before: averages?.mood_before ?? null,
+      mood_after: averages?.mood_after ?? null,
+    },
+    recent_sessions: Array.isArray(recent) ? recent : [],
+    charts: [
+      { kind: 'daily', data: Array.isArray(daily) ? daily : [] },
+      { kind: 'weekly', data: Array.isArray(weekly) ? weekly : [] },
+    ],
+    _extras: {
+      completion_rate: summary?.completion_rate ?? null,
+      total_sessions: totalSessions,
+      total_completed: Number(summary?.total_completed ?? 0) || 0,
+      total_abandoned: Number(summary?.total_abandoned ?? 0) || 0,
+      avg_time_minutes: Number.isFinite(Number(summary?.avg_time))
+        ? Math.round(Number(summary.avg_time) / 60)
+        : null,
+      this_week: Number.isFinite(Number(summary?.this_week)) ? Number(summary.this_week) : null,
+      this_month: Number.isFinite(Number(summary?.this_month)) ? Number(summary.this_month) : null,
+      calories_week: Number.isFinite(Number(summary?.week_calories))
+        ? Number(summary.week_calories)
+        : null,
+      calories_month: Number.isFinite(Number(summary?.month_calories))
+        ? Number(summary.month_calories)
+        : null,
+      difficulty: averages?.difficulty ?? null,
+      daily: Array.isArray(daily) ? daily : [],
+      weekly: Array.isArray(weekly) ? weekly : [],
+    },
+  };
+}
+
 export function DuoPage() {
   const { user, refreshUser } = useAuth();
   const { theme } = useTheme();
@@ -111,9 +219,11 @@ export function DuoPage() {
   const loadGenRef = useRef(0);
   
   // Stats state
-  const [detailedStats, setDetailedStats] = useState(null);
-  const [statsPeriod, setStatsPeriod] = useState('30');
-  const [statsTarget, setStatsTarget] = useState('duo'); // 'duo' | 'me' | 'partner'
+  const [duoViewStats, setDuoViewStats] = useState(null);
+  const [memberStats, setMemberStats] = useState(null);
+  const [statsPeriod, setStatsPeriod] = useState('30d');
+  // 'duo' | `user:<id>`
+  const [statsScope, setStatsScope] = useState('duo');
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState(null);
   const [canModerateStreak, setCanModerateStreak] = useState(false);
@@ -134,10 +244,10 @@ export function DuoPage() {
   const { liveSession } = usePartnerLiveSession(!!partner);
 
   const duoMembers = Array.isArray(duoProfile?.members) ? duoProfile.members : [];
-  const viewerMember = duoMembers.find((member) => String(member?.id) === String(user?.id));
-  const partnerMember = duoMembers.find((member) => String(member?.id) !== String(user?.id));
-  const viewerUserId = viewerMember?.id || user?.id;
-  const partnerUserId = partnerMember?.id || user?.partner_id || partner?.id;
+  const viewerMember = duoMembers.find((member) => String(getMemberUserId(member)) === String(user?.id));
+  const partnerMember = duoMembers.find((member) => String(getMemberUserId(member)) !== String(user?.id));
+  const viewerUserId = getMemberUserId(viewerMember) || user?.id;
+  const partnerUserId = getMemberUserId(partnerMember) || user?.partner_id || partner?.id;
   const pairKey = duoProfile?.pair_key || (
     viewerUserId && partnerUserId
       ? [viewerUserId, partnerUserId].map(String).sort().join('_')
@@ -187,14 +297,14 @@ export function DuoPage() {
 
   useEffect(() => {
     if (activeTab === 'stats' && partnerUserId) {
-      loadDetailedStats();
+      loadSelectedStats();
     }
     if (activeTab === 'history' && partnerUserId) {
       loadHistory();
     }
     // Intentionally omit loader fns — they close over current filters
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, statsPeriod, statsTarget, partnerUserId, historyFilter, historyTarget]);
+  }, [activeTab, statsPeriod, statsScope, partnerUserId, historyFilter, historyTarget]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -461,56 +571,93 @@ export function DuoPage() {
     }
   };
 
-  const loadDetailedStats = async () => {
+  const loadSelectedStats = async () => {
     if (!viewerUserId || !partnerUserId) return;
-    const cacheKey = duoCacheKey('detailedStats', pairKey, statsPeriod, statsTarget);
+    const scope = statsScope || 'duo';
+    const periodParam = toStatsPeriodParam(statsPeriod);
+    const cacheKey = duoCacheKey('detailedStats', pairKey, statsPeriod, scope);
+
     const cached = getDuoCache(cacheKey);
     if (cached) {
-      setDetailedStats(cached);
+      if (scope === 'duo') setDuoViewStats(cached);
+      else setMemberStats(cached);
       setStatsError(null);
       setStatsLoading(false);
       return;
     }
+
     setStatsLoading(true);
     setStatsError(null);
-    setDetailedStats(null);
+    if (scope === 'duo') setDuoViewStats(null);
+    else setMemberStats(null);
+
     try {
-      let data;
-      if (statsTarget === 'duo') {
-        const [viewerResponse, partnerResponse] = await Promise.all([
-          duoApi.getDetailedStats(statsPeriod, viewerUserId),
-          duoApi.getDetailedStats(statsPeriod, partnerUserId),
+      if (scope === 'duo') {
+        const [viewerRes, partnerRes] = await Promise.all([
+          duoApi.getDetailedStats(periodParam, viewerUserId),
+          duoApi.getDetailedStats(periodParam, partnerUserId),
         ]);
-        const viewerStats = viewerResponse.data;
-        const partnerStats = partnerResponse.data;
-        data = {
-          viewer: viewerStats,
-          partner: partnerStats,
+        const viewerPayload = viewerRes.data;
+        const partnerPayload = partnerRes.data;
+        const normalizedViewer = normalizeStatsView(viewerPayload);
+        const normalizedPartner = normalizeStatsView(partnerPayload);
+        const combined = {
+          kind: 'duo',
           period: statsPeriod,
+          viewer: normalizedViewer,
+          partner: normalizedPartner,
           summary: {
-            total_sessions:
-              (viewerStats?.summary?.total_sessions || 0)
-              + (partnerStats?.summary?.total_sessions || 0),
-            total_completed:
-              (viewerStats?.summary?.total_completed || 0)
-              + (partnerStats?.summary?.total_completed || 0),
-            total_time:
-              (viewerStats?.summary?.total_time || 0)
-              + (partnerStats?.summary?.total_time || 0),
-            total_calories:
-              (viewerStats?.summary?.total_calories || 0)
-              + (partnerStats?.summary?.total_calories || 0),
+            workouts: (normalizedViewer.summary.workouts || 0) + (normalizedPartner.summary.workouts || 0),
+            duration_minutes:
+              (normalizedViewer.summary.duration_minutes || 0)
+              + (normalizedPartner.summary.duration_minutes || 0),
+            calories:
+              (normalizedViewer.summary.calories || 0)
+              + (normalizedPartner.summary.calories || 0),
+            active_days:
+              (normalizedViewer.summary.active_days || 0)
+              + (normalizedPartner.summary.active_days || 0),
+            streak: 0,
           },
+          _extras: {
+            total_sessions:
+              (normalizedViewer._extras.total_sessions || 0)
+              + (normalizedPartner._extras.total_sessions || 0),
+            total_completed:
+              (normalizedViewer._extras.total_completed || 0)
+              + (normalizedPartner._extras.total_completed || 0),
+          },
+          wellbeing: {
+            fatigue_before: null,
+            fatigue_after: null,
+            mood_before: null,
+            mood_after: null,
+          },
+          recent_sessions: [],
+          charts: [],
         };
+        setDuoViewStats(combined);
+        setDuoCache(cacheKey, combined, DUO_STALE.detailedStats);
       } else {
-        const targetUserId = statsTarget === 'partner' ? partnerUserId : viewerUserId;
-        const response = await duoApi.getDetailedStats(statsPeriod, targetUserId);
-        data = response.data;
+        const selectedMemberId = scope.startsWith('user:') ? scope.slice(5) : viewerUserId;
+        const response = await duoApi.getDetailedStats(periodParam, selectedMemberId);
+        setMemberStats(response.data);
+        setDuoCache(cacheKey, response.data, DUO_STALE.detailedStats);
       }
-      setDetailedStats(data);
-      setDuoCache(cacheKey, data, DUO_STALE.detailedStats);
+
+      if (process.env.NODE_ENV !== 'production') {
+        const selectedMemberId = scope.startsWith('user:') ? scope.slice(5) : null;
+        console.debug('[DuoStats View]', {
+          selectedScope: scope,
+          viewerUserId,
+          partnerUserId,
+          selectedMemberId,
+          statsLoading: false,
+          statsData: scope === 'duo' ? duoViewStats : memberStats,
+        });
+      }
     } catch (error) {
-      console.error('Failed to load detailed stats:', error);
+      console.error('Failed to load stats view:', error);
       setStatsError(formatApiError(error));
     } finally {
       setStatsLoading(false);
@@ -605,6 +752,21 @@ export function DuoPage() {
 
   const viewerLabel = getDisplayName(viewerMember || user);
   const partnerLabel = getDisplayName(partnerMember || partner);
+  const viewerScopeValue = `user:${viewerUserId || user?.id || ''}`;
+  const partnerScopeValue = partnerUserId ? `user:${partnerUserId}` : null;
+
+  const selectedStats =
+    statsScope === 'duo'
+      ? duoViewStats
+      : (memberStats ? normalizeStatsView(memberStats) : null);
+
+  const hasWellbeingData = [
+    selectedStats?.wellbeing?.fatigue_before,
+    selectedStats?.wellbeing?.fatigue_after,
+    selectedStats?.wellbeing?.mood_before,
+    selectedStats?.wellbeing?.mood_after,
+    selectedStats?._extras?.difficulty,
+  ].some((value) => value !== null && value !== undefined);
 
   const handleAcceptDuoFollow = async () => {
     if (!pendingDuoFollow?.request_id) return;
@@ -1064,8 +1226,8 @@ export function DuoPage() {
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
               {historySessions
                 .filter((s) => {
-                  if (historyTarget === 'me') return s.user_id === user?.id;
-                  return s.user_id === partner?.id;
+                  if (historyTarget === 'me') return String(s.user_id) === String(viewerUserId);
+                  return String(s.user_id) === String(partnerUserId);
                 })
                 .map((session) => (
                   <SessionHistoryCard
@@ -1089,14 +1251,18 @@ export function DuoPage() {
           <div className="flex flex-wrap items-end gap-3" data-testid="stats-view-selector">
             <div className="min-w-[13rem] space-y-1.5">
               <label className="text-xs text-zinc-500">Afficher les statistiques de :</label>
-              <Select value={statsTarget} onValueChange={setStatsTarget}>
+              <Select value={statsScope} onValueChange={setStatsScope}>
                 <SelectTrigger className="h-10 w-full rounded-full border-white/10 bg-[#141414] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
                   <SelectItem value="duo" className="text-white">Duo</SelectItem>
-                  <SelectItem value="me" className="text-white">{viewerLabel}</SelectItem>
-                  <SelectItem value="partner" className="text-white">{partnerLabel}</SelectItem>
+                  <SelectItem value={viewerScopeValue} className="text-white">{viewerLabel}</SelectItem>
+                  {partnerScopeValue ? (
+                    <SelectItem value={partnerScopeValue} className="text-white">
+                      {partnerLabel}
+                    </SelectItem>
+                  ) : null}
                 </SelectContent>
               </Select>
             </div>
@@ -1107,9 +1273,9 @@ export function DuoPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="7" className="text-white">7 jours</SelectItem>
-                  <SelectItem value="30" className="text-white">30 jours</SelectItem>
-                  <SelectItem value="90" className="text-white">90 jours</SelectItem>
+                  <SelectItem value="7d" className="text-white">7 jours</SelectItem>
+                  <SelectItem value="30d" className="text-white">30 jours</SelectItem>
+                  <SelectItem value="90d" className="text-white">90 jours</SelectItem>
                   <SelectItem value="year" className="text-white">Cette année</SelectItem>
                   <SelectItem value="all" className="text-white">Tout</SelectItem>
                 </SelectContent>
@@ -1125,8 +1291,13 @@ export function DuoPage() {
               <p className="text-red-300">Impossible de charger les statistiques.</p>
               <p className="mt-1 text-xs text-zinc-500">{statsError}</p>
             </div>
-          ) : statsTarget === 'duo' ? (
-            detailedStats?.summary?.total_sessions > 0 && duoStats ? (
+          ) : !selectedStats ? (
+            <div className="card p-8 text-center">
+              <BarChart3 className="mx-auto text-zinc-500 mb-4" size={32} />
+              <p className="text-zinc-400">Aucune donnée sur cette période</p>
+            </div>
+          ) : statsScope === 'duo' ? (
+            selectedStats.summary.workouts > 0 && duoStats ? (
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
@@ -1134,10 +1305,10 @@ export function DuoPage() {
                     <span className="text-zinc-400 text-xs uppercase truncate">Activités combinées</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
-                    {detailedStats.summary.total_sessions}
+                    {selectedStats.summary.workouts}
                   </p>
                   <p className="text-zinc-500 text-xs mt-1">
-                    {detailedStats.summary.total_completed} terminées
+                    {selectedStats._extras?.total_completed ?? '—'} terminées
                   </p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden">
@@ -1146,7 +1317,7 @@ export function DuoPage() {
                     <span className="text-zinc-400 text-xs uppercase truncate">Durée combinée</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
-                    {formatDuration(detailedStats.summary.total_time)}
+                    {formatDuration((selectedStats.summary.duration_minutes || 0) * 60)}
                   </p>
                   <p className="text-zinc-500 text-xs mt-1">deux membres</p>
                 </div>
@@ -1156,7 +1327,7 @@ export function DuoPage() {
                     <span className="text-zinc-400 text-xs uppercase truncate">Calories combinées</span>
                   </div>
                   <p className="text-2xl font-bold text-orange-300">
-                    {formatCalories(detailedStats.summary.total_calories)}
+                    {formatCalories(selectedStats.summary.calories || 0)}
                   </p>
                   <p className="text-zinc-500 text-xs mt-1">estimation</p>
                 </div>
@@ -1217,7 +1388,7 @@ export function DuoPage() {
                 <p className="text-zinc-400">Aucune donnée Duo disponible</p>
               </div>
             )
-          ) : detailedStats?.summary?.total_sessions > 0 ? (
+          ) : selectedStats.summary.workouts > 0 ? (
             <>
               {/* Summary Cards */}
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -1226,9 +1397,11 @@ export function DuoPage() {
                     <Target className="text-[var(--theme-primary)]" size={16} />
                     <span className="text-zinc-400 text-xs uppercase">Taux complétion</span>
                   </div>
-                  <p className="text-2xl font-bold text-white">{detailedStats.summary.completion_rate}%</p>
+                  <p className="text-2xl font-bold text-white">
+                    {selectedStats._extras.completion_rate != null ? `${selectedStats._extras.completion_rate}%` : '—'}
+                  </p>
                   <p className="text-zinc-500 text-xs mt-1">
-                    {detailedStats.summary.total_completed}/{detailedStats.summary.total_sessions} séances
+                    {selectedStats._extras.total_completed}/{selectedStats._extras.total_sessions} séances
                   </p>
                 </div>
                 <div className="card p-4">
@@ -1236,9 +1409,13 @@ export function DuoPage() {
                     <Clock className="text-[var(--theme-primary)]" size={16} />
                     <span className="text-zinc-400 text-xs uppercase">Temps total</span>
                   </div>
-                  <p className="text-2xl font-bold text-white">{formatDuration(detailedStats.summary.total_time)}</p>
+                  <p className="text-2xl font-bold text-white">
+                    {formatDuration((selectedStats.summary.duration_minutes || 0) * 60)}
+                  </p>
                   <p className="text-zinc-500 text-xs mt-1">
-                    ~{formatDuration(detailedStats.summary.avg_time)} / séance
+                    {selectedStats._extras.avg_time_minutes != null
+                      ? `~${selectedStats._extras.avg_time_minutes} min / séance`
+                      : '—'}
                   </p>
                 </div>
                 <div className="card p-4">
@@ -1246,7 +1423,7 @@ export function DuoPage() {
                     <Calendar className="text-[var(--theme-primary)]" size={16} />
                     <span className="text-zinc-400 text-xs uppercase">Cette semaine</span>
                   </div>
-                  <p className="text-2xl font-bold text-white">{detailedStats.summary.this_week}</p>
+                  <p className="text-2xl font-bold text-white">{selectedStats._extras.this_week ?? '—'}</p>
                   <p className="text-zinc-500 text-xs mt-1">séances</p>
                 </div>
                 <div className="card p-4">
@@ -1254,12 +1431,12 @@ export function DuoPage() {
                     <Activity className="text-[var(--theme-primary)]" size={16} />
                     <span className="text-zinc-400 text-xs uppercase">Ce mois</span>
                   </div>
-                  <p className="text-2xl font-bold text-white">{detailedStats.summary.this_month}</p>
+                  <p className="text-2xl font-bold text-white">{selectedStats._extras.this_month ?? '—'}</p>
                   <p className="text-zinc-500 text-xs mt-1">séances</p>
                 </div>
               </div>
 
-              {detailedStats.summary.total_calories != null && (
+              {selectedStats.summary.calories != null && (
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <FlameIcon className="text-orange-400" size={16} />
@@ -1269,19 +1446,19 @@ export function DuoPage() {
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="p-2 rounded-xl bg-white/5">
                       <p className="text-lg font-bold text-orange-300">
-                        {formatCalories(detailedStats.summary.week_calories)}
+                        {formatCalories(selectedStats._extras.calories_week ?? 0)}
                       </p>
                       <p className="text-zinc-500 text-[10px]">Semaine</p>
                     </div>
                     <div className="p-2 rounded-xl bg-white/5">
                       <p className="text-lg font-bold text-orange-300">
-                        {formatCalories(detailedStats.summary.month_calories)}
+                        {formatCalories(selectedStats._extras.calories_month ?? 0)}
                       </p>
                       <p className="text-zinc-500 text-[10px]">Mois</p>
                     </div>
                     <div className="p-2 rounded-xl bg-white/5">
                       <p className="text-lg font-bold text-orange-300">
-                        {formatCalories(detailedStats.summary.total_calories)}
+                        {formatCalories(selectedStats.summary.calories ?? 0)}
                       </p>
                       <p className="text-zinc-500 text-[10px]">Total</p>
                     </div>
@@ -1290,55 +1467,63 @@ export function DuoPage() {
               )}
 
               {/* Averages */}
-              {(detailedStats.averages.fatigue_before != null || detailedStats.averages.difficulty != null) && (
+              {hasWellbeingData ? (
                 <div className="card p-4">
-                  <h3 className="text-white font-medium mb-4">Moyennes</h3>
+                  <h3 className="text-white font-medium mb-4">Bien-être</h3>
                   <div className="space-y-4">
-                    {detailedStats.averages.fatigue_before != null && (
+                    {selectedStats.wellbeing.fatigue_before != null && (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-zinc-400">Fatigue avant</span>
-                          <span className="text-white">{detailedStats.averages.fatigue_before}/10</span>
+                          <span className="text-white">{selectedStats.wellbeing.fatigue_before}/10</span>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-yellow-500 transition-all"
-                            style={{ width: `${detailedStats.averages.fatigue_before * 10}%` }}
+                            style={{ width: `${selectedStats.wellbeing.fatigue_before * 10}%` }}
                           />
                         </div>
                       </div>
                     )}
-                    {detailedStats.averages.fatigue_after != null && (
+                    {selectedStats.wellbeing.fatigue_after != null && (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-zinc-400">Fatigue après</span>
-                          <span className="text-white">{detailedStats.averages.fatigue_after}/10</span>
+                          <span className="text-white">{selectedStats.wellbeing.fatigue_after}/10</span>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-orange-500 transition-all"
-                            style={{ width: `${detailedStats.averages.fatigue_after * 10}%` }}
+                            style={{ width: `${selectedStats.wellbeing.fatigue_after * 10}%` }}
                           />
                         </div>
                       </div>
                     )}
-                    {detailedStats.averages.difficulty != null && (
+                    {selectedStats._extras?.difficulty != null ? (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
                           <span className="text-zinc-400">Difficulté ressentie</span>
-                          <span className="text-white">{detailedStats.averages.difficulty}/10</span>
+                          <span className="text-white">{selectedStats._extras.difficulty}/10</span>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-[var(--theme-primary)] transition-all"
-                            style={{ width: `${detailedStats.averages.difficulty * 10}%` }}
+                            style={{ width: `${selectedStats._extras.difficulty * 10}%` }}
                           />
                         </div>
                       </div>
-                    )}
+                    ) : null}
+
+                    {selectedStats.wellbeing.fatigue_before == null
+                      && selectedStats.wellbeing.fatigue_after == null
+                      && selectedStats._extras?.difficulty == null
+                      && selectedStats.wellbeing.mood_before == null
+                      && selectedStats.wellbeing.mood_after == null ? (
+                        <p className="text-zinc-500 text-sm">Non renseigné</p>
+                      ) : null}
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {/* Weekly Chart */}
               <div className="card p-4">
@@ -1347,12 +1532,15 @@ export function DuoPage() {
                   <h3 className="text-white font-medium">7 derniers jours</h3>
                 </div>
                 <div className="flex items-end gap-2 h-24">
-                  {detailedStats.daily_stats.map((day, i) => (
+                  {(selectedStats._extras.daily || []).map((day, i) => (
                     <div key={i} className="flex-1 flex flex-col items-center gap-1">
                       <div
                         className="w-full rounded-t transition-all"
                         style={{
-                          height: `${Math.max(8, (day.count / Math.max(1, ...detailedStats.daily_stats.map(d => d.count))) * 80)}px`,
+                          height: `${Math.max(
+                            8,
+                            (day.count / Math.max(1, ...(selectedStats._extras.daily || []).map((d) => d.count))) * 80
+                          )}px`,
                           background: day.completed > 0 
                             ? 'linear-gradient(180deg, var(--theme-primary), var(--theme-secondary))' 
                             : 'rgba(255,255,255,0.1)',
@@ -1365,13 +1553,13 @@ export function DuoPage() {
               </div>
 
               {/* Recent Sessions */}
-              {detailedStats.recent_sessions.length > 0 && (
+              {(selectedStats.recent_sessions || []).length > 0 && (
                 <div>
                   <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-3">
                     Dernières séances
                   </h3>
                   <div className="space-y-2">
-                    {detailedStats.recent_sessions.map((session) => (
+                    {selectedStats.recent_sessions.map((session) => (
                       <div
                         key={session.id}
                         className="card p-3 flex items-center gap-3"
