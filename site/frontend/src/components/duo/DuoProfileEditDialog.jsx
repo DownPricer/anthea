@@ -173,16 +173,10 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   const [discardOpen, setDiscardOpen] = useState(false);
   const [unlockedBadges, setUnlockedBadges] = useState([]);
   const [badgesLoading, setBadgesLoading] = useState(false);
-  const [selectedBadgeIds, setSelectedBadgeIds] = useState(() =>
-    Array.isArray(duoProfile?.featured_badge_ids)
-      ? duoProfile.featured_badge_ids.slice(0, 3)
-      : []
-  );
-  const [baselineBadgeIds, setBaselineBadgeIds] = useState(() =>
-    Array.isArray(duoProfile?.featured_badge_ids)
-      ? duoProfile.featured_badge_ids.slice(0, 3)
-      : []
-  );
+  const [selectedBadgeIds, setSelectedBadgeIds] = useState([]);
+  const [baselineBadgeIds, setBaselineBadgeIds] = useState([]);
+  const [featuredTouched, setFeaturedTouched] = useState(false);
+  const savedFeaturedIdsRef = useRef([]);
   const bannerInputRef = useRef(null);
   const pendingCloseRef = useRef(false);
 
@@ -207,11 +201,12 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     setBannerPreview(null);
     setBannerRemoved(false);
     setBannerChanged(false);
-    const featuredIds = Array.isArray(profile?.featured_badge_ids)
-      ? profile.featured_badge_ids.slice(0, 3)
+    savedFeaturedIdsRef.current = Array.isArray(profile?.featured_badge_ids)
+      ? profile.featured_badge_ids.map(String)
       : [];
-    setSelectedBadgeIds(featuredIds);
-    setBaselineBadgeIds(featuredIds);
+    setSelectedBadgeIds([]);
+    setBaselineBadgeIds([]);
+    setFeaturedTouched(false);
   }, []);
 
   useEffect(() => {
@@ -239,6 +234,32 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       cancelled = true;
     };
   }, [open, duoProfile?.pair_key]);
+
+  useEffect(() => {
+    if (!open) return;
+    if (badgesLoading) return;
+    if (featuredTouched) return;
+
+    const savedIds = Array.isArray(savedFeaturedIdsRef.current)
+      ? savedFeaturedIdsRef.current
+      : [];
+    const unlockedIdSet = new Set((unlockedBadges || []).map((b) => String(b.id)));
+    const validIds = savedIds
+      .map(String)
+      .filter((id) => unlockedIdSet.has(id))
+      .slice(0, 3);
+
+    setSelectedBadgeIds(validIds);
+    setBaselineBadgeIds(validIds);
+
+    if (process.env.NODE_ENV !== 'production') {
+      console.debug('[FeaturedBadges Init]', {
+        rawIds: duoProfile?.featured_badge_ids,
+        enriched: duoProfile?.featured_badges,
+        unlockedIds: (unlockedBadges || []).map((b) => b.id),
+      });
+    }
+  }, [open, badgesLoading, unlockedBadges, featuredTouched, duoProfile?.featured_badge_ids, duoProfile?.featured_badges]);
 
   useEffect(() => () => revokePreviewUrl(bannerPreview), [bannerPreview]);
 
@@ -353,6 +374,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   };
 
   const toggleFeaturedBadge = (badgeId) => {
+    setFeaturedTouched(true);
     setSelectedBadgeIds((current) => {
       if (current.includes(badgeId)) {
         return current.filter((id) => id !== badgeId);
@@ -379,8 +401,10 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       const savedIds = Array.isArray(data?.featured_badge_ids)
         ? data.featured_badge_ids.slice(0, 3)
         : [];
+      savedFeaturedIdsRef.current = savedIds.map(String);
       setSelectedBadgeIds(savedIds);
       setBaselineBadgeIds(savedIds);
+      setFeaturedTouched(false);
       toast.success('Profil duo mis à jour');
       onSaved?.(data);
       onOpenChange(false);

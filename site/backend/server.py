@@ -1587,13 +1587,20 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
             base["featured_badges"] = []
         elif base["featured_badge_ids"]:
             featured_cards = []
-            for bid in base["featured_badge_ids"]:
+            pair_key = duo_doc.get("pair_key")
+            if not pair_key and len(member_cards) >= 2:
+                pair_key = duo_pair_key(member_cards[0]["id"], member_cards[1]["id"])
+            unlocked_map = await BadgeProgressService(db).get_unlocked_duo(pair_key) if pair_key else {}
+            for bid in list(base["featured_badge_ids"] or [])[:3]:
                 definition = get_badge_definition(bid)
                 if not definition or definition.get("scope") != "duo":
+                    continue
+                if unlocked_map and bid not in unlocked_map:
                     continue
                 public = catalog_badge_to_public(definition, unlocked=True)
                 featured_cards.append(public)
             base["featured_badges"] = featured_cards
+            base["featured_badge_ids"] = [b.get("id") for b in featured_cards if b.get("id")]
     return base
 
 async def can_view_duo_post(viewer_id: str, post: dict, duo_doc: dict) -> bool:
