@@ -3,7 +3,7 @@ import { Globe, Lock, Settings, LogOut } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
 import { NotificationBell } from '../NotificationBell';
 import { Button } from '../ui/button';
-import { DuoAvatar } from './DuoAvatar';
+import { DuoMembersAvatar } from './DuoMembersAvatar';
 import { DuoFollowButton } from './DuoFollowButton';
 import {
   formatDuoTag,
@@ -14,8 +14,18 @@ import {
 } from '../../lib/duoProfile';
 import { formatHandle, getDisplayName, getPublicHandle } from '../../lib/userProfile';
 import { resolveMediaUrl } from '../../lib/api';
+import { BadgeArtwork } from '../badges/BadgeArtwork';
+import { useAuth } from '../../context/AuthContext';
 
-export function DuoProfileHeader({ duoProfile, viewer, onEdit, onFollowUpdate, theme = 'default' }) {
+export function DuoProfileHeader({
+  duoProfile,
+  viewer,
+  onEdit,
+  onFollowUpdate,
+  theme = 'default',
+  featuredBadges = [],
+}) {
+  const { user } = useAuth();
   if (!duoProfile) {
     return (
       <div className="card p-5 border border-white/10">
@@ -32,6 +42,7 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, onFollowUpdate, t
   const displayName = duoProfile.name || 'Duo';
   const relationLabel = getDuoRelationLabel(duoProfile.relation_type || 'partners');
   const bannerUrl = resolveMediaUrl(duoProfile.banner_url);
+  const featured = Array.isArray(featuredBadges) ? featuredBadges.slice(0, 3) : [];
 
   return (
     <div className="card overflow-hidden border border-white/10" data-testid="duo-profile-header">
@@ -54,7 +65,11 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, onFollowUpdate, t
 
       <div className="p-5 -mt-10 relative">
         <div className="flex items-start justify-between gap-3 mb-4">
-          <DuoAvatar duoProfile={duoProfile} members={members} className="w-16 h-16 text-lg" />
+          <DuoMembersAvatar
+            members={members}
+            viewerId={user?.id || viewer?.id}
+            size="lg"
+          />
           <div className="flex flex-col gap-2 items-end shrink-0">
             {duoProfile.is_member && onEdit ? (
               <div className="flex items-center gap-2">
@@ -93,6 +108,33 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, onFollowUpdate, t
         <p className="text-zinc-400 font-mono text-sm mt-1">{formatDuoTag(duoProfile) || '—'}</p>
         <p className="text-zinc-500 text-sm mt-1">{relationLabel}</p>
 
+        {featured.length > 0 ? (
+          <div className="flex items-center gap-2 mt-4" data-testid="duo-featured-badges">
+            {featured.map((badge) => (
+              <div
+                key={badge.id}
+                className="min-w-0 overflow-hidden rounded-xl border border-white/10 bg-black/20 p-2 w-[4.5rem]"
+                title={badge.name}
+              >
+                <BadgeArtwork
+                  rarity={badge.rarity_key || badge.rarity}
+                  iconKey={badge.icon_key || badge.icon}
+                  locked={false}
+                  size={40}
+                  className="mx-auto shrink-0 size-10"
+                />
+                <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[9px] text-zinc-300">
+                  {badge.name}
+                </p>
+              </div>
+            ))}
+          </div>
+        ) : duoProfile.is_member ? (
+          <p className="text-zinc-600 text-xs mt-3">
+            Choisissez jusqu&apos;à 3 badges à mettre en avant dans les réglages Duo.
+          </p>
+        ) : null}
+
         <div className="flex items-center gap-3 mt-3 flex-wrap">
           {duoProfile.account_visibility === 'public' ? (
             <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-emerald-400/80">
@@ -116,14 +158,14 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, onFollowUpdate, t
               return (
                 <div
                   key={member.id}
-                  className="rounded-xl bg-black/20 border border-white/5 p-3 flex items-center gap-3"
+                  className="rounded-xl bg-black/20 border border-white/5 p-3 flex items-center gap-3 min-w-0 overflow-hidden"
                 >
                   <UserAvatar user={member} className="w-10 h-10 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="text-white font-medium text-sm truncate">
                       {getDisplayName(member)}
                     </p>
-                    <p className="text-zinc-500 text-xs">{formatHandle(member)}</p>
+                    <p className="text-zinc-500 text-xs truncate">{formatHandle(member)}</p>
                     {member.duo_role && member.duo_role !== 'member' ? (
                       <p className="text-[10px] text-[var(--theme-primary)]/80 mt-0.5">
                         {getDuoRoleLabel(member.duo_role)}

@@ -17,11 +17,19 @@ export function getPublicHandle(user) {
 }
 
 export function getAvatarInitial(user) {
-  const name = user?.display_name || user?.username || 'U';
+  const name = String(user?.display_name || user?.username || '').trim();
+  if (!name || name === 'undefined' || name === 'null' || name === 'U') {
+    const handle = String(user?.handle || '').trim();
+    if (handle && handle !== 'undefined') return handle.charAt(0).toUpperCase();
+    return '?';
+  }
   return name.charAt(0).toUpperCase();
 }
 
 export function getAvatarFallbackStyle(user) {
+  if (user?.accent_color) {
+    return { background: user.accent_color };
+  }
   const seed = getPublicHandle(user) || 'user';
   let hash = 0;
   for (let i = 0; i < seed.length; i += 1) {

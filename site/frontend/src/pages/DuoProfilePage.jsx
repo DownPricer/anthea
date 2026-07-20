@@ -156,6 +156,22 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
     [duoProfile]
   );
 
+  const featuredBadges = useMemo(() => {
+    if (Array.isArray(duoProfile?.featured_badges) && duoProfile.featured_badges.length) {
+      return duoProfile.featured_badges.slice(0, 3);
+    }
+    const ids = Array.isArray(duoProfile?.featured_badge_ids) ? duoProfile.featured_badge_ids : [];
+    if (!ids.length) return [];
+    const pool = [
+      ...(stats?.duo_badges || []),
+      ...(stats?.badges || []),
+    ];
+    return ids
+      .map((id) => pool.find((b) => b?.id === id && b?.unlocked) || null)
+      .filter(Boolean)
+      .slice(0, 3);
+  }, [duoProfile?.featured_badges, duoProfile?.featured_badge_ids, stats]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -178,6 +194,7 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
         duoProfile={duoProfile}
         viewer={user}
         theme={theme}
+        featuredBadges={featuredBadges}
         onEdit={duoProfile.is_member ? () => setEditOpen(true) : undefined}
         onFollowUpdate={(data) => {
           setDuoProfile(data);

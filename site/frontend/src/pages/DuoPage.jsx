@@ -34,7 +34,7 @@ import {
   DUO_STALE,
   duoTime,
 } from '../lib/duoCache';
-import { DuoAvatar } from '../components/duo/DuoAvatar';
+import { DuoMembersAvatar } from '../components/duo/DuoMembersAvatar';
 import { Link } from 'react-router-dom';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -619,22 +619,19 @@ export function DuoPage() {
         {duoStats?.duo_profile?.tag ? (
           <Link
             to={duoProfilePath(duoStats.duo_profile.tag)}
-            className="card p-4 flex items-center gap-3 border border-[var(--theme-primary)]/30 hover:border-[var(--theme-primary)]/50 transition-colors group"
+            className="flex items-center gap-3 py-2 px-1 group"
             data-testid="duo-profile-link"
           >
-            <DuoAvatar
-              duoProfile={duoStats.duo_profile}
-              members={[user, partner]}
-              className="w-12 h-12 shrink-0"
-              textSize="text-sm"
+            <DuoMembersAvatar
+              members={[user, partner].filter(Boolean)}
+              viewerId={user?.id}
+              size="md"
             />
             <div className="flex-1 min-w-0">
-              <p className="text-white font-semibold group-hover:text-[var(--theme-primary)] transition-colors">
-                Profil du duo
+              <p className="text-white font-semibold truncate group-hover:text-[var(--theme-primary)] transition-colors">
+                {duoStats.duo_profile.name || 'Duo'}
               </p>
-              <p className="text-zinc-500 text-sm mt-0.5">
-                Mur, stats, badges et vitrine publique
-              </p>
+              <p className="text-zinc-500 text-sm">Voir le profil</p>
             </div>
             <ChevronRight className="text-zinc-500 group-hover:text-[var(--theme-primary)] shrink-0" size={20} />
           </Link>

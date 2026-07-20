@@ -2,7 +2,7 @@ import { BadgeArtwork, normalizeBadgeRarityKey } from './BadgeArtwork';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
 
 /**
- * Carte badge partagée (Stats, catalogue, profil Solo/Duo).
+ * Carte badge partagée — taille indépendante de la longueur du nom.
  */
 export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
   if (!badge) return null;
@@ -15,16 +15,12 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
   const progress = typeof badge.progress === 'number' ? badge.progress : 0;
   const current = badge.current;
   const target = badge.target;
-  const size = compact ? 48 : 64;
+  const artSize = compact ? 48 : 56;
 
   const progressLabel = () => {
     if (unlocked) return null;
-    if (current != null && typeof current === 'object') {
-      return null;
-    }
-    if (target != null && current != null) {
-      return `${current} / ${target}`;
-    }
+    if (current != null && typeof current === 'object') return null;
+    if (target != null && current != null) return `${current} / ${target}`;
     return null;
   };
 
@@ -35,9 +31,9 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
       title={`${name} — ${badge.description || ''}`}
       data-testid={`badge-card-${badge.id}`}
       data-scope={scope}
-      className={`relative rounded-2xl p-3 text-center border transition-all w-[5.25rem] sm:w-[5.75rem] group ${
+      className={`relative min-w-0 overflow-hidden rounded-2xl p-2.5 text-center border transition-all w-[5.25rem] sm:w-[5.5rem] group ${
         unlocked
-          ? `${rarityStyle.bg} ${rarityStyle.border} ${rarityStyle.glow} cursor-pointer hover:scale-[1.03]`
+          ? `${rarityStyle.bg} ${rarityStyle.border} cursor-pointer hover:scale-[1.02]`
           : 'bg-[#0A0A0A]/80 border-white/5 opacity-80 cursor-pointer hover:opacity-100'
       }`}
     >
@@ -45,31 +41,26 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
         rarity={rarityKey}
         iconKey={badge.icon_key || badge.icon || 'trophy'}
         locked={!unlocked}
-        size={size}
-        className="mx-auto"
+        size={artSize}
+        className="mx-auto shrink-0 size-12 sm:size-14"
       />
-      <p className={`mt-1.5 text-[10px] leading-tight font-medium ${unlocked ? 'text-white' : 'text-zinc-500'}`}>
+      <p
+        className={`mt-1.5 min-w-0 line-clamp-2 break-words text-center text-[10px] leading-tight font-medium ${
+          unlocked ? 'text-white' : 'text-zinc-500'
+        }`}
+      >
         {name}
       </p>
       {!unlocked && (typeof target === 'number' ? target > 1 : true) && typeof progress === 'number' && (
         <div className="mt-1.5 h-1 bg-white/5 rounded-full overflow-hidden">
           <div
-            className="h-full rounded-full"
-            style={{
-              width: `${Math.min(100, Math.max(0, progress))}%`,
-              background: rarityStyle.text.includes('blue')
-                ? '#3B82F6'
-                : rarityStyle.text.includes('purple')
-                  ? '#A855F7'
-                  : rarityStyle.text.includes('amber')
-                    ? '#F59E0B'
-                    : '#71717A',
-            }}
+            className="h-full rounded-full bg-zinc-500"
+            style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
           />
         </div>
       )}
       {progressLabel() ? (
-        <p className="text-[9px] text-zinc-600 mt-0.5">{progressLabel()}</p>
+        <p className="text-[9px] text-zinc-600 mt-0.5 truncate">{progressLabel()}</p>
       ) : null}
       {unlocked && (
         <span className={`absolute top-1 right-1 text-[8px] ${rarityStyle.text}`}>✓</span>

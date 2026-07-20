@@ -29,10 +29,11 @@ import {
   SelectValue,
 } from '../ui/select';
 import { DUO_RELATION_OPTIONS, DUO_ROLE_OPTIONS, getDuoRoleLabel } from '../../lib/duoProfile';
-import { duoApi, uploadsApi, formatApiError, resolveMediaUrl } from '../../lib/api';
+import { duoApi, uploadsApi, badgesApi, formatApiError, resolveMediaUrl } from '../../lib/api';
 import { invalidateDuoDomain } from '../../lib/duoCache';
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 import { UserAvatar } from '../UserAvatar';
+import { BadgeArtwork } from '../badges/BadgeArtwork';
 import { toast } from 'sonner';
 import {
   Loader2,
@@ -47,6 +48,7 @@ import {
   Target,
   Users,
   Palette,
+  Star,
 } from 'lucide-react';
 
 function useIsMobile(breakpoint = 768) {
@@ -138,6 +140,9 @@ function buildInitialForm(profile) {
     challenges_visibility: resolveDuoVis(profile, 'challenges_visibility', 'show_challenges', 'followers'),
     banner_url: profile?.banner_url ?? null,
     member_roles: roles,
+    featured_badge_ids: Array.isArray(profile?.featured_badge_ids)
+      ? profile.featured_badge_ids.slice(0, 3)
+      : [],
   };
 }
 
@@ -147,6 +152,11 @@ function rolesEqual(a = {}, b = {}) {
     if ((a[k] || 'member') !== (b[k] || 'member')) return false;
   }
   return true;
+}
+
+function idsEqual(a = [], b = []) {
+  if (a.length !== b.length) return false;
+  return a.every((id, i) => id === b[i]);
 }
 
 /**
@@ -163,6 +173,8 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   const [uploadingBanner, setUploadingBanner] = useState(false);
   const [saving, setSaving] = useState(false);
   const [discardOpen, setDiscardOpen] = useState(false);
+  const [unlockedBadges, setUnlockedBadges] = useState([]);
+  const [badgesLoading, setBadgesLoading] = useState(false);
   const bannerInputRef = useRef(null);
   const pendingCloseRef = useRef(false);
 
@@ -192,6 +204,28 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   useEffect(() => {
     if (open && duoProfile) syncFromProfile(duoProfile);
   }, [open, duoProfile, syncFromProfile]);
+
+  useEffect(() => {
+    if (!open || !duoProfile?.pair_key) return undefined;
+    let cancelled = false;
+    setBadgesLoading(true);
+    badgesApi
+      .getDuoBadges(duoProfile.pair_key)
+      .then(({ data }) => {
+        if (cancelled) return;
+        const list = Array.isArray(data?.badges) ? data.badges : Array.isArray(data) ? data : [];
+        setUnlockedBadges(list.filter((b) => b?.unlocked && b?.id));
+      })
+      .catch(() => {
+        if (!cancelled) setUnlockedBadges([]);
+      })
+      .finally(() => {
+        if (!cancelled) setBadgesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, duoProfile?.pair_key]);
 
   useEffect(() => () => revokePreviewUrl(bannerPreview), [bannerPreview]);
 
@@ -232,6 +266,9 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     }
     if (!rolesEqual(form.member_roles, baseline.member_roles)) {
       payload.member_roles = form.member_roles;
+    }
+    if (!idsEqual(form.featured_badge_ids || [], baseline.featured_badge_ids || [])) {
+      payload.featured_badge_ids = form.featured_badge_ids || [];
     }
     return payload;
   }, [form, baseline, bannerChanged, bannerRemoved]);
@@ -293,6 +330,20 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       ...f,
       member_roles: { ...f.member_roles, [memberId]: role },
     }));
+  };
+
+  const toggleFeaturedBadge = (badgeId) => {
+    setForm((f) => {
+      const current = f.featured_badge_ids || [];
+      if (current.includes(badgeId)) {
+        return { ...f, featured_badge_ids: current.filter((id) => id !== badgeId) };
+      }
+      if (current.length >= 3) {
+        toast.error('Maximum 3 badges mis en avant');
+        return f;
+      }
+      return { ...f, featured_badge_ids: [...current, badgeId] };
+    });
   };
 
   const handleSave = async () => {
@@ -507,6 +558,57 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
         <p className="text-zinc-600 text-[11px]">
           Coach et Responsable du Duo — les permissions existantes sont conservées.
         </p>
+      </section>
+
+      {/* Badges mis en avant */}
+      <section className="space-y-3" data-testid="duo-featured-badges-settings">
+        <h3 className="text-xs uppercase tracking-wider text-zinc-500 flex items-center gap-2">
+          <Star size={12} /> Badges mis en avant
+        </h3>
+        <p className="text-zinc-500 text-xs">
+          Choisissez jusqu&apos;à 3 badges débloqués à afficher sur le profil.
+          {' '}({(form.featured_badge_ids || []).length}/3)
+        </p>
+        {badgesLoading ? (
+          <div className="flex justify-center py-4">
+            <Loader2 className="animate-spin text-zinc-500" size={18} />
+          </div>
+        ) : unlockedBadges.length === 0 ? (
+          <p className="text-zinc-600 text-xs">Aucun badge Duo débloqué pour le moment.</p>
+        ) : (
+          <div className="grid grid-cols-3 gap-2">
+            {unlockedBadges.map((badge) => {
+              const selected = (form.featured_badge_ids || []).includes(badge.id);
+              const order = (form.featured_badge_ids || []).indexOf(badge.id);
+              return (
+                <button
+                  key={badge.id}
+                  type="button"
+                  onClick={() => toggleFeaturedBadge(badge.id)}
+                  className={`min-w-0 overflow-hidden rounded-xl border p-2 text-center transition-colors ${
+                    selected
+                      ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)]'
+                      : 'border-white/10 bg-white/5 hover:border-white/20'
+                  }`}
+                >
+                  <BadgeArtwork
+                    rarity={badge.rarity_key || badge.rarity}
+                    iconKey={badge.icon_key || badge.icon || 'trophy'}
+                    locked={false}
+                    size={40}
+                    className="mx-auto shrink-0 size-10"
+                  />
+                  <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[10px] text-zinc-300">
+                    {badge.name}
+                  </p>
+                  {selected ? (
+                    <span className="text-[9px] text-[var(--theme-primary)]">#{order + 1}</span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </section>
     </div>
   );

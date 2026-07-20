@@ -201,6 +201,7 @@ class DuoProfileUpdate(BaseModel):
     activity_visibility: Optional[Literal["public", "followers", "members"]] = None
     challenges_visibility: Optional[Literal["public", "followers", "members"]] = None
     member_roles: Optional[Dict[str, Literal["coach", "leader", "member"]]] = None
+    featured_badge_ids: Optional[List[str]] = None
 
 class ImageUpload(BaseModel):
     image_data: str
@@ -1520,6 +1521,8 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
         "student_member_id": duo_doc.get("student_member_id"),
         "leader_member_id": duo_doc.get("leader_member_id"),
         "member_roles": duo_doc.get("member_roles") or {},
+        "featured_badge_ids": list(duo_doc.get("featured_badge_ids") or [])[:3],
+        "featured_badges": [],
         "created_at": duo_doc.get("created_at"),
         "updated_at": duo_doc.get("updated_at"),
     }
@@ -1536,6 +1539,8 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
         base["show_recent_activity"] = False
         base["show_posts"] = False
         base["show_challenges"] = False
+        base["featured_badge_ids"] = []
+        base["featured_badges"] = []
     else:
         stats_vis = resolve_duo_visibility(duo_doc, "stats")
         badges_vis = resolve_duo_visibility(duo_doc, "badges")
@@ -1556,6 +1561,18 @@ async def serialize_duo_profile_for_viewer(duo_doc: dict, viewer_id: str) -> dic
         base["show_recent_activity"] = duo_visibility_allows(access, activity_vis)
         base["show_posts"] = duo_visibility_allows(access, posts_vis)
         base["show_challenges"] = duo_visibility_allows(access, challenges_vis)
+        if access != "member" and not base["show_badges"]:
+            base["featured_badge_ids"] = []
+            base["featured_badges"] = []
+        elif base["featured_badge_ids"]:
+            featured_cards = []
+            for bid in base["featured_badge_ids"]:
+                definition = get_badge_definition(bid)
+                if not definition or definition.get("scope") != "duo":
+                    continue
+                public = catalog_badge_to_public(definition, unlocked=True)
+                featured_cards.append(public)
+            base["featured_badges"] = featured_cards
     return base
 
 async def can_view_duo_post(viewer_id: str, post: dict, duo_doc: dict) -> bool:
@@ -2825,6 +2842,31 @@ async def _apply_duo_profile_update(duo_doc: dict, data: DuoProfileUpdate, user:
             updates["leader_member_id"] = leader_ids[0]
         else:
             updates["leader_member_id"] = None
+
+    if "featured_badge_ids" in payload:
+        raw_ids = payload.get("featured_badge_ids") or []
+        if not isinstance(raw_ids, list):
+            raise HTTPException(status_code=400, detail="featured_badge_ids doit être une liste")
+        if len(raw_ids) > 3:
+            raise HTTPException(status_code=400, detail="Maximum 3 badges mis en avant")
+        pair_key = duo_doc.get("pair_key") or duo_pair_key(user["id"], user["partner_id"])
+        unlocked_map = await BadgeProgressService(db).get_unlocked_duo(pair_key)
+        cleaned: List[str] = []
+        seen = set()
+        for raw in raw_ids:
+            bid = canonical_badge_id(str(raw))
+            if not bid or bid in seen:
+                continue
+            definition = get_badge_definition(bid)
+            if not definition or definition.get("scope") != "duo":
+                raise HTTPException(status_code=400, detail=f"Badge duo invalide: {raw}")
+            if bid not in unlocked_map:
+                raise HTTPException(status_code=400, detail=f"Badge non débloqué: {raw}")
+            seen.add(bid)
+            cleaned.append(bid)
+            if len(cleaned) >= 3:
+                break
+        updates["featured_badge_ids"] = cleaned
 
     if not updates:
         return await serialize_duo_profile_for_viewer(duo_doc, user["id"])

@@ -14,7 +14,7 @@ export function UserAvatar({ user, className, fallbackClassName, cacheVersion = 
       : baseSrc;
 
   return (
-    <Avatar className={cn('bg-[var(--theme-primary)]', className)}>
+    <Avatar className={cn(user?.accent_color ? '' : 'bg-[var(--theme-primary)]', className)}>
       {avatarSrc ? (
         <AvatarImage src={avatarSrc} alt={user.display_name || user.username || ''} />
       ) : null}
