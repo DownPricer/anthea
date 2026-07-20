@@ -9,6 +9,7 @@ import {
   formatDuoTag,
   getDuoGradientStyle,
   getDuoRelationLabel,
+  getDuoRoleLabel,
   isDuoLimited,
 } from '../../lib/duoProfile';
 import { formatHandle, getDisplayName, getPublicHandle } from '../../lib/userProfile';
@@ -123,6 +124,11 @@ export function DuoProfileHeader({ duoProfile, viewer, onEdit, onFollowUpdate, t
                       {getDisplayName(member)}
                     </p>
                     <p className="text-zinc-500 text-xs">{formatHandle(member)}</p>
+                    {member.duo_role && member.duo_role !== 'member' ? (
+                      <p className="text-[10px] text-[var(--theme-primary)]/80 mt-0.5">
+                        {getDuoRoleLabel(member.duo_role)}
+                      </p>
+                    ) : null}
                   </div>
                   {!member.is_limited && profileHandle ? (
                     <Button asChild size="sm" variant="ghost" className="text-zinc-400 shrink-0">

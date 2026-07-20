@@ -9,6 +9,18 @@ export const DUO_RELATION_OPTIONS = [
   { value: 'other', label: 'Autre' },
 ];
 
+/** Rôles canoniques affichés — coach / leader (Responsable du Duo) / member */
+export const DUO_ROLE_OPTIONS = [
+  { value: 'coach', label: 'Coach' },
+  { value: 'leader', label: 'Responsable du Duo' },
+  { value: 'member', label: 'Membre' },
+];
+
+export function getDuoRoleLabel(role) {
+  const found = DUO_ROLE_OPTIONS.find((o) => o.value === role);
+  return found?.label || 'Membre';
+}
+
 export function getDuoRelationLabel(relationType) {
   const found = DUO_RELATION_OPTIONS.find((o) => o.value === relationType);
   if (found) return found.label;

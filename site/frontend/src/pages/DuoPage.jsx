@@ -14,7 +14,6 @@ import { useTheme } from '../context/ThemeContext';
 import { sessionsApi, duoApi, partnerApi, streakApi, notificationsApi, duoProfilesApi, formatApiError } from '../lib/api';
 import { SoloDashboard } from '../components/duo/SoloDashboard';
 import { NotificationBell } from '../components/NotificationBell';
-import { BadgesGrid } from '../components/BadgesGrid';
 import { DuoBadgesGrid } from '../components/duo/DuoBadgeCard';
 import { ShareDuoBadgeDialog } from '../components/duo/ShareDuoBadgeDialog';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
