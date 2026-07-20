@@ -1,0 +1,21 @@
+{
+  "items": {
+    "home": "Accueil",
+    "workouts": "Séances",
+    "create": "Créer",
+    "profile": "Profil",
+    "settings": "Paramètres",
+    "duo": "Duo",
+    "solo": "Solo"
+  },
+  "tagline": "Fitness duo",
+  "aria": {
+    "create": "Créer",
+    "settings": "Paramètres",
+    "duoUnread_one": "{{label}}, {{countLabel}} notification Duo non lue",
+    "duoUnread_other": "{{label}}, {{countLabel}} notifications Duo non lues",
+    "countMoreThan9": "plus de 9",
+    "countExact": "{{count}}"
+  }
+}
+

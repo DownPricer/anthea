@@ -5,8 +5,10 @@ import { useAuth } from '../context/AuthContext';
 import { badgesApi } from '../lib/api';
 import { BadgesCatalogView } from '../components/badges/BadgesCatalog';
 import { PageHeader } from '../components/layout/PageHeader';
+import { useTranslation } from 'react-i18next';
 
 export function BadgesPage() {
+  const { t } = useTranslation(['badges', 'common']);
   const { user } = useAuth();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -56,14 +58,14 @@ export function BadgesPage() {
       className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto"
     >
       <PageHeader
-        title={scope === 'duo' ? 'Badges du Duo' : 'Mes badges'}
-        subtitle={`${unlocked}/${total} débloqués`}
+        title={scope === 'duo' ? t('badges:duoTitle') : t('badges:title')}
+        subtitle={t('badges:unlockedOf', { unlocked, total })}
         leading={
           <button
             type="button"
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
-            aria-label="Retour"
+            aria-label={t('common:aria.back')}
           >
             <ChevronLeft size={20} />
           </button>
@@ -80,7 +82,7 @@ export function BadgesPage() {
               : 'border-white/10 text-zinc-500'
           }`}
         >
-          Solo
+          {t('badges:scope.solo')}
         </Link>
         {user?.partner_id ? (
           <Link
@@ -91,7 +93,7 @@ export function BadgesPage() {
                 : 'border-white/10 text-zinc-500'
             }`}
           >
-            Duo
+            {t('badges:scope.duo')}
           </Link>
         ) : null}
       </div>
@@ -115,7 +117,7 @@ export function BadgesPage() {
           to={scope === 'duo' ? '/duo' : '/profile'}
           className="text-[var(--theme-primary)] text-sm hover:underline"
         >
-          {scope === 'duo' ? 'Retour au Duo' : 'Retour au profil'}
+          {scope === 'duo' ? t('badges:backToDuo') : t('badges:backToProfile')}
         </Link>
       </div>
     </div>

@@ -1,0 +1,9 @@
+{
+  "generic": "Une erreur est survenue. Veuillez réessayer.",
+  "network": "Erreur réseau. Vérifiez votre connexion.",
+  "forbidden": "Accès refusé",
+  "notFound": "Contenu introuvable",
+  "validation": "Données invalides",
+  "saveFailed": "Échec de la sauvegarde",
+  "deleteFailed": "Échec de la suppression"
+}

@@ -3,22 +3,65 @@ import { initReactI18next } from "react-i18next";
 import { DEFAULT_LOCALE, SUPPORTED_LOCALES, toHtmlLang } from "./supportedLocales";
 import { detectBrowserLocale, readStoredLocale, writeStoredLocale } from "./storage";
 
-const PRELOADED_NAMESPACES = ["common", "settings"];
+const PRELOADED_NAMESPACES = [
+  "common",
+  "navigation",
+  "auth",
+  "home",
+  "workouts",
+  "player",
+  "profile",
+  "duo",
+  "settings",
+  "badges",
+  "notifications",
+  "errors",
+];
 
 function loadJson(locale, ns) {
   // CRA a besoin d'import paths statiques -> switch explicite
   switch (String(locale)) {
     case "fr-FR":
       if (ns === "common") return import("./locales/fr/common.json");
+      if (ns === "navigation") return import("./locales/fr/navigation.json");
+      if (ns === "auth") return import("./locales/fr/auth.json");
+      if (ns === "home") return import("./locales/fr/home.json");
+      if (ns === "workouts") return import("./locales/fr/workouts.json");
+      if (ns === "player") return import("./locales/fr/player.json");
+      if (ns === "profile") return import("./locales/fr/profile.json");
+      if (ns === "duo") return import("./locales/fr/duo.json");
       if (ns === "settings") return import("./locales/fr/settings.json");
+      if (ns === "badges") return import("./locales/fr/badges.json");
+      if (ns === "notifications") return import("./locales/fr/notifications.json");
+      if (ns === "errors") return import("./locales/fr/errors.json");
       break;
     case "en-US":
       if (ns === "common") return import("./locales/en/common.json");
+      if (ns === "navigation") return import("./locales/en/navigation.json");
+      if (ns === "auth") return import("./locales/en/auth.json");
+      if (ns === "home") return import("./locales/en/home.json");
+      if (ns === "workouts") return import("./locales/en/workouts.json");
+      if (ns === "player") return import("./locales/en/player.json");
+      if (ns === "profile") return import("./locales/en/profile.json");
+      if (ns === "duo") return import("./locales/en/duo.json");
       if (ns === "settings") return import("./locales/en/settings.json");
+      if (ns === "badges") return import("./locales/en/badges.json");
+      if (ns === "notifications") return import("./locales/en/notifications.json");
+      if (ns === "errors") return import("./locales/en/errors.json");
       break;
     case "es-ES":
       if (ns === "common") return import("./locales/es/common.json");
+      if (ns === "navigation") return import("./locales/es/navigation.json");
+      if (ns === "auth") return import("./locales/es/auth.json");
+      if (ns === "home") return import("./locales/es/home.json");
+      if (ns === "workouts") return import("./locales/es/workouts.json");
+      if (ns === "player") return import("./locales/es/player.json");
+      if (ns === "profile") return import("./locales/es/profile.json");
+      if (ns === "duo") return import("./locales/es/duo.json");
       if (ns === "settings") return import("./locales/es/settings.json");
+      if (ns === "badges") return import("./locales/es/badges.json");
+      if (ns === "notifications") return import("./locales/es/notifications.json");
+      if (ns === "errors") return import("./locales/es/errors.json");
       break;
     default:
       break;
@@ -76,7 +119,17 @@ i18n
       // FR toujours disponible au build
       "fr-FR": {
         common: require("./locales/fr/common.json"),
+        navigation: require("./locales/fr/navigation.json"),
+        auth: require("./locales/fr/auth.json"),
+        home: require("./locales/fr/home.json"),
+        workouts: require("./locales/fr/workouts.json"),
+        player: require("./locales/fr/player.json"),
+        profile: require("./locales/fr/profile.json"),
+        duo: require("./locales/fr/duo.json"),
         settings: require("./locales/fr/settings.json"),
+        badges: require("./locales/fr/badges.json"),
+        notifications: require("./locales/fr/notifications.json"),
+        errors: require("./locales/fr/errors.json"),
       },
     },
     interpolation: { escapeValue: false },
@@ -87,9 +140,23 @@ i18n
         console.warn("[i18n missing]", `${ns}:${key}`, { lng });
       }
     },
-    parseMissingKeyHandler: () => {
-      // En prod, ne jamais afficher une clé brute à l'utilisateur.
-      return "…";
+    parseMissingKeyHandler: (key, defaultValue) => {
+      // Ne jamais afficher une clé technique (ex. profile.edit.title).
+      // Préférer defaultValue si fourni, sinon un libellé neutre lisible.
+      if (typeof defaultValue === "string" && defaultValue.trim() && defaultValue !== key) {
+        return defaultValue;
+      }
+      try {
+        const unavailable = i18n.t("common:states.unavailable", {
+          defaultValue: "Texte indisponible",
+        });
+        if (unavailable && unavailable !== "common:states.unavailable") {
+          return unavailable;
+        }
+      } catch {
+        // ignore
+      }
+      return "Texte indisponible";
     },
   })
   .then(async () => {

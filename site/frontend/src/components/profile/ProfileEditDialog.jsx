@@ -34,21 +34,10 @@ import {
 } from '../ui/alert-dialog';
 import { getPublicHandle, isValidHandle, normalizeHandle } from '../../lib/userProfile';
 import { revokePreviewUrl } from '../../lib/imageCompress';
+import { useTranslation } from 'react-i18next';
 
-const FITNESS_LEVELS = [
-  { value: 'beginner', label: 'Débutant' },
-  { value: 'intermediate', label: 'Intermédiaire' },
-  { value: 'advanced', label: 'Avancé' },
-  { value: 'expert', label: 'Expert' },
-];
-
-const GOALS = [
-  { value: 'lose_weight', label: 'Perdre du poids' },
-  { value: 'gain_muscle', label: 'Prendre du muscle' },
-  { value: 'stay_fit', label: 'Rester en forme' },
-  { value: 'improve_endurance', label: 'Améliorer mon endurance' },
-  { value: 'flexibility', label: 'Gagner en souplesse' },
-];
+const FITNESS_LEVEL_VALUES = ['beginner', 'intermediate', 'advanced', 'expert'];
+const GOAL_VALUES = ['lose_weight', 'gain_muscle', 'stay_fit', 'improve_endurance', 'flexibility'];
 
 function useIsMobile(breakpoint = 768) {
   const [mobile, setMobile] = useState(() =>
@@ -94,6 +83,7 @@ export function ProfileEditDialog({
   avatarUploading = false,
   suppressCloseAutoFocus = false,
 }) {
+  const { t } = useTranslation(['profile', 'common']);
   const isMobile = useIsMobile();
   const [form, setForm] = useState(() => buildInitialForm(user));
   const [baseline, setBaseline] = useState(() => buildInitialForm(user));
@@ -231,7 +221,7 @@ export function ProfileEditDialog({
         return current.filter((item) => item !== id);
       }
       if (current.length >= 3) {
-        toast.error('Vous pouvez mettre en avant jusqu’à 3 badges.');
+        toast.error(t('edit.maxFeatured'));
         return current;
       }
       return [...current, id];
@@ -241,7 +231,7 @@ export function ProfileEditDialog({
   const handleSubmit = async () => {
     const normalizedHandle = normalizeHandle(form.handle);
     if (!isValidHandle(normalizedHandle)) {
-      toast.error('Arobase invalide (3-30 caractères, lettres, chiffres et _ uniquement)');
+      toast.error(t('edit.invalidHandle'));
       return;
     }
 
@@ -266,7 +256,7 @@ export function ProfileEditDialog({
       setSelectedBadgeIds(returnedIds.slice(0, 3));
       setBaselineBadgeIds(returnedIds.slice(0, 3));
       setFeaturedTouched(false);
-      toast.success('Profil mis à jour !');
+      toast.success(t('edit.success'));
       onOpenChange(false);
     } else if (result?.error) {
       toast.error(result.error);
@@ -277,7 +267,7 @@ export function ProfileEditDialog({
     <div className="space-y-5 pb-4" data-testid="profile-edit-panel">
       {isDirty ? (
         <p className="text-amber-400/90 text-xs" data-testid="profile-unsaved-hint">
-          Modifications non enregistrées
+          {t('edit.unsaved')}
         </p>
       ) : null}
 
@@ -303,7 +293,7 @@ export function ProfileEditDialog({
             ) : (
               <Camera size={16} className="mr-2" />
             )}
-            Importer une photo
+            {t('edit.importPhoto')}
           </Button>
           {form.avatar_url ? (
             <button
@@ -315,16 +305,16 @@ export function ProfileEditDialog({
               }}
               className="text-zinc-500 text-xs hover:text-red-400 flex items-center gap-1"
             >
-              <X size={12} /> Retirer la photo
+              <X size={12} /> {t('edit.removePhoto')}
             </button>
           ) : (
-            <p className="text-zinc-600 text-xs">JPG, PNG ou WebP</p>
+            <p className="text-zinc-600 text-xs">{t('edit.photoFormats')}</p>
           )}
         </div>
       </div>
 
       <div>
-        <Label className="text-zinc-400 text-sm">Nom affiché</Label>
+        <Label className="text-zinc-400 text-sm">{t('edit.displayName')}</Label>
         <Input
           value={form.display_name}
           onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
@@ -333,7 +323,7 @@ export function ProfileEditDialog({
       </div>
 
       <div>
-        <Label className="text-zinc-400 text-sm">Arobase</Label>
+        <Label className="text-zinc-400 text-sm">{t('edit.handle')}</Label>
         <div className="relative mt-2">
           <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">@</span>
           <Input
@@ -343,22 +333,22 @@ export function ProfileEditDialog({
             className="h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white pl-8"
           />
         </div>
-        <p className="text-zinc-600 text-xs mt-1">Unique, visible publiquement (3-30 car., a-z, 0-9, _)</p>
+        <p className="text-zinc-600 text-xs mt-1">{t('edit.handleHint')}</p>
       </div>
 
       <div>
-        <Label className="text-zinc-400 text-sm">Bio</Label>
+        <Label className="text-zinc-400 text-sm">{t('edit.bio')}</Label>
         <Textarea
           value={form.bio}
           onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
-          placeholder="Quelques mots sur toi..."
+          placeholder={t('edit.bioPlaceholder')}
           className="mt-2 rounded-xl bg-[#0A0A0A] border-white/10 text-white min-h-[80px]"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label className="text-zinc-400 text-sm">Niveau</Label>
+          <Label className="text-zinc-400 text-sm">{t('edit.level')}</Label>
           <Select
             value={form.fitness_level}
             onValueChange={(v) => setForm((f) => ({ ...f, fitness_level: v }))}
@@ -367,27 +357,27 @@ export function ProfileEditDialog({
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="bg-[#141414] border-white/10">
-              {FITNESS_LEVELS.map((level) => (
-                <SelectItem key={level.value} value={level.value} className="text-white">
-                  {level.label}
+              {FITNESS_LEVEL_VALUES.map((value) => (
+                <SelectItem key={value} value={value} className="text-white">
+                  {t(`common:fitnessLevels.${value}`)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
         <div>
-          <Label className="text-zinc-400 text-sm">Objectif</Label>
+          <Label className="text-zinc-400 text-sm">{t('edit.goal')}</Label>
           <Select
             value={form.main_goal || undefined}
             onValueChange={(v) => setForm((f) => ({ ...f, main_goal: v }))}
           >
             <SelectTrigger className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
-              <SelectValue placeholder="Choisir" />
+              <SelectValue placeholder={t('edit.choose')} />
             </SelectTrigger>
             <SelectContent className="bg-[#141414] border-white/10">
-              {GOALS.map((goal) => (
-                <SelectItem key={goal.value} value={goal.value} className="text-white">
-                  {goal.label}
+              {GOAL_VALUES.map((value) => (
+                <SelectItem key={value} value={value} className="text-white">
+                  {t(`common:goals.${value}`)}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -398,9 +388,9 @@ export function ProfileEditDialog({
       {unlockedSoloBadges.length > 0 ? (
         <div className="space-y-2">
           <div>
-            <Label className="text-zinc-400 text-sm">Badges mis en avant</Label>
+            <Label className="text-zinc-400 text-sm">{t('edit.featuredBadges')}</Label>
             <p className="text-zinc-600 text-xs mt-0.5">
-              {selectedBadgeIds.length} badge{selectedBadgeIds.length > 1 ? 's' : ''} sélectionné{selectedBadgeIds.length > 1 ? 's' : ''} sur 3
+              {t('edit.featuredCount', { count: selectedBadgeIds.length })}
             </p>
           </div>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -436,11 +426,11 @@ export function ProfileEditDialog({
                   </p>
                   {isSelected ? (
                     <p className="mt-1 text-[11px] font-medium text-[var(--theme-primary)]">
-                      Sélectionné
+                      {t('edit.selected')}
                     </p>
                   ) : (
                     <p className="mt-1 text-[11px] text-zinc-500">
-                      Appuyer pour sélectionner
+                      {t('edit.tapToSelect')}
                     </p>
                   )}
                 </button>
@@ -460,7 +450,7 @@ export function ProfileEditDialog({
       className="w-full h-11 rounded-xl btn-primary text-white font-medium"
       data-testid="profile-settings-save"
     >
-      {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enregistrer'}
+      {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : t('edit.save')}
     </Button>
   );
 
@@ -468,20 +458,20 @@ export function ProfileEditDialog({
     <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
       <AlertDialogContent className="bg-[#141414] border-white/10 text-white">
         <AlertDialogHeader>
-          <AlertDialogTitle>Quitter sans enregistrer ?</AlertDialogTitle>
+          <AlertDialogTitle>{t('edit.discardTitle')}</AlertDialogTitle>
           <AlertDialogDescription className="text-zinc-400">
-            Vos modifications seront perdues.
+            {t('edit.discardDescription')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-xl border-white/15 bg-transparent text-white">
-            Continuer la modification
+            {t('edit.discardContinue')}
           </AlertDialogCancel>
           <AlertDialogAction
             className="rounded-xl bg-red-600 hover:bg-red-500 text-white"
             onClick={confirmDiscard}
           >
-            Quitter
+            {t('edit.discardLeave')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>
@@ -499,9 +489,9 @@ export function ProfileEditDialog({
             }}
           >
             <DrawerHeader className="text-left shrink-0">
-              <DrawerTitle className="font-['Outfit'] text-white">Modifier le profil</DrawerTitle>
+              <DrawerTitle className="font-['Outfit'] text-white">{t('edit.title')}</DrawerTitle>
               <DrawerDescription className="text-zinc-500">
-                Photo, pseudo, bio et badges mis en avant
+                {t('edit.description')}
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex-1 overflow-y-auto px-4">{formBody}</div>
@@ -524,9 +514,9 @@ export function ProfileEditDialog({
           }}
         >
           <SheetHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-white/10">
-            <SheetTitle className="font-['Outfit'] text-white text-left">Modifier le profil</SheetTitle>
+            <SheetTitle className="font-['Outfit'] text-white text-left">{t('edit.title')}</SheetTitle>
             <SheetDescription className="text-zinc-500 text-left">
-              Photo, pseudo, bio et badges mis en avant
+              {t('edit.description')}
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-4">{formBody}</div>

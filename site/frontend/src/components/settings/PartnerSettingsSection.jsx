@@ -42,8 +42,10 @@ import {
   Heart,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export function PartnerSettingsSection({ embedded = false }) {
+  const { t } = useTranslation(['settings', 'common', 'notifications']);
   const { user, refreshUser } = useAuth();
   const [partner, setPartner] = useState(null);
   const [partnerRequests, setPartnerRequests] = useState([]);
@@ -97,45 +99,45 @@ export function PartnerSettingsSection({ embedded = false }) {
         target_username: targetUsername,
         relation_type: selectedRelationType,
       });
-      toast.success('Demande envoyée !');
+      toast.success(t('settings:partnerSection.toasts.requestSent'));
       setPartnerDialogOpen(false);
       setSearchQuery('');
       setSearchResults([]);
       loadPartnerData();
     } catch (error) {
-      toast.error(error.response?.data?.detail || 'Erreur');
+      toast.error(error.response?.data?.detail || t('common:states.error'));
     }
   };
 
   const handleAcceptRequest = async (requestId) => {
     try {
       await partnerApi.accept(requestId);
-      toast.success('Partenaire accepté !');
+      toast.success(t('settings:partnerSection.toasts.accepted'));
       loadPartnerData();
       refreshUser();
     } catch {
-      toast.error('Erreur');
+      toast.error(t('common:states.error'));
     }
   };
 
   const handleRejectRequest = async (requestId) => {
     try {
       await partnerApi.reject(requestId);
-      toast.success('Demande refusée');
+      toast.success(t('settings:partnerSection.toasts.rejected'));
       loadPartnerData();
     } catch {
-      toast.error('Erreur');
+      toast.error(t('common:states.error'));
     }
   };
 
   const handleUnlinkPartner = async () => {
     try {
       await partnerApi.unlink();
-      toast.success('Partenaire délié');
+      toast.success(t('settings:partnerSection.toasts.unlinked'));
       setPartner(null);
       refreshUser();
     } catch {
-      toast.error('Erreur');
+      toast.error(t('common:states.error'));
     } finally {
       setUnlinkDialogOpen(false);
     }
@@ -145,14 +147,14 @@ export function PartnerSettingsSection({ embedded = false }) {
     <Dialog open={partnerDialogOpen} onOpenChange={setPartnerDialogOpen}>
       <DialogTrigger asChild>
         <Button size="sm" className="bg-[var(--theme-primary)] text-white shrink-0">
-          <UserPlus size={16} className="mr-1" /> Ajouter
+          <UserPlus size={16} className="mr-1" /> {t('settings:partnerSection.add')}
         </Button>
       </DialogTrigger>
       <DialogContent className="bg-[#141414] border-white/10">
         <DialogHeader>
-          <DialogTitle className="text-white">Trouver un partenaire</DialogTitle>
+          <DialogTitle className="text-white">{t('settings:partnerSection.findTitle')}</DialogTitle>
           <DialogDescription className="text-zinc-500">
-            Recherchez un utilisateur et envoyez une demande de liaison.
+            {t('settings:partnerSection.findDesc')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
@@ -161,20 +163,20 @@ export function PartnerSettingsSection({ embedded = false }) {
             <Input
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
-              placeholder="Rechercher par pseudo..."
+              placeholder={t('settings:partnerSection.searchPlaceholder')}
               className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
             />
           </div>
           <div>
-            <Label className="text-zinc-400 text-sm">Type de relation</Label>
+            <Label className="text-zinc-400 text-sm">{t('settings:partnerSection.relationType')}</Label>
             <Select value={selectedRelationType} onValueChange={setSelectedRelationType}>
               <SelectTrigger className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#141414] border-white/10">
-                <SelectItem value="partner" className="text-white">Partenaire</SelectItem>
-                <SelectItem value="coach" className="text-white">Coach</SelectItem>
-                <SelectItem value="coach_partner" className="text-white">Coach + Partenaire</SelectItem>
+                <SelectItem value="partner" className="text-white">{t('settings:partnerSection.relationPartner')}</SelectItem>
+                <SelectItem value="coach" className="text-white">{t('settings:partnerSection.relationCoach')}</SelectItem>
+                <SelectItem value="coach_partner" className="text-white">{t('settings:partnerSection.relationCoachPartner')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -230,10 +232,10 @@ export function PartnerSettingsSection({ embedded = false }) {
               <p className="text-white font-medium">{partner.display_name || partner.username}</p>
               <p className="text-zinc-500 text-sm">
                 {partner.relation_type === 'coach'
-                  ? 'Coach'
+                  ? t('settings:partnerSection.relationCoach')
                   : partner.relation_type === 'coach_partner'
-                    ? 'Coach + Partenaire'
-                    : 'Partenaire'}
+                    ? t('settings:partnerSection.relationCoachPartner')
+                    : t('settings:partnerSection.relationPartner')}
               </p>
             </div>
             <ChevronRight className="text-zinc-500" size={18} />
@@ -245,16 +247,16 @@ export function PartnerSettingsSection({ embedded = false }) {
             className="text-red-400 border-red-400/30 hover:bg-red-400/10"
           >
             <UserMinus size={16} className="mr-1.5" />
-            Délier le partenaire
+            {t('settings:partnerSection.unlink')}
           </Button>
         </div>
       ) : (
-        <p className="text-zinc-500 text-sm">Pas de partenaire lié</p>
+        <p className="text-zinc-500 text-sm">{t('settings:partnerSection.noPartner')}</p>
       )}
 
       {partnerRequests.length > 0 && (
         <div className="pt-4 border-t border-white/10">
-          <p className="text-zinc-400 text-sm mb-3">Demandes reçues</p>
+          <p className="text-zinc-400 text-sm mb-3">{t('settings:partnerSection.receivedRequests')}</p>
           {partnerRequests.map((request) => (
             <div key={request.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2">
               <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)] flex items-center justify-center">
@@ -287,7 +289,7 @@ export function PartnerSettingsSection({ embedded = false }) {
 
       {sentRequests.length > 0 && (
         <div className="pt-4 border-t border-white/10">
-          <p className="text-zinc-400 text-sm mb-3">Demandes envoyées</p>
+          <p className="text-zinc-400 text-sm mb-3">{t('settings:partnerSection.sentRequests')}</p>
           {sentRequests.map((request) => (
             <div key={request.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2">
               <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center">
@@ -297,7 +299,7 @@ export function PartnerSettingsSection({ embedded = false }) {
               </div>
               <div className="flex-1">
                 <p className="text-white font-medium">{request.to_username}</p>
-                <p className="text-zinc-500 text-xs">En attente...</p>
+                <p className="text-zinc-500 text-xs">{t('settings:partnerSection.pending')}</p>
               </div>
             </div>
           ))}
@@ -319,8 +321,8 @@ export function PartnerSettingsSection({ embedded = false }) {
               <Heart size={18} className="text-[var(--theme-primary)]" />
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-white font-['Outfit']">Partenaire / Duo</h2>
-              <p className="text-zinc-500 text-sm mt-0.5">Gérer votre relation et quitter le duo</p>
+              <h2 className="text-lg font-semibold text-white font-['Outfit']">{t('settings:partnerSection.title')}</h2>
+              <p className="text-zinc-500 text-sm mt-0.5">{t('settings:partnerSection.hint')}</p>
             </div>
             {addPartnerDialog}
           </div>
@@ -331,14 +333,14 @@ export function PartnerSettingsSection({ embedded = false }) {
       <AlertDialog open={unlinkDialogOpen} onOpenChange={setUnlinkDialogOpen}>
         <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Délier votre partenaire ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('settings:partnerSection.unlinkTitle')}</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Vous quitterez le duo. Cette action peut être annulée en créant une nouvelle relation.
+              {t('settings:partnerSection.unlinkDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">
             <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
-              Annuler
+              {t('common:actions.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -347,7 +349,7 @@ export function PartnerSettingsSection({ embedded = false }) {
               }}
               className="bg-red-600 text-white hover:bg-red-700"
             >
-              Délier
+              {t('settings:partnerSection.unlinkAction')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

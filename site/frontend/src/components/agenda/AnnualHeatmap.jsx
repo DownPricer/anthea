@@ -9,6 +9,7 @@ import {
 } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Download, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { streakApi } from '../../lib/api';
 import { calendarDaysToMap } from '../../lib/agendaDayMap';
 import { getHeatmapDayStyle, heatmapDayTitle, paintHeatmapCell } from '../../lib/heatmapDayStyle';
@@ -25,6 +26,7 @@ export function AnnualHeatmap({
   /** Jours déjà chargés (évite un 2e fetch calendar) */
   initialDays = null,
 }) {
+  const { t } = useTranslation(['settings']);
   const [dayMap, setDayMap] = useState(() =>
     initialDays ? calendarDaysToMap(initialDays) : {}
   );
@@ -139,7 +141,7 @@ export function AnnualHeatmap({
       <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-white font-semibold font-['Outfit']">{title} — {year}</h3>
-          <p className="text-zinc-500 text-xs mt-0.5">Séances terminées uniquement</p>
+          <p className="text-zinc-500 text-xs mt-0.5">{t('settings:agenda.completedOnly')}</p>
         </div>
         <Button
           type="button"

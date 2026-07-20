@@ -1,0 +1,68 @@
+{
+  "title": "Notifications",
+  "subtitle": "Your recent activity",
+  "subtitleDuo": "Your Duo activity",
+  "filters": {
+    "all": "All",
+    "duo": "Duo"
+  },
+  "empty": "No notifications yet.",
+  "emptyDuo": "No duo notifications yet.",
+  "types": {
+    "new_follower": "started following you",
+    "follow_request": "wants to follow you",
+    "follow_accepted": "accepted your follow request",
+    "follow_back": "followed you back — you are mutual friends",
+    "like": "liked your post",
+    "comment": "commented on your post",
+    "duo_follow_request": "wants to follow your duo",
+    "duo_follow_accepted": "accepted your duo follow request",
+    "badge_unlocked": "You earned “{{badge}}”.",
+    "duo_badge_unlocked": "Your Duo earned “{{badge}}”.",
+    "default": "new activity",
+    "aBadge": "a badge"
+  },
+  "actions": {
+    "accept": "Accept",
+    "reject": "Decline",
+    "seeDuo": "View duo",
+    "followBack": "Follow back",
+    "seeMyBadges": "See my badges",
+    "seeDuoBadges": "See Duo badges"
+  },
+  "toasts": {
+    "following": "You are following this user!",
+    "accepted": "Request accepted",
+    "rejected": "Request declined",
+    "duoAccepted": "Duo request accepted",
+    "duoRejected": "Duo request declined"
+  },
+  "prefs": {
+    "hint": "Notification types — Push respects these choices. Security alerts always stay on.",
+    "saveError": "Preference not saved",
+    "groups": {
+      "sessions": "Workouts",
+      "social": "Social",
+      "duo": "Duo",
+      "badges": "Badges & challenges",
+      "reminders": "Reminders"
+    },
+    "keys": {
+      "partner_workout_started": "Partner started a workout",
+      "partner_workout_completed": "Partner completed a workout",
+      "scheduled_workout_reminder": "Scheduled workout reminder",
+      "followed_user_post": "New post from someone you follow",
+      "post_comment": "New comment on my post",
+      "post_like": "New like on my post",
+      "follow_request": "New follow request",
+      "follow_accepted": "Follow request accepted",
+      "duo_request": "New Duo request",
+      "duo_activity": "Important Duo activity",
+      "solo_badge_unlocked": "Solo badge unlocked",
+      "duo_badge_unlocked": "Duo badge unlocked",
+      "challenge_ending": "Weekly challenge ending soon",
+      "challenge_completed": "Solo or Duo challenge completed",
+      "streak_reminder": "Streak reminders"
+    }
+  }
+}

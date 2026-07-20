@@ -1,0 +1,37 @@
+{
+  "title": "Mis insignias",
+  "duoTitle": "Insignias del Dúo",
+  "unlockedOf": "{{unlocked}}/{{total}} desbloqueadas",
+  "scope": {
+    "solo": "Solo",
+    "duo": "Dúo"
+  },
+  "backToDuo": "Volver al Dúo",
+  "backToProfile": "Volver al perfil",
+  "filters": {
+    "all": "Todas",
+    "common": "Común",
+    "rare": "Rara",
+    "epic": "Épica",
+    "legendary": "Legendaria",
+    "unlocked": "Desbloqueadas",
+    "locked": "Por obtener"
+  },
+  "rarity": {
+    "common": "Común",
+    "rare": "Rara",
+    "epic": "Épica",
+    "legendary": "Legendaria"
+  },
+  "emptyFilter": "Ninguna insignia en este filtro.",
+  "secret": "Logro secreto",
+  "secretHint": "Sigue para descubrir este logro.",
+  "unlocked": "Logro desbloqueado",
+  "keepGoing": "Sigue para desbloquearlo",
+  "obtainedOn": "Obtenido el {{date}}",
+  "publish": "Publicar",
+  "publishDuo": "Publicar en el muro Dúo",
+  "published": "Insignia publicada",
+  "locked": "Bloqueada",
+  "progress": "Progreso"
+}

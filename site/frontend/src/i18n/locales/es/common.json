@@ -1,6 +1,67 @@
 {
   "app": {
-    "name": "Anthea"
+    "name": "Anthea",
+    "brand": "FitMatch"
+  },
+  "actions": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "back": "Volver",
+    "continue": "Continuar",
+    "confirm": "Confirmar",
+    "retry": "Reintentar",
+    "loadMore": "Cargar más",
+    "seeAll": "Ver todo",
+    "select": "Seleccionar",
+    "accept": "Aceptar",
+    "reject": "Rechazar",
+    "search": "Buscar",
+    "logout": "Cerrar sesión",
+    "follow": "Seguir",
+    "unfollow": "Dejar de seguir",
+    "followBack": "Seguir también"
+  },
+  "confirmDeletePost": "¿Eliminar esta publicación?",
+  "states": {
+    "loading": "Cargando…",
+    "error": "Error",
+    "empty": "Sin resultados",
+    "saving": "Guardando…",
+    "success": "Éxito",
+    "unavailable": "Texto no disponible"
+  },
+  "relative": {
+    "today": "Hoy",
+    "tomorrow": "Mañana",
+    "yesterday": "Ayer"
+  },
+  "aria": {
+    "back": "Volver",
+    "close": "Cerrar",
+    "search": "Buscar",
+    "notifications": "Notificaciones",
+    "myProfile": "Mi perfil",
+    "settings": "Ajustes"
+  },
+  "fitnessLevels": {
+    "beginner": "Principiante",
+    "intermediate": "Intermedio",
+    "advanced": "Avanzado",
+    "expert": "Experto"
+  },
+  "goals": {
+    "lose_weight": "Perder peso",
+    "gain_muscle": "Ganar músculo",
+    "stay_fit": "Mantenerse en forma",
+    "improve_endurance": "Mejorar la resistencia",
+    "flexibility": "Ganar flexibilidad"
+  },
+  "gender": {
+    "male": "Hombre",
+    "female": "Mujer",
+    "other": "Otro"
   }
 }
-

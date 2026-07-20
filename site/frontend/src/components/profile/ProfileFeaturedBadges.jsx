@@ -1,6 +1,8 @@
 import { Trophy } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty = true }) {
+  const { t } = useTranslation('profile');
   const featured = featuredIds
     .map((id) => badges.find((b) => String(b.id) === String(id) && b.unlocked))
     .filter(Boolean)
@@ -11,7 +13,7 @@ export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty
     return (
       <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2 border border-white/5 sm:justify-start">
         <Trophy size={14} className="text-zinc-600 shrink-0" />
-        <span className="text-zinc-600 text-xs">Aucun badge mis en avant</span>
+        <span className="text-zinc-600 text-xs">{t('featuredEmpty')}</span>
       </div>
     );
   }

@@ -2,17 +2,19 @@ import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Dumbbell, Plus, User } from 'lucide-react';
 import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
 import { useDuoUnreadCount } from '../../hooks/useDuoUnreadCount';
+import { useTranslation } from 'react-i18next';
 
 export function BottomNav() {
+  const { t } = useTranslation('navigation');
   const location = useLocation();
   const duoNav = useDuoNavLabel();
   const { count: duoUnread, badge: duoBadge } = useDuoUnreadCount();
   const navItems = [
-    { path: '/', icon: Home, label: 'Accueil' },
-    { path: '/workouts', icon: Dumbbell, label: 'Séances' },
-    { path: '/create', icon: Plus, label: '', isCenter: true },
-    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label, isDuo: true },
-    { path: '/profile', icon: User, label: 'Profil' },
+    { path: '/', icon: Home, label: t('items.home'), testId: 'home' },
+    { path: '/workouts', icon: Dumbbell, label: t('items.workouts'), testId: 'workouts' },
+    { path: '/create', icon: Plus, label: t('items.create'), isCenter: true, testId: 'create' },
+    { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label, isDuo: true, testId: 'duo' },
+    { path: '/profile', icon: User, label: t('items.profile'), testId: 'profile' },
   ];
 
   // Don't show nav on auth pages or workout player
@@ -39,6 +41,7 @@ export function BottomNav() {
               <NavLink
                 to={item.path}
                 data-testid="nav-create"
+                aria-label={t('aria.create')}
                 className="flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full border-4 border-[#0A0A0A] text-white transition-transform active:scale-95"
                 style={{
                   background: `linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))`,
@@ -51,15 +54,17 @@ export function BottomNav() {
           );
         }
 
-        const ariaLabel = item.isDuo && duoUnread > 0
-          ? `${item.label}, ${duoUnread > 9 ? 'plus de 9' : duoUnread} notification${duoUnread > 1 ? 's' : ''} Duo non lue${duoUnread > 1 ? 's' : ''}`
-          : item.label;
+        const ariaLabel = item.isDuo && duoUnread > 0 ? t('aria.duoUnread', {
+          count: duoUnread,
+          label: item.label,
+          countLabel: duoUnread > 9 ? t('aria.countMoreThan9') : t('aria.countExact', { count: duoUnread }),
+        }) : item.label;
 
         return (
           <div key={item.path} className="flex justify-center pb-2">
             <NavLink
               to={item.path}
-              data-testid={`nav-${item.label.toLowerCase() || 'home'}`}
+              data-testid={`nav-${item.testId}`}
               aria-label={ariaLabel}
               className={`flex flex-col items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors ${
                 isActive ? 'text-[var(--theme-primary)]' : 'text-zinc-500 hover:text-white'
@@ -76,7 +81,7 @@ export function BottomNav() {
                   </span>
                 ) : null}
               </span>
-              <span>{item.label}</span>
+              <span>{item.isCenter ? '' : item.label}</span>
             </NavLink>
           </div>
         );

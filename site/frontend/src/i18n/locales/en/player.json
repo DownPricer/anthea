@@ -1,0 +1,106 @@
+{
+  "pause": "Pause",
+  "resume": "Resume",
+  "skip": "Skip",
+  "next": "Next",
+  "nextExercise": "Next exercise",
+  "rest": "Rest",
+  "add15": "Add 15 seconds",
+  "completed": "Workout completed",
+  "voiceAnnouncements": "Voice announcements",
+  "abandon": "Quit",
+  "finish": "Finish",
+  "cancel": "Cancel",
+  "save": "Save",
+  "skipRest": "Skip rest",
+  "skipExercise": "Skip",
+  "stopSession": "Stop workout",
+  "resumeLater": "Resume later",
+  "restart": "Start over",
+  "start": "Start",
+  "pauses": "Pauses",
+  "pauseTime": "Pause: {{time}}",
+  "duo": "Duo",
+  "liveWith": "Live with",
+  "openChat": "Open chat",
+  "options": "Options",
+  "repsToDo": "reps to complete",
+  "exerciseDone": "I'm done with this exercise",
+  "totalTimeLabel": "Total time",
+  "totalTimeWithPause": "Total time: {{total}}{{pause}}",
+  "pauseSegment": " • Pause: {{time}}",
+  "firstExercise": "First exercise",
+  "exerciseCount": "{{count}} exercises",
+  "repsCount": "{{count}} reps",
+  "phase": {
+    "getReady": "Get ready",
+    "warmup": "Warm-up",
+    "cooldown": "Cool-down",
+    "timer": "Timer",
+    "set": "Set"
+  },
+  "tts": {
+    "resumeSession": "Resuming workout",
+    "rest": "Rest",
+    "getReady": "Get ready",
+    "nextExercise": "Next exercise: {{name}}",
+    "workoutComplete": "Workout complete. Well done!"
+  },
+  "toast": {
+    "loadError": "Unable to load workout",
+    "addedSeconds": "+{{seconds}}s",
+    "progressSaved": "Progress saved",
+    "saveError": "Error while saving",
+    "sessionSaved": "Workout saved!",
+    "invalidValue": "Invalid value",
+    "timeAdjusted": "Time adjusted"
+  },
+  "feedback": {
+    "congrats": "Well done!",
+    "completed": "Workout finished",
+    "exercisesDone": "Exercises done",
+    "exercisesDoneWithSkipped": "Exercises done • {{skipped}} skipped",
+    "caloriesApprox": "Approx. estimate",
+    "fatigueBefore": "Fatigue before workout: {{value}}/10",
+    "fatigueAfter": "Fatigue after workout: {{value}}/10",
+    "difficultyFelt": "Perceived difficulty: {{value}}/10",
+    "notesOptional": "Notes (optional)",
+    "notesPlaceholder": "How did this workout go?",
+    "exitWithoutSaving": "Exit without saving"
+  },
+  "prep": {
+    "savedProgress": "Saved progress"
+  },
+  "stopConfirm": {
+    "title": "Stop workout?",
+    "description": "You completed {{completed}}/{{total}} exercises ({{time}})",
+    "descriptionWithSkipped": "You completed {{completed}}/{{total}} exercises • {{skipped}} skipped ({{time}})",
+    "abandon": "Stop and mark as abandoned"
+  },
+  "liveSessionWith": "Live workout with {{name}}",
+  "musicMode": {
+    "enable": "Enable music mode",
+    "disable": "Disable music mode"
+  },
+  "announcements": {
+    "enable": "Enable announcements",
+    "disable": "Mute announcements"
+  },
+  "wakeLock": {
+    "active": "Screen kept awake",
+    "failed": "Sleep lock unavailable",
+    "inactive": "Auto sleep active"
+  },
+  "timeAdjust": {
+    "title": "Adjust time",
+    "description": "Coach / admin only — long-press displayed time to open this menu.",
+    "totalTime": "Total time",
+    "pauseTime": "Pause time",
+    "min": "min",
+    "sec": "sec",
+    "apply": "Apply"
+  },
+  "aria": {
+    "stopSession": "Stop workout"
+  }
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
@@ -55,29 +55,11 @@ import {
 import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
-const BLOCK_TYPES = [
-  { value: 'warmup', label: 'Échauffement' },
-  { value: 'main', label: 'Corps de séance' },
-  { value: 'cooldown', label: 'Retour au calme' },
-];
-
-const DIFFICULTIES = [
-  { value: 'easy', label: 'Facile' },
-  { value: 'medium', label: 'Moyen' },
-  { value: 'hard', label: 'Difficile' },
-  { value: 'intense', label: 'Intense' },
-];
-
-const WEEK_DAYS = [
-  { value: 0, label: 'Lun' },
-  { value: 1, label: 'Mar' },
-  { value: 2, label: 'Mer' },
-  { value: 3, label: 'Jeu' },
-  { value: 4, label: 'Ven' },
-  { value: 5, label: 'Sam' },
-  { value: 6, label: 'Dim' },
-];
+const BLOCK_TYPE_VALUES = ['warmup', 'main', 'cooldown'];
+const DIFFICULTY_VALUES = ['easy', 'medium', 'hard', 'intense'];
+const WEEKDAY_KEYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 
 const DEFAULT_NEW_EXERCISE = {
   name: '',
@@ -94,6 +76,48 @@ const DEFAULT_NEW_EXERCISE = {
 const MAX_GIF_FILE_BYTES = 2 * 1024 * 1024;
 
 export function CreateWorkoutPage() {
+  const { t } = useTranslation(['workouts', 'common']);
+  const blockTypes = useMemo(
+    () =>
+      BLOCK_TYPE_VALUES.map((value) => ({
+        value,
+        label: t(`workouts:create.blockTypes.${value}`),
+      })),
+    [t]
+  );
+  const difficulties = useMemo(
+    () =>
+      DIFFICULTY_VALUES.map((value) => ({
+        value,
+        label: t(`workouts:create.difficulties.${value}`),
+      })),
+    [t]
+  );
+  const weekDaysOptions = useMemo(
+    () =>
+      WEEKDAY_KEYS.map((key, value) => ({
+        value,
+        label: t(`workouts:create.weekdays.${key}`),
+      })),
+    [t]
+  );
+  const scheduleModes = useMemo(
+    () => [
+      { value: 'single', label: t('workouts:create.scheduling.single') },
+      { value: 'multiple', label: t('workouts:create.scheduling.multiple') },
+      { value: 'weekly', label: t('workouts:create.scheduling.weekly') },
+    ],
+    [t]
+  );
+  const quickDurationOptions = useMemo(
+    () => [
+      { weeks: 2, label: t('workouts:create.scheduling.weeks2') },
+      { weeks: 4, label: t('workouts:create.scheduling.month1') },
+      { weeks: 8, label: t('workouts:create.scheduling.months2') },
+    ],
+    [t]
+  );
+  const maxGifMb = Math.round(MAX_GIF_FILE_BYTES / 1024 / 1024);
   const { user } = useAuth();
   const navigate = useNavigate();
   const { workoutId: editWorkoutId } = useParams();
@@ -205,7 +229,7 @@ export function CreateWorkoutPage() {
       clearLocalDraftStorage();
       resetFormState();
       setDrafts((prev) => prev.filter((d) => d.id !== draftId));
-      toast.success('Brouillon supprimé');
+      toast.success(t('workouts:create.toast.draftDeleted'));
       if (isEditMode && editWorkoutId === draftId) {
         navigate('/create');
       }
@@ -280,7 +304,7 @@ export function CreateWorkoutPage() {
     } catch (error) {
       console.error('Failed to load data:', error);
       if (isEditMode) {
-        toast.error('Séance introuvable');
+        toast.error(t('workouts:create.toast.workoutNotFound'));
         navigate('/workouts');
       }
     } finally {
@@ -296,7 +320,7 @@ export function CreateWorkoutPage() {
       setExercises(data || []);
       setExerciseLibraryLoaded(true);
     } catch (error) {
-      toast.error("Impossible de charger la bibliothèque d'exercices");
+      toast.error(t('workouts:create.toast.libraryLoadError'));
     } finally {
       setExerciseLibraryLoading(false);
     }
@@ -344,12 +368,11 @@ export function CreateWorkoutPage() {
     if (!file) return;
 
     if (file.type !== 'image/gif') {
-      toast.error('Choisis un fichier au format GIF');
+      toast.error(t('workouts:create.toast.gifFormatError'));
       return;
     }
     if (file.size > MAX_GIF_FILE_BYTES) {
-      const maxMb = Math.round(MAX_GIF_FILE_BYTES / 1024 / 1024);
-      toast.error(`GIF trop volumineux (maximum ${maxMb} Mo)`);
+      toast.error(t('workouts:create.toast.gifTooLarge', { maxMb: maxGifMb }));
       return;
     }
 
@@ -358,10 +381,10 @@ export function CreateWorkoutPage() {
       const result = reader.result;
       if (typeof result === 'string') {
         updateNewExerciseField('image_url', result);
-        toast.success('GIF importé');
+        toast.success(t('workouts:create.toast.gifImported'));
       }
     };
-    reader.onerror = () => toast.error('Impossible de lire ce fichier');
+    reader.onerror = () => toast.error(t('workouts:create.toast.fileReadError'));
     reader.readAsDataURL(file);
   };
 
@@ -421,17 +444,17 @@ export function CreateWorkoutPage() {
     event.preventDefault();
 
     if (!newExercise.name.trim()) {
-      toast.error("Donne un nom à l'exercice");
+      toast.error(t('workouts:create.toast.exerciseNameRequired'));
       return;
     }
 
     if (newExercise.exercise_type === 'duration' && !newExercise.default_duration) {
-      toast.error('Indique une durée par défaut');
+      toast.error(t('workouts:create.toast.defaultDurationRequired'));
       return;
     }
 
     if (newExercise.exercise_type === 'reps' && !newExercise.default_reps) {
-      toast.error('Indique un nombre de répétitions par défaut');
+      toast.error(t('workouts:create.toast.defaultRepsRequired'));
       return;
     }
 
@@ -461,13 +484,13 @@ export function CreateWorkoutPage() {
         setEditingExerciseId(null);
         setNewExercise(DEFAULT_NEW_EXERCISE);
         setExerciseTab('library');
-        toast.success('Exercice mis à jour');
+        toast.success(t('workouts:create.toast.exerciseUpdated'));
       } else {
         const { data } = await exercisesApi.create(payload);
         setExercises((prev) => [data, ...prev]);
         addExerciseToBlock(data);
         setNewExercise(DEFAULT_NEW_EXERCISE);
-        toast.success('Exercice créé et ajouté à la séance');
+        toast.success(t('workouts:create.toast.exerciseCreatedAdded'));
       }
     } catch (error) {
       toast.error(formatApiError(error));
@@ -544,9 +567,9 @@ export function CreateWorkoutPage() {
         );
       }
 
-      toast.success('Modèle chargé');
+      toast.success(t('workouts:create.toast.templateLoaded'));
     } catch (error) {
-      toast.error('Impossible de charger ce modèle');
+      toast.error(t('workouts:create.toast.templateLoadError'));
     }
   };
 
@@ -556,7 +579,7 @@ export function CreateWorkoutPage() {
     try {
       await templatesApi.delete(templatePendingDelete.id);
       setTemplates((prev) => prev.filter((t) => t.id !== templatePendingDelete.id));
-      toast.success('Modèle supprimé');
+      toast.success(t('workouts:create.toast.templateDeleted'));
       setTemplatePendingDelete(null);
     } catch (error) {
       toast.error(formatApiError(error));
@@ -614,13 +637,13 @@ export function CreateWorkoutPage() {
     const exerciseCount = blocks.reduce((n, b) => n + b.exercises.length, 0);
     const validationErrors = [];
 
-    if (!title.trim()) validationErrors.push('Le nom de la séance est obligatoire.');
-    if (exerciseCount === 0) validationErrors.push('Ajoutez au moins un exercice.');
+    if (!title.trim()) validationErrors.push(t('workouts:create.validation.titleRequired'));
+    if (exerciseCount === 0) validationErrors.push(t('workouts:create.validation.exerciseRequired'));
     if (previewDates.length === 0) {
       if (scheduleMode === 'weekly' && weekDays.length === 0) {
-        validationErrors.push('Sélectionnez au moins un jour de la semaine.');
+        validationErrors.push(t('workouts:create.validation.weekDayRequired'));
       } else {
-        validationErrors.push('Sélectionnez au moins une date.');
+        validationErrors.push(t('workouts:create.validation.dateRequired'));
       }
     }
 
@@ -644,7 +667,7 @@ export function CreateWorkoutPage() {
     }
 
     if (draftDeletedRef.current) {
-      toast.error('Ce brouillon a été supprimé. Rechargez la page pour créer une nouvelle séance.');
+      toast.error(t('workouts:create.validation.draftDeleted'));
       return;
     }
 
@@ -680,7 +703,7 @@ export function CreateWorkoutPage() {
           clearLocalDraftStorage();
           draftDeletedRef.current = false;
         }
-        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance planifiée');
+        toast.success(asDraft ? t('workouts:create.toast.draftSaved') : t('workouts:create.toast.workoutScheduled'));
         navigate(asDraft ? '/create' : '/workouts');
         return;
       }
@@ -708,7 +731,7 @@ export function CreateWorkoutPage() {
           clearLocalDraftStorage();
           draftDeletedRef.current = false;
         }
-        toast.success(asDraft ? 'Brouillon enregistré' : 'Séance planifiée');
+        toast.success(asDraft ? t('workouts:create.toast.draftSaved') : t('workouts:create.toast.workoutScheduled'));
         navigate(asDraft ? '/create' : '/workouts');
       } else {
         const multiData = {
@@ -740,7 +763,7 @@ export function CreateWorkoutPage() {
         }
         clearLocalDraftStorage();
         draftDeletedRef.current = false;
-        toast.success(`Séance planifiée — ${response.data.created} création(s)`);
+        toast.success(t('workouts:create.toast.multiScheduled', { count: response.data.created }));
         navigate('/workouts');
       }
     } catch (error) {
@@ -757,7 +780,7 @@ export function CreateWorkoutPage() {
 
   const handleSaveAsTemplate = async () => {
     if (!title.trim()) {
-      toast.error('Donne un titre à ta séance');
+      toast.error(t('workouts:create.validation.sessionTitleRequired'));
       return;
     }
 
@@ -771,9 +794,9 @@ export function CreateWorkoutPage() {
           exercises: b.exercises,
         })),
       });
-      toast.success('Modèle sauvegardé !');
+      toast.success(t('workouts:create.toast.templateSaved'));
     } catch (error) {
-      toast.error('Erreur lors de la sauvegarde du modèle');
+      toast.error(t('workouts:create.toast.templateSaveError'));
     }
   };
 
@@ -810,7 +833,7 @@ export function CreateWorkoutPage() {
             <ArrowLeft size={22} className="text-white" />
           </button>
           <h1 className="text-lg font-semibold text-white">
-            {isEditMode ? 'Modifier la séance' : 'Créer une séance'}
+            {isEditMode ? t('workouts:create.editTitle') : t('workouts:create.title')}
           </h1>
           <div className="flex gap-2">
             <Button
@@ -819,7 +842,7 @@ export function CreateWorkoutPage() {
               onClick={() => handleSave(true)}
               disabled={saving}
               className="text-white border-white/10"
-              title="Sauvegarder en brouillon"
+              title={t('workouts:create.saveDraftTitle')}
             >
               <Save size={16} />
             </Button>
@@ -830,9 +853,9 @@ export function CreateWorkoutPage() {
       <div className="p-5">
         {!isEditMode && drafts.length > 0 ? (
           <div className="mb-5 rounded-xl border border-amber-500/20 bg-amber-500/5 p-4">
-            <p className="text-amber-200 font-medium">Brouillon en cours</p>
+            <p className="text-amber-200 font-medium">{t('workouts:create.draftSection.title')}</p>
             <p className="text-amber-200/70 text-sm mt-1">
-              Reprends ta dernière séance sauvegardée en brouillon.
+              {t('workouts:create.draftSection.hint')}
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
               <Button
@@ -841,7 +864,7 @@ export function CreateWorkoutPage() {
                 className="rounded-xl border-amber-500/30 text-amber-100 hover:bg-amber-500/10"
                 onClick={() => navigate(`/workouts/${drafts[0].id}`)}
               >
-                Ouvrir le brouillon
+                {t('workouts:create.draftSection.open')}
               </Button>
               <Button
                 type="button"
@@ -853,7 +876,7 @@ export function CreateWorkoutPage() {
                   setDeleteDraftDialogOpen(true);
                 }}
               >
-                Supprimer le brouillon
+                {t('workouts:create.draftSection.delete')}
               </Button>
             </div>
           </div>
@@ -863,14 +886,14 @@ export function CreateWorkoutPage() {
             {/* Modèles — liste + actions claires */}
             <div className="rounded-xl border border-white/10 bg-[#141414] p-4">
           <div className="mb-3 flex items-center justify-between gap-3">
-            <Label className="block text-sm font-medium text-zinc-300">Modèles enregistrés</Label>
+            <Label className="block text-sm font-medium text-zinc-300">{t('workouts:create.templates.saved')}</Label>
             {templates.length > 0 && (
               <button
                 type="button"
                 onClick={() => setTemplatesOpen((v) => !v)}
                 className="text-xs font-medium text-[var(--theme-primary)] hover:opacity-90 flex items-center gap-1"
               >
-                {templatesOpen ? 'Masquer' : 'Voir'} ({templates.length})
+                {templatesOpen ? t('workouts:create.templates.hide') : t('workouts:create.templates.show')} ({templates.length})
                 {templatesOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
               </button>
             )}
@@ -883,7 +906,7 @@ export function CreateWorkoutPage() {
               }}
             >
               <SelectTrigger className="mb-3 h-12 w-full rounded-xl bg-[#0A0A0A] border-white/10 text-white">
-                <SelectValue placeholder="Charger un modèle…" />
+                <SelectValue placeholder={t('workouts:create.templates.loadPlaceholder')} />
               </SelectTrigger>
               <SelectContent className="bg-[#141414] border-white/10 max-h-64">
                 {templates.map((t) => (
@@ -896,7 +919,7 @@ export function CreateWorkoutPage() {
           )}
           {templates.length === 0 ? (
             <p className="text-sm text-zinc-500">
-              Aucun modèle pour l’instant. Remplis ta séance puis sauvegarde-la comme modèle.
+              {t('workouts:create.templates.empty')}
             </p>
           ) : templatesOpen ? (
             <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
@@ -915,7 +938,11 @@ export function CreateWorkoutPage() {
                       )}
                     </div>
                     {template.difficulty && (
-                      <p className="text-xs capitalize text-zinc-500">{template.difficulty}</p>
+                      <p className="text-xs capitalize text-zinc-500">
+                        {t(`workouts:create.difficulties.${template.difficulty}`, {
+                          defaultValue: template.difficulty,
+                        })}
+                      </p>
                     )}
                   </div>
                   <Button
@@ -925,14 +952,14 @@ export function CreateWorkoutPage() {
                     onClick={() => loadFromTemplate(template)}
                     className="shrink-0 border-white/15 bg-white/5 text-white hover:bg-white/10"
                   >
-                    Charger
+                    {t('workouts:create.loadTemplate')}
                   </Button>
                   {!template.is_system && (
                     <Button
                       type="button"
                       size="icon"
                       variant="ghost"
-                      title="Supprimer ce modèle"
+                      title={t('workouts:create.deleteTemplateTitle')}
                       className="h-9 w-9 shrink-0 text-zinc-500 hover:bg-red-500/15 hover:text-red-400"
                       onClick={() => setTemplatePendingDelete(template)}
                     >
@@ -951,41 +978,41 @@ export function CreateWorkoutPage() {
             <div className="space-y-4">
           <div>
             <Label htmlFor="title" className="text-zinc-400 text-sm">
-              Titre *
+              {t('workouts:create.titleLabel')} *
             </Label>
             <Input
               id="title"
               data-testid="workout-title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Ex: Full Body Intense"
+              placeholder={t('workouts:create.titlePlaceholder')}
               className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white"
             />
           </div>
 
           <div>
             <Label htmlFor="description" className="text-zinc-400 text-sm">
-              Description (optionnel)
+              {t('workouts:create.descriptionOptional')}
             </Label>
             <Textarea
               id="description"
               data-testid="workout-description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Notes sur cette séance..."
+              placeholder={t('workouts:create.descriptionPlaceholder')}
               className="mt-2 rounded-xl bg-[#141414] border-white/10 text-white min-h-[80px]"
             />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <Label className="text-zinc-400 text-sm">Pour qui</Label>
+              <Label className="text-zinc-400 text-sm">{t('workouts:create.forWho')}</Label>
               <Select value={forUserId || user?.id} onValueChange={setForUserId}>
                 <SelectTrigger className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value={user?.id} className="text-white">Moi</SelectItem>
+                  <SelectItem value={user?.id} className="text-white">{t('workouts:create.me')}</SelectItem>
                   {user?.partner_id && (
                     <SelectItem value={user.partner_id} className="text-white">
                       {user.partner_username}
@@ -995,13 +1022,13 @@ export function CreateWorkoutPage() {
               </Select>
             </div>
             <div>
-              <Label className="text-zinc-400 text-sm">Difficulté</Label>
+              <Label className="text-zinc-400 text-sm">{t('workouts:create.difficultyLabel')}</Label>
               <Select value={difficulty} onValueChange={setDifficulty}>
                 <SelectTrigger className="mt-2 h-14 rounded-xl bg-[#141414] border-white/10 text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  {DIFFICULTIES.map((d) => (
+                  {difficulties.map((d) => (
                     <SelectItem key={d.value} value={d.value} className="text-white">
                       {d.label}
                     </SelectItem>
@@ -1012,7 +1039,7 @@ export function CreateWorkoutPage() {
           </div>
 
           <div>
-            <Label className="text-zinc-400 text-sm">Heure (optionnel)</Label>
+            <Label className="text-zinc-400 text-sm">{t('workouts:create.timeOptional')}</Label>
             <Input
               type="time"
               data-testid="workout-time"
@@ -1027,17 +1054,13 @@ export function CreateWorkoutPage() {
             <div className="card p-4 space-y-4">
           <div className="flex items-center gap-2 mb-2">
             <CalendarDays className="text-[var(--theme-primary)]" size={20} />
-            <h3 className="text-white font-semibold">Planification</h3>
+            <h3 className="text-white font-semibold">{t('workouts:create.scheduling.title')}</h3>
           </div>
 
           {/* Schedule Mode Tabs — masqués en édition */}
           {!isEditMode && (
           <div className="flex gap-2">
-            {[
-              { value: 'single', label: 'Date unique' },
-              { value: 'multiple', label: 'Plusieurs dates' },
-              { value: 'weekly', label: 'Répétition' },
-            ].map((mode) => (
+            {scheduleModes.map((mode) => (
               <button
                 key={mode.value}
                 onClick={() => setScheduleMode(mode.value)}
@@ -1081,7 +1104,7 @@ export function CreateWorkoutPage() {
               {multipleDates.length > 0 ? (
                 <div className="space-y-2">
                   <p className="text-zinc-400 text-sm text-center">
-                    {multipleDates.length} date(s) sélectionnée(s)
+                    {t('workouts:create.scheduling.datesSelected', { count: multipleDates.length })}
                   </p>
                   <div className="flex flex-wrap justify-center gap-2 max-h-32 overflow-y-auto px-1">
                     {[...multipleDates]
@@ -1101,7 +1124,7 @@ export function CreateWorkoutPage() {
                 </div>
               ) : (
                 <p className="text-zinc-500 text-sm text-center">
-                  Sélectionne une ou plusieurs dates dans le calendrier
+                  {t('workouts:create.scheduling.selectDatesHint')}
                 </p>
               )}
             </div>
@@ -1112,9 +1135,9 @@ export function CreateWorkoutPage() {
             <div className="space-y-4">
               {/* Week days selector */}
               <div>
-                <Label className="text-zinc-400 text-sm mb-2 block">Jours de la semaine</Label>
+                <Label className="text-zinc-400 text-sm mb-2 block">{t('workouts:create.scheduling.weekDays')}</Label>
                 <div className="flex gap-2">
-                  {WEEK_DAYS.map((day) => (
+                  {weekDaysOptions.map((day) => (
                     <button
                       key={day.value}
                       onClick={() => toggleWeekDay(day.value)}
@@ -1133,7 +1156,7 @@ export function CreateWorkoutPage() {
               {/* Date range */}
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <Label className="text-zinc-400 text-sm">Date de début</Label>
+                  <Label className="text-zinc-400 text-sm">{t('workouts:create.scheduling.startDate')}</Label>
                   <Input
                     type="date"
                     value={startDate}
@@ -1142,7 +1165,7 @@ export function CreateWorkoutPage() {
                   />
                 </div>
                 <div>
-                  <Label className="text-zinc-400 text-sm">Date de fin</Label>
+                  <Label className="text-zinc-400 text-sm">{t('workouts:create.scheduling.endDate')}</Label>
                   <Input
                     type="date"
                     value={endDate}
@@ -1154,13 +1177,9 @@ export function CreateWorkoutPage() {
 
               {/* Quick duration buttons */}
               <div>
-                <Label className="text-zinc-400 text-sm mb-2 block">Durée rapide</Label>
+                <Label className="text-zinc-400 text-sm mb-2 block">{t('workouts:create.scheduling.quickDuration')}</Label>
                 <div className="flex gap-2">
-                  {[
-                    { weeks: 2, label: '2 sem' },
-                    { weeks: 4, label: '1 mois' },
-                    { weeks: 8, label: '2 mois' },
-                  ].map((opt) => (
+                  {quickDurationOptions.map((opt) => (
                     <button
                       key={opt.weeks}
                       onClick={() => {
@@ -1185,7 +1204,7 @@ export function CreateWorkoutPage() {
                 className="flex items-center justify-between w-full text-left"
               >
                 <span className="text-[var(--theme-primary)] text-sm font-medium">
-                  {previewDates.length} séance(s) à créer
+                  {t('workouts:create.scheduling.sessionsToCreate', { count: previewDates.length })}
                 </span>
                 <ChevronDown
                   size={16}
@@ -1208,8 +1227,8 @@ export function CreateWorkoutPage() {
         {/* Blocks */}
         <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <h2 className="text-lg font-semibold text-white font-['Outfit']">Exercices</h2>
-            <span className="text-sm text-zinc-500">~{getTotalDuration()} min</span>
+            <h2 className="text-lg font-semibold text-white font-['Outfit']">{t('workouts:create.exercisesSection')}</h2>
+            <span className="text-sm text-zinc-500">{t('workouts:create.durationApprox', { count: getTotalDuration() })}</span>
           </div>
 
           {blocks.map((block, blockIndex) => (
@@ -1223,10 +1242,10 @@ export function CreateWorkoutPage() {
               >
                 <div className="flex items-center gap-3">
                   <span className="text-white font-medium">
-                    {BLOCK_TYPES.find((b) => b.value === block.block_type)?.label}
+                    {blockTypes.find((b) => b.value === block.block_type)?.label}
                   </span>
                   <span className="text-zinc-500 text-sm">
-                    {block.exercises.length} exercice(s)
+                    {t('workouts:create.exerciseCount', { count: block.exercises.length })}
                   </span>
                 </div>
                 {block.expanded ? (
@@ -1287,7 +1306,7 @@ export function CreateWorkoutPage() {
                       <div className="grid grid-cols-3 gap-2">
                         {exercise.exercise_type === 'duration' ? (
                           <div>
-                            <Label className="text-[10px] text-zinc-500 uppercase">Durée (s)</Label>
+                            <Label className="text-[10px] text-zinc-500 uppercase">{t('workouts:create.durationSeconds')}</Label>
                             <Input
                               type="number"
                               value={exercise.duration || ''}
@@ -1299,7 +1318,7 @@ export function CreateWorkoutPage() {
                           </div>
                         ) : (
                           <div>
-                            <Label className="text-[10px] text-zinc-500 uppercase">Répétitions</Label>
+                            <Label className="text-[10px] text-zinc-500 uppercase">{t('workouts:create.repsLabel')}</Label>
                             <Input
                               type="number"
                               value={exercise.reps || ''}
@@ -1311,7 +1330,7 @@ export function CreateWorkoutPage() {
                           </div>
                         )}
                         <div>
-                          <Label className="text-[10px] text-zinc-500 uppercase">Repos (s)</Label>
+                          <Label className="text-[10px] text-zinc-500 uppercase">{t('workouts:create.restSeconds')}</Label>
                           <Input
                             type="number"
                             value={exercise.rest_after || ''}
@@ -1353,7 +1372,7 @@ export function CreateWorkoutPage() {
                         }}
                         className="w-full border-dashed border-white/20 text-zinc-400 hover:text-white hover:border-white/40"
                       >
-                        <Plus size={18} className="mr-2" /> Ajouter un exercice
+                        <Plus size={18} className="mr-2" /> {t('workouts:create.addExercise')}
                       </Button>
                     </DialogTrigger>
                     <DialogContent className="flex max-h-[min(92vh,720px)] w-[calc(100vw-1.25rem)] flex-col gap-0 overflow-hidden border-white/10 bg-[#141414] p-0 sm:max-w-lg left-[50%] top-[max(0.75rem,3vh)] translate-x-[-50%] translate-y-0 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-top-[48%]">
@@ -1362,9 +1381,9 @@ export function CreateWorkoutPage() {
                           <DialogTitle className="text-white">
                             {exerciseTab === 'create'
                               ? editingExerciseId
-                                ? 'Modifier l’exercice'
-                                : 'Créer un exercice'
-                              : 'Choisir un exercice'}
+                                ? t('workouts:create.dialog.editExercise')
+                                : t('workouts:create.dialog.createExercise')
+                              : t('workouts:create.dialog.chooseExercise')}
                           </DialogTitle>
                         </DialogHeader>
                         <div className="grid grid-cols-2 gap-2 rounded-xl bg-[#0A0A0A] p-1">
@@ -1380,7 +1399,7 @@ export function CreateWorkoutPage() {
                                 : 'text-zinc-400 hover:bg-white/5'
                             }`}
                           >
-                            Bibliothèque
+                            {t('workouts:create.dialog.library')}
                           </button>
                           <button
                             type="button"
@@ -1395,7 +1414,7 @@ export function CreateWorkoutPage() {
                                 : 'text-zinc-400 hover:bg-white/5'
                             }`}
                           >
-                            Nouvel exercice
+                            {t('workouts:create.dialog.newExercise')}
                           </button>
                         </div>
                       </div>
@@ -1407,7 +1426,7 @@ export function CreateWorkoutPage() {
                             <Input
                               value={searchQuery}
                               onChange={(e) => setSearchQuery(e.target.value)}
-                              placeholder="Rechercher..."
+                              placeholder={t('workouts:create.searchPlaceholder')}
                               className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
                             />
                           </div>
@@ -1415,7 +1434,7 @@ export function CreateWorkoutPage() {
                               {exerciseLibraryLoading ? (
                                 <div className="flex items-center justify-center py-10 text-zinc-500">
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  Chargement des exercices...
+                                  {t('workouts:create.loadingExercises')}
                                 </div>
                               ) : filteredExercises.map((exercise) => (
                                 <div
@@ -1452,7 +1471,7 @@ export function CreateWorkoutPage() {
                                           </span>
                                         ) : (
                                           <span className="flex items-center gap-1">
-                                            <Hash size={12} /> {exercise.default_reps} reps
+                                            <Hash size={12} /> {exercise.default_reps} {t('workouts:create.repsShort')}
                                           </span>
                                         )}
                                       </p>
@@ -1463,7 +1482,7 @@ export function CreateWorkoutPage() {
                                       type="button"
                                       variant="ghost"
                                       size="icon"
-                                      title="Modifier"
+                                      title={t('common:actions.edit')}
                                       className="shrink-0 self-center mr-1 h-10 w-10 rounded-lg text-zinc-400 hover:text-white hover:bg-white/10"
                                       onClick={(e) => startEditExercise(exercise, e)}
                                     >
@@ -1474,7 +1493,7 @@ export function CreateWorkoutPage() {
                               ))}
                               {!exerciseLibraryLoading && filteredExercises.length === 0 && (
                                 <div className="rounded-xl border border-dashed border-white/10 p-4 text-center text-sm text-zinc-500">
-                                  Aucun exercice trouvé.
+                                  {t('workouts:create.noExercisesFound')}
                                 </div>
                               )}
                           </div>
@@ -1488,35 +1507,35 @@ export function CreateWorkoutPage() {
                               className="space-y-3"
                             >
                             <div>
-                              <Label className="text-zinc-400 text-sm">Nom *</Label>
+                              <Label className="text-zinc-400 text-sm">{t('workouts:create.exerciseForm.name')} *</Label>
                               <Input
                                 value={newExercise.name}
                                 onChange={(e) => updateNewExerciseField('name', e.target.value)}
-                                placeholder="Ex : Jumping jacks"
+                                placeholder={t('workouts:create.exerciseForm.namePlaceholder')}
                                 className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
                               />
                             </div>
                             <div>
-                              <Label className="text-zinc-400 text-sm">Description</Label>
+                              <Label className="text-zinc-400 text-sm">{t('workouts:create.exerciseForm.description')}</Label>
                               <Textarea
                                 value={newExercise.description}
                                 onChange={(e) => updateNewExerciseField('description', e.target.value)}
-                                placeholder="Consignes rapides..."
+                                placeholder={t('workouts:create.exerciseForm.descriptionPlaceholder')}
                                 className="mt-2 rounded-xl bg-[#0A0A0A] border-white/10 text-white min-h-[72px]"
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
                               <div>
-                                <Label className="text-zinc-400 text-sm">Catégorie</Label>
+                                <Label className="text-zinc-400 text-sm">{t('workouts:create.exerciseForm.category')}</Label>
                                 <Input
                                   value={newExercise.category}
                                   onChange={(e) => updateNewExerciseField('category', e.target.value)}
-                                  placeholder="cardio"
+                                  placeholder={t('workouts:create.exerciseForm.categoryPlaceholder')}
                                   className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
                                 />
                               </div>
                               <div>
-                                <Label className="text-zinc-400 text-sm">Type</Label>
+                                <Label className="text-zinc-400 text-sm">{t('workouts:create.exerciseForm.type')}</Label>
                                 <Select
                                   value={newExercise.exercise_type}
                                   onValueChange={(value) => updateNewExerciseField('exercise_type', value)}
@@ -1525,8 +1544,8 @@ export function CreateWorkoutPage() {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent className="bg-[#141414] border-white/10">
-                                    <SelectItem value="reps" className="text-white">Répétitions</SelectItem>
-                                    <SelectItem value="duration" className="text-white">Durée</SelectItem>
+                                    <SelectItem value="reps" className="text-white">{t('workouts:create.exerciseForm.typeReps')}</SelectItem>
+                                    <SelectItem value="duration" className="text-white">{t('workouts:create.exerciseForm.typeDuration')}</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -1534,7 +1553,7 @@ export function CreateWorkoutPage() {
                             <div className="grid grid-cols-2 gap-3">
                               {newExercise.exercise_type === 'duration' ? (
                                 <div>
-                                  <Label className="text-zinc-400 text-sm">Durée par défaut (s) *</Label>
+                                  <Label className="text-zinc-400 text-sm">{t('workouts:create.exerciseForm.defaultDuration')} *</Label>
                                   <Input
                                     type="number"
                                     min="1"
@@ -1545,7 +1564,7 @@ export function CreateWorkoutPage() {
                                 </div>
                               ) : (
                                 <div>
-                                  <Label className="text-zinc-400 text-sm">Répétitions par défaut *</Label>
+                                  <Label className="text-zinc-400 text-sm">{t('workouts:create.exerciseForm.defaultReps')} *</Label>
                                   <Input
                                     type="number"
                                     min="1"
@@ -1556,7 +1575,7 @@ export function CreateWorkoutPage() {
                                 </div>
                               )}
                               <div>
-                                <Label className="text-zinc-400 text-sm">Repos (s)</Label>
+                                <Label className="text-zinc-400 text-sm">{t('workouts:create.exerciseForm.restSeconds')}</Label>
                                 <Input
                                   type="number"
                                   min="0"
@@ -1567,7 +1586,7 @@ export function CreateWorkoutPage() {
                               </div>
                             </div>
                             <div className="rounded-xl border border-white/10 bg-[#0A0A0A] p-3">
-                              <Label className="text-zinc-300 text-sm font-medium">Média (optionnel)</Label>
+                              <Label className="text-zinc-300 text-sm font-medium">{t('workouts:create.exerciseForm.mediaOptional')}</Label>
                               <input
                                 ref={newExerciseGifInputRef}
                                 type="file"
@@ -1586,8 +1605,7 @@ export function CreateWorkoutPage() {
                                   </div>
                                   <div className="flex min-w-0 flex-1 flex-col justify-center gap-2">
                                     <p className="text-xs text-zinc-400 leading-snug">
-                                      GIF intégré (fichier local, max{' '}
-                                      {Math.round(MAX_GIF_FILE_BYTES / 1024 / 1024)} Mo).
+                                      {t('workouts:create.exerciseForm.gifEmbedded', { maxMb: maxGifMb })}
                                     </p>
                                     <div className="flex flex-wrap gap-2">
                                       <Button
@@ -1598,7 +1616,7 @@ export function CreateWorkoutPage() {
                                         className="h-9 shrink-0 rounded-lg border-white/15 bg-white/5 px-3 text-white hover:bg-white/10"
                                       >
                                         <Upload className="mr-1.5 h-3.5 w-3.5" />
-                                        Remplacer
+                                        {t('workouts:create.exerciseForm.replace')}
                                       </Button>
                                       <Button
                                         type="button"
@@ -1608,7 +1626,7 @@ export function CreateWorkoutPage() {
                                         className="h-9 shrink-0 rounded-lg border-white/15 bg-transparent px-3 text-zinc-400 hover:bg-white/5 hover:text-white"
                                       >
                                         <Trash2 className="mr-1.5 h-3.5 w-3.5" />
-                                        Retirer
+                                        {t('workouts:create.exerciseForm.remove')}
                                       </Button>
                                     </div>
                                   </div>
@@ -1618,12 +1636,12 @@ export function CreateWorkoutPage() {
                                   <Input
                                     value={newExercise.image_url}
                                     onChange={(e) => updateNewExerciseField('image_url', e.target.value)}
-                                    placeholder="URL https://… (GIF ou image)"
+                                    placeholder={t('workouts:create.exerciseForm.urlPlaceholder')}
                                     className="h-11 rounded-lg bg-[#141414] border-white/10 text-white text-sm"
                                   />
                                   <div className="flex items-center gap-2 text-[11px] uppercase tracking-wide text-zinc-600">
                                     <span className="h-px flex-1 bg-white/10" />
-                                    ou fichier
+                                    {t('workouts:create.exerciseForm.orFile')}
                                     <span className="h-px flex-1 bg-white/10" />
                                   </div>
                                   <Button
@@ -1633,12 +1651,12 @@ export function CreateWorkoutPage() {
                                     className="h-10 w-full rounded-lg border-white/15 bg-white/5 text-sm text-white hover:bg-white/10"
                                   >
                                     <Upload className="mr-2 h-4 w-4 shrink-0" />
-                                    Choisir un GIF sur l&apos;appareil
+                                    {t('workouts:create.exerciseForm.chooseGif')}
                                   </Button>
                                 </div>
                               )}
                               <p className="mt-2 text-[11px] leading-relaxed text-zinc-500">
-                                URL externe ou GIF importé sans hébergement.
+                                {t('workouts:create.exerciseForm.mediaHint')}
                               </p>
                             </div>
                             </form>
@@ -1655,7 +1673,7 @@ export function CreateWorkoutPage() {
                                 }}
                                 className="h-11 w-full rounded-xl border-white/15 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white"
                               >
-                                Annuler la modification
+                                {t('workouts:create.cancelEdit')}
                               </Button>
                             )}
                             <Button
@@ -1667,9 +1685,9 @@ export function CreateWorkoutPage() {
                               {creatingExercise ? (
                                 <Loader2 className="h-4 w-4 animate-spin" />
                               ) : editingExerciseId ? (
-                                'Enregistrer'
+                                t('workouts:create.save')
                               ) : (
-                                'Créer et ajouter'
+                                t('workouts:create.createAndAdd')
                               )}
                             </Button>
                           </div>
@@ -1695,7 +1713,9 @@ export function CreateWorkoutPage() {
               <Loader2 className="w-5 h-5 animate-spin" />
             ) : (
               <>
-                Planifier {previewDates.length > 1 ? `${previewDates.length} séances` : 'la séance'}
+                {previewDates.length > 1
+                  ? t('workouts:create.scheduleMany', { count: previewDates.length })
+                  : t('workouts:create.scheduleOne')}
               </>
             )}
           </Button>
@@ -1708,7 +1728,7 @@ export function CreateWorkoutPage() {
               data-testid="abandon-workout-btn"
               className="flex-1 h-12 rounded-2xl bg-white/5 border-white/10 text-white"
             >
-              {isEditMode && editingDraft ? 'Abandonner ce brouillon' : 'Abandonner la création'}
+              {isEditMode && editingDraft ? t('workouts:create.draftDialogs.abandonDraft') : t('workouts:create.draftDialogs.abandonCreate')}
             </Button>
             <Button
               variant="outline"
@@ -1717,8 +1737,8 @@ export function CreateWorkoutPage() {
               className="flex-1 h-12 rounded-2xl bg-white/5 border-white/10 text-white"
             >
               <Copy size={18} className="mr-2" />
-              <span className="sm:hidden">Comme modèle</span>
-              <span className="hidden sm:inline">Sauvegarder comme modèle</span>
+              <span className="sm:hidden">{t('workouts:create.saveAsTemplateShort')}</span>
+              <span className="hidden sm:inline">{t('workouts:create.saveAsTemplateLong')}</span>
             </Button>
           </div>
         </div>
@@ -1729,14 +1749,14 @@ export function CreateWorkoutPage() {
       <AlertDialog open={deleteDraftDialogOpen} onOpenChange={setDeleteDraftDialogOpen}>
         <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer définitivement ce brouillon ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('workouts:create.draftDialogs.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Cette action est irréversible.
+              {t('workouts:create.draftDialogs.deleteDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">
             <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
-              Annuler
+              {t('common:actions.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -1746,7 +1766,7 @@ export function CreateWorkoutPage() {
               disabled={deletingDraft}
               className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
             >
-              {deletingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Supprimer'}
+              {deletingDraft ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common:actions.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1755,14 +1775,14 @@ export function CreateWorkoutPage() {
       <AlertDialog open={abandonDialogOpen} onOpenChange={setAbandonDialogOpen}>
         <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Que souhaitez-vous faire de cette séance ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('workouts:create.draftDialogs.abandonTitle')}</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
-              Enregistrez un brouillon, continuez l&apos;édition ou abandonnez sans conserver les changements.
+              {t('workouts:create.draftDialogs.abandonDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
             <AlertDialogCancel className="w-full border-white/15 bg-white/5 text-white hover:bg-white/10">
-              {isEditMode && editingDraft ? 'Continuer' : 'Continuer la modification'}
+              {isEditMode && editingDraft ? t('workouts:create.draftDialogs.continue') : t('workouts:create.draftDialogs.continueEditing')}
             </AlertDialogCancel>
             <Button
               type="button"
@@ -1771,7 +1791,7 @@ export function CreateWorkoutPage() {
               disabled={saving}
               onClick={handleAbandonSaveDraft}
             >
-              {isEditMode && editingDraft ? 'Conserver le brouillon' : 'Enregistrer en brouillon'}
+              {isEditMode && editingDraft ? t('workouts:create.draftDialogs.keepDraft') : t('workouts:create.draftDialogs.saveDraft')}
             </Button>
             <AlertDialogAction
               onClick={(e) => {
@@ -1780,7 +1800,7 @@ export function CreateWorkoutPage() {
               }}
               className="w-full bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
             >
-              {isEditMode && editingDraft ? 'Supprimer définitivement' : 'Abandonner et supprimer'}
+              {isEditMode && editingDraft ? t('workouts:create.draftDialogs.deletePermanently') : t('workouts:create.draftDialogs.discardDelete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1794,16 +1814,16 @@ export function CreateWorkoutPage() {
       >
         <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
           <AlertDialogHeader>
-            <AlertDialogTitle>Supprimer ce modèle ?</AlertDialogTitle>
+            <AlertDialogTitle>{t('workouts:create.templateDialog.deleteTitle')}</AlertDialogTitle>
             <AlertDialogDescription className="text-zinc-400">
               {templatePendingDelete
-                ? `« ${templatePendingDelete.title} » sera définitivement supprimé.`
+                ? t('workouts:create.templateDialog.deleteDesc', { title: templatePendingDelete.title })
                 : ''}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">
             <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
-              Annuler
+              {t('common:actions.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
@@ -1813,7 +1833,7 @@ export function CreateWorkoutPage() {
               disabled={deletingTemplate}
               className="bg-red-600 text-white hover:bg-red-700 focus:ring-red-600"
             >
-              {deletingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Supprimer'}
+              {deletingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common:actions.delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

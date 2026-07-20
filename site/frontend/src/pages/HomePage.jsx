@@ -41,8 +41,10 @@ import { UserAvatar } from '../components/UserAvatar';
 import { PageHeader } from '../components/layout/PageHeader';
 import { getPublicHandle } from '../lib/userProfile';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export function HomePage() {
+  const { t } = useTranslation(['home', 'common']);
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -215,10 +217,10 @@ export function HomePage() {
     try {
       await streakApi.markRestDay(dateStr);
       setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'rest' }]);
-      toast.success('Jour de repos marqué');
+      toast.success(t('home:restDayMarked'));
       setShowStreakModal(false);
     } catch {
-      toast.error('Erreur');
+      toast.error(t('common:states.error'));
     }
   };
 
@@ -227,10 +229,10 @@ export function HomePage() {
     try {
       await streakApi.markSkipDay(dateStr);
       setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'skip' }]);
-      toast.success('Streak abandonnée pour ce jour');
+      toast.success(t('home:skipDayMarked'));
       setShowStreakModal(false);
     } catch {
-      toast.error('Erreur');
+      toast.error(t('common:states.error'));
     }
   };
 
@@ -239,10 +241,10 @@ export function HomePage() {
     try {
       await streakApi.removeDay(dateStr);
       setStreakDays((prev) => prev.filter((d) => d.date !== dateStr));
-      toast.success('Marqueur supprimé');
+      toast.success(t('home:markerRemoved'));
       setShowStreakModal(false);
     } catch {
-      toast.error('Erreur');
+      toast.error(t('common:states.error'));
     }
   };
 
@@ -268,7 +270,7 @@ export function HomePage() {
     >
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <PageHeader
-          title="Accueil"
+          title={t('home:title')}
           subtitle={format(new Date(), 'EEEE d MMMM', { locale: fr })}
           subtitleClassName="capitalize"
           actions={
@@ -278,7 +280,7 @@ export function HomePage() {
                 onClick={() => navigate('/search')}
                 data-testid="home-search-btn"
                 className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Rechercher"
+                aria-label={t('common:aria.search')}
               >
                 <Search size={20} />
               </button>
@@ -293,7 +295,7 @@ export function HomePage() {
                   onClick={() => navigate('/notifications')}
                   data-testid="home-notifications-btn"
                   className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-                  aria-label="Notifications"
+                  aria-label={t('common:aria.notifications')}
                 >
                   <Bell size={20} />
                 </button>
@@ -302,7 +304,7 @@ export function HomePage() {
                 type="button"
                 onClick={() => navigate('/profile')}
                 className="inline-flex size-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
-                aria-label="Mon profil"
+                aria-label={t('common:aria.myProfile')}
               >
                 <UserAvatar user={user} className="w-full h-full" />
               </button>
@@ -320,7 +322,7 @@ export function HomePage() {
             <div className="flex items-center gap-3">
               <Bell className="text-[var(--theme-primary)]" size={20} />
               <span className="text-white text-sm flex-1">
-                {partnerRequests.length} demande(s) de partenaire en attente
+                {t('home:partnerRequests', { count: partnerRequests.length })}
               </span>
               <ChevronRight className="text-zinc-400" size={18} />
             </div>
@@ -356,14 +358,14 @@ export function HomePage() {
               </div>
 
               <p className="text-zinc-400 text-sm uppercase tracking-wider mb-2">
-                {primaryWorkoutAction.resume ? 'À reprendre' : 'Prochaine séance'}
+                {primaryWorkoutAction.resume ? t('home:resumeWorkout') : t('home:nextWorkout')}
               </p>
               <h3 className="text-xl font-bold text-white mb-1">{primaryWorkoutAction.workout.title}</h3>
               <p className="text-zinc-500 text-sm mb-4">
-                {primaryWorkoutAction.workout.scheduled_time || 'Pas d\'heure définie'}
+                {primaryWorkoutAction.workout.scheduled_time || t('home:noTimeSet')}
                 {primaryWorkoutAction.workout.for_user_id !== user?.id && (
                   <span className="ml-2 text-[var(--theme-primary)]">
-                    • Pour {primaryWorkoutAction.workout.for_username}
+                    • {t('home:forUser', { username: primaryWorkoutAction.workout.for_username })}
                   </span>
                 )}
               </p>
@@ -376,12 +378,12 @@ export function HomePage() {
                 {primaryWorkoutAction.resume ? (
                   <>
                     <RotateCcw size={20} className="mr-2" />
-                    Reprendre
+                    {t('home:resume')}
                   </>
                 ) : (
                   <>
                     <Play size={20} className="mr-2" fill="currentColor" />
-                    Démarrer
+                    {t('home:start')}
                   </>
                 )}
               </Button>
@@ -391,13 +393,13 @@ export function HomePage() {
               <div className="w-14 h-14 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-3">
                 <Calendar className="text-zinc-500" size={24} />
               </div>
-              <p className="text-zinc-400 mb-3">Pas de séance prévue aujourd'hui</p>
+              <p className="text-zinc-400 mb-3">{t('home:noWorkoutToday')}</p>
               <Button
                 onClick={() => navigate('/create')}
                 variant="outline"
                 className="bg-white/5 border-white/10 text-white hover:bg-white/10"
               >
-                Planifier une séance
+                {t('home:scheduleWorkout')}
               </Button>
             </div>
           )}
@@ -405,9 +407,9 @@ export function HomePage() {
           {/* Week View */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white font-['Outfit']">Cette semaine</h2>
+              <h2 className="text-lg font-semibold text-white font-['Outfit']">{t('home:thisWeek')}</h2>
               <Link to="/workouts" className="text-[var(--theme-primary)] text-sm flex items-center">
-                Voir tout <ChevronRight size={16} />
+                {t('home:seeAll')} <ChevronRight size={16} />
               </Link>
             </div>
 
@@ -439,7 +441,7 @@ export function HomePage() {
           {/* Today's workouts list */}
           {todayWorkouts.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold text-white font-['Outfit'] mb-4">Aujourd'hui</h2>
+              <h2 className="text-lg font-semibold text-white font-['Outfit'] mb-4">{t('common:relative.today')}</h2>
               <div className="space-y-3">
                 {todayWorkouts.map((workout) => (
                   <Link
@@ -467,9 +469,9 @@ export function HomePage() {
                       <h4 className="text-white font-medium truncate">{workout.title}</h4>
                       <p className="text-zinc-500 text-sm">
                         {workout.status === 'in_progress' && workout.for_user_id === user?.id
-                          ? 'En pause — lecteur'
-                          : workout.scheduled_time || 'Flexible'}
-                        {workout.for_user_id !== user?.id && ` • Pour ${workout.for_username}`}
+                          ? t('home:pausedPlayer')
+                          : workout.scheduled_time || t('home:flexible')}
+                        {workout.for_user_id !== user?.id && ` • ${t('home:forUser', { username: workout.for_username })}`}
                       </p>
                     </div>
                     <ChevronRight className="text-zinc-500" size={18} />
@@ -489,11 +491,11 @@ export function HomePage() {
             <DialogTitle className="text-white text-center">
               {selectedDay && format(selectedDay, 'EEEE d MMMM', { locale: fr })}
             </DialogTitle>
-            <p className="text-zinc-500 text-sm text-center">Gérer le jour pour la streak</p>
+            <p className="text-zinc-500 text-sm text-center">{t('home:manageStreakDay')}</p>
           </DialogHeader>
           {streakDaysLoading && (
             <div className="flex items-center justify-center py-2 text-zinc-500 text-xs">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" /> Chargement…
+              <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('common:states.loading')}
             </div>
           )}
           {selectedDay && (() => {
@@ -505,7 +507,7 @@ export function HomePage() {
                   <div className={`p-3 rounded-xl text-center text-sm font-medium ${
                     dayType === 'rest' ? 'bg-blue-500/15 text-blue-400' : 'bg-red-500/15 text-red-400'
                   }`}>
-                    {dayType === 'rest' ? 'Jour de repos (streak maintenue)' : 'Jour skip (streak cassée)'}
+                    {dayType === 'rest' ? t('home:restDayActive') : t('home:skipDayActive')}
                   </div>
                 )}
 
@@ -516,7 +518,7 @@ export function HomePage() {
                     className="w-full h-12 rounded-xl bg-white/10 hover:bg-white/15 text-white"
                   >
                     <Undo2 size={18} className="mr-2" />
-                    Retirer le marqueur
+                    {t('home:removeMarker')}
                   </Button>
                 ) : (
                   <>
@@ -526,10 +528,10 @@ export function HomePage() {
                       className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
                     >
                       <BedDouble size={18} className="mr-2" />
-                      Jour de repos
+                      {t('home:restDay')}
                     </Button>
                     <p className="text-zinc-500 text-xs text-center -mt-1">
-                      La streak continue malgré l'absence d'entraînement
+                      {t('home:restDayHint')}
                     </p>
 
                     <Button
@@ -538,10 +540,10 @@ export function HomePage() {
                       className="w-full h-12 rounded-xl bg-red-600/80 hover:bg-red-600 text-white"
                     >
                       <XCircle size={18} className="mr-2" />
-                      Abandonner la streak
+                      {t('home:skipDay')}
                     </Button>
                     <p className="text-zinc-500 text-xs text-center -mt-1">
-                      Casse la streak volontairement pour ce jour
+                      {t('home:skipDayHint')}
                     </p>
                   </>
                 )}

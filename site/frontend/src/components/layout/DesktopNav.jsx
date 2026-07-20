@@ -3,18 +3,19 @@ import { Home, Dumbbell, Plus, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
 import { useDuoUnreadCount } from '../../hooks/useDuoUnreadCount';
-
-const baseNavItems = [
-  { path: '/', icon: Home, label: 'Accueil' },
-  { path: '/workouts', icon: Dumbbell, label: 'Séances' },
-  { path: '/create', icon: Plus, label: 'Créer' },
-  { path: '/profile', icon: User, label: 'Profil' },
-];
+import { useTranslation } from 'react-i18next';
 
 export function DesktopNav() {
+  const { t } = useTranslation('navigation');
   const location = useLocation();
   const duoNav = useDuoNavLabel();
   const { count: duoUnread, badge: duoBadge } = useDuoUnreadCount();
+  const baseNavItems = [
+    { path: '/', icon: Home, label: t('items.home') },
+    { path: '/workouts', icon: Dumbbell, label: t('items.workouts') },
+    { path: '/create', icon: Plus, label: t('items.create') },
+    { path: '/profile', icon: User, label: t('items.profile') },
+  ];
   const navItems = [
     ...baseNavItems.slice(0, 3),
     { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label, isDuo: true },
@@ -37,15 +38,17 @@ export function DesktopNav() {
           <div className="text-white font-black tracking-tight font-['Outfit'] text-lg">
             Anthea
           </div>
-          <div className="text-zinc-500 text-xs mt-0.5">Fitness duo</div>
+          <div className="text-zinc-500 text-xs mt-0.5">{t('tagline')}</div>
         </div>
 
         <nav className="mt-4 flex-1 space-y-1 overflow-y-auto min-h-0">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const ariaLabel = item.isDuo && duoUnread > 0
-              ? `${item.label}, ${duoUnread > 9 ? 'plus de 9' : duoUnread} notification${duoUnread > 1 ? 's' : ''} Duo non lue${duoUnread > 1 ? 's' : ''}`
-              : item.label;
+            const ariaLabel = item.isDuo && duoUnread > 0 ? t('aria.duoUnread', {
+              count: duoUnread,
+              label: item.label,
+              countLabel: duoUnread > 9 ? t('aria.countMoreThan9') : t('aria.countExact', { count: duoUnread }),
+            }) : item.label;
             return (
               <NavLink
                 key={item.path}
@@ -90,7 +93,7 @@ export function DesktopNav() {
             }
           >
             <Settings size={18} />
-            <span className="text-sm font-medium">Paramètres</span>
+            <span className="text-sm font-medium">{t('items.settings')}</span>
           </NavLink>
           <p className="text-[10px] text-zinc-600 px-2 pt-2">v0.x • responsive patch</p>
         </div>

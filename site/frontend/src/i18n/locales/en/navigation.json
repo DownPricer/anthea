@@ -1,0 +1,20 @@
+{
+  "items": {
+    "home": "Home",
+    "workouts": "Workouts",
+    "create": "Create",
+    "profile": "Profile",
+    "settings": "Settings",
+    "duo": "Duo",
+    "solo": "Solo"
+  },
+  "tagline": "Duo fitness",
+  "aria": {
+    "create": "Create",
+    "settings": "Settings",
+    "duoUnread_one": "{{label}}, {{countLabel}} Duo unread notification",
+    "duoUnread_other": "{{label}}, {{countLabel}} Duo unread notifications",
+    "countMoreThan9": "more than 9",
+    "countExact": "{{count}}"
+  }
+}

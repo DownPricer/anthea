@@ -1,0 +1,37 @@
+{
+  "title": "Mes badges",
+  "duoTitle": "Badges du Duo",
+  "unlockedOf": "{{unlocked}}/{{total}} débloqués",
+  "scope": {
+    "solo": "Solo",
+    "duo": "Duo"
+  },
+  "backToDuo": "Retour au Duo",
+  "backToProfile": "Retour au profil",
+  "filters": {
+    "all": "Tous",
+    "common": "Commun",
+    "rare": "Rare",
+    "epic": "Épique",
+    "legendary": "Légendaire",
+    "unlocked": "Débloqués",
+    "locked": "À obtenir"
+  },
+  "rarity": {
+    "common": "Commun",
+    "rare": "Rare",
+    "epic": "Épique",
+    "legendary": "Légendaire"
+  },
+  "emptyFilter": "Aucun badge dans ce filtre.",
+  "secret": "Succès secret",
+  "secretHint": "Continuez pour découvrir ce succès.",
+  "unlocked": "Succès débloqué",
+  "keepGoing": "Continuez pour le débloquer",
+  "obtainedOn": "Obtenu le {{date}}",
+  "publish": "Publier",
+  "publishDuo": "Publier sur le mur Duo",
+  "published": "Badge publié",
+  "locked": "Verrouillé",
+  "progress": "Progression"
+}

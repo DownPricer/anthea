@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/layout/PageHeader';
+import { useTranslation } from 'react-i18next';
 import {
   canViewProfileSection,
   isOwnProfile,
@@ -36,6 +37,7 @@ import {
  * `viewedUser` permet de préparer l'affichage d'autres profils (route /profile/:handle à venir).
  */
 export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
+  const { t } = useTranslation(['profile', 'common']);
   const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -132,7 +134,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
       }
 
       await refreshUser();
-      toast.success('Photo importée');
+      toast.success(t('profile:photoImported'));
       setCropOpen(false);
       resetAvatarCropState();
       setEditOpen(true);
@@ -143,7 +145,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
         message: error.message,
       });
       patchUser({ avatar_url: previousAvatarUrl });
-      toast.error(error.message || 'Échec de l\'import photo');
+      toast.error(error.message || t('profile:photoImportFailed'));
     } finally {
       setAvatarUploading(false);
     }
@@ -240,7 +242,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
     try {
       const { data } = await usersApi.follow(handle);
       onProfileUpdate?.(data);
-      toast.success(data.follow_request_pending ? 'Demande de suivi envoyée' : 'Tu suis cet utilisateur');
+      toast.success(data.follow_request_pending ? t('profile:followRequestSent') : t('profile:nowFollowing'));
     } catch (error) {
       toast.error(formatApiError(error));
     } finally {
@@ -256,7 +258,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
     try {
       const { data } = await usersApi.unfollow(handle);
       onProfileUpdate?.(data);
-      toast.success('Abonnement retiré');
+      toast.success(t('profile:unfollowed'));
     } catch (error) {
       toast.error(formatApiError(error));
     } finally {
@@ -280,8 +282,8 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
   return (
     <div data-testid="profile-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-3xl mx-auto">
       <PageHeader
-        title={isOwn ? 'Mon profil' : 'Profil'}
-        subtitle={isOwn ? 'Votre activité et vos succès' : null}
+        title={isOwn ? t('profile:myTitle') : t('profile:title')}
+        subtitle={isOwn ? t('profile:subtitle') : null}
         actions={
           isOwn ? (
             <div className="flex items-center gap-2">
@@ -289,7 +291,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
               <Link
                 to="/settings"
                 className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
-                aria-label="Paramètres"
+                aria-label={t('common:aria.settings')}
               >
                 <Settings size={20} />
               </Link>
@@ -323,7 +325,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
               className="inline-flex items-center gap-1.5 text-sm text-[var(--theme-primary)] hover:underline"
             >
               <Trophy size={14} />
-              Voir tous les badges
+              {t('profile:seeAllBadges')}
             </Link>
           </div>
         ) : null}
@@ -335,21 +337,21 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
               className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
             >
               <LayoutGrid size={16} />
-              <span className="hidden sm:inline">Posts</span>
+              <span className="hidden sm:inline">{t('profile:tabs.posts')}</span>
             </TabsTrigger>
             <TabsTrigger
               value="reposts"
               className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
             >
               <Repeat2 size={16} />
-              <span className="hidden sm:inline">Republications</span>
+              <span className="hidden sm:inline">{t('profile:tabs.reposts')}</span>
             </TabsTrigger>
             <TabsTrigger
               value="stats"
               className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
             >
               <BarChart3 size={16} />
-              <span className="hidden sm:inline">Statistiques</span>
+              <span className="hidden sm:inline">{t('profile:tabs.stats')}</span>
             </TabsTrigger>
           </TabsList>
 
@@ -357,8 +359,8 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
             {isLimited ? (
               <ProfileEmptyState
                 icon={LayoutGrid}
-                title="Publications privées"
-                description="Les posts de cet utilisateur ne sont pas accessibles."
+                title={t('profile:postsPrivate')}
+                description={t('profile:postsPrivateHint')}
               />
             ) : canShowPosts ? (
               <PostFeed
@@ -366,18 +368,18 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
                 viewer={user}
                 mode="posts"
                 emptyIcon={LayoutGrid}
-                emptyTitle="Aucune publication"
+                emptyTitle={t('profile:postsEmptyOwn')}
                 emptyDescription={
                   isOwn
-                    ? 'Partage tes séances et badges depuis la fin d\'une séance ou tes paramètres.'
-                    : 'Cet utilisateur n\'a pas encore publié.'
+                    ? t('profile:postsEmptyOwnHint')
+                    : t('profile:postsEmptyOther')
                 }
               />
             ) : (
               <ProfileEmptyState
                 icon={LayoutGrid}
-                title="Publications masquées"
-                description="Cet utilisateur a choisi de ne pas afficher ses publications."
+                title={t('profile:postsHidden')}
+                description={t('profile:postsHiddenHint')}
               />
             )}
           </TabsContent>
@@ -386,8 +388,8 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
             {isLimited ? (
               <ProfileEmptyState
                 icon={Repeat2}
-                title="Republications privées"
-                description="Le contenu partagé n'est pas visible sur ce profil."
+                title={t('profile:repostsPrivate')}
+                description={t('profile:repostsPrivateHint')}
               />
             ) : canShowPosts ? (
               <PostFeed
@@ -395,18 +397,18 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
                 viewer={user}
                 mode="reposts"
                 emptyIcon={Repeat2}
-                emptyTitle="Aucune republication"
+                emptyTitle={t('profile:repostsEmptyOwn')}
                 emptyDescription={
                   isOwn
-                    ? 'Republie des séances duo ou des posts depuis ton fil.'
-                    : 'Rien de partagé pour l\'instant.'
+                    ? t('profile:repostsEmptyOwnHint')
+                    : t('profile:repostsEmptyOther')
                 }
               />
             ) : (
               <ProfileEmptyState
                 icon={Repeat2}
-                title="Republications masquées"
-                description="Cet utilisateur a choisi de ne pas afficher ses publications."
+                title={t('profile:repostsHidden')}
+                description={t('profile:repostsHiddenHint')}
               />
             )}
           </TabsContent>
@@ -432,7 +434,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
             data-testid="logout-btn"
             className="w-full h-12 rounded-xl bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
           >
-            <LogOut size={18} className="mr-2" /> Se déconnecter
+            <LogOut size={18} className="mr-2" /> {t('common:actions.logout')}
           </Button>
         ) : null}
       </div>

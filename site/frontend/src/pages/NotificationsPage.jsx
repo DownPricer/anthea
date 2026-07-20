@@ -11,33 +11,7 @@ import { Button } from '../components/ui/button';
 import { toast } from 'sonner';
 import { formatApiError } from '../lib/api';
 import { PageHeader } from '../components/layout/PageHeader';
-
-function notificationLabel(notif) {
-  switch (notif.type) {
-    case 'new_follower':
-      return 'a commencé à te suivre';
-    case 'follow_request':
-      return 'demande à te suivre';
-    case 'follow_accepted':
-      return 'a accepté ta demande de suivi';
-    case 'follow_back':
-      return 'te suit en retour — vous êtes amis mutuels';
-    case 'like':
-      return 'a aimé ta publication';
-    case 'comment':
-      return 'a commenté ta publication';
-    case 'duo_follow_request':
-      return 'demande à suivre votre duo';
-    case 'duo_follow_accepted':
-      return 'a accepté votre demande de suivi duo';
-    case 'badge_unlocked':
-      return notif.body || `Vous avez obtenu « ${notif.badge_name || 'un badge'} ».`;
-    case 'duo_badge_unlocked':
-      return notif.body || `Votre Duo a obtenu « ${notif.badge_name || 'un badge'} ».`;
-    default:
-      return notif.body || 'nouvelle activité';
-  }
-}
+import { useTranslation } from 'react-i18next';
 
 function NotificationIcon({ type }) {
   if (type === 'follow_back') {
@@ -47,6 +21,7 @@ function NotificationIcon({ type }) {
 }
 
 export function NotificationsPage() {
+  const { t } = useTranslation(['notifications', 'common']);
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const filterDuo = searchParams.get('filter') === 'duo';
@@ -54,6 +29,37 @@ export function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(null);
   const [requestLoading, setRequestLoading] = useState(null);
+
+  const notificationLabel = useCallback((notif) => {
+    switch (notif.type) {
+      case 'new_follower':
+        return t('notifications:types.new_follower');
+      case 'follow_request':
+        return t('notifications:types.follow_request');
+      case 'follow_accepted':
+        return t('notifications:types.follow_accepted');
+      case 'follow_back':
+        return t('notifications:types.follow_back');
+      case 'like':
+        return t('notifications:types.like');
+      case 'comment':
+        return t('notifications:types.comment');
+      case 'duo_follow_request':
+        return t('notifications:types.duo_follow_request');
+      case 'duo_follow_accepted':
+        return t('notifications:types.duo_follow_accepted');
+      case 'badge_unlocked':
+        return notif.body || t('notifications:types.badge_unlocked', {
+          badge: notif.badge_name || t('notifications:types.aBadge'),
+        });
+      case 'duo_badge_unlocked':
+        return notif.body || t('notifications:types.duo_badge_unlocked', {
+          badge: notif.badge_name || t('notifications:types.aBadge'),
+        });
+      default:
+        return notif.body || t('notifications:types.default');
+    }
+  }, [t]);
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -85,7 +91,7 @@ export function NotificationsPage() {
     setFollowLoading(notif.id);
     try {
       await usersApi.follow(handle);
-      toast.success('Tu suis cet utilisateur !');
+      toast.success(t('notifications:toasts.following'));
       await loadNotifications();
     } catch (error) {
       toast.error(formatApiError(error));
@@ -99,7 +105,7 @@ export function NotificationsPage() {
     setRequestLoading(notif.id);
     try {
       await usersApi.acceptFollowRequest(notif.request_id);
-      toast.success('Demande acceptée');
+      toast.success(t('notifications:toasts.accepted'));
       await loadNotifications();
     } catch (error) {
       toast.error(formatApiError(error));
@@ -113,7 +119,7 @@ export function NotificationsPage() {
     setRequestLoading(notif.id);
     try {
       await usersApi.rejectFollowRequest(notif.request_id);
-      toast.success('Demande refusée');
+      toast.success(t('notifications:toasts.rejected'));
       await loadNotifications();
     } catch (error) {
       toast.error(formatApiError(error));
@@ -127,7 +133,7 @@ export function NotificationsPage() {
     setRequestLoading(notif.id);
     try {
       await duoProfilesApi.acceptFollowRequest(notif.request_id);
-      toast.success('Demande duo acceptée');
+      toast.success(t('notifications:toasts.duoAccepted'));
       await loadNotifications();
     } catch (error) {
       toast.error(formatApiError(error));
@@ -141,7 +147,7 @@ export function NotificationsPage() {
     setRequestLoading(notif.id);
     try {
       await duoProfilesApi.rejectFollowRequest(notif.request_id);
-      toast.success('Demande duo refusée');
+      toast.success(t('notifications:toasts.duoRejected'));
       await loadNotifications();
     } catch (error) {
       toast.error(formatApiError(error));
@@ -153,14 +159,14 @@ export function NotificationsPage() {
   return (
     <div data-testid="notifications-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto">
       <PageHeader
-        title="Notifications"
-        subtitle={filterDuo ? 'Activité de votre Duo' : 'Votre activité récente'}
+        title={t('notifications:title')}
+        subtitle={filterDuo ? t('notifications:subtitleDuo') : t('notifications:subtitle')}
         leading={
           <button
             type="button"
             onClick={() => navigate(-1)}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
-            aria-label="Retour"
+            aria-label={t('common:aria.back')}
           >
             <ChevronLeft size={20} />
           </button>
@@ -175,7 +181,7 @@ export function NotificationsPage() {
           className={`rounded-full ${filterDuo ? 'border-white/15 text-white' : 'btn-primary text-white'}`}
           onClick={() => navigate('/notifications')}
         >
-          Toutes
+          {t('notifications:filters.all')}
         </Button>
         <Button
           type="button"
@@ -185,7 +191,7 @@ export function NotificationsPage() {
           className={`rounded-full ${filterDuo ? 'btn-primary text-white' : 'border-white/15 text-white'}`}
           onClick={() => navigate('/notifications?filter=duo')}
         >
-          Duo
+          {t('notifications:filters.duo')}
         </Button>
       </div>
 
@@ -197,7 +203,7 @@ export function NotificationsPage() {
         <div className="flex flex-col items-center justify-center py-20 text-center">
           <Bell size={32} className="text-zinc-600 mb-3" />
           <p className="text-zinc-400 text-sm">
-            {filterDuo ? 'Aucune notification duo pour l\'instant.' : 'Aucune notification pour l\'instant.'}
+            {filterDuo ? t('notifications:emptyDuo') : t('notifications:empty')}
           </p>
         </div>
       ) : (
@@ -251,7 +257,7 @@ export function NotificationsPage() {
                         onClick={() => handleAcceptDuoFollowRequest(notif)}
                         className="h-8 rounded-lg btn-primary text-white text-xs"
                       >
-                        Accepter
+                        {t('notifications:actions.accept')}
                       </Button>
                       <Button
                         type="button"
@@ -261,11 +267,11 @@ export function NotificationsPage() {
                         onClick={() => handleRejectDuoFollowRequest(notif)}
                         className="h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
                       >
-                        Refuser
+                        {t('notifications:actions.reject')}
                       </Button>
                       {notif.duo_tag ? (
                         <Button asChild size="sm" variant="ghost" className="h-8 text-xs text-zinc-400">
-                          <Link to={duoProfilePath(notif.duo_tag)}>Voir le duo</Link>
+                          <Link to={duoProfilePath(notif.duo_tag)}>{t('notifications:actions.seeDuo')}</Link>
                         </Button>
                       ) : null}
                     </div>
@@ -279,7 +285,7 @@ export function NotificationsPage() {
                         onClick={() => handleAcceptFollowRequest(notif)}
                         className="h-8 rounded-lg btn-primary text-white text-xs"
                       >
-                        Accepter
+                        {t('notifications:actions.accept')}
                       </Button>
                       <Button
                         type="button"
@@ -289,7 +295,7 @@ export function NotificationsPage() {
                         onClick={() => handleRejectFollowRequest(notif)}
                         className="h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
                       >
-                        Refuser
+                        {t('notifications:actions.reject')}
                       </Button>
                     </div>
                   ) : null}
@@ -304,7 +310,7 @@ export function NotificationsPage() {
                       {followLoading === notif.id ? (
                         <Loader2 size={14} className="animate-spin" />
                       ) : (
-                        'Suivre en retour'
+                        t('notifications:actions.followBack')
                       )}
                     </Button>
                   ) : null}
@@ -315,7 +321,7 @@ export function NotificationsPage() {
                       variant="outline"
                       className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
                     >
-                      <Link to={notif.url || '/badges?scope=solo'}>Voir mes badges</Link>
+                      <Link to={notif.url || '/badges?scope=solo'}>{t('notifications:actions.seeMyBadges')}</Link>
                     </Button>
                   ) : null}
                   {notif.type === 'duo_badge_unlocked' ? (
@@ -325,7 +331,7 @@ export function NotificationsPage() {
                       variant="outline"
                       className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
                     >
-                      <Link to={notif.url || '/duo?tab=stats&section=badges'}>Voir les badges Duo</Link>
+                      <Link to={notif.url || '/duo?tab=stats&section=badges'}>{t('notifications:actions.seeDuoBadges')}</Link>
                     </Button>
                   ) : null}
                 </div>

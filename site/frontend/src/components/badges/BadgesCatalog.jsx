@@ -1,20 +1,10 @@
 import { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { BadgesGridShared } from './BadgeCard';
 import { useBadgeDetail } from './BadgeDetailSheet';
 
-const RARITY_FILTERS = [
-  { id: 'all', label: 'Tous' },
-  { id: 'common', label: 'Commun' },
-  { id: 'rare', label: 'Rare' },
-  { id: 'epic', label: 'Épique' },
-  { id: 'legendary', label: 'Légendaire' },
-];
-
-const STATUS_FILTERS = [
-  { id: 'all', label: 'Tous' },
-  { id: 'unlocked', label: 'Débloqués' },
-  { id: 'locked', label: 'À obtenir' },
-];
+const RARITY_FILTER_IDS = ['all', 'common', 'rare', 'epic', 'legendary'];
+const STATUS_FILTER_IDS = ['all', 'unlocked', 'locked'];
 
 function rarityKeyOf(badge) {
   const r = badge.rarity_key || badge.rarity || 'common';
@@ -56,6 +46,7 @@ export function BadgesCatalogView({
   onShared,
   previewLimit = null,
 }) {
+  const { t } = useTranslation('badges');
   const [rarityFilter, setRarityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const { handleBadgeClick, dialog } = useBadgeDetail(scope, {
@@ -88,41 +79,41 @@ export function BadgesCatalogView({
     <div className="space-y-4" data-testid="badges-catalog">
       <div className="flex items-center justify-between">
         <p className="text-zinc-400 text-sm">
-          {unlocked}/{total} débloqués
+          {t('unlockedOf', { unlocked, total })}
         </p>
       </div>
 
       {previewLimit == null && (
         <>
           <div className="flex flex-wrap gap-1.5" data-testid="badges-rarity-filters">
-            {RARITY_FILTERS.map((f) => (
+            {RARITY_FILTER_IDS.map((id) => (
               <button
-                key={f.id}
+                key={id}
                 type="button"
-                onClick={() => setRarityFilter(f.id)}
+                onClick={() => setRarityFilter(id)}
                 className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
-                  rarityFilter === f.id
+                  rarityFilter === id
                     ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
                     : 'border-white/10 text-zinc-500 hover:text-white'
                 }`}
               >
-                {f.label}
+                {t(`filters.${id}`)}
               </button>
             ))}
           </div>
           <div className="flex flex-wrap gap-1.5" data-testid="badges-status-filters">
-            {STATUS_FILTERS.map((f) => (
+            {STATUS_FILTER_IDS.map((id) => (
               <button
-                key={f.id}
+                key={id}
                 type="button"
-                onClick={() => setStatusFilter(f.id)}
+                onClick={() => setStatusFilter(id)}
                 className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
-                  statusFilter === f.id
+                  statusFilter === id
                     ? 'bg-white/10 border-white/20 text-white'
                     : 'border-white/10 text-zinc-500 hover:text-white'
                 }`}
               >
-                {f.label}
+                {t(`filters.${id}`)}
               </button>
             ))}
           </div>
@@ -130,7 +121,7 @@ export function BadgesCatalogView({
       )}
 
       {filtered.length === 0 ? (
-        <p className="text-center text-zinc-500 text-sm py-10">Aucun badge dans ce filtre.</p>
+        <p className="text-center text-zinc-500 text-sm py-10">{t('emptyFilter')}</p>
       ) : (
         <BadgesGridShared
           badges={filtered}

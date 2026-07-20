@@ -42,8 +42,10 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 
 export function WorkoutPlayerPage() {
+  const { t, i18n } = useTranslation(['player', 'common']);
   const { workoutId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -108,6 +110,9 @@ export function WorkoutPlayerPage() {
 
   const isLongMessage = (text) => (text || '').length > 12 || (text || '').includes(' ');
 
+  const speechLangMap = { fr: 'fr-FR', en: 'en-US', es: 'es-ES' };
+  const speechLang = speechLangMap[i18n.language?.split('-')[0]] || 'fr-FR';
+
   // TTS / feedback — mode musique : bips courts, pas de longues annonces
   const speak = useCallback((text, { forceShort = false } = {}) => {
     const useMusicFeedback = musicMode || !ttsEnabled;
@@ -129,11 +134,11 @@ export function WorkoutPlayerPage() {
       window.speechSynthesis.cancel();
     }
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = 'fr-FR';
+    utterance.lang = speechLang;
     utterance.rate = 1;
     utterance.volume = 0.85;
     window.speechSynthesis.speak(utterance);
-  }, [ttsEnabled, musicMode]);
+  }, [ttsEnabled, musicMode, speechLang]);
 
   // Load workout and check for saved progress
   useEffect(() => {
@@ -171,7 +176,7 @@ export function WorkoutPlayerPage() {
         setSavedProgress(progressRes.data);
       }
     } catch (error) {
-      toast.error('Impossible de charger la séance');
+      toast.error(t('player:toast.loadError'));
       navigate('/workouts');
     } finally {
       setLoading(false);
@@ -190,7 +195,7 @@ export function WorkoutPlayerPage() {
     
     setPhase('countdown');
     setTimeRemaining(3);
-    speak('Reprise de la séance');
+    speak(t('player:tts.resumeSession'));
   };
 
   const startFresh = async () => {
@@ -273,7 +278,7 @@ export function WorkoutPlayerPage() {
     if (currentExercise?.rest_after > 0) {
       setPhase('rest');
       setTimeRemaining(currentExercise.rest_after);
-      speak('Repos');
+      speak(t('player:tts.rest'));
     } else {
       moveToNextExercise();
     }
@@ -319,7 +324,7 @@ export function WorkoutPlayerPage() {
   const startWorkout = () => {
     setPhase('countdown');
     setTimeRemaining(3);
-    speak('Prépare-toi');
+    speak(t('player:tts.getReady'));
   };
 
   const startExercise = () => {
@@ -355,7 +360,7 @@ export function WorkoutPlayerPage() {
     
     const nextExercise = allExercises[currentExerciseIndex + 1];
     if (nextExercise) {
-      speak(`Prochain exercice: ${nextExercise.name}`);
+      speak(t('player:tts.nextExercise', { name: nextExercise.name }));
     }
   };
 
@@ -374,7 +379,7 @@ export function WorkoutPlayerPage() {
 
   const addTime = (seconds) => {
     setTimeRemaining((prev) => prev + seconds);
-    toast.success(`+${seconds}s`);
+    toast.success(t('player:toast.addedSeconds', { seconds }));
   };
 
   const finishWorkout = (status = 'completed') => {
@@ -385,7 +390,7 @@ export function WorkoutPlayerPage() {
     setDuoLive(false);
     workoutsApi.clearProgress(workoutId).catch(() => {});
     if (status === 'completed') {
-      speak('Séance terminée. Bravo !');
+      speak(t('player:tts.workoutComplete'));
     }
     if (timerRef.current) clearInterval(timerRef.current);
     if (totalTimeRef.current) clearInterval(totalTimeRef.current);
@@ -494,10 +499,10 @@ export function WorkoutPlayerPage() {
     try {
       await persistProgress();
       releaseWakeLock();
-      toast.success('Progression sauvegardée');
+      toast.success(t('player:toast.progressSaved'));
       navigate('/workouts');
     } catch (error) {
-      toast.error('Erreur lors de la sauvegarde');
+      toast.error(t('player:toast.saveError'));
     }
   };
 
@@ -546,14 +551,14 @@ export function WorkoutPlayerPage() {
         notes: notes.trim() || null,
         exercise_log: exerciseLog,
       });
-      toast.success('Séance enregistrée !');
+      toast.success(t('player:toast.sessionSaved'));
       setCreatedSession({
         ...session,
         workout_title: session.workout_title || workout?.title,
       });
       setShareDialogOpen(true);
     } catch (error) {
-      toast.error('Erreur lors de la sauvegarde');
+      toast.error(t('player:toast.saveError'));
     } finally {
       setSaving(false);
     }
@@ -591,13 +596,13 @@ export function WorkoutPlayerPage() {
     const pauseSec =
       (parseInt(adjustPauseMin, 10) || 0) * 60 + (parseInt(adjustPauseSec, 10) || 0);
     if (totalSec < 0 || pauseSec < 0) {
-      toast.error('Valeur invalide');
+      toast.error(t('player:toast.invalidValue'));
       return;
     }
     setTotalTime(totalSec);
     setPauseTime(pauseSec);
     setShowTimeAdjust(false);
-    toast.success('Temps ajusté');
+    toast.success(t('player:toast.timeAdjusted'));
   };
 
   const secretTimeProps = canAdjustTime
@@ -615,14 +620,14 @@ export function WorkoutPlayerPage() {
     <Dialog open={showTimeAdjust} onOpenChange={setShowTimeAdjust}>
       <DialogContent className="bg-[#141414] border-white/10 max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-white">Ajuster le temps</DialogTitle>
+          <DialogTitle className="text-white">{t('player:timeAdjust.title')}</DialogTitle>
           <DialogDescription className="text-zinc-500 text-sm">
-            Réservé coach / admin — maintenir le temps affiché pour ouvrir ce menu.
+            {t('player:timeAdjust.description')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <p className="text-zinc-400 text-xs mb-2">Temps total</p>
+            <p className="text-zinc-400 text-xs mb-2">{t('player:timeAdjust.totalTime')}</p>
             <div className="flex gap-2">
               <Input
                 type="number"
@@ -630,7 +635,7 @@ export function WorkoutPlayerPage() {
                 value={adjustTotalMin}
                 onChange={(e) => setAdjustTotalMin(e.target.value)}
                 className="bg-[#0A0A0A] border-white/10 text-white"
-                placeholder="min"
+                placeholder={t('player:timeAdjust.min')}
               />
               <Input
                 type="number"
@@ -639,12 +644,12 @@ export function WorkoutPlayerPage() {
                 value={adjustTotalSec}
                 onChange={(e) => setAdjustTotalSec(e.target.value)}
                 className="bg-[#0A0A0A] border-white/10 text-white"
-                placeholder="sec"
+                placeholder={t('player:timeAdjust.sec')}
               />
             </div>
           </div>
           <div>
-            <p className="text-zinc-400 text-xs mb-2">Temps de pause</p>
+            <p className="text-zinc-400 text-xs mb-2">{t('player:timeAdjust.pauseTime')}</p>
             <div className="flex gap-2">
               <Input
                 type="number"
@@ -652,7 +657,7 @@ export function WorkoutPlayerPage() {
                 value={adjustPauseMin}
                 onChange={(e) => setAdjustPauseMin(e.target.value)}
                 className="bg-[#0A0A0A] border-white/10 text-white"
-                placeholder="min"
+                placeholder={t('player:timeAdjust.min')}
               />
               <Input
                 type="number"
@@ -661,12 +666,12 @@ export function WorkoutPlayerPage() {
                 value={adjustPauseSec}
                 onChange={(e) => setAdjustPauseSec(e.target.value)}
                 className="bg-[#0A0A0A] border-white/10 text-white"
-                placeholder="sec"
+                placeholder={t('player:timeAdjust.sec')}
               />
             </div>
           </div>
           <Button onClick={applyTimeAdjust} className="w-full btn-primary text-white">
-            Appliquer
+            {t('player:timeAdjust.apply')}
           </Button>
         </div>
       </DialogContent>
@@ -681,13 +686,13 @@ export function WorkoutPlayerPage() {
   const nextExercise = getNextExercise();
 
   const getPhaseLabel = () => {
-    if (phase === 'countdown') return 'Prépare-toi';
-    if (phase === 'rest') return 'Repos';
+    if (phase === 'countdown') return t('player:phase.getReady');
+    if (phase === 'rest') return t('player:rest');
     if (phase === 'exercise' && currentExercise) {
-      if (currentExercise.blockType === 'warmup') return 'Échauffement';
-      if (currentExercise.blockType === 'cooldown') return 'Récupération';
-      if (currentExercise.exercise_type === 'duration') return 'Chrono';
-      return 'Série';
+      if (currentExercise.blockType === 'warmup') return t('player:phase.warmup');
+      if (currentExercise.blockType === 'cooldown') return t('player:phase.cooldown');
+      if (currentExercise.exercise_type === 'duration') return t('player:phase.timer');
+      return t('player:phase.set');
     }
     return null;
   };
@@ -716,7 +721,7 @@ export function WorkoutPlayerPage() {
               <Trophy className="text-[var(--theme-primary)]" size={36} />
             </div>
             <h1 className="text-2xl font-bold text-white font-['Outfit']">
-              {exercisesCompleted >= totalExercises ? 'Bravo !' : 'Séance terminée'}
+              {exercisesCompleted >= totalExercises ? t('player:feedback.congrats') : t('player:feedback.completed')}
             </h1>
             <p className="text-zinc-500 mt-2">{workout?.title}</p>
           </div>
@@ -725,23 +730,25 @@ export function WorkoutPlayerPage() {
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="card p-4 text-center" {...secretTimeProps}>
               <p className="text-2xl font-bold text-white font-mono">{formatTime(totalTime)}</p>
-              <p className="text-zinc-500 text-xs mt-1">Temps total</p>
+              <p className="text-zinc-500 text-xs mt-1">{t('player:totalTimeLabel')}</p>
             </div>
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-white">{completedCount}</p>
               <p className="text-zinc-500 text-xs mt-1">
-                Exercices faits{skippedCount > 0 ? ` • ${skippedCount} sautés` : ''}
+                {skippedCount > 0
+                  ? t('player:feedback.exercisesDoneWithSkipped', { skipped: skippedCount })
+                  : t('player:feedback.exercisesDone')}
               </p>
             </div>
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-white font-mono">{formatTime(pauseTime)}</p>
-              <p className="text-zinc-500 text-xs mt-1">Pauses</p>
+              <p className="text-zinc-500 text-xs mt-1">{t('player:pauses')}</p>
             </div>
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-orange-400">
                 {formatCalories(estimateCalories(totalTime, difficultyFelt))}
               </p>
-              <p className="text-zinc-500 text-xs mt-1">Estimation approx.</p>
+              <p className="text-zinc-500 text-xs mt-1">{t('player:feedback.caloriesApprox')}</p>
             </div>
           </div>
 
@@ -749,7 +756,7 @@ export function WorkoutPlayerPage() {
           <div className="card p-5 space-y-6">
             <div>
               <label className="text-zinc-400 text-sm block mb-3">
-                Fatigue avant séance: {fatigueBefore}/10
+                {t('player:feedback.fatigueBefore', { value: fatigueBefore })}
               </label>
               <Slider
                 value={[fatigueBefore]}
@@ -762,7 +769,7 @@ export function WorkoutPlayerPage() {
 
             <div>
               <label className="text-zinc-400 text-sm block mb-3">
-                Fatigue après séance: {fatigueAfter}/10
+                {t('player:feedback.fatigueAfter', { value: fatigueAfter })}
               </label>
               <Slider
                 value={[fatigueAfter]}
@@ -775,7 +782,7 @@ export function WorkoutPlayerPage() {
 
             <div>
               <label className="text-zinc-400 text-sm block mb-3">
-                Difficulté ressentie: {difficultyFelt}/10
+                {t('player:feedback.difficultyFelt', { value: difficultyFelt })}
               </label>
               <Slider
                 value={[difficultyFelt]}
@@ -787,11 +794,11 @@ export function WorkoutPlayerPage() {
             </div>
 
             <div>
-              <label className="text-zinc-400 text-sm block mb-2">Notes (optionnel)</label>
+              <label className="text-zinc-400 text-sm block mb-2">{t('player:feedback.notesOptional')}</label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                placeholder="Comment s'est passée cette séance ?"
+                placeholder={t('player:feedback.notesPlaceholder')}
                 className="rounded-xl bg-[#0A0A0A] border-white/10 text-white"
               />
             </div>
@@ -805,7 +812,7 @@ export function WorkoutPlayerPage() {
               data-testid="save-session-btn"
               className="w-full h-14 rounded-xl font-bold text-white btn-primary"
             >
-              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Enregistrer'}
+              {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : t('player:save')}
             </Button>
             <Button
               onClick={async () => {
@@ -816,7 +823,7 @@ export function WorkoutPlayerPage() {
               variant="outline"
               className="w-full h-12 rounded-xl bg-white/5 border-white/10 text-white"
             >
-              Quitter sans enregistrer
+              {t('player:feedback.exitWithoutSaving')}
             </Button>
           </div>
         </div>
@@ -841,7 +848,7 @@ export function WorkoutPlayerPage() {
       <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-5 animate-fade-in">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-white font-['Outfit'] mb-2">{workout?.title}</h1>
-          <p className="text-zinc-500">{totalExercises} exercices</p>
+          <p className="text-zinc-500">{t('player:exerciseCount', { count: totalExercises })}</p>
         </div>
 
         {/* Resume from saved progress */}
@@ -849,7 +856,7 @@ export function WorkoutPlayerPage() {
           <div className="card p-5 w-full max-w-sm mb-6 border-[var(--theme-primary)]/30">
             <div className="flex items-center gap-3 mb-3">
               <RotateCcw className="text-[var(--theme-primary)]" size={20} />
-              <span className="text-white font-medium">Progression sauvegardée</span>
+              <span className="text-white font-medium">{t('player:prep.savedProgress')}</span>
             </div>
             <p className="text-zinc-400 text-sm mb-4">
               {savedProgress.exercises_completed}/{totalExercises} exercices • {formatTime(savedProgress.time_elapsed)}
@@ -859,14 +866,14 @@ export function WorkoutPlayerPage() {
                 onClick={resumeFromProgress}
                 className="flex-1 bg-[var(--theme-primary)] text-white"
               >
-                Reprendre
+                {t('player:resume')}
               </Button>
               <Button
                 onClick={startFresh}
                 variant="outline"
                 className="flex-1 border-white/10 text-white"
               >
-                Recommencer
+                {t('player:restart')}
               </Button>
             </div>
           </div>
@@ -885,7 +892,7 @@ export function WorkoutPlayerPage() {
                 />
               </div>
             )}
-            <p className="text-zinc-500 text-sm uppercase tracking-wider mb-2">Premier exercice</p>
+            <p className="text-zinc-500 text-sm uppercase tracking-wider mb-2">{t('player:firstExercise')}</p>
             <h2 className="text-xl font-bold text-white">{currentExercise.name}</h2>
             {currentExercise.description && (
               <p className="text-zinc-400 text-sm mt-1">{currentExercise.description}</p>
@@ -893,7 +900,7 @@ export function WorkoutPlayerPage() {
             {currentExercise.exercise_type === 'duration' ? (
               <p className="text-zinc-400 mt-2">{currentExercise.duration}s</p>
             ) : (
-              <p className="text-zinc-400 mt-2">{currentExercise.reps} répétitions</p>
+              <p className="text-zinc-400 mt-2">{t('player:repsCount', { count: currentExercise.reps })}</p>
             )}
           </div>
         )}
@@ -905,7 +912,7 @@ export function WorkoutPlayerPage() {
             className="w-full max-w-sm h-16 rounded-xl font-bold text-xl text-white btn-primary"
           >
             <Play size={24} className="mr-2" fill="currentColor" />
-            Commencer
+            {t('player:start')}
           </Button>
         )}
 
@@ -913,7 +920,7 @@ export function WorkoutPlayerPage() {
           onClick={() => navigate(-1)}
           className="mt-6 text-zinc-500 hover:text-white transition-colors"
         >
-          Annuler
+          {t('player:cancel')}
         </button>
       </div>
     );
@@ -925,22 +932,22 @@ export function WorkoutPlayerPage() {
     <div className="space-y-4">
       {nextExercise && (
         <div className="card p-4">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Suivant</p>
+          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">{t('player:next')}</p>
           <p className="text-white font-semibold">{nextExercise.name}</p>
         </div>
       )}
       {duoLive && (
         <div className="card p-4">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">Duo</p>
+          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">{t('player:duo')}</p>
           <p className="text-white text-sm">
-            En direct avec <span className="text-amber-300">{partnerName}</span>
+            {t('player:liveWith')} <span className="text-amber-300">{partnerName}</span>
           </p>
           <button
             type="button"
             onClick={() => setLiveChatOpen(true)}
             className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm py-2"
           >
-            Ouvrir le chat
+            {t('player:openChat')}
           </button>
         </div>
       )}
@@ -957,10 +964,20 @@ export function WorkoutPlayerPage() {
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
         <DialogContent className="bg-[#141414] border-white/10 max-w-sm mx-4">
           <DialogHeader>
-            <DialogTitle className="text-white text-center">Arrêter la séance ?</DialogTitle>
+            <DialogTitle className="text-white text-center">{t('player:stopConfirm.title')}</DialogTitle>
             <DialogDescription className="text-zinc-400 text-center pt-2">
-              Tu as fait {completedCount}/{totalExercises} exercices
-              {skippedCount > 0 ? ` • ${skippedCount} sauté(s)` : ''} ({formatTime(totalTime)})
+              {skippedCount > 0
+                ? t('player:stopConfirm.descriptionWithSkipped', {
+                    completed: completedCount,
+                    total: totalExercises,
+                    skipped: skippedCount,
+                    time: formatTime(totalTime),
+                  })
+                : t('player:stopConfirm.description', {
+                    completed: completedCount,
+                    total: totalExercises,
+                    time: formatTime(totalTime),
+                  })}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3 pt-4">
@@ -969,21 +986,21 @@ export function WorkoutPlayerPage() {
               className="w-full h-14 rounded-xl bg-[var(--theme-primary)] text-white font-medium"
             >
               <Save size={18} className="mr-2" />
-              Reprendre plus tard
+              {t('player:resumeLater')}
             </Button>
             <Button
               onClick={handleAbandon}
               variant="outline"
               className="w-full h-12 rounded-xl bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
             >
-              Arrêter et marquer comme abandonnée
+              {t('player:stopConfirm.abandon')}
             </Button>
             <Button
               onClick={handleCancelStop}
               variant="outline"
               className="w-full h-12 rounded-xl bg-white/5 border-white/10 text-white"
             >
-              Annuler
+              {t('player:cancel')}
             </Button>
           </div>
         </DialogContent>
@@ -1000,7 +1017,7 @@ export function WorkoutPlayerPage() {
         <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center shrink-0">
           <p className="text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5">
             <Radio size={12} className="animate-pulse" />
-            Séance en direct avec {partnerName}
+            {t('player:liveSessionWith', { name: partnerName })}
           </p>
         </div>
       )}
@@ -1011,7 +1028,7 @@ export function WorkoutPlayerPage() {
           onClick={handleStopClick}
           data-testid="stop-workout-btn"
           className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
-          aria-label="Arrêter la séance"
+          aria-label={t('player:aria.stopSession')}
         >
           <X size={22} />
         </button>
@@ -1030,7 +1047,7 @@ export function WorkoutPlayerPage() {
               className="absolute right-4 flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
             >
               <MoreHorizontal size={16} />
-              <span className="hidden sm:inline">Options</span>
+              <span className="hidden sm:inline">{t('player:options')}</span>
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="bg-[#141414] border-white/10 w-52">
@@ -1039,7 +1056,7 @@ export function WorkoutPlayerPage() {
               className="text-white focus:bg-white/10 cursor-pointer"
             >
               <Music size={16} className="mr-2" />
-              {musicMode ? 'Désactiver mode musique' : 'Activer mode musique'}
+              {musicMode ? t('player:musicMode.disable') : t('player:musicMode.enable')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setTtsEnabled(!ttsEnabled)}
@@ -1050,17 +1067,17 @@ export function WorkoutPlayerPage() {
               ) : (
                 <VolumeX size={16} className="mr-2" />
               )}
-              {ttsEnabled ? 'Couper les annonces' : 'Activer les annonces'}
+              {ttsEnabled ? t('player:announcements.disable') : t('player:announcements.enable')}
             </DropdownMenuItem>
             {wakeLockSupported && (
               <>
                 <DropdownMenuSeparator className="bg-white/10" />
                 <DropdownMenuItem disabled className="text-zinc-500 text-xs">
                   {wakeLockActive
-                    ? 'Écran gardé allumé'
+                    ? t('player:wakeLock.active')
                     : wakeLockError && sessionIsActive
-                      ? 'Veille non bloquée'
-                      : 'Veille automatique active'}
+                      ? t('player:wakeLock.failed')
+                      : t('player:wakeLock.inactive')}
                 </DropdownMenuItem>
               </>
             )}
@@ -1147,7 +1164,7 @@ export function WorkoutPlayerPage() {
                     >
                       {currentExercise?.reps ?? '—'}
                     </div>
-                    <p className="mt-3 text-lg text-zinc-400">répétitions à faire</p>
+                    <p className="mt-3 text-lg text-zinc-400">{t('player:repsToDo')}</p>
                   </>
                 )}
               </div>
@@ -1158,7 +1175,7 @@ export function WorkoutPlayerPage() {
                   onClick={completeCurrentExercise}
                   className="h-16 w-full max-w-md rounded-2xl text-lg font-bold text-white btn-primary"
                 >
-                  J&apos;ai fini cet exercice
+                  {t('player:exerciseDone')}
                 </Button>
               )}
 
@@ -1169,7 +1186,7 @@ export function WorkoutPlayerPage() {
                     onClick={() => setIsPaused(!isPaused)}
                     className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
                   >
-                    {isPaused ? 'Reprendre' : 'Pause'}
+                    {isPaused ? t('player:resume') : t('player:pause')}
                   </button>
 
                   <button
@@ -1180,7 +1197,7 @@ export function WorkoutPlayerPage() {
                     style={{
                       background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
                     }}
-                    aria-label={isPaused ? 'Reprendre' : 'Pause'}
+                    aria-label={isPaused ? t('player:resume') : t('player:pause')}
                   >
                     {isPaused ? <Play size={26} fill="currentColor" /> : <Pause size={26} />}
                   </button>
@@ -1191,7 +1208,7 @@ export function WorkoutPlayerPage() {
                     data-testid={phase === 'rest' ? 'skip-rest-btn' : 'skip-exercise-btn'}
                     className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
                   >
-                    {phase === 'rest' ? 'Passer le repos' : 'Sauter'}
+                    {phase === 'rest' ? t('player:skipRest') : t('player:skipExercise')}
                   </button>
                 </div>
 
@@ -1202,7 +1219,7 @@ export function WorkoutPlayerPage() {
                     className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
                   >
                     <Plus size={14} />
-                    +15 secondes
+                    {t('player:add15')}
                   </button>
                 )}
               </div>
@@ -1215,12 +1232,17 @@ export function WorkoutPlayerPage() {
                   className="flex items-center gap-2 rounded-full bg-red-500/10 px-4 py-2 text-red-400 transition-colors hover:bg-red-500/20"
                 >
                   <StopCircle size={16} />
-                  <span className="text-sm font-medium">Arrêter la séance</span>
+                  <span className="text-sm font-medium">{t('player:stopSession')}</span>
                 </button>
 
                 <p className="text-sm text-zinc-500 tabular-nums" {...secretTimeProps}>
-                  Temps total: {formatTime(totalTime)}
-                  {pauseTime > 0 && ` • Pause: ${formatTime(pauseTime)}`}
+                  {t('player:totalTimeWithPause', {
+                    total: formatTime(totalTime),
+                    pause:
+                      pauseTime > 0
+                        ? t('player:pauseSegment', { time: formatTime(pauseTime) })
+                        : '',
+                  })}
                 </p>
               </div>
           </div>

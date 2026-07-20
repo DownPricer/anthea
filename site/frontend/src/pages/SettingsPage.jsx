@@ -60,13 +60,13 @@ import {
 import { toast } from 'sonner';
 
 const ACCENT_PRESETS = [
-  { value: '', label: 'Thème par défaut' },
-  { value: '#06B6D4', label: 'Cyan' },
-  { value: '#10B981', label: 'Vert' },
-  { value: '#D946EF', label: 'Rose' },
-  { value: '#F59E0B', label: 'Ambre' },
-  { value: '#6366F1', label: 'Indigo' },
-  { value: '#EF4444', label: 'Rouge' },
+  { value: '', labelKey: 'appearance.defaultTheme' },
+  { value: '#06B6D4', labelKey: 'appearance.presets.cyan' },
+  { value: '#10B981', labelKey: 'appearance.presets.green' },
+  { value: '#D946EF', labelKey: 'appearance.presets.pink' },
+  { value: '#F59E0B', labelKey: 'appearance.presets.amber' },
+  { value: '#6366F1', labelKey: 'appearance.presets.indigo' },
+  { value: '#EF4444', labelKey: 'appearance.presets.red' },
 ];
 
 const SECTION_IDS = {
@@ -174,7 +174,7 @@ function SectionIcon({ icon: Icon }) {
 }
 
 export function SettingsPage() {
-  const { t } = useTranslation('settings');
+  const { t } = useTranslation(['settings', 'common']);
   const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
@@ -324,7 +324,7 @@ export function SettingsPage() {
       const saved = result.user || user;
       applyAccentToDocument(resolveUserAccent(saved, theme));
       if (normalizedAccent) setAccentColor(normalizedAccent);
-      toast.success('Apparence enregistrée');
+      toast.success(t('appearance.saved'));
     } else {
       toast.error(result.error);
     }
@@ -339,7 +339,7 @@ export function SettingsPage() {
     setSavingPlayer(false);
     if (result.success) {
       setPlayerDirty(false);
-      toast.success('Préférences player enregistrées');
+      toast.success(t('player.saved'));
     } else {
       setTtsEnabled(user?.tts_enabled !== false);
       setMusicMode(!!user?.music_mode);
@@ -370,7 +370,7 @@ export function SettingsPage() {
     const result = await updateProfile(payload);
     setSavingPrivacy(false);
     if (result.success) {
-      toast.success('Confidentialité mise à jour');
+      toast.success(t('privacy.saved'));
     } else {
       toast.error(result.error);
     }
@@ -411,14 +411,14 @@ export function SettingsPage() {
         throw new Error(saveResult.error || 'Échec de la sauvegarde du profil');
       }
       await refreshUser();
-      toast.success('Photo importée');
+      toast.success(t('profile:photoImported'));
       setCropOpen(false);
       resetAvatarCropState();
       setOpenSection(SECTION_IDS.profile);
       setEditOpen(true);
     } catch (error) {
       patchUser({ avatar_url: previousAvatarUrl });
-      toast.error(error.message || "Échec de l'import photo");
+      toast.error(error.message || t('profile:photoImportFailed'));
     } finally {
       setAvatarUploading(false);
     }
@@ -439,13 +439,13 @@ export function SettingsPage() {
   const isPublicAccount = accountVisibility === 'public';
   const configurableOptions = isPublicAccount
     ? [
-        { value: 'public', label: 'Public' },
-        { value: 'followers', label: 'Abonnés uniquement' },
-        { value: 'me', label: 'Moi uniquement' },
+        { value: 'public', label: t('privacy.public') },
+        { value: 'followers', label: t('privacy.followersOnly') },
+        { value: 'me', label: t('privacy.meOnly') },
       ]
     : [
-        { value: 'followers', label: 'Abonnés acceptés' },
-        { value: 'me', label: 'Moi uniquement' },
+        { value: 'followers', label: t('privacy.followersAccepted') },
+        { value: 'me', label: t('privacy.meOnly') },
       ];
 
   const unlockedBadges = badges.filter((b) => b.unlocked);
@@ -468,8 +468,8 @@ export function SettingsPage() {
   return (
     <div data-testid="settings-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto">
       <PageHeader
-        title="Paramètres"
-        subtitle="Personnalisez votre expérience"
+        title={t('title')}
+        subtitle={t('subtitle')}
         leading={<Settings size={24} className="text-[var(--theme-primary)] shrink-0 mt-0.5" />}
       />
 
@@ -484,15 +484,15 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-profile">
             <span className="flex items-center">
               <SectionIcon icon={User} />
-              Mon profil
+              {t('sections.profile')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-3">
-            <p className="text-zinc-500 text-sm">Photo, pseudo, arobase et bio</p>
+            <p className="text-zinc-500 text-sm">{t('sections.profileHint')}</p>
             <SettingsLinkRow
               icon={User}
-              label="Modifier mon profil"
-              description="Nom affiché, arobase, avatar, bio, badges mis en avant"
+              label={t('sections.editProfile')}
+              description={t('sections.editProfileHint')}
               onClick={() => setEditOpen(true)}
             />
           </AccordionContent>
@@ -502,7 +502,7 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-partner">
             <span className="flex items-center">
               <SectionIcon icon={Heart} />
-              Partenaire et Duo
+              {t('sections.partner')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
@@ -514,7 +514,7 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-notifications">
             <span className="flex items-center">
               <SectionIcon icon={Bell} />
-              Notifications
+              {t('sections.notifications')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-5">
@@ -527,14 +527,14 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-appearance">
             <span className="flex items-center">
               <SectionIcon icon={Palette} />
-              Apparence
+              {t('sections.appearance')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-3">
             <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
               <div className="flex items-center gap-3">
                 <Palette className="text-zinc-400" size={20} />
-                <span className="text-white">Thème</span>
+                <span className="text-white">{t('appearance.theme')}</span>
               </div>
               <div className="flex gap-2">
                 <button
@@ -563,8 +563,8 @@ export function SettingsPage() {
             </div>
 
             <div className="rounded-xl bg-white/5 p-3 space-y-3">
-              <p className="text-white text-sm">Couleur perso</p>
-              <p className="text-zinc-500 text-xs">Agenda et repères visuels</p>
+              <p className="text-white text-sm">{t('appearance.accent')}</p>
+              <p className="text-zinc-500 text-xs">{t('appearance.accentHint')}</p>
               <div className="flex flex-wrap gap-2">
                 {ACCENT_PRESETS.map((preset) => (
                   <button
@@ -579,7 +579,7 @@ export function SettingsPage() {
                         ? preset.value
                         : 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
                     }}
-                    title={preset.label}
+                    title={t(preset.labelKey)}
                   />
                 ))}
               </div>
@@ -592,12 +592,12 @@ export function SettingsPage() {
             </div>
 
             <div className="rounded-xl bg-white/5 p-3 space-y-2" data-testid="accent-contrast-preview">
-              <p className="text-white text-sm">Aperçu & contraste</p>
+              <p className="text-white text-sm">{t('appearance.preview')}</p>
               <div
                 className="h-14 rounded-xl flex items-center justify-center font-medium text-sm"
                 style={{ background: previewAccent, color: contrast.text }}
               >
-                FitMatch · {contrast.label}
+                {t('common:app.brand')} · {contrast.label}
               </div>
             </div>
 
@@ -606,7 +606,7 @@ export function SettingsPage() {
               disabled={savingPrefs}
               className="w-full h-11 rounded-xl btn-primary text-white"
             >
-              {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : "Enregistrer l'apparence"}
+              {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : t('appearance.save')}
             </Button>
           </AccordionContent>
         </AccordionItem>
@@ -615,14 +615,14 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-player">
             <span className="flex items-center">
               <SectionIcon icon={Play} />
-              Player
+              {t('sections.player')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-3">
             <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
               <div className="flex items-center gap-3">
                 <Volume2 className="text-zinc-400" size={20} />
-                <span className="text-white">Annonces vocales</span>
+                <span className="text-white">{t('player.tts')}</span>
               </div>
               <Switch
                 checked={ttsEnabled}
@@ -638,8 +638,8 @@ export function SettingsPage() {
               <div className="flex items-center gap-3">
                 <Music className="text-zinc-400" size={20} />
                 <div>
-                  <span className="text-white block">Mode musique</span>
-                  <span className="text-zinc-500 text-xs">Bips courts à la place des annonces longues</span>
+                  <span className="text-white block">{t('player.musicMode')}</span>
+                  <span className="text-zinc-500 text-xs">{t('player.musicModeHint')}</span>
                 </div>
               </div>
               <Switch
@@ -657,7 +657,7 @@ export function SettingsPage() {
               disabled={savingPlayer || !playerDirty}
               className="w-full h-11 rounded-xl btn-primary text-white"
             >
-              {savingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer le player'}
+              {savingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : t('player.save')}
             </Button>
           </AccordionContent>
         </AccordionItem>
@@ -666,7 +666,7 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-badges">
             <span className="flex items-center">
               <SectionIcon icon={Trophy} />
-              Badges
+              {t('sections.badges')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-4">
@@ -677,7 +677,7 @@ export function SettingsPage() {
             ) : (
               <>
                 <p className="text-white text-sm">
-                  {unlockedCount} sur {totalBadges} débloqués
+                  {t('badges.unlockedOf', { count: unlockedCount, total: totalBadges })}
                 </p>
                 {recentBadges.length > 0 ? (
                   <div className="flex gap-3 justify-center sm:justify-start">
@@ -702,21 +702,21 @@ export function SettingsPage() {
                   </div>
                 ) : (
                   <p className="text-zinc-500 text-sm">
-                    Aucun badge pour l&apos;instant — entraîne-toi pour en débloquer !
+                    {t('badges.empty')}
                   </p>
                 )}
                 <SettingsLinkRow
                   to="/badges?scope=solo"
                   icon={Trophy}
-                  label="Voir tous les badges"
-                  description="Catalogue Solo complet"
+                  label={t('badges.seeAll')}
+                  description={t('badges.soloCatalog')}
                 />
                 {user?.partner_id ? (
                   <SettingsLinkRow
                     to="/badges?scope=duo"
                     icon={Heart}
-                    label="Badges Duo"
-                    description="Succès à deux"
+                    label={t('badges.duoBadges')}
+                    description={t('badges.duoHint')}
                   />
                 ) : null}
               </>
@@ -787,7 +787,7 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-agenda">
             <span className="flex items-center">
               <SectionIcon icon={BarChart3} />
-              Agenda annuel
+              {t('sections.agenda')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
@@ -799,7 +799,7 @@ export function SettingsPage() {
                 title=""
               />
             ) : (
-              <p className="text-zinc-500 text-sm">Ouvrez cette section pour charger l&apos;agenda.</p>
+              <p className="text-zinc-500 text-sm">{t('agenda.loadHint')}</p>
             )}
           </AccordionContent>
         </AccordionItem>
@@ -808,14 +808,14 @@ export function SettingsPage() {
           <AccordionTrigger className={triggerClass} data-testid="settings-section-account">
             <span className="flex items-center">
               <SectionIcon icon={Shield} />
-              Compte
+              {t('sections.account')}
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <p className="text-white text-sm font-medium">Confidentialité</p>
-                <p className="text-zinc-500 text-xs mt-0.5">Gérer la visibilité</p>
+                <p className="text-white text-sm font-medium">{t('privacy.title')}</p>
+                <p className="text-zinc-500 text-xs mt-0.5">{t('privacy.hint')}</p>
               </div>
               <Select value={accountVisibility} onValueChange={setAccountVisibility}>
                 <SelectTrigger
@@ -825,8 +825,8 @@ export function SettingsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="public" className="text-white">Compte public</SelectItem>
-                  <SelectItem value="private" className="text-white">Compte privé</SelectItem>
+                  <SelectItem value="public" className="text-white">{t('privacy.publicAccount')}</SelectItem>
+                  <SelectItem value="private" className="text-white">{t('privacy.privateAccount')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -837,7 +837,7 @@ export function SettingsPage() {
               className="flex w-full items-center justify-between rounded-xl bg-white/5 p-3 text-left"
               data-testid="privacy-advanced-toggle"
             >
-              <span className="text-white text-sm">Détails de visibilité</span>
+              <span className="text-white text-sm">{t('privacy.details')}</span>
               <ChevronDown
                 size={16}
                 className={`text-zinc-500 transition-transform ${privacyAdvancedOpen ? 'rotate-180' : ''}`}
@@ -848,32 +848,32 @@ export function SettingsPage() {
               <div className="space-y-2">
                 <PrivacySelectRow
                   icon={FileText}
-                  label="Publications"
+                  label={t('privacy.posts')}
                   locked
-                  lockedLabel={isPublicAccount ? 'Visible' : 'Abonnés acceptés'}
+                  lockedLabel={isPublicAccount ? t('privacy.visible') : t('privacy.followersAccepted')}
                 />
                 <PrivacySelectRow
                   icon={History}
-                  label="Historique des séances"
+                  label={t('privacy.sessions')}
                   locked
-                  lockedLabel={isPublicAccount ? 'Visible' : 'Abonnés acceptés'}
+                  lockedLabel={isPublicAccount ? t('privacy.visible') : t('privacy.followersAccepted')}
                 />
                 <PrivacySelectRow
                   icon={Award}
-                  label="Badges"
+                  label={t('privacy.badges')}
                   locked
-                  lockedLabel={isPublicAccount ? 'Visible' : 'Abonnés acceptés'}
+                  lockedLabel={isPublicAccount ? t('privacy.visible') : t('privacy.followersAccepted')}
                 />
                 <PrivacySelectRow
                   icon={BarChart3}
-                  label="Statistiques"
+                  label={t('privacy.stats')}
                   value={statsVisibility}
                   onChange={setStatsVisibility}
                   options={configurableOptions}
                 />
                 <PrivacySelectRow
                   icon={Activity}
-                  label="Activité"
+                  label={t('privacy.activity')}
                   value={activityVisibility}
                   onChange={setActivityVisibility}
                   options={configurableOptions}
@@ -886,14 +886,14 @@ export function SettingsPage() {
               disabled={savingPrivacy}
               className="w-full h-11 rounded-xl btn-primary text-white"
             >
-              {savingPrivacy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enregistrer la confidentialité'}
+              {savingPrivacy ? <Loader2 className="w-4 h-4 animate-spin" /> : t('privacy.save')}
             </Button>
 
             <SettingsLinkRow
               to="/duo?tab=history"
               icon={History}
-              label="Voir l'historique complet"
-              description="Toutes tes séances passées"
+              label={t('account.fullHistory')}
+              description={t('account.fullHistoryHint')}
             />
 
             <Button
@@ -902,7 +902,7 @@ export function SettingsPage() {
               data-testid="settings-logout-btn"
               className="w-full h-12 rounded-xl bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
             >
-              <LogOut size={18} className="mr-2" /> Se déconnecter
+              <LogOut size={18} className="mr-2" /> {t('account.logout')}
             </Button>
           </AccordionContent>
         </AccordionItem>

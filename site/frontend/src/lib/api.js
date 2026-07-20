@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { invalidateFeedCache, removePostFromFeedCaches } from './feedCache';
+import i18n from '../i18n';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
 
@@ -26,7 +27,7 @@ api.interceptors.response.use(
 // Helper to format API errors
 export function formatApiError(error) {
   const detail = error.response?.data?.detail;
-  if (detail == null) return 'Une erreur est survenue. Veuillez réessayer.';
+  if (detail == null) return i18n.t('errors:generic');
   if (typeof detail === 'string') return detail;
   if (Array.isArray(detail)) {
     return detail

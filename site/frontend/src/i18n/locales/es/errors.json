@@ -1,0 +1,9 @@
+{
+  "generic": "Se ha producido un error. Inténtalo de nuevo.",
+  "network": "Error de red. Comprueba tu conexión.",
+  "forbidden": "Acceso denegado",
+  "notFound": "Contenido no encontrado",
+  "validation": "Datos no válidos",
+  "saveFailed": "Error al guardar",
+  "deleteFailed": "Error al eliminar"
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
@@ -65,14 +65,15 @@ import {
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../components/layout/PageHeader';
 
-const QUICK_REACTIONS = [
-  { type: 'bravo', emoji: '👏', label: 'Bravo' },
-  { type: 'proud', emoji: '🥹', label: 'Fier de toi' },
-  { type: 'fire', emoji: '🔥', label: 'En feu' },
-  { type: 'heart', emoji: '❤️', label: 'Coeur' },
-  { type: 'strong', emoji: '💪', label: "T'as géré" },
+const REACTION_TYPES = [
+  { type: 'bravo', emoji: '👏', key: 'bravo' },
+  { type: 'proud', emoji: '🥹', key: 'proud' },
+  { type: 'fire', emoji: '🔥', key: 'fire' },
+  { type: 'heart', emoji: '❤️', key: 'heart' },
+  { type: 'strong', emoji: '💪', key: 'awesome' },
 ];
 
 const DUO_TABS = ['activity', 'stats', 'history'];
@@ -197,7 +198,12 @@ function normalizeStatsView(payload) {
 }
 
 export function DuoPage() {
+  const { t } = useTranslation(['duo', 'common', 'notifications', 'workouts']);
   const { user, refreshUser } = useAuth();
+  const quickReactions = useMemo(
+    () => REACTION_TYPES.map((r) => ({ ...r, label: t(`duo:reactions.${r.key}`) })),
+    [t]
+  );
   const { theme } = useTheme();
   const navigate = useNavigate();
   const duoNav = useDuoNavLabel();
@@ -351,7 +357,7 @@ export function DuoPage() {
       };
       if (exportPeriod === 'custom') {
         if (!exportStartDate || !exportEndDate) {
-          toast.error('Choisis une date de début et de fin');
+          toast.error(t('duo:export.pickDates'));
           setExporting(false);
           return;
         }
@@ -368,9 +374,9 @@ export function DuoPage() {
       a.download = `anthea_export_${format(new Date(), 'yyyy-MM-dd')}.${isHtml ? 'html' : 'csv'}`;
       a.click();
       window.URL.revokeObjectURL(url);
-      toast.success('Export téléchargé');
+      toast.success(t('duo:export.downloaded'));
     } catch {
-      toast.error('Export non autorisé ou indisponible');
+      toast.error(t('duo:export.unauthorized'));
     } finally {
       setExporting(false);
     }
@@ -378,7 +384,7 @@ export function DuoPage() {
 
   const handleAdjustSessionTime = async (session) => {
     const mins = window.prompt(
-      'Corriger le temps (minutes réelles) — réservé coach/admin',
+      t('duo:coachSettings.timeFixPrompt'),
       String(Math.round((session.total_time || 0) / 60))
     );
     if (mins == null) return;
@@ -390,10 +396,10 @@ export function DuoPage() {
     if (!window.confirm('Confirmer la correction du temps ?')) return;
     try {
       await sessionsApi.adjustTime(session.id, { total_time: sec, reason: 'coach_manual' });
-      toast.success('Temps corrigé');
+      toast.success(t('duo:coachSettings.timeFixed'));
       loadHistory();
     } catch {
-      toast.error('Correction refusée');
+      toast.error(t('duo:coachSettings.timeFixDenied'));
     }
   };
 
@@ -534,7 +540,7 @@ export function DuoPage() {
     if (!window.confirm(`Afficher la streak à ${n} pour ce duo ?`)) return;
     try {
       await streakApi.coachSetManualStreak(n);
-      toast.success('Streak mise à jour');
+      toast.success(t('duo:coachSettings.streakUpdated'));
       const { data } = await duoApi.getStats();
       setDuoStats(data);
       setCoachStreakInput('');
@@ -547,7 +553,7 @@ export function DuoPage() {
     if (!window.confirm('Revenir au calcul automatique de la streak ?')) return;
     try {
       await streakApi.coachSetManualStreak(null);
-      toast.success('Valeur manuelle supprimée');
+      toast.success(t('duo:coachSettings.manualCleared'));
       const { data } = await duoApi.getStats();
       setDuoStats(data);
     } catch (e) {
@@ -561,7 +567,7 @@ export function DuoPage() {
     if (!window.confirm(`Traiter ${exemptDateStr} comme jour exempt pour la streak ?`)) return;
     try {
       await streakApi.coachExemptDay(exemptDateStr, uid);
-      toast.success('Jour exempt enregistré');
+      toast.success(t('duo:coachSettings.exemptSaved'));
       const { data } = await duoApi.getStats();
       setDuoStats(data);
     } catch (e) {
@@ -682,7 +688,7 @@ export function DuoPage() {
       setSessions((prev) =>
         prev.map((s) => (s.id === sessionId ? { ...s, reactions: data.reactions } : s))
       );
-      toast.success('Réaction ajoutée !');
+      toast.success(t('duo:toasts.reactionAdded'));
     } catch (error) {
       toast.error('Erreur');
     }
@@ -701,7 +707,7 @@ export function DuoPage() {
       );
       setCommentText('');
       setActiveCommentSession(null);
-      toast.success('Commentaire ajouté !');
+      toast.success(t('duo:toasts.commentAdded'));
     } catch (error) {
       toast.error('Erreur');
     }
@@ -778,7 +784,7 @@ export function DuoPage() {
     if (!pendingDuoFollow?.request_id) return;
     try {
       await duoProfilesApi.acceptFollowRequest(pendingDuoFollow.request_id);
-      toast.success('Demande acceptée');
+      toast.success(t('duo:toasts.followAccepted'));
       loadDuoNotifications();
     } catch (e) {
       toast.error(formatApiError(e));
@@ -789,7 +795,7 @@ export function DuoPage() {
     if (!pendingDuoFollow?.request_id) return;
     try {
       await duoProfilesApi.rejectFollowRequest(pendingDuoFollow.request_id);
-      toast.success('Demande refusée');
+      toast.success(t('duo:toasts.followRejected'));
       loadDuoNotifications();
     } catch (e) {
       toast.error(formatApiError(e));
@@ -799,8 +805,8 @@ export function DuoPage() {
   return (
     <div data-testid="duo-page" className="p-5 animate-fade-in">
       <PageHeader
-        title="Duo"
-        subtitle="Votre progression à deux"
+        title={t('duo:title')}
+        subtitle={t('duo:subtitle')}
         actions={<NotificationBell filter="duo" includeAll data-testid="duo-notification-bell" />}
       />
 
@@ -812,7 +818,7 @@ export function DuoPage() {
             className="card p-4 flex flex-col sm:flex-row sm:items-center gap-3 border border-[var(--theme-primary)]/20"
           >
             <p className="text-white text-sm flex-1">
-              Vous avez 1 demande pour suivre votre profil duo.
+              {t('duo:followRequestBanner')}
             </p>
             <div className="flex flex-wrap gap-2">
               <Button
@@ -820,7 +826,7 @@ export function DuoPage() {
                 className="rounded-xl btn-primary text-white"
                 onClick={handleAcceptDuoFollow}
               >
-                Accepter
+                {t('notifications:actions.accept')}
               </Button>
               <Button
                 size="sm"
@@ -828,7 +834,7 @@ export function DuoPage() {
                 className="rounded-xl border-white/15 text-white"
                 onClick={handleRejectDuoFollow}
               >
-                Refuser
+                {t('notifications:actions.reject')}
               </Button>
               <Button
                 size="sm"
@@ -836,7 +842,7 @@ export function DuoPage() {
                 className="rounded-xl text-zinc-400"
                 onClick={() => navigate('/notifications?filter=duo')}
               >
-                Voir
+                {t('common:actions.seeAll')}
               </Button>
             </div>
           </div>
@@ -855,14 +861,14 @@ export function DuoPage() {
             />
             <div className="flex-1 min-w-0">
               <p className="text-white font-semibold truncate transition-colors group-hover:text-[var(--theme-primary)]">
-                Profil du Duo
+                {t('duo:duoProfileLink')}
               </p>
               <p className="truncate text-xs text-zinc-500">
-                {user?.relation_type === 'coach' ? 'Coach & Élève' : 'Partenaires'}
+                {user?.relation_type === 'coach' ? t('duo:relation.coachStudent') : t('duo:relation.partners')}
                 {' · '}
                 <span className="font-mono">{duoStats.duo_profile.tag}</span>
               </p>
-              <p className="text-xs text-zinc-400">Voir le profil</p>
+              <p className="text-xs text-zinc-400">{t('duo:viewProfile')}</p>
             </div>
             <ChevronRight className="text-zinc-500 group-hover:text-[var(--theme-primary)] shrink-0" size={20} />
           </Link>
@@ -881,21 +887,21 @@ export function DuoPage() {
             data-testid="tab-activity"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Activité
+            {t('duo:activity')}
           </TabsTrigger>
           <TabsTrigger
             value="stats"
             data-testid="tab-stats"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Stats
+            {t('duo:stats')}
           </TabsTrigger>
           <TabsTrigger
             value="history"
             data-testid="tab-history"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Historique
+            {t('duo:history')}
           </TabsTrigger>
         </TabsList>
 
@@ -910,7 +916,7 @@ export function DuoPage() {
                 <div className="card p-4 border-[var(--theme-primary)]/30">
                   <div className="flex items-center gap-3 mb-2">
                     <Zap className="text-[var(--theme-primary)]" size={18} />
-                    <span className="text-white font-medium">Défi de la semaine</span>
+                    <span className="text-white font-medium">{t('duo:weeklyChallenge')}</span>
                   </div>
                   <p className="text-zinc-400 text-sm mb-3">{duoStats.current_challenge.title}</p>
                   <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -929,12 +935,12 @@ export function DuoPage() {
 
               {canModerateStreak && duoStats && partner && (
                 <div className="card p-4 border border-dashed border-white/15">
-                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-3">Streak — réglages coach</p>
+                  <p className="text-zinc-500 text-xs uppercase tracking-wider mb-3">{t('duo:coachSettings.title')}</p>
                   {duoStats.streak_manual_override != null && (
                     <p className="text-zinc-400 text-xs mb-3">
-                      Manuel : <span className="text-white">{duoStats.streak_manual_override}</span>
+                      {t('duo:coachSettings.manual')} : <span className="text-white">{duoStats.streak_manual_override}</span>
                       {' · '}
-                      Calcul auto : <span className="text-white">{duoStats.streak_calculated ?? '—'}</span>
+                      {t('duo:coachSettings.autoCalc')} : <span className="text-white">{duoStats.streak_calculated ?? '—'}</span>
                     </p>
                   )}
                   <div className="flex gap-2 mb-3">
@@ -953,7 +959,7 @@ export function DuoPage() {
                       className="border-white/15 text-white shrink-0"
                       onClick={handleCoachSetStreak}
                     >
-                      Appliquer
+                      {t('duo:coachSettings.apply')}
                     </Button>
                   </div>
                   <Button
@@ -963,9 +969,9 @@ export function DuoPage() {
                     className="text-zinc-400 hover:text-white mb-4 p-0 h-auto"
                     onClick={handleCoachClearStreak}
                   >
-                    Revenir au calcul auto
+                    {t('duo:coachSettings.revertAuto')}
                   </Button>
-                  <p className="text-zinc-500 text-xs mb-2">Exemption jour (comme repos pour la streak)</p>
+                  <p className="text-zinc-500 text-xs mb-2">{t('duo:coachSettings.exemptHint')}</p>
                   <div className="flex flex-wrap gap-2 items-center">
                     <Input
                       type="date"
@@ -982,7 +988,7 @@ export function DuoPage() {
                           {partner.display_name || partner.username}
                         </SelectItem>
                         <SelectItem value="me" className="text-white">
-                          Moi
+                          {t('duo:me')}
                         </SelectItem>
                       </SelectContent>
                     </Select>
@@ -993,7 +999,7 @@ export function DuoPage() {
                       className="border-white/15 text-white"
                       onClick={handleCoachExemptDay}
                     >
-                      Exempter
+                      {t('duo:coachSettings.exempt')}
                     </Button>
                   </div>
                 </div>
@@ -1001,12 +1007,12 @@ export function DuoPage() {
 
               {/* Activity feed */}
               <div>
-                <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">Activité récente</h2>
+                <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">{t('duo:recentActivity')}</h2>
                 {activityLoading && sessions.length === 0 ? (
                   <DuoActivitySkeleton />
                 ) : sessions.length === 0 ? (
                   <div className="card p-6 text-center">
-                    <p className="text-zinc-500">Pas encore d'activité</p>
+                    <p className="text-zinc-500">{t('duo:emptyStates.activity')}</p>
                   </div>
                 ) : (
                   <div className="space-y-4">
@@ -1035,6 +1041,7 @@ export function DuoPage() {
                           commentText={commentText}
                           setCommentText={setCommentText}
                           onComment={handleComment}
+                          quickReactions={quickReactions}
                         />
                       )
                     )}
@@ -1059,15 +1066,15 @@ export function DuoPage() {
                         )}
                         <span className="text-xl font-bold text-white">{duoStats.streak}</span>
                       </div>
-                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Streak</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">{t('duo:statsCards.streak')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xl font-bold text-white">{duoStats.total_workouts_together}</p>
-                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Ensemble</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">{t('duo:statsCards.together')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xl font-bold text-white">{duoStats.this_week_user}</p>
-                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">Toi</p>
+                      <p className="text-zinc-500 text-[10px] uppercase tracking-wider">{t('duo:statsCards.you')}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xl font-bold text-white">{duoStats.this_week_partner}</p>
@@ -1091,9 +1098,9 @@ export function DuoPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="bg-[#141414] border-white/10">
-                <SelectItem value="me" className="text-white">Moi</SelectItem>
+                <SelectItem value="me" className="text-white">{t('duo:me')}</SelectItem>
                 <SelectItem value="partner" className="text-white">
-                  {partner?.display_name || partner?.username || 'Partenaire'}
+                  {partner?.display_name || partner?.username || t('duo:partner')}
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -1108,7 +1115,7 @@ export function DuoPage() {
                     : 'bg-white/5 text-zinc-400'
                 }`}
               >
-                {f === 'all' ? 'Toutes' : f === 'completed' ? 'Terminées' : 'Abandonnées'}
+                {f === 'all' ? t('duo:historyFilters.all') : f === 'completed' ? t('duo:historyFilters.completed') : t('duo:historyFilters.abandoned')}
               </button>
             ))}
           </div>
@@ -1119,10 +1126,10 @@ export function DuoPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="7d" className="text-white">7 jours</SelectItem>
-                  <SelectItem value="30d" className="text-white">30 jours</SelectItem>
-                  <SelectItem value="month" className="text-white">Mois courant</SelectItem>
-                  <SelectItem value="custom" className="text-white">Personnalisée</SelectItem>
+                  <SelectItem value="7d" className="text-white">{t('duo:export.period7d')}</SelectItem>
+                  <SelectItem value="30d" className="text-white">{t('duo:export.period30d')}</SelectItem>
+                  <SelectItem value="month" className="text-white">{t('duo:export.currentMonth')}</SelectItem>
+                  <SelectItem value="custom" className="text-white">{t('duo:export.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               {exportPeriod === 'custom' && (
@@ -1169,7 +1176,7 @@ export function DuoPage() {
           ) : historySessions.length === 0 ? (
             <div className="card p-8 text-center">
               <History className="mx-auto text-zinc-500 mb-3" size={28} />
-              <p className="text-zinc-500">Aucune séance dans l&apos;historique</p>
+              <p className="text-zinc-500">{t('duo:emptyStates.history')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -1199,13 +1206,13 @@ export function DuoPage() {
           {/* Filters */}
           <div className="flex flex-wrap items-end gap-3" data-testid="stats-view-selector">
             <div className="min-w-[13rem] space-y-1.5">
-              <label className="text-xs text-zinc-500">Afficher les statistiques de :</label>
+              <label className="text-xs text-zinc-500">{t('duo:statsCards.statsScopeLabel')}</label>
               <Select value={statsScope} onValueChange={setStatsScope}>
                 <SelectTrigger className="h-10 w-full rounded-full border-white/10 bg-[#141414] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="duo" className="text-white">Duo</SelectItem>
+                  <SelectItem value="duo" className="text-white">{t('duo:statsCards.duoScope')}</SelectItem>
                   <SelectItem value={viewerScopeValue} className="text-white">{viewerLabel}</SelectItem>
                   {partnerScopeValue ? (
                     <SelectItem value={partnerScopeValue} className="text-white">
@@ -1216,17 +1223,17 @@ export function DuoPage() {
               </Select>
             </div>
             <div className="w-36 space-y-1.5">
-              <label className="text-xs text-zinc-500">Période</label>
+              <label className="text-xs text-zinc-500">{t('duo:statsCards.period')}</label>
               <Select value={statsPeriod} onValueChange={setStatsPeriod}>
                 <SelectTrigger className="h-10 w-full rounded-full border-white/10 bg-[#141414] text-white">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="7d" className="text-white">7 jours</SelectItem>
-                  <SelectItem value="30d" className="text-white">30 jours</SelectItem>
-                  <SelectItem value="90d" className="text-white">90 jours</SelectItem>
-                  <SelectItem value="year" className="text-white">Cette année</SelectItem>
-                  <SelectItem value="all" className="text-white">Tout</SelectItem>
+                  <SelectItem value="7d" className="text-white">{t('duo:statsCards.period7d')}</SelectItem>
+                  <SelectItem value="30d" className="text-white">{t('duo:statsCards.period30d')}</SelectItem>
+                  <SelectItem value="90d" className="text-white">{t('duo:statsCards.period90d')}</SelectItem>
+                  <SelectItem value="year" className="text-white">{t('duo:statsCards.thisYear')}</SelectItem>
+                  <SelectItem value="all" className="text-white">{t('duo:statsCards.allTime')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1237,13 +1244,13 @@ export function DuoPage() {
           ) : statsError ? (
             <div className="card p-8 text-center">
               <BarChart3 className="mx-auto mb-4 text-red-400" size={32} />
-              <p className="text-red-300">Impossible de charger les statistiques.</p>
+              <p className="text-red-300">{t('duo:statsCards.loadError')}</p>
               <p className="mt-1 text-xs text-zinc-500">{statsError}</p>
             </div>
           ) : !selectedStats ? (
             <div className="card p-8 text-center">
               <BarChart3 className="mx-auto text-zinc-500 mb-4" size={32} />
-              <p className="text-zinc-400">Aucune donnée sur cette période</p>
+              <p className="text-zinc-400">{t('duo:emptyStates.statsPeriod')}</p>
             </div>
           ) : statsScope === 'duo' ? (
             selectedStats.summary.workouts > 0 && duoStats ? (
@@ -1251,63 +1258,63 @@ export function DuoPage() {
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
                     <Target className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase truncate">Activités combinées</span>
+                    <span className="text-zinc-400 text-xs uppercase truncate">{t('duo:statsCards.combinedActivities')}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {selectedStats.summary.workouts}
                   </p>
                   <p className="text-zinc-500 text-xs mt-1">
-                    {selectedStats._extras?.total_completed ?? '—'} terminées
+                    {t('duo:statsCards.completedCount', { count: selectedStats._extras?.total_completed ?? '—' })}
                   </p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase truncate">Durée combinée</span>
+                    <span className="text-zinc-400 text-xs uppercase truncate">{t('duo:statsCards.combinedDuration')}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {formatDuration((selectedStats.summary.duration_minutes || 0) * 60)}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">deux membres</p>
+                  <p className="text-zinc-500 text-xs mt-1">{t('duo:statsCards.twoMembers')}</p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
                     <FlameIcon className="text-orange-400 shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase truncate">Calories combinées</span>
+                    <span className="text-zinc-400 text-xs uppercase truncate">{t('duo:statsCards.combinedCalories')}</span>
                   </div>
                   <p className="text-2xl font-bold text-orange-300">
                     {formatCalories(selectedStats.summary.calories || 0)}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">estimation</p>
+                  <p className="text-zinc-500 text-xs mt-1">{t('duo:statsCards.estimate')}</p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center gap-2 mb-2">
                     <Users className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase truncate">Séances communes</span>
+                    <span className="text-zinc-400 text-xs uppercase truncate">{t('duo:commonWorkouts')}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {duoStats.total_workouts_together ?? duoStats.sessions_together ?? 0}
                   </p>
-                  <p className="text-zinc-500 text-xs mt-1">non doublées</p>
+                  <p className="text-zinc-500 text-xs mt-1">{t('duo:statsCards.notDoubled')}</p>
                 </div>
                 <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-2">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <Flame className="text-orange-400" size={14} />
-                        <p className="text-xs uppercase text-zinc-500">Streak Duo</p>
+                        <p className="text-xs uppercase text-zinc-500">{t('duo:statsCards.duoStreak')}</p>
                       </div>
                       <p className="text-xl font-bold text-white">
                         {duoStats.duo_streak_current ?? duoStats.streak ?? 0}
                       </p>
                       <p className="text-xs text-zinc-500">
-                        record {duoStats.duo_streak_best ?? '—'}
+                        {t('duo:statsCards.record')} {duoStats.duo_streak_best ?? '—'}
                       </p>
                     </div>
                     <div>
                       <div className="mb-1 flex items-center gap-1.5">
                         <Trophy className="text-[var(--theme-primary)]" size={14} />
-                        <p className="text-xs uppercase text-zinc-500">Badges Duo</p>
+                        <p className="text-xs uppercase text-zinc-500">{t('duo:statsCards.duoBadges')}</p>
                       </div>
                       <p className="text-xl font-bold text-white">
                         {duoStats.duo_badges_unlocked ?? 0}
@@ -1322,7 +1329,7 @@ export function DuoPage() {
                   <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-4">
                     <div className="flex items-center gap-2 mb-2">
                       <Zap className="text-[var(--theme-primary)] shrink-0" size={16} />
-                      <span className="text-white font-medium text-sm">Défi Duo</span>
+                      <span className="text-white font-medium text-sm">{t('duo:duoChallenge')}</span>
                     </div>
                     <p className="text-zinc-400 text-sm mb-2">{duoStats.current_challenge.title}</p>
                     <p className="text-zinc-500 text-xs">
@@ -1334,9 +1341,12 @@ export function DuoPage() {
                 <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="text-white font-medium">Badges du Duo</p>
+                      <p className="text-white font-medium">{t('duo:duoBadgesTitle')}</p>
                       <p className="text-zinc-500 text-xs">
-                        {duoStats.duo_badges_unlocked ?? 0} badges débloqués sur {duoStats.duo_badges_total ?? 50}
+                        {t('duo:badgesUnlockedCount', {
+                          unlocked: duoStats.duo_badges_unlocked ?? 0,
+                          total: duoStats.duo_badges_total ?? 50,
+                        })}
                       </p>
                     </div>
                     <Button
@@ -1346,7 +1356,7 @@ export function DuoPage() {
                       className="rounded-full border-white/15 text-white shrink-0"
                       data-testid="duo-stats-open-badges"
                     >
-                      <Link to="/badges?scope=duo">Afficher les badges</Link>
+                      <Link to="/badges?scope=duo">{t('duo:showBadges')}</Link>
                     </Button>
                   </div>
                   {recentDuoBadges.length > 0 ? (
@@ -1372,7 +1382,7 @@ export function DuoPage() {
             ) : (
               <div className="card p-8 text-center">
                 <BarChart3 className="mx-auto text-zinc-500 mb-4" size={32} />
-                <p className="text-zinc-400">Aucune donnée Duo disponible</p>
+                <p className="text-zinc-400">{t('duo:emptyStates.duoStats')}</p>
               </div>
             )
           ) : selectedStats.summary.workouts > 0 ? (
@@ -1382,7 +1392,7 @@ export function DuoPage() {
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Target className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase">Taux complétion</span>
+                    <span className="text-zinc-400 text-xs uppercase">{t('duo:statsCards.completionRate')}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {selectedStats._extras.completion_rate != null ? `${selectedStats._extras.completion_rate}%` : '—'}
@@ -1394,7 +1404,7 @@ export function DuoPage() {
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Clock className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase">Temps total</span>
+                    <span className="text-zinc-400 text-xs uppercase">{t('duo:statsCards.totalTime')}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">
                     {formatDuration((selectedStats.summary.duration_minutes || 0) * 60)}
@@ -1408,18 +1418,18 @@ export function DuoPage() {
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Calendar className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase">Cette semaine</span>
+                    <span className="text-zinc-400 text-xs uppercase">{t('duo:statsCards.thisWeek')}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">{selectedStats._extras.this_week ?? '—'}</p>
-                  <p className="text-zinc-500 text-xs mt-1">séances</p>
+                  <p className="text-zinc-500 text-xs mt-1">{t('duo:statsCards.sessionsShort')}</p>
                 </div>
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-2">
                     <Activity className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-zinc-400 text-xs uppercase">Ce mois</span>
+                    <span className="text-zinc-400 text-xs uppercase">{t('duo:statsCards.thisMonth')}</span>
                   </div>
                   <p className="text-2xl font-bold text-white">{selectedStats._extras.this_month ?? '—'}</p>
-                  <p className="text-zinc-500 text-xs mt-1">séances</p>
+                  <p className="text-zinc-500 text-xs mt-1">{t('duo:statsCards.sessionsShort')}</p>
                 </div>
               </div>
 
@@ -1427,7 +1437,7 @@ export function DuoPage() {
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <FlameIcon className="text-orange-400" size={16} />
-                    <span className="text-white font-medium text-sm">Calories estimées</span>
+                    <span className="text-white font-medium text-sm">{t('duo:statsCards.estimatedCalories')}</span>
                     <span className="text-zinc-600 text-[10px]">(approximatif)</span>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
@@ -1435,19 +1445,19 @@ export function DuoPage() {
                       <p className="text-lg font-bold text-orange-300">
                         {formatCalories(selectedStats._extras.calories_week ?? 0)}
                       </p>
-                      <p className="text-zinc-500 text-[10px]">Semaine</p>
+                      <p className="text-zinc-500 text-[10px]">{t('duo:statsCards.week')}</p>
                     </div>
                     <div className="p-2 rounded-xl bg-white/5">
                       <p className="text-lg font-bold text-orange-300">
                         {formatCalories(selectedStats._extras.calories_month ?? 0)}
                       </p>
-                      <p className="text-zinc-500 text-[10px]">Mois</p>
+                      <p className="text-zinc-500 text-[10px]">{t('duo:statsCards.month')}</p>
                     </div>
                     <div className="p-2 rounded-xl bg-white/5">
                       <p className="text-lg font-bold text-orange-300">
                         {formatCalories(selectedStats.summary.calories ?? 0)}
                       </p>
-                      <p className="text-zinc-500 text-[10px]">Total</p>
+                      <p className="text-zinc-500 text-[10px]">{t('duo:statsCards.total')}</p>
                     </div>
                   </div>
                 </div>
@@ -1456,12 +1466,12 @@ export function DuoPage() {
               {/* Averages */}
               {hasWellbeingData ? (
                 <div className="card p-4">
-                  <h3 className="text-white font-medium mb-4">Bien-être</h3>
+                  <h3 className="text-white font-medium mb-4">{t('duo:statsCards.wellbeing')}</h3>
                   <div className="space-y-4">
                     {selectedStats.wellbeing.fatigue_before != null && (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-zinc-400">Fatigue avant</span>
+                          <span className="text-zinc-400">{t('duo:statsCards.fatigueBefore')}</span>
                           <span className="text-white">{selectedStats.wellbeing.fatigue_before}/10</span>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -1475,7 +1485,7 @@ export function DuoPage() {
                     {selectedStats.wellbeing.fatigue_after != null && (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-zinc-400">Fatigue après</span>
+                          <span className="text-zinc-400">{t('duo:statsCards.fatigueAfter')}</span>
                           <span className="text-white">{selectedStats.wellbeing.fatigue_after}/10</span>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -1489,7 +1499,7 @@ export function DuoPage() {
                     {selectedStats._extras?.difficulty != null ? (
                       <div>
                         <div className="flex justify-between text-sm mb-1">
-                          <span className="text-zinc-400">Difficulté ressentie</span>
+                          <span className="text-zinc-400">{t('duo:statsCards.feltDifficulty')}</span>
                           <span className="text-white">{selectedStats._extras.difficulty}/10</span>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden">
@@ -1506,7 +1516,7 @@ export function DuoPage() {
                       && selectedStats._extras?.difficulty == null
                       && selectedStats.wellbeing.mood_before == null
                       && selectedStats.wellbeing.mood_after == null ? (
-                        <p className="text-zinc-500 text-sm">Non renseigné</p>
+                        <p className="text-zinc-500 text-sm">{t('duo:statsCards.notProvided')}</p>
                       ) : null}
                   </div>
                 </div>
@@ -1576,7 +1586,7 @@ export function DuoPage() {
                           <p className="text-white text-sm">
                             {session.exercises_completed}/{session.exercises_total}
                           </p>
-                          <p className="text-zinc-500 text-xs">exercices</p>
+                          <p className="text-zinc-500 text-xs">{t('duo:statsCards.exercisesLabel')}</p>
                         </div>
                       </div>
                     ))}
@@ -1587,7 +1597,7 @@ export function DuoPage() {
           ) : (
             <div className="card p-8 text-center">
               <BarChart3 className="mx-auto text-zinc-500 mb-4" size={32} />
-              <p className="text-zinc-400">Aucune donnée disponible</p>
+              <p className="text-zinc-400">{t('duo:emptyStates.noData')}</p>
             </div>
           )}
         </TabsContent>
@@ -1616,18 +1626,20 @@ function SessionCard({
   commentText,
   setCommentText,
   onComment,
+  quickReactions = [],
 }) {
+  const { t } = useTranslation(['duo', 'workouts']);
   const member = resolveSessionMember(session, user, partner);
   const isOwn = member && user?.id && String(member.id) === String(user.id);
   const displayName = getDisplayName(member) || session.display_name || session.username || 'Membre';
   const roleLabel = getDuoRoleLabel(member?.duo_role);
   const statusLabel =
     session.status === 'completed'
-      ? 'Terminée'
+      ? t('duo:session.status.completed')
       : session.status === 'abandoned'
-        ? 'Abandonnée'
+        ? t('duo:session.status.abandoned')
         : session.status === 'in_progress'
-          ? 'En cours'
+          ? t('duo:session.status.inProgress')
           : session.status || '';
   const formatDuration = (seconds) => {
     const mins = Math.floor((seconds || 0) / 60);
@@ -1659,10 +1671,10 @@ function SessionCard({
             )}
           </div>
           <p className="text-white text-sm font-medium truncate mt-0.5">
-            {session.workout_title || session.title || 'Séance'}
+            {session.workout_title || session.title || t('duo:session.defaultTitle')}
           </p>
           <p className="text-zinc-500 text-xs mt-0.5 line-clamp-2 break-words">
-            {[dateLabel, statusLabel, isCommon ? 'Séance commune' : null]
+            {[dateLabel, statusLabel, isCommon ? t('duo:session.common') : null]
               .filter(Boolean)
               .join(' · ')}
           </p>
@@ -1699,7 +1711,7 @@ function SessionCard({
         <div className="flex flex-wrap gap-1">
           {session.reactions.slice(-5).map((r, i) => (
             <span key={i} className="text-lg">
-              {QUICK_REACTIONS.find((qr) => qr.type === r.reaction_type)?.emoji || '👍'}
+              {quickReactions.find((qr) => qr.type === r.reaction_type)?.emoji || '👍'}
             </span>
           ))}
         </div>
@@ -1718,7 +1730,7 @@ function SessionCard({
           <span className="text-sm">{session.likes?.length || 0}</span>
         </button>
 
-        {QUICK_REACTIONS.slice(0, 3).map((reaction) => (
+        {quickReactions.slice(0, 3).map((reaction) => (
           <button
             key={reaction.type}
             onClick={() => onReaction(session.id, reaction.type)}

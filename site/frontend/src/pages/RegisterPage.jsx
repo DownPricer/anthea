@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -14,22 +15,11 @@ import {
 import { Loader2, Dumbbell, Eye, EyeOff, ChevronRight, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
 
-const FITNESS_LEVELS = [
-  { value: 'beginner', label: 'Débutant' },
-  { value: 'intermediate', label: 'Intermédiaire' },
-  { value: 'advanced', label: 'Avancé' },
-  { value: 'expert', label: 'Expert' },
-];
-
-const GOALS = [
-  { value: 'lose_weight', label: 'Perdre du poids' },
-  { value: 'gain_muscle', label: 'Prendre du muscle' },
-  { value: 'stay_fit', label: 'Rester en forme' },
-  { value: 'improve_endurance', label: 'Améliorer mon endurance' },
-  { value: 'flexibility', label: 'Gagner en souplesse' },
-];
+const FITNESS_LEVEL_KEYS = ['beginner', 'intermediate', 'advanced', 'expert'];
+const GOAL_KEYS = ['lose_weight', 'gain_muscle', 'stay_fit', 'improve_endurance', 'flexibility'];
 
 export function RegisterPage() {
+  const { t } = useTranslation(['auth', 'common']);
   const [step, setStep] = useState(1);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
@@ -46,25 +36,25 @@ export function RegisterPage() {
 
   const handleStep1 = (e) => {
     e.preventDefault();
-    
+
     if (!username.trim()) {
-      toast.error("Choisis un nom d'utilisateur");
+      toast.error(t('register.errors.usernameRequired'));
       return;
     }
     if (username.length < 3) {
-      toast.error("Le nom d'utilisateur doit faire au moins 3 caractères");
+      toast.error(t('register.errors.usernameMin'));
       return;
     }
     if (!password) {
-      toast.error('Choisis un mot de passe');
+      toast.error(t('register.errors.passwordRequired'));
       return;
     }
     if (password.length < 6) {
-      toast.error('Le mot de passe doit faire au moins 6 caractères');
+      toast.error(t('register.errors.passwordMin'));
       return;
     }
     if (password !== confirmPassword) {
-      toast.error('Les mots de passe ne correspondent pas');
+      toast.error(t('register.errors.passwordMismatch'));
       return;
     }
 
@@ -86,7 +76,7 @@ export function RegisterPage() {
     setIsLoading(false);
 
     if (result.success) {
-      toast.success('Compte créé avec succès !');
+      toast.success(t('register.success'));
       navigate('/');
     } else {
       toast.error(result.error);
@@ -96,7 +86,6 @@ export function RegisterPage() {
   return (
     <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm animate-fade-in">
-        {/* Logo */}
         <div className="flex flex-col items-center mb-8">
           <div
             className="w-14 h-14 rounded-xl flex items-center justify-center mb-3"
@@ -108,12 +97,11 @@ export function RegisterPage() {
             <Dumbbell className="w-7 h-7 text-white" strokeWidth={2} />
           </div>
           <h1 className="text-2xl font-black text-white tracking-tight font-['Outfit']">
-            Créer un compte
+            {t('register.title')}
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">Étape {step} sur 2</p>
+          <p className="text-zinc-500 text-sm mt-1">{t('register.step', { step })}</p>
         </div>
 
-        {/* Progress bar */}
         <div className="flex gap-2 mb-8">
           <div
             className={`h-1 flex-1 rounded-full transition-colors ${
@@ -131,7 +119,7 @@ export function RegisterPage() {
           <form onSubmit={handleStep1} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="username" className="text-zinc-400 text-sm">
-                Nom d'utilisateur *
+                {t('register.username')}
               </Label>
               <Input
                 id="username"
@@ -147,7 +135,7 @@ export function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="password" className="text-zinc-400 text-sm">
-                Mot de passe *
+                {t('register.password')}
               </Label>
               <div className="relative">
                 <Input
@@ -164,6 +152,7 @@ export function RegisterPage() {
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                  aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                 </button>
@@ -172,7 +161,7 @@ export function RegisterPage() {
 
             <div className="space-y-2">
               <Label htmlFor="confirmPassword" className="text-zinc-400 text-sm">
-                Confirmer le mot de passe *
+                {t('register.confirmPassword')}
               </Label>
               <Input
                 id="confirmPassword"
@@ -191,7 +180,7 @@ export function RegisterPage() {
               data-testid="register-next"
               className="w-full h-14 rounded-xl font-bold text-white btn-primary mt-6"
             >
-              Continuer
+              {t('register.continue')}
               <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
           </form>
@@ -199,7 +188,7 @@ export function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="displayName" className="text-zinc-400 text-sm">
-                Prénom ou surnom
+                {t('register.displayName')}
               </Label>
               <Input
                 id="displayName"
@@ -207,13 +196,13 @@ export function RegisterPage() {
                 type="text"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
-                placeholder="Comment tu t'appelles ?"
+                placeholder={t('register.displayNamePlaceholder')}
                 className="h-14 rounded-xl bg-[#141414] border-white/10 text-white placeholder:text-zinc-600"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400 text-sm">Genre (optionnel)</Label>
+              <Label className="text-zinc-400 text-sm">{t('register.gender')}</Label>
               <div className="flex gap-3">
                 {['male', 'female', 'other'].map((g) => (
                   <button
@@ -226,14 +215,14 @@ export function RegisterPage() {
                         : 'border-white/10 bg-[#141414] text-zinc-400 hover:border-white/20'
                     }`}
                   >
-                    {g === 'male' ? 'Homme' : g === 'female' ? 'Femme' : 'Autre'}
+                    {t(`common:gender.${g}`)}
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400 text-sm">Niveau sportif</Label>
+              <Label className="text-zinc-400 text-sm">{t('register.fitnessLevel')}</Label>
               <Select value={fitnessLevel} onValueChange={setFitnessLevel}>
                 <SelectTrigger
                   data-testid="register-fitness-level"
@@ -242,9 +231,9 @@ export function RegisterPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  {FITNESS_LEVELS.map((level) => (
-                    <SelectItem key={level.value} value={level.value} className="text-white hover:bg-white/10">
-                      {level.label}
+                  {FITNESS_LEVEL_KEYS.map((level) => (
+                    <SelectItem key={level} value={level} className="text-white hover:bg-white/10">
+                      {t(`common:fitnessLevels.${level}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -252,18 +241,18 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400 text-sm">Objectif principal</Label>
+              <Label className="text-zinc-400 text-sm">{t('register.mainGoal')}</Label>
               <Select value={mainGoal} onValueChange={setMainGoal}>
                 <SelectTrigger
                   data-testid="register-main-goal"
                   className="h-14 rounded-xl bg-[#141414] border-white/10 text-white"
                 >
-                  <SelectValue placeholder="Choisis ton objectif" />
+                  <SelectValue placeholder={t('register.goalPlaceholder')} />
                 </SelectTrigger>
                 <SelectContent className="bg-[#141414] border-white/10">
-                  {GOALS.map((goal) => (
-                    <SelectItem key={goal.value} value={goal.value} className="text-white hover:bg-white/10">
-                      {goal.label}
+                  {GOAL_KEYS.map((goal) => (
+                    <SelectItem key={goal} value={goal} className="text-white hover:bg-white/10">
+                      {t(`common:goals.${goal}`)}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -278,7 +267,7 @@ export function RegisterPage() {
                 className="flex-1 h-14 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10"
               >
                 <ChevronLeft className="w-5 h-5 mr-2" />
-                Retour
+                {t('register.back')}
               </Button>
               <Button
                 type="submit"
@@ -286,21 +275,20 @@ export function RegisterPage() {
                 disabled={isLoading}
                 className="flex-1 h-14 rounded-xl font-bold text-white btn-primary"
               >
-                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : "C'est parti !"}
+                {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : t('register.submit')}
               </Button>
             </div>
           </form>
         )}
 
-        {/* Login link */}
         <p className="text-center mt-8 text-zinc-500 text-sm">
-          Déjà un compte ?{' '}
+          {t('register.hasAccount')}{' '}
           <Link
             to="/login"
             data-testid="login-link"
             className="text-[var(--theme-primary)] hover:underline font-medium"
           >
-            Se connecter
+            {t('register.signIn')}
           </Link>
         </p>
       </div>

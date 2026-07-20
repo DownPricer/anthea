@@ -35,6 +35,7 @@ import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/im
 import { UserAvatar } from '../UserAvatar';
 import { BadgeArtwork } from '../badges/BadgeArtwork';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import {
   Loader2,
   ImagePlus,
@@ -161,6 +162,7 @@ function idsEqual(a = [], b = []) {
  * Panneau Modifier le Duo — bottom sheet mobile / panneau latéral desktop.
  */
 export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }) {
+  const { t } = useTranslation(['duo', 'common', 'profile']);
   const isMobile = useIsMobile();
   const [form, setForm] = useState(() => buildInitialForm(duoProfile));
   const [baseline, setBaseline] = useState(() => buildInitialForm(duoProfile));
@@ -359,7 +361,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
   };
 
   const handleRemoveBanner = () => {
-    if (!window.confirm('Supprimer la bannière du duo ?')) return;
+    if (!window.confirm(t('duo:edit.removeBannerConfirm'))) return;
     setForm((f) => ({ ...f, banner_url: null }));
     setBannerPreview(null);
     setBannerRemoved(true);
@@ -504,7 +506,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
           </Button>
           {(form.banner_url || baseline.banner_url) && !bannerRemoved ? (
             <Button type="button" size="sm" variant="ghost" onClick={handleRemoveBanner} className="text-zinc-400">
-              Supprimer la bannière
+              {t('duo:edit.removeBanner')}
             </Button>
           ) : null}
         </div>
@@ -544,7 +546,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
             <PrivacyRow icon={Award} label="Badges Duo" locked lockedLabel={isPublicDuo ? 'Public' : 'Abonnés du duo acceptés'} />
             <PrivacyRow
               icon={BarChart3}
-              label="Statistiques communes"
+              label={t('duo:edit.commonStats')}
               value={form.stats_visibility}
               onChange={(v) => setForm((f) => ({ ...f, stats_visibility: v }))}
               options={configurableOptions}
@@ -688,7 +690,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       className="w-full btn-primary text-white rounded-xl h-11"
       data-testid="duo-settings-save"
     >
-      {saving ? <Loader2 className="animate-spin" size={18} /> : 'Enregistrer'}
+      {saving ? <Loader2 className="animate-spin" size={18} /> : t('common:actions.save')}
     </Button>
   );
 
@@ -703,13 +705,13 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
         </AlertDialogHeader>
         <AlertDialogFooter>
           <AlertDialogCancel className="rounded-xl border-white/15 bg-transparent text-white">
-            Continuer la modification
+            {t('profile:edit.discardContinue')}
           </AlertDialogCancel>
           <AlertDialogAction
             className="rounded-xl bg-red-600 hover:bg-red-500 text-white"
             onClick={confirmDiscard}
           >
-            Quitter
+            {t('profile:edit.discardLeave')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -21,6 +21,7 @@ import { formatDuration } from '../../lib/userProfile';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../layout/PageHeader';
 import { BadgeArtwork } from '../badges/BadgeArtwork';
 
@@ -29,6 +30,7 @@ function filterSoloBadges(badges = []) {
 }
 
 export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoading: parentStatsLoading }) {
+  const { t } = useTranslation(['duo', 'common']);
   const { user } = useAuth();
   const { theme } = useTheme();
   const [searchParams] = useSearchParams();
@@ -92,7 +94,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
       const { data } = await sessionsApi.getHistory({ limit: 100, target_user: user.id });
       setHistorySessions(data || []);
     } catch {
-      toast.error('Impossible de charger l\'historique');
+      toast.error(t('duo:solo.historyLoadError'));
     } finally {
       setHistoryLoading(false);
     }
@@ -119,8 +121,8 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
   return (
     <div data-testid="duo-page-solo" className="p-5 animate-fade-in">
       <PageHeader
-        title={duoNav?.label || 'Duo'}
-        subtitle="Votre progression à deux"
+        title={duoNav?.label || t('duo:title')}
+        subtitle={t('duo:subtitle')}
         titleTestId="solo-page-title"
       />
 
@@ -131,69 +133,69 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             data-testid="tab-solo-overview"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Vue d&apos;ensemble
+            {t('duo:overview')}
           </TabsTrigger>
           <TabsTrigger
             value="history"
             data-testid="tab-solo-history"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Historique
+            {t('duo:history')}
           </TabsTrigger>
           <TabsTrigger
             value="stats"
             data-testid="tab-solo-stats"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Stats
+            {t('duo:stats')}
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Séances terminées</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.completedWorkouts')}</p>
               <p className="text-2xl font-bold text-white">{summary?.total_completed ?? 0}</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Temps total</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.totalTime')}</p>
               <p className="text-2xl font-bold text-white">
                 {summary?.total_time != null ? formatDuration(summary.total_time) : '0 min'}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Calories estimées</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.estimatedCalories')}</p>
               <p className="text-2xl font-bold text-white">
                 {formatCalories(summary?.total_calories ?? 0)}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Jours actifs</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.activeDays')}</p>
               <p className="text-2xl font-bold text-white">{activeDays}</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Streak actuel</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.currentStreak')}</p>
               <p className="text-2xl font-bold text-white flex items-center gap-1">
                 <Flame size={18} className="text-orange-500" fill="currentColor" />
                 {duoStats?.streak ?? 0}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Meilleur streak</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.bestStreak')}</p>
               <p className="text-2xl font-bold text-white">{bestStreak ?? 0} j</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Taux complétion</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.completionRate')}</p>
               <p className="text-2xl font-bold text-white">
                 {summary?.completion_rate != null ? `${summary.completion_rate}%` : '—'}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Défis réussis</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.challengesCompleted')}</p>
               <p className="text-2xl font-bold text-white">{duoStats?.challenges_completed ?? 0}</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">Badges débloqués</p>
+              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.badgesUnlocked')}</p>
               <p className="text-2xl font-bold text-white">
                 {soloBadges.filter((b) => b.unlocked).length}/{soloBadges.length}
               </p>
@@ -204,7 +206,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             <div className="card p-4 border-[var(--theme-primary)]/30" data-testid="solo-challenge">
               <div className="flex items-center gap-3 mb-2">
                 <Zap className="text-[var(--theme-primary)]" size={18} />
-                <span className="text-white font-medium">Défi de la semaine</span>
+                <span className="text-white font-medium">{t('duo:weeklyChallenge')}</span>
               </div>
               <p className="text-zinc-400 text-sm mb-1">{duoStats.current_challenge.title}</p>
               <p className="text-zinc-500 text-xs mb-3">{duoStats.current_challenge.description}</p>
@@ -227,11 +229,11 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
 
           <div>
             <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
-              Activité récente
+              {t('duo:recentActivity')}
             </h2>
             {recentSessions.length === 0 ? (
               <div className="card p-6 text-center">
-                <p className="text-zinc-500">Pas encore de séance terminée</p>
+                <p className="text-zinc-500">{t('duo:emptyStates.noSessionYet')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -252,7 +254,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             <AnnualHeatmap
               year={heatmapYear}
               userId={user?.id}
-              title="Agenda annuel"
+              title={t('duo:solo.annualAgenda')}
               accentColor={accentColor}
               initialDays={calendarDays.length ? calendarDays : null}
             />
@@ -267,7 +269,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
           ) : historySessions.length === 0 ? (
             <div className="card p-8 text-center">
               <History className="mx-auto text-zinc-500 mb-3" size={28} />
-              <p className="text-zinc-500">Aucune séance dans l&apos;historique</p>
+              <p className="text-zinc-500">{t('duo:emptyStates.history')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -299,9 +301,12 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
           <div className="mt-6 card p-4 min-w-0 overflow-hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-white font-medium">Mes badges</p>
+                <p className="text-white font-medium">{t('duo:solo.myBadges')}</p>
                 <p className="text-zinc-500 text-xs">
-                  {soloBadges.filter((b) => b.unlocked).length} badges débloqués sur {soloBadges.length || 50}
+                  {t('duo:solo.badgesUnlockedCount', {
+                    unlocked: soloBadges.filter((b) => b.unlocked).length,
+                    total: soloBadges.length || 50,
+                  })}
                 </p>
               </div>
               <Button
@@ -311,7 +316,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
                 className="rounded-full border-white/15 text-white shrink-0"
                 data-testid="solo-stats-open-badges"
               >
-                <Link to="/badges?scope=solo">Afficher les badges</Link>
+                <Link to="/badges?scope=solo">{t('duo:solo.showBadges')}</Link>
               </Button>
             </div>
             {recentSoloBadges.length > 0 ? (
@@ -338,7 +343,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             <AnnualHeatmap
               year={heatmapYear}
               userId={user?.id}
-              title="Agenda annuel"
+              title={t('duo:solo.annualAgenda')}
               accentColor={accentColor}
               initialDays={calendarDays.length ? calendarDays : null}
             />
@@ -352,12 +357,12 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             <UserPlus className="text-[var(--theme-primary)]" size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-medium">Envie de progresser à deux ?</p>
+            <p className="text-white font-medium">{t('duo:solo.inviteTitle')}</p>
             <p className="text-zinc-500 text-sm mt-1">
-              Inviter ou rechercher un partenaire pour débloquer les défis et stats duo.
+              {t('duo:solo.inviteHint')}
             </p>
             <Button asChild variant="outline" className="mt-3 rounded-xl border-white/15 text-white">
-              <Link to="/profile">Inviter ou rechercher un partenaire</Link>
+              <Link to="/profile">{t('duo:solo.inviteCta')}</Link>
             </Button>
           </div>
         </div>

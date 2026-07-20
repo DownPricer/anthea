@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Loader2, ZoomIn, ZoomOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '../ui/button';
@@ -22,6 +23,7 @@ export function AvatarCropDialog({
   onConfirm,
   confirming = false,
 }) {
+  const { t } = useTranslation(['common']);
   const [zoom, setZoom] = useState(1);
   const [offset, setOffset] = useState({ x: 0, y: 0 });
   const [naturalSize, setNaturalSize] = useState({ w: 0, h: 0 });
@@ -201,7 +203,7 @@ export function AvatarCropDialog({
             onClick={() => onOpenChange(false)}
             disabled={busy}
           >
-            Annuler
+            {t('common:actions.cancel')}
           </Button>
           <Button
             ref={confirmBtnRef}

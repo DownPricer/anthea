@@ -1,0 +1,68 @@
+{
+  "title": "Notificaciones",
+  "subtitle": "Tu actividad reciente",
+  "subtitleDuo": "Actividad de tu Dúo",
+  "filters": {
+    "all": "Todas",
+    "duo": "Dúo"
+  },
+  "empty": "Ninguna notificación por ahora.",
+  "emptyDuo": "Ninguna notificación de dúo por ahora.",
+  "types": {
+    "new_follower": "ha empezado a seguirte",
+    "follow_request": "quiere seguirte",
+    "follow_accepted": "ha aceptado tu solicitud de seguimiento",
+    "follow_back": "te sigue también — sois amigos mutuos",
+    "like": "ha gustado tu publicación",
+    "comment": "ha comentado tu publicación",
+    "duo_follow_request": "quiere seguir vuestro dúo",
+    "duo_follow_accepted": "ha aceptado tu solicitud de seguimiento del dúo",
+    "badge_unlocked": "Has conseguido « {{badge}} ».",
+    "duo_badge_unlocked": "Vuestro Dúo ha conseguido « {{badge}} ».",
+    "default": "nueva actividad",
+    "aBadge": "una insignia"
+  },
+  "actions": {
+    "accept": "Aceptar",
+    "reject": "Rechazar",
+    "seeDuo": "Ver el dúo",
+    "followBack": "Seguir también",
+    "seeMyBadges": "Ver mis insignias",
+    "seeDuoBadges": "Ver insignias Dúo"
+  },
+  "toasts": {
+    "following": "¡Sigues a este usuario!",
+    "accepted": "Solicitud aceptada",
+    "rejected": "Solicitud rechazada",
+    "duoAccepted": "Solicitud dúo aceptada",
+    "duoRejected": "Solicitud dúo rechazada"
+  },
+  "prefs": {
+    "hint": "Tipos de notificaciones — Push respeta estas opciones. Las alertas de seguridad siguen activas.",
+    "saveError": "Preferencia no guardada",
+    "groups": {
+      "sessions": "Sesiones",
+      "social": "Red social",
+      "duo": "Dúo",
+      "badges": "Insignias y desafíos",
+      "reminders": "Recordatorios"
+    },
+    "keys": {
+      "partner_workout_started": "Sesión iniciada por mi pareja",
+      "partner_workout_completed": "Sesión completada por mi pareja",
+      "scheduled_workout_reminder": "Recordatorio de mi sesión planificada",
+      "followed_user_post": "Nueva publicación de una cuenta seguida",
+      "post_comment": "Nuevo comentario en mi publicación",
+      "post_like": "Nuevo me gusta en mi publicación",
+      "follow_request": "Nueva solicitud de seguimiento",
+      "follow_accepted": "Solicitud de seguimiento aceptada",
+      "duo_request": "Nueva solicitud Dúo",
+      "duo_activity": "Actividad importante de mi Dúo",
+      "solo_badge_unlocked": "Insignia Solo desbloqueada",
+      "duo_badge_unlocked": "Insignia Dúo desbloqueada",
+      "challenge_ending": "Desafío semanal casi terminado",
+      "challenge_completed": "Desafío Solo o Dúo conseguido",
+      "streak_reminder": "Recordatorios de racha"
+    }
+  }
+}

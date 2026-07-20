@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import {
   Activity,
@@ -47,6 +48,7 @@ export function ProfileStatsTab({
   detailedStats,
   calendarDays = [],
 }) {
+  const { t } = useTranslation(['profile']);
   const canShowStats = canViewProfileSection(profileUser, viewer, 'stats');
   const canShowBadges = canViewProfileSection(profileUser, viewer, 'badges');
   const canShowSessions = canViewProfileSection(profileUser, viewer, 'sessions');
@@ -69,9 +71,9 @@ export function ProfileStatsTab({
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-14 text-center">
         <Lock size={28} className="text-zinc-500 mb-3" />
-        <p className="text-white font-medium">Statistiques privées</p>
+        <p className="text-white font-medium">{t('profile:statsTab.privateTitle')}</p>
         <p className="text-zinc-500 text-sm mt-2 max-w-sm">
-          Cet utilisateur a choisi de garder ses stats confidentielles.
+          {t('profile:statsTab.privateHint')}
         </p>
       </div>
     );
@@ -89,7 +91,7 @@ export function ProfileStatsTab({
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
         <BarChart3 size={28} className="text-zinc-600 mb-3" />
-        <p className="text-zinc-400 text-sm">Les statistiques ne sont pas visibles sur ce profil.</p>
+        <p className="text-zinc-400 text-sm">{t('profile:statsTab.notVisible')}</p>
       </div>
     );
   }
@@ -104,63 +106,66 @@ export function ProfileStatsTab({
     {
       key: 'sessions',
       icon: Activity,
-      label: 'Séances totales',
+      label: t('profile:statsTab.totalSessions'),
       value: summary?.total_completed != null ? String(summary.total_completed) : null,
-      sub: summary?.total_sessions != null ? `${summary.total_sessions} tentatives` : null,
+      sub: summary?.total_sessions != null ? t('profile:statsTab.attempts', { count: summary.total_sessions }) : null,
     },
     {
       key: 'time',
       icon: Clock,
-      label: 'Temps total',
+      label: t('profile:statsTab.totalTime'),
       value: summary?.total_time != null ? formatDuration(summary.total_time) : null,
-      sub: summary?.avg_time != null ? `~${formatDuration(summary.avg_time)} / séance` : null,
+      sub: summary?.avg_time != null ? t('profile:statsTab.perSession', { duration: formatDuration(summary.avg_time) }) : null,
     },
     {
       key: 'badges',
       icon: Trophy,
-      label: 'Badges',
+      label: t('profile:statsTab.badges'),
       value:
         badgesUnlocked != null && badgesTotal != null
           ? `${badgesUnlocked}/${badgesTotal}`
           : null,
-      sub: canShowBadges ? 'Débloqués' : null,
+      sub: canShowBadges ? t('profile:statsTab.unlocked') : null,
     },
     {
       key: 'streak',
       icon: Flame,
-      label: 'Streak actuel',
-      value: streak != null ? `${streak} j` : null,
+      label: t('profile:statsTab.currentStreak'),
+      value: streak != null ? t('profile:statsTab.daysShort', { count: streak }) : null,
     },
     {
       key: 'best_streak',
       icon: Flame,
-      label: 'Meilleur streak',
-      value: bestStreak != null ? `${bestStreak} j` : null,
+      label: t('profile:statsTab.bestStreak'),
+      value: bestStreak != null ? t('profile:statsTab.daysShort', { count: bestStreak }) : null,
     },
     {
       key: 'completion',
       icon: Target,
-      label: 'Taux complétion',
+      label: t('profile:statsTab.completionRate'),
       value: summary?.completion_rate != null ? `${summary.completion_rate}%` : null,
       sub:
         summary?.total_completed != null && summary?.total_sessions != null
-          ? `${summary.total_completed}/${summary.total_sessions} séances`
+          ? t('profile:statsTab.sessionsRatio', {
+              completed: summary.total_completed,
+              total: summary.total_sessions,
+            })
           : null,
     },
     {
       key: 'calories',
       icon: Activity,
-      label: 'Calories estimées',
+      label: t('profile:statsTab.estimatedCalories'),
       value:
         summary?.total_calories != null ? formatCalories(summary.total_calories) : null,
-      sub: 'Estimation motivante',
+      sub: t('profile:statsTab.motivatingEstimate'),
     },
     {
       key: 'exercises',
       icon: Dumbbell,
-      label: 'Exercices réalisés',
+      label: t('profile:statsTab.exercisesDone'),
       value: exercisesDone != null ? String(exercisesDone) : null,
-      sub: 'Sur les séances récentes',
+      sub: t('profile:statsTab.recentSessionsScope'),
     },
   ].filter((item) => {
     if (item.key === 'badges' && !canShowBadges) return false;
@@ -171,9 +176,9 @@ export function ProfileStatsTab({
     return (
       <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
         <BarChart3 size={28} className="text-zinc-600 mb-3" />
-        <p className="text-zinc-400 text-sm">Pas encore de statistiques à afficher.</p>
+        <p className="text-zinc-400 text-sm">{t('profile:statsTab.empty')}</p>
         {isOwn ? (
-          <p className="text-zinc-600 text-xs mt-2">Commence une séance pour remplir ton profil !</p>
+          <p className="text-zinc-600 text-xs mt-2">{t('profile:statsTab.emptyOwnHint')}</p>
         ) : null}
       </div>
     );
@@ -213,7 +218,7 @@ export function ProfileStatsTab({
       {recentSessions.length > 0 ? (
         <div className="space-y-3">
           <h3 className="text-sm font-semibold text-white font-['Outfit'] uppercase tracking-wide text-zinc-400">
-            Séances récentes
+            {t('profile:statsTab.recentSessions')}
           </h3>
           <div className="space-y-2">
             {recentSessions.slice(0, 5).map((session) => (

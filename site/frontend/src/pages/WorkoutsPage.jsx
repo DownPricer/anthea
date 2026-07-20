@@ -37,9 +37,11 @@ import {
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../components/layout/PageHeader';
 
 export function WorkoutsPage() {
+  const { t } = useTranslation(['workouts', 'common']);
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -150,15 +152,15 @@ export function WorkoutsPage() {
   };
 
   const handleDelete = async (workoutId) => {
-    if (!window.confirm('Supprimer cette séance ?')) return;
+    if (!window.confirm(t('workouts:confirmDelete'))) return;
     
     try {
       await workoutsApi.delete(workoutId);
-      toast.success('Séance supprimée');
+      toast.success(t('workouts:deleted'));
       loadTodayWorkouts();
       if (activeTab === 'agenda') loadCalendarWorkouts();
     } catch (error) {
-      toast.error('Erreur lors de la suppression');
+      toast.error(t('workouts:deleteError'));
     }
   };
 
@@ -169,12 +171,12 @@ export function WorkoutsPage() {
         offset_days: offsetDays,
         repeat_weeks: 1,
       });
-      toast.success('Séance(s) dupliquée(s)');
+      toast.success(t('workouts:duplicated'));
       loadCalendarWorkouts();
       setSelectMode(false);
       setSelectedWorkouts([]);
     } catch (error) {
-      toast.error('Erreur lors de la duplication');
+      toast.error(t('workouts:duplicateError'));
     }
   };
 
@@ -251,14 +253,14 @@ export function WorkoutsPage() {
           {workout.title}
           {workout.is_draft && (
             <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400">
-              Brouillon
+              {t('workouts:draft')}
             </span>
           )}
         </h4>
         <p className="text-zinc-500 text-sm">
-          {workout.scheduled_time || 'Flexible'}
+          {workout.scheduled_time || t('workouts:flexible')}
           {workout.for_user_id !== user?.id && (
-            <span className="text-[var(--theme-primary)]"> • Pour {workout.for_username}</span>
+            <span className="text-[var(--theme-primary)]"> • {t('workouts:forUser', { username: workout.for_username })}</span>
           )}
         </p>
       </div>
@@ -276,12 +278,12 @@ export function WorkoutsPage() {
               {workout.status === 'in_progress' ? (
                 <>
                   <RotateCcw size={16} className="mr-1" />
-                  Reprendre
+                  {t('workouts:resume')}
                 </>
               ) : (
                 <>
                   <Play size={16} className="mr-1" fill="currentColor" />
-                  Go
+                  {t('workouts:go')}
                 </>
               )}
             </Button>
@@ -298,19 +300,19 @@ export function WorkoutsPage() {
                 onClick={() => navigate(`/workouts/${workout.id}`)}
                 className="text-white hover:bg-white/10"
               >
-                <Edit size={16} className="mr-2" /> Modifier
+                <Edit size={16} className="mr-2" /> {t('workouts:edit')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleDuplicate([workout.id])}
                 className="text-white hover:bg-white/10"
               >
-                <Copy size={16} className="mr-2" /> Dupliquer (+7j)
+                <Copy size={16} className="mr-2" /> {t('workouts:duplicatePlus7')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleDelete(workout.id)}
                 className="text-red-400 hover:bg-white/10"
               >
-                <Trash2 size={16} className="mr-2" /> Supprimer
+                <Trash2 size={16} className="mr-2" /> {t('workouts:delete')}
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -330,15 +332,15 @@ export function WorkoutsPage() {
   return (
     <div data-testid="workouts-page" className="p-5 animate-fade-in">
       <PageHeader
-        title="Mes séances"
-        subtitle="Votre programme et vos séances planifiées"
+        title={t('workouts:title')}
+        subtitle={t('workouts:subtitle')}
         actions={
           <Button
             onClick={() => navigate('/create')}
             size="sm"
             className="bg-[var(--theme-primary)] text-white rounded-full px-4"
           >
-            <Plus size={18} className="mr-1" /> Nouvelle
+            <Plus size={18} className="mr-1" /> {t('workouts:new')}
           </Button>
         }
       />
@@ -352,14 +354,14 @@ export function WorkoutsPage() {
             data-testid="tab-today"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Aujourd'hui
+            {t('workouts:today')}
           </TabsTrigger>
           <TabsTrigger
             value="agenda"
             data-testid="tab-agenda"
             className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
           >
-            Agenda
+            {t('workouts:agenda')}
           </TabsTrigger>
         </TabsList>
 
@@ -369,12 +371,12 @@ export function WorkoutsPage() {
               <div className="w-16 h-16 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-4">
                 <CalendarIcon className="text-zinc-500" size={28} />
               </div>
-              <p className="text-zinc-400 mb-4">Pas de séance aujourd'hui</p>
+              <p className="text-zinc-400 mb-4">{t('workouts:emptyToday')}</p>
               <Button
                 onClick={() => navigate('/create')}
                 className="bg-[var(--theme-primary)] text-white"
               >
-                Planifier une séance
+                {t('workouts:schedule')}
               </Button>
             </div>
           ) : publishedToday.length > 0 ? (
@@ -420,7 +422,7 @@ export function WorkoutsPage() {
               {selectMode && (
                 <div className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-white/10">
                   <span className="text-sm text-zinc-400 flex-1">
-                    {selectedWorkouts.length} sélectionné(s)
+                    {t('workouts:selected', { count: selectedWorkouts.length })}
                   </span>
                   <Button
                     size="sm"
@@ -429,7 +431,7 @@ export function WorkoutsPage() {
                     disabled={selectedWorkouts.length === 0}
                     className="text-white border-white/10"
                   >
-                    +7 jours
+                    {t('workouts:plus7')}
                   </Button>
                   <Button
                     size="sm"
@@ -438,7 +440,7 @@ export function WorkoutsPage() {
                     disabled={selectedWorkouts.length === 0}
                     className="text-white border-white/10"
                   >
-                    +14 jours
+                    {t('workouts:plus14')}
                   </Button>
                   <button
                     onClick={() => {
@@ -462,14 +464,14 @@ export function WorkoutsPage() {
                       onClick={() => setSelectMode(!selectMode)}
                       className="text-sm text-[var(--theme-primary)]"
                     >
-                      {selectMode ? 'Annuler' : 'Sélectionner'}
+                      {selectMode ? t('workouts:cancel') : t('workouts:select')}
                     </button>
                   )}
                 </div>
 
                 {selectedDateWorkouts.length === 0 ? (
                   <div className="card p-6 text-center">
-                    <p className="text-zinc-500 text-sm">Aucune séance ce jour</p>
+                    <p className="text-zinc-500 text-sm">{t('workouts:emptyDay')}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -488,13 +490,14 @@ export function WorkoutsPage() {
 }
 
 function SelectedDaySummary({ state, myAccent }) {
+  const { t } = useTranslation('workouts');
   const labels = [];
-  if (state.both_completed) labels.push('Duo ✓');
+  if (state.both_completed) labels.push(t('markers.duo'));
   else {
-    if (state.partner_completed) labels.push('Partenaire ✓');
+    if (state.partner_completed) labels.push(t('markers.partner'));
   }
-  if (state.rest) labels.push('Repos');
-  if (labels.length === 0 && state.has_planned) labels.push('Prévu');
+  if (state.rest) labels.push(t('markers.rest'));
+  if (labels.length === 0 && state.has_planned) labels.push(t('markers.planned'));
 
   if (labels.length === 0) return null;
 

@@ -1,4 +1,6 @@
 {
+  "title": "Paramètres",
+  "subtitle": "Personnalisez votre expérience",
   "languageRegion": {
     "title": "Langue et région",
     "language": {
@@ -15,6 +17,139 @@
     },
     "saveSuccess": "Préférences enregistrées",
     "saveError": "Impossible d’enregistrer les préférences"
+  },
+  "sections": {
+    "profile": "Mon profil",
+    "profileHint": "Photo, pseudo, arobase et bio",
+    "editProfile": "Modifier mon profil",
+    "editProfileHint": "Nom affiché, arobase, avatar, bio, badges mis en avant",
+    "partner": "Partenaire et Duo",
+    "notifications": "Notifications",
+    "appearance": "Apparence",
+    "player": "Player",
+    "badges": "Badges",
+    "agenda": "Agenda annuel",
+    "account": "Compte"
+  },
+  "appearance": {
+    "theme": "Thème",
+    "defaultTheme": "Thème par défaut",
+    "accent": "Couleur perso",
+    "accentHint": "Agenda et repères visuels",
+    "preview": "Aperçu & contraste",
+    "save": "Enregistrer l'apparence",
+    "saved": "Apparence enregistrée",
+    "presets": {
+      "cyan": "Cyan",
+      "green": "Vert",
+      "pink": "Rose",
+      "amber": "Ambre",
+      "indigo": "Indigo",
+      "red": "Rouge"
+    }
+  },
+  "player": {
+    "tts": "Annonces vocales",
+    "musicMode": "Mode musique",
+    "musicModeHint": "Bips courts à la place des annonces longues",
+    "save": "Enregistrer le player",
+    "saved": "Préférences player enregistrées"
+  },
+  "badges": {
+    "unlockedOf": "{{count}} sur {{total}} débloqués",
+    "empty": "Aucun badge pour l'instant — entraîne-toi pour en débloquer !",
+    "seeAll": "Voir tous les badges",
+    "soloCatalog": "Catalogue Solo complet",
+    "duoBadges": "Badges Duo",
+    "duoHint": "Succès à deux"
+  },
+  "agenda": {
+    "loadHint": "Ouvrez cette section pour charger l'agenda.",
+    "completedOnly": "Séances terminées uniquement",
+    "annualTitle": "Agenda annuel"
+  },
+  "partnerSection": {
+    "title": "Partenaire / Duo",
+    "hint": "Gérer votre relation et quitter le duo",
+    "add": "Ajouter",
+    "findTitle": "Trouver un partenaire",
+    "findDesc": "Recherchez un utilisateur et envoyez une demande de liaison.",
+    "searchPlaceholder": "Rechercher par pseudo...",
+    "relationType": "Type de relation",
+    "relationPartner": "Partenaire",
+    "relationCoach": "Coach",
+    "relationCoachPartner": "Coach + Partenaire",
+    "noPartner": "Pas de partenaire lié",
+    "unlink": "Délier le partenaire",
+    "unlinkTitle": "Délier votre partenaire ?",
+    "unlinkDesc": "Vous quitterez le duo. Cette action peut être annulée en créant une nouvelle relation.",
+    "unlinkAction": "Délier",
+    "receivedRequests": "Demandes reçues",
+    "sentRequests": "Demandes envoyées",
+    "pending": "En attente...",
+    "toasts": {
+      "requestSent": "Demande envoyée !",
+      "accepted": "Partenaire accepté !",
+      "rejected": "Demande refusée",
+      "unlinked": "Partenaire délié"
+    }
+  },
+  "pushDevice": {
+    "title": "Notifications sur cet appareil",
+    "hint": "Recevez les rappels et activités même lorsque l'application est fermée.",
+    "statusLabel": "État",
+    "enable": "Activer les notifications",
+    "test": "Tester",
+    "disable": "Désactiver",
+    "statusLabels": {
+      "unsupported": "Non prises en charge",
+      "not_configured": "Non configurées (serveur)",
+      "denied": "Refusées dans le navigateur",
+      "subscribed": "Activées",
+      "expired": "Abonnement expiré",
+      "default": "Permission non demandée"
+    },
+    "hints": {
+      "unsupported": "Ce navigateur ne prend pas en charge les notifications Web Push.",
+      "notConfigured": "La clé VAPID publique n'est pas configurée.",
+      "denied": "Autorisez les notifications dans les réglages du navigateur.",
+      "expired": "Réactivez les notifications sur cet appareil.",
+      "iosInstall": "Sur iPhone/iPad, installez FitMatch sur l'écran d'accueil (Partager → Sur l'écran d'accueil) puis activez les notifications."
+    },
+    "toasts": {
+      "enabled": "Notifications activées sur cet appareil",
+      "denied": "Autorisez les notifications dans les réglages du navigateur",
+      "iosInstall": "Installez l'application sur l'écran d'accueil",
+      "unsupported": "Notifications non prises en charge sur ce navigateur",
+      "notConfigured": "Push non configuré côté serveur",
+      "enableFailed": "Impossible d'activer les notifications",
+      "disabled": "Notifications désactivées sur cet appareil",
+      "testSent": "Notification de test envoyée — fermez l'onglet pour vérifier",
+      "testFailed": "Échec de la notification de test"
+    }
+  },
+  "privacy": {
+    "title": "Confidentialité",
+    "hint": "Gérer la visibilité",
+    "publicAccount": "Compte public",
+    "privateAccount": "Compte privé",
+    "details": "Détails de visibilité",
+    "posts": "Publications",
+    "sessions": "Historique des séances",
+    "badges": "Badges",
+    "stats": "Statistiques",
+    "activity": "Activité",
+    "visible": "Visible",
+    "followersAccepted": "Abonnés acceptés",
+    "public": "Public",
+    "followersOnly": "Abonnés uniquement",
+    "meOnly": "Moi uniquement",
+    "save": "Enregistrer la confidentialité",
+    "saved": "Confidentialité mise à jour"
+  },
+  "account": {
+    "fullHistory": "Voir l'historique complet",
+    "fullHistoryHint": "Toutes tes séances passées",
+    "logout": "Se déconnecter"
   }
 }
-

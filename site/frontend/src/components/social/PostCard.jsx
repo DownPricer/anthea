@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -38,6 +39,7 @@ export function PostCard({
   showRepostAction = true,
   isRepost = false,
 }) {
+  const { t } = useTranslation(['common']);
   const [liked, setLiked] = useState(!!post?.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
@@ -157,7 +159,7 @@ export function PostCard({
   };
 
   const handleDelete = async () => {
-    if (!window.confirm('Supprimer cette publication ?')) return;
+    if (!window.confirm(t('common:confirmDeletePost'))) return;
     const deletedId = post.id;
     onDelete?.(deletedId);
     try {
@@ -230,7 +232,7 @@ export function PostCard({
             type="button"
             onClick={handleDelete}
             className="p-2 text-zinc-500 hover:text-red-400 transition-colors"
-            aria-label="Supprimer"
+            aria-label={t('common:actions.delete')}
           >
             <Trash2 size={16} />
           </button>

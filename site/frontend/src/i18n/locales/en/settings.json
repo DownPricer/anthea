@@ -1,4 +1,6 @@
 {
+  "title": "Settings",
+  "subtitle": "Customize your experience",
   "languageRegion": {
     "title": "Language & region",
     "language": {
@@ -15,6 +17,139 @@
     },
     "saveSuccess": "Preferences saved",
     "saveError": "Could not save preferences"
+  },
+  "sections": {
+    "profile": "My profile",
+    "profileHint": "Photo, username, handle and bio",
+    "editProfile": "Edit my profile",
+    "editProfileHint": "Display name, handle, avatar, bio, featured badges",
+    "partner": "Partner & Duo",
+    "notifications": "Notifications",
+    "appearance": "Appearance",
+    "player": "Player",
+    "badges": "Badges",
+    "agenda": "Yearly agenda",
+    "account": "Account"
+  },
+  "appearance": {
+    "theme": "Theme",
+    "defaultTheme": "Default theme",
+    "accent": "Personal color",
+    "accentHint": "Agenda and visual cues",
+    "preview": "Preview & contrast",
+    "save": "Save appearance",
+    "saved": "Appearance saved",
+    "presets": {
+      "cyan": "Cyan",
+      "green": "Green",
+      "pink": "Pink",
+      "amber": "Amber",
+      "indigo": "Indigo",
+      "red": "Red"
+    }
+  },
+  "player": {
+    "tts": "Voice announcements",
+    "musicMode": "Music mode",
+    "musicModeHint": "Short beeps instead of long announcements",
+    "save": "Save player",
+    "saved": "Player preferences saved"
+  },
+  "badges": {
+    "unlockedOf": "{{count}} of {{total}} unlocked",
+    "empty": "No badges yet — keep training to unlock some!",
+    "seeAll": "See all badges",
+    "soloCatalog": "Full Solo catalog",
+    "duoBadges": "Duo badges",
+    "duoHint": "Achievements together"
+  },
+  "agenda": {
+    "loadHint": "Open this section to load the agenda.",
+    "completedOnly": "Completed workouts only",
+    "annualTitle": "Yearly agenda"
+  },
+  "partnerSection": {
+    "title": "Partner / Duo",
+    "hint": "Manage your relationship and leave the duo",
+    "add": "Add",
+    "findTitle": "Find a partner",
+    "findDesc": "Search for a user and send a link request.",
+    "searchPlaceholder": "Search by username...",
+    "relationType": "Relationship type",
+    "relationPartner": "Partner",
+    "relationCoach": "Coach",
+    "relationCoachPartner": "Coach + Partner",
+    "noPartner": "No linked partner",
+    "unlink": "Unlink partner",
+    "unlinkTitle": "Unlink your partner?",
+    "unlinkDesc": "You will leave the duo. You can undo this by creating a new relationship.",
+    "unlinkAction": "Unlink",
+    "receivedRequests": "Received requests",
+    "sentRequests": "Sent requests",
+    "pending": "Pending...",
+    "toasts": {
+      "requestSent": "Request sent!",
+      "accepted": "Partner accepted!",
+      "rejected": "Request declined",
+      "unlinked": "Partner unlinked"
+    }
+  },
+  "pushDevice": {
+    "title": "Notifications on this device",
+    "hint": "Get reminders and activity even when the app is closed.",
+    "statusLabel": "Status",
+    "enable": "Enable notifications",
+    "test": "Test",
+    "disable": "Disable",
+    "statusLabels": {
+      "unsupported": "Not supported",
+      "not_configured": "Not configured (server)",
+      "denied": "Denied in browser",
+      "subscribed": "Enabled",
+      "expired": "Subscription expired",
+      "default": "Permission not requested"
+    },
+    "hints": {
+      "unsupported": "This browser does not support Web Push notifications.",
+      "notConfigured": "The public VAPID key is not configured.",
+      "denied": "Allow notifications in your browser settings.",
+      "expired": "Re-enable notifications on this device.",
+      "iosInstall": "On iPhone/iPad, install FitMatch to your home screen (Share → Add to Home Screen) then enable notifications."
+    },
+    "toasts": {
+      "enabled": "Notifications enabled on this device",
+      "denied": "Allow notifications in your browser settings",
+      "iosInstall": "Install the app on your home screen",
+      "unsupported": "Notifications not supported in this browser",
+      "notConfigured": "Push not configured on the server",
+      "enableFailed": "Could not enable notifications",
+      "disabled": "Notifications disabled on this device",
+      "testSent": "Test notification sent — close the tab to verify",
+      "testFailed": "Test notification failed"
+    }
+  },
+  "privacy": {
+    "title": "Privacy",
+    "hint": "Manage visibility",
+    "publicAccount": "Public account",
+    "privateAccount": "Private account",
+    "details": "Visibility details",
+    "posts": "Posts",
+    "sessions": "Workout history",
+    "badges": "Badges",
+    "stats": "Stats",
+    "activity": "Activity",
+    "visible": "Visible",
+    "followersAccepted": "Accepted followers",
+    "public": "Public",
+    "followersOnly": "Followers only",
+    "meOnly": "Only me",
+    "save": "Save privacy",
+    "saved": "Privacy updated"
+  },
+  "account": {
+    "fullHistory": "See full history",
+    "fullHistoryHint": "All your past workouts",
+    "logout": "Log out"
   }
 }
-

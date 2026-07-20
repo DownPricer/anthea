@@ -1,0 +1,9 @@
+{
+  "generic": "Something went wrong. Please try again.",
+  "network": "Network error. Check your connection.",
+  "forbidden": "Access denied",
+  "notFound": "Content not found",
+  "validation": "Invalid data",
+  "saveFailed": "Save failed",
+  "deleteFailed": "Delete failed"
+}

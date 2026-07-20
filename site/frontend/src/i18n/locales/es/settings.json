@@ -1,4 +1,6 @@
 {
+  "title": "Ajustes",
+  "subtitle": "Personaliza tu experiencia",
   "languageRegion": {
     "title": "Idioma y región",
     "language": {
@@ -15,6 +17,139 @@
     },
     "saveSuccess": "Preferencias guardadas",
     "saveError": "No se pudieron guardar las preferencias"
+  },
+  "sections": {
+    "profile": "Mi perfil",
+    "profileHint": "Foto, usuario, arroba y bio",
+    "editProfile": "Editar mi perfil",
+    "editProfileHint": "Nombre visible, arroba, avatar, bio, insignias destacadas",
+    "partner": "Pareja y Dúo",
+    "notifications": "Notificaciones",
+    "appearance": "Apariencia",
+    "player": "Reproductor",
+    "badges": "Insignias",
+    "agenda": "Agenda anual",
+    "account": "Cuenta"
+  },
+  "appearance": {
+    "theme": "Tema",
+    "defaultTheme": "Tema por defecto",
+    "accent": "Color personal",
+    "accentHint": "Agenda y referencias visuales",
+    "preview": "Vista previa y contraste",
+    "save": "Guardar apariencia",
+    "saved": "Apariencia guardada",
+    "presets": {
+      "cyan": "Cian",
+      "green": "Verde",
+      "pink": "Rosa",
+      "amber": "Ámbar",
+      "indigo": "Índigo",
+      "red": "Rojo"
+    }
+  },
+  "player": {
+    "tts": "Anuncios de voz",
+    "musicMode": "Modo música",
+    "musicModeHint": "Pitidos cortos en lugar de anuncios largos",
+    "save": "Guardar reproductor",
+    "saved": "Preferencias del reproductor guardadas"
+  },
+  "badges": {
+    "unlockedOf": "{{count}} de {{total}} desbloqueadas",
+    "empty": "Ninguna insignia por ahora — ¡entrena para desbloquearlas!",
+    "seeAll": "Ver todas las insignias",
+    "soloCatalog": "Catálogo Solo completo",
+    "duoBadges": "Insignias Dúo",
+    "duoHint": "Logros en pareja"
+  },
+  "agenda": {
+    "loadHint": "Abre esta sección para cargar la agenda.",
+    "completedOnly": "Solo sesiones completadas",
+    "annualTitle": "Agenda anual"
+  },
+  "partnerSection": {
+    "title": "Pareja / Dúo",
+    "hint": "Gestiona vuestra relación y sal del dúo",
+    "add": "Añadir",
+    "findTitle": "Encontrar un compañero",
+    "findDesc": "Busca un usuario y envía una solicitud de vinculación.",
+    "searchPlaceholder": "Buscar por usuario...",
+    "relationType": "Tipo de relación",
+    "relationPartner": "Pareja",
+    "relationCoach": "Coach",
+    "relationCoachPartner": "Coach + Pareja",
+    "noPartner": "Sin pareja vinculada",
+    "unlink": "Desvincular pareja",
+    "unlinkTitle": "¿Desvincular a tu pareja?",
+    "unlinkDesc": "Saldrás del dúo. Puedes deshacerlo creando una nueva relación.",
+    "unlinkAction": "Desvincular",
+    "receivedRequests": "Solicitudes recibidas",
+    "sentRequests": "Solicitudes enviadas",
+    "pending": "Pendiente...",
+    "toasts": {
+      "requestSent": "¡Solicitud enviada!",
+      "accepted": "¡Pareja aceptada!",
+      "rejected": "Solicitud rechazada",
+      "unlinked": "Pareja desvinculada"
+    }
+  },
+  "pushDevice": {
+    "title": "Notificaciones en este dispositivo",
+    "hint": "Recibe recordatorios y actividad aunque la app esté cerrada.",
+    "statusLabel": "Estado",
+    "enable": "Activar notificaciones",
+    "test": "Probar",
+    "disable": "Desactivar",
+    "statusLabels": {
+      "unsupported": "No compatibles",
+      "not_configured": "No configuradas (servidor)",
+      "denied": "Rechazadas en el navegador",
+      "subscribed": "Activadas",
+      "expired": "Suscripción expirada",
+      "default": "Permiso no solicitado"
+    },
+    "hints": {
+      "unsupported": "Este navegador no admite notificaciones Web Push.",
+      "notConfigured": "La clave VAPID pública no está configurada.",
+      "denied": "Autoriza las notificaciones en los ajustes del navegador.",
+      "expired": "Reactiva las notificaciones en este dispositivo.",
+      "iosInstall": "En iPhone/iPad, instala FitMatch en la pantalla de inicio (Compartir → Añadir a inicio) y activa las notificaciones."
+    },
+    "toasts": {
+      "enabled": "Notificaciones activadas en este dispositivo",
+      "denied": "Autoriza las notificaciones en los ajustes del navegador",
+      "iosInstall": "Instala la app en la pantalla de inicio",
+      "unsupported": "Notificaciones no compatibles en este navegador",
+      "notConfigured": "Push no configurado en el servidor",
+      "enableFailed": "No se pudieron activar las notificaciones",
+      "disabled": "Notificaciones desactivadas en este dispositivo",
+      "testSent": "Notificación de prueba enviada — cierra la pestaña para verificar",
+      "testFailed": "Error en la notificación de prueba"
+    }
+  },
+  "privacy": {
+    "title": "Privacidad",
+    "hint": "Gestionar la visibilidad",
+    "publicAccount": "Cuenta pública",
+    "privateAccount": "Cuenta privada",
+    "details": "Detalles de visibilidad",
+    "posts": "Publicaciones",
+    "sessions": "Historial de sesiones",
+    "badges": "Insignias",
+    "stats": "Estadísticas",
+    "activity": "Actividad",
+    "visible": "Visible",
+    "followersAccepted": "Seguidores aceptados",
+    "public": "Público",
+    "followersOnly": "Solo seguidores",
+    "meOnly": "Solo yo",
+    "save": "Guardar privacidad",
+    "saved": "Privacidad actualizada"
+  },
+  "account": {
+    "fullHistory": "Ver historial completo",
+    "fullHistoryHint": "Todas tus sesiones pasadas",
+    "logout": "Cerrar sesión"
   }
 }
-

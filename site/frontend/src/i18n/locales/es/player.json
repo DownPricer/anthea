@@ -1,0 +1,106 @@
+{
+  "pause": "Pausa",
+  "resume": "Reanudar",
+  "skip": "Saltar",
+  "next": "Siguiente",
+  "nextExercise": "Siguiente ejercicio",
+  "rest": "Descanso",
+  "add15": "Añadir 15 segundos",
+  "completed": "Sesión terminada",
+  "voiceAnnouncements": "Anuncios de voz",
+  "abandon": "Abandonar",
+  "finish": "Terminar",
+  "cancel": "Cancelar",
+  "save": "Guardar",
+  "skipRest": "Saltar descanso",
+  "skipExercise": "Saltar",
+  "stopSession": "Detener sesión",
+  "resumeLater": "Reanudar más tarde",
+  "restart": "Empezar de nuevo",
+  "start": "Empezar",
+  "pauses": "Pausas",
+  "pauseTime": "Pausa: {{time}}",
+  "duo": "Dúo",
+  "liveWith": "En directo con",
+  "openChat": "Abrir chat",
+  "options": "Opciones",
+  "repsToDo": "repeticiones por hacer",
+  "exerciseDone": "He terminado este ejercicio",
+  "totalTimeLabel": "Tiempo total",
+  "totalTimeWithPause": "Tiempo total: {{total}}{{pause}}",
+  "pauseSegment": " • Pausa: {{time}}",
+  "firstExercise": "Primer ejercicio",
+  "exerciseCount": "{{count}} ejercicios",
+  "repsCount": "{{count}} repeticiones",
+  "phase": {
+    "getReady": "Prepárate",
+    "warmup": "Calentamiento",
+    "cooldown": "Recuperación",
+    "timer": "Cronómetro",
+    "set": "Serie"
+  },
+  "tts": {
+    "resumeSession": "Reanudando sesión",
+    "rest": "Descanso",
+    "getReady": "Prepárate",
+    "nextExercise": "Siguiente ejercicio: {{name}}",
+    "workoutComplete": "Sesión terminada. ¡Bravo!"
+  },
+  "toast": {
+    "loadError": "No se pudo cargar la sesión",
+    "addedSeconds": "+{{seconds}}s",
+    "progressSaved": "Progreso guardado",
+    "saveError": "Error al guardar",
+    "sessionSaved": "¡Sesión guardada!",
+    "invalidValue": "Valor no válido",
+    "timeAdjusted": "Tiempo ajustado"
+  },
+  "feedback": {
+    "congrats": "¡Bravo!",
+    "completed": "Sesión terminada",
+    "exercisesDone": "Ejercicios hechos",
+    "exercisesDoneWithSkipped": "Ejercicios hechos • {{skipped}} saltados",
+    "caloriesApprox": "Estimación aprox.",
+    "fatigueBefore": "Fatiga antes de la sesión: {{value}}/10",
+    "fatigueAfter": "Fatiga después de la sesión: {{value}}/10",
+    "difficultyFelt": "Dificultad percibida: {{value}}/10",
+    "notesOptional": "Notas (opcional)",
+    "notesPlaceholder": "¿Cómo fue esta sesión?",
+    "exitWithoutSaving": "Salir sin guardar"
+  },
+  "prep": {
+    "savedProgress": "Progreso guardado"
+  },
+  "stopConfirm": {
+    "title": "¿Detener la sesión?",
+    "description": "Has hecho {{completed}}/{{total}} ejercicios ({{time}})",
+    "descriptionWithSkipped": "Has hecho {{completed}}/{{total}} ejercicios • {{skipped}} saltado(s) ({{time}})",
+    "abandon": "Detener y marcar como abandonada"
+  },
+  "liveSessionWith": "Sesión en directo con {{name}}",
+  "musicMode": {
+    "enable": "Activar modo música",
+    "disable": "Desactivar modo música"
+  },
+  "announcements": {
+    "enable": "Activar anuncios",
+    "disable": "Silenciar anuncios"
+  },
+  "wakeLock": {
+    "active": "Pantalla mantenida encendida",
+    "failed": "Bloqueo de suspensión no disponible",
+    "inactive": "Suspensión automática activa"
+  },
+  "timeAdjust": {
+    "title": "Ajustar tiempo",
+    "description": "Solo coach / admin — mantén pulsado el tiempo mostrado para abrir este menú.",
+    "totalTime": "Tiempo total",
+    "pauseTime": "Tiempo de pausa",
+    "min": "min",
+    "sec": "seg",
+    "apply": "Aplicar"
+  },
+  "aria": {
+    "stopSession": "Detener sesión"
+  }
+}

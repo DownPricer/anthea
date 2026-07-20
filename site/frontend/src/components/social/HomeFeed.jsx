@@ -13,6 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { Button } from '../ui/button';
+import { useTranslation } from 'react-i18next';
 import {
   getFeedCache,
   setFeedCache,
@@ -42,19 +43,21 @@ function FeedSkeleton() {
 }
 
 function TrendingBadge({ rank }) {
+  const { t } = useTranslation('home');
   if (!rank) return null;
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide border bg-orange-500/15 text-orange-300 border-orange-500/30">
       <Flame size={10} />
-      Top {rank}
+      {t('feed.topRank', { rank })}
     </span>
   );
 }
 
 function NewBadge() {
+  const { t } = useTranslation('home');
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide border bg-cyan-500/15 text-cyan-300 border-cyan-500/30">
-      Nouveau
+      {t('feed.new')}
     </span>
   );
 }
@@ -100,7 +103,7 @@ function renderPostItem(post, user, theme, onUpdate, onDelete, options = {}) {
   );
 }
 
-function FeedList({ posts, loading, emptyDescription, user, theme, onUpdate, onDelete, showTrendingRank }) {
+function FeedList({ posts, loading, emptyTitle, emptyDescription, user, theme, onUpdate, onDelete, showTrendingRank }) {
   const safePosts = normalizeArray(posts);
 
   if (loading && safePosts.length === 0) {
@@ -111,7 +114,7 @@ function FeedList({ posts, loading, emptyDescription, user, theme, onUpdate, onD
     return (
       <ProfileEmptyState
         icon={Newspaper}
-        title="Aucun post pour le moment"
+        title={emptyTitle}
         description={emptyDescription}
       />
     );
@@ -127,6 +130,7 @@ function FeedList({ posts, loading, emptyDescription, user, theme, onUpdate, onD
 }
 
 export function HomeFeed() {
+  const { t } = useTranslation(['home', 'common']);
   const { user } = useAuth();
   const { theme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -251,7 +255,7 @@ export function HomeFeed() {
   return (
     <section data-testid="home-feed" className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white font-['Outfit']">Fil d&apos;actualité</h2>
+        <h2 className="text-lg font-semibold text-white font-['Outfit']">{t('home:feed.title')}</h2>
       </div>
 
       <Tabs value={scope} onValueChange={handleTabChange}>
@@ -261,14 +265,14 @@ export function HomeFeed() {
             data-testid="feed-tab-following"
             className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 text-xs sm:text-sm"
           >
-            Abonnements et amis
+            {t('home:feed.following')}
           </TabsTrigger>
           <TabsTrigger
             value="global"
             data-testid="feed-tab-global"
             className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 text-xs sm:text-sm"
           >
-            Monde
+            {t('home:feed.world')}
           </TabsTrigger>
         </TabsList>
 
@@ -276,7 +280,8 @@ export function HomeFeed() {
           <FeedList
             posts={followingPosts}
             loading={loadingFollowing}
-            emptyDescription="Suis des personnes ou des duos pour voir leurs publications ici."
+            emptyTitle={t('home:feed.emptyFollowing')}
+            emptyDescription={t('home:feed.emptyFollowingHint')}
             user={user}
             theme={theme}
             onUpdate={handlePostUpdate}
@@ -290,7 +295,7 @@ export function HomeFeed() {
               onClick={() => loadFollowing(followingCursor, true)}
               className="w-full rounded-xl border-white/15 text-white"
             >
-              {loadingFollowing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Charger plus'}
+              {loadingFollowing ? <Loader2 className="w-4 h-4 animate-spin" /> : t('home:feed.loadMore')}
             </Button>
           ) : null}
         </TabsContent>
@@ -299,8 +304,8 @@ export function HomeFeed() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Flame size={18} className="text-orange-400" />
-              <h3 className="text-white font-medium text-sm">Top tendances</h3>
-              <span className="text-zinc-600 text-xs">7 derniers jours</span>
+              <h3 className="text-white font-medium text-sm">{t('home:feed.trending')}</h3>
+              <span className="text-zinc-600 text-xs">{t('home:feed.trendingPeriod')}</span>
             </div>
             {loadingTrending && trendingPosts.length === 0 ? (
               <FeedSkeleton />
@@ -313,16 +318,17 @@ export function HomeFeed() {
                 ))}
               </div>
             ) : (
-              <p className="text-zinc-500 text-sm">Aucune tendance cette semaine.</p>
+              <p className="text-zinc-500 text-sm">{t('home:feed.emptyTrending')}</p>
             )}
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-white font-medium text-sm">Dernières publications</h3>
+            <h3 className="text-white font-medium text-sm">{t('home:feed.latest')}</h3>
             <FeedList
               posts={globalPosts}
               loading={loadingGlobal}
-              emptyDescription="Aucune publication publique récente."
+              emptyTitle={t('home:feed.emptyLatest')}
+              emptyDescription={t('home:feed.emptyLatest')}
               user={user}
               theme={theme}
               onUpdate={handlePostUpdate}
@@ -336,7 +342,7 @@ export function HomeFeed() {
                 onClick={() => loadGlobal(globalCursor, true)}
                 className="w-full rounded-xl border-white/15 text-white"
               >
-                {loadingGlobal ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Charger plus'}
+                {loadingGlobal ? <Loader2 className="w-4 h-4 animate-spin" /> : t('home:feed.loadMore')}
               </Button>
             ) : null}
           </div>

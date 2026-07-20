@@ -1,0 +1,68 @@
+{
+  "title": "Notifications",
+  "subtitle": "Votre activité récente",
+  "subtitleDuo": "Activité de votre Duo",
+  "filters": {
+    "all": "Toutes",
+    "duo": "Duo"
+  },
+  "empty": "Aucune notification pour l'instant.",
+  "emptyDuo": "Aucune notification duo pour l'instant.",
+  "types": {
+    "new_follower": "a commencé à te suivre",
+    "follow_request": "demande à te suivre",
+    "follow_accepted": "a accepté ta demande de suivi",
+    "follow_back": "te suit en retour — vous êtes amis mutuels",
+    "like": "a aimé ta publication",
+    "comment": "a commenté ta publication",
+    "duo_follow_request": "demande à suivre votre duo",
+    "duo_follow_accepted": "a accepté votre demande de suivi duo",
+    "badge_unlocked": "Vous avez obtenu « {{badge}} ».",
+    "duo_badge_unlocked": "Votre Duo a obtenu « {{badge}} ».",
+    "default": "nouvelle activité",
+    "aBadge": "un badge"
+  },
+  "actions": {
+    "accept": "Accepter",
+    "reject": "Refuser",
+    "seeDuo": "Voir le duo",
+    "followBack": "Suivre en retour",
+    "seeMyBadges": "Voir mes badges",
+    "seeDuoBadges": "Voir les badges Duo"
+  },
+  "toasts": {
+    "following": "Tu suis cet utilisateur !",
+    "accepted": "Demande acceptée",
+    "rejected": "Demande refusée",
+    "duoAccepted": "Demande duo acceptée",
+    "duoRejected": "Demande duo refusée"
+  },
+  "prefs": {
+    "hint": "Types de notifications — le Push respecte ces choix. Les alertes de sécurité restent toujours actives.",
+    "saveError": "Préférence non enregistrée",
+    "groups": {
+      "sessions": "Séances",
+      "social": "Réseau social",
+      "duo": "Duo",
+      "badges": "Badges et défis",
+      "reminders": "Rappels"
+    },
+    "keys": {
+      "partner_workout_started": "Séance commencée par mon partenaire",
+      "partner_workout_completed": "Séance terminée par mon partenaire",
+      "scheduled_workout_reminder": "Rappel de ma séance planifiée",
+      "followed_user_post": "Nouvelle publication d'un compte suivi",
+      "post_comment": "Nouveau commentaire sur ma publication",
+      "post_like": "Nouveau J'aime sur ma publication",
+      "follow_request": "Nouvelle demande de suivi",
+      "follow_accepted": "Demande de suivi acceptée",
+      "duo_request": "Nouvelle demande Duo",
+      "duo_activity": "Activité importante de mon Duo",
+      "solo_badge_unlocked": "Badge Solo débloqué",
+      "duo_badge_unlocked": "Badge Duo débloqué",
+      "challenge_ending": "Défi hebdomadaire bientôt terminé",
+      "challenge_completed": "Défi Solo ou Duo réussi",
+      "streak_reminder": "Rappels de streak"
+    }
+  }
+}

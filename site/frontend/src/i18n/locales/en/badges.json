@@ -1,0 +1,37 @@
+{
+  "title": "My badges",
+  "duoTitle": "Duo badges",
+  "unlockedOf": "{{unlocked}}/{{total}} unlocked",
+  "scope": {
+    "solo": "Solo",
+    "duo": "Duo"
+  },
+  "backToDuo": "Back to Duo",
+  "backToProfile": "Back to profile",
+  "filters": {
+    "all": "All",
+    "common": "Common",
+    "rare": "Rare",
+    "epic": "Epic",
+    "legendary": "Legendary",
+    "unlocked": "Unlocked",
+    "locked": "To unlock"
+  },
+  "rarity": {
+    "common": "Common",
+    "rare": "Rare",
+    "epic": "Epic",
+    "legendary": "Legendary"
+  },
+  "emptyFilter": "No badges in this filter.",
+  "secret": "Secret achievement",
+  "secretHint": "Keep going to discover this achievement.",
+  "unlocked": "Achievement unlocked",
+  "keepGoing": "Keep going to unlock it",
+  "obtainedOn": "Earned on {{date}}",
+  "publish": "Publish",
+  "publishDuo": "Publish on Duo wall",
+  "published": "Badge published",
+  "locked": "Locked",
+  "progress": "Progress"
+}

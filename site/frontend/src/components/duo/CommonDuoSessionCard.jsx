@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { format, parseISO } from 'date-fns';
 
@@ -144,7 +145,9 @@ export function CommonDuoSessionCard({
 
 }) {
 
-  const [detailsOpen, setDetailsOpen] = useState(false);
+  
+  const { t } = useTranslation('duo');
+const [detailsOpen, setDetailsOpen] = useState(false);
 
 
 
@@ -288,7 +291,7 @@ export function CommonDuoSessionCard({
 
         >
 
-          Voir les détails
+          {t('commonSession.seeDetails')}
 
           <ChevronDown size={14} className={`ml-1 transition-transform ${detailsOpen ? 'rotate-180' : ''}`} />
 
@@ -326,13 +329,13 @@ export function CommonDuoSessionCard({
 
             ) : reposted ? (
 
-              'Annuler republication profil'
+              t('commonSession.undoProfileRepost')
 
             ) : (
 
               <>
 
-                <Repeat2 size={14} className="mr-1" /> Republier sur mon profil
+                <Repeat2 size={14} className="mr-1" /> {t('commonSession.repostToProfile')}
 
               </>
 
@@ -374,13 +377,13 @@ export function CommonDuoSessionCard({
 
             ) : duoWallPosted ? (
 
-              'Retirer du mur duo'
+              t('commonSession.removeFromDuoWall')
 
             ) : (
 
               <>
 
-                <LayoutGrid size={14} className="mr-1" /> Publier sur le mur duo
+                <LayoutGrid size={14} className="mr-1" /> {t('commonSession.publishToDuoWall')}
 
               </>
 
@@ -398,9 +401,9 @@ export function CommonDuoSessionCard({
 
         <div className="space-y-3 pt-2 border-t border-white/10">
 
-          <SessionDetailBlock label="Ma séance" user={user} session={mySession} />
+          <SessionDetailBlock label={t('commonSession.mySession')} user={user} session={mySession} />
 
-          <SessionDetailBlock label="Séance partenaire" user={partner} session={partnerSession} />
+          <SessionDetailBlock label={t('commonSession.partnerSession')} user={partner} session={partnerSession} />
 
         </div>
 
