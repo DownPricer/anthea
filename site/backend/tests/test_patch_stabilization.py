@@ -216,7 +216,7 @@ def test_user_wall_excludes_duo_posts():
 
 
 def test_merge_duo_badges_unified_category():
-    from badges import merge_duo_badges, normalize_badge_category
+    from badges import merge_duo_badges, normalize_badge_category, canonical_badge_id
     legacy = [
         {"id": "duo_3", "name": "Trio dynamique", "family": "duo", "unlocked": True},
         {"id": "duo_presence_5", "name": "Présence duo", "family": "duo", "unlocked": True},
@@ -226,9 +226,10 @@ def test_merge_duo_badges_unified_category():
     ]
     merged = merge_duo_badges(social, legacy)
     ids = {b["id"] for b in merged}
-    assert "duo_3" in ids
-    assert "duo_presence_5" in ids
-    assert "duo_together_first" in ids
+    # Les IDs historiques sont normalisés vers le catalogue canonique
+    assert canonical_badge_id("duo_3") in ids
+    assert canonical_badge_id("duo_presence_5") in ids
+    assert canonical_badge_id("duo_together_first") in ids
     assert all(b["family"] == "duo" for b in merged)
     assert normalize_badge_category("duo_social") == "duo"
     assert normalize_badge_category("duo_social") != "Duo social"
@@ -466,28 +467,32 @@ def test_new_account_has_no_unlocked_badges():
         async def to_list(self, n):
             return list(self._docs)[:n]
 
-    class _FakeWorkoutSessions:
-        def __init__(self):
-            pass
-
+    class _EmptyCol:
         async def count_documents(self, query):
             return 0
 
-        def find(self, query, projection=None):
+        def find(self, query=None, projection=None):
             return _FakeFind([])
 
-    class _FakeScheduled:
-        async def count_documents(self, query):
-            return 0
+        async def find_one(self, query):
+            return None
 
-    class _FakeChallengeCompletions:
-        async def count_documents(self, query):
-            return 0
+        async def insert_one(self, doc):
+            return None
+
+        async def create_index(self, *args, **kwargs):
+            return "ok"
 
     class _FakeDb:
-        workout_sessions = _FakeWorkoutSessions()
-        scheduled_workouts = _FakeScheduled()
-        challenge_completions = _FakeChallengeCompletions()
+        workout_sessions = _EmptyCol()
+        scheduled_workouts = _EmptyCol()
+        challenge_completions = _EmptyCol()
+        workout_templates = _EmptyCol()
+        user_badges = _EmptyCol()
+        duo_badges = _EmptyCol()
+        duo_profiles = _EmptyCol()
+        posts = _EmptyCol()
+        notifications = _EmptyCol()
 
     async def _run():
         badges = await evaluate_all_badges(_FakeDb(), "user_new", None, 0)
@@ -495,7 +500,7 @@ def test_new_account_has_no_unlocked_badges():
         assert len([b for b in badges if b.get("unlocked")]) == 0
         assert all((b.get("progress") or 0) == 0 for b in badges if not b.get("unlocked"))
 
-    asyncio.get_event_loop().run_until_complete(_run())
+    asyncio.run(_run())
 
 
 def test_visibility_allows_privacy_levels():

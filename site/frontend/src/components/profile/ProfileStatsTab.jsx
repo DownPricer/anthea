@@ -56,6 +56,14 @@ export function ProfileStatsTab({
     () => sumExercisesCompleted(detailedStats?.recent_sessions),
     [detailedStats]
   );
+  const navigate = useNavigate();
+  const soloBadges = useMemo(
+    () =>
+      (duoStats?.badges || []).filter(
+        (b) => b.scope === 'solo' || (!b.scope && !String(b.id || '').startsWith('duo_'))
+      ),
+    [duoStats?.badges]
+  );
 
   if (isLimited && !isOwn) {
     return (
@@ -91,14 +99,6 @@ export function ProfileStatsTab({
   const streak = duoStats?.streak;
   const badgesUnlocked = canShowBadges ? duoStats?.badges_unlocked : null;
   const badgesTotal = canShowBadges ? duoStats?.badges_total : null;
-  const navigate = useNavigate();
-  const soloBadges = useMemo(
-    () =>
-      (duoStats?.badges || []).filter(
-        (b) => b.scope === 'solo' || (!b.scope && !String(b.id || '').startsWith('duo_'))
-      ),
-    [duoStats?.badges]
-  );
 
   const statItems = [
     {
