@@ -846,6 +846,16 @@ def serialize_notification(doc: dict) -> dict:
         out["duo_id"] = doc.get("duo_id")
     if doc.get("duo_tag"):
         out["duo_tag"] = doc.get("duo_tag")
+    if doc.get("badge_id"):
+        out["badge_id"] = doc.get("badge_id")
+    if doc.get("badge_name"):
+        out["badge_name"] = doc.get("badge_name")
+    if doc.get("title"):
+        out["title"] = doc.get("title")
+    if doc.get("body"):
+        out["body"] = doc.get("body")
+    if doc.get("url"):
+        out["url"] = doc.get("url")
     return out
 
 POST_TYPES = {

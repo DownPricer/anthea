@@ -20,6 +20,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { WorkoutDetailsDrawer } from './WorkoutDetailsDrawer';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
+import { BadgeArtwork } from '../badges/BadgeArtwork';
 import { FeedSourceBadge } from './FeedSourceBadge';
 import { formatDuration, getPublicHandle } from '../../lib/userProfile';
 import { getPostActorDisplay, canDeletePost } from '../../lib/postActor';
@@ -234,26 +235,33 @@ export function PostCard({
         )}
       </div>
 
-      {post.type === 'badge' && (
+      {(post.type === 'badge' || post.type === 'duo_badge') && (
         <div
           className={`rounded-2xl border p-4 text-center ${rarityStyle.border} ${rarityStyle.bg} ${rarityStyle.glow}`}
+          data-testid="post-badge-card"
         >
           <p className={`text-xs uppercase tracking-wider mb-2 ${rarityStyle.text}`}>
             {rarityStyle.label}
           </p>
-          <Trophy className={`mx-auto mb-2 ${rarityStyle.text}`} size={32} />
-          <p className="text-white font-semibold">{post.title || post.badge_name}</p>
+          <BadgeArtwork
+            rarity={post.badge_rarity}
+            iconKey={post.badge_icon || 'trophy'}
+            locked={false}
+            size={72}
+            className="mx-auto mb-2"
+          />
+          <p className="text-white font-semibold">{post.badge_name || post.title}</p>
           {post.description && (
             <p className="text-zinc-400 text-sm mt-1">{post.description}</p>
           )}
         </div>
       )}
 
-      {post.type !== 'badge' && post.title && (
+      {post.type !== 'badge' && post.type !== 'duo_badge' && post.title && (
         <h3 className="text-white font-semibold font-['Outfit']">{post.title}</h3>
       )}
 
-      {post.description && post.type !== 'badge' && (
+      {post.description && post.type !== 'badge' && post.type !== 'duo_badge' && (
         <p className="text-zinc-300 text-sm whitespace-pre-wrap">{post.description}</p>
       )}
 

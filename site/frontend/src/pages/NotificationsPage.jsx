@@ -29,8 +29,12 @@ function notificationLabel(notif) {
       return 'demande à suivre votre duo';
     case 'duo_follow_accepted':
       return 'a accepté votre demande de suivi duo';
+    case 'badge_unlocked':
+      return notif.body || `Vous avez obtenu « ${notif.badge_name || 'un badge'} ».`;
+    case 'duo_badge_unlocked':
+      return notif.body || `Votre Duo a obtenu « ${notif.badge_name || 'un badge'} ».`;
     default:
-      return 'nouvelle activité';
+      return notif.body || 'nouvelle activité';
   }
 }
 
@@ -298,6 +302,26 @@ export function NotificationsPage() {
                       ) : (
                         'Suivre en retour'
                       )}
+                    </Button>
+                  ) : null}
+                  {notif.type === 'badge_unlocked' ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                    >
+                      <Link to={notif.url || '/badges?scope=solo'}>Voir mes badges</Link>
+                    </Button>
+                  ) : null}
+                  {notif.type === 'duo_badge_unlocked' ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                    >
+                      <Link to={notif.url || '/duo?tab=stats&section=badges'}>Voir les badges Duo</Link>
                     </Button>
                   ) : null}
                 </div>
