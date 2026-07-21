@@ -34,6 +34,13 @@ import {
 } from '../ui/alert-dialog';
 import { getPublicHandle, isValidHandle, normalizeHandle } from '../../lib/userProfile';
 import { revokePreviewUrl } from '../../lib/imageCompress';
+import {
+  filterSelectableSoloBadges,
+  getBadgeDisplayName,
+  normalizeFeaturedBadgeIds,
+  toggleFeaturedBadgeId,
+} from '../../lib/featuredBadges';
+import { BadgeArtwork } from '../badges/BadgeArtwork';
 import { useTranslation } from 'react-i18next';
 
 const FITNESS_LEVEL_VALUES = ['beginner', 'intermediate', 'advanced', 'expert'];
@@ -83,7 +90,7 @@ export function ProfileEditDialog({
   avatarUploading = false,
   suppressCloseAutoFocus = false,
 }) {
-  const { t } = useTranslation(['profile', 'common']);
+  const { t } = useTranslation(['profile', 'common', 'badges']);
   const isMobile = useIsMobile();
   const [form, setForm] = useState(() => buildInitialForm(user));
   const [baseline, setBaseline] = useState(() => buildInitialForm(user));
@@ -170,29 +177,17 @@ export function ProfileEditDialog({
   };
 
   const unlockedSoloBadges = useMemo(
-    () => (badges || [])
-      .filter((b) => b?.unlocked && b?.id)
-      .filter((b) => {
-        const id = String(b.id);
-        if (b.scope === 'duo') return false;
-        if (b.family === 'duo') return false;
-        if (id.startsWith('duo_')) return false;
-        return true;
-      }),
+    () => filterSelectableSoloBadges(badges),
     [badges]
   );
 
   useEffect(() => {
     if (!open) return;
     if (featuredTouched) return;
-    const unlockedIdSet = new Set(unlockedSoloBadges.map((b) => String(b.id)));
     const savedIds = Array.isArray(savedFeaturedIdsRef.current)
       ? savedFeaturedIdsRef.current
       : [];
-    const validIds = savedIds
-      .map(String)
-      .filter((id) => unlockedIdSet.has(id))
-      .slice(0, 3);
+    const validIds = normalizeFeaturedBadgeIds(savedIds, unlockedSoloBadges, { max: 3 });
     setSelectedBadgeIds(validIds);
     setBaselineBadgeIds(validIds);
 
@@ -217,16 +212,13 @@ export function ProfileEditDialog({
     const id = String(badgeId);
     setFeaturedTouched(true);
     setSelectedBadgeIds((current) => {
-      if (current.includes(id)) {
-        return current.filter((item) => item !== id);
-      }
-      if (current.length >= 3) {
+      const { next, rejected } = toggleFeaturedBadgeId(current, id, 3);
+      if (rejected) {
         toast.error(t('edit.maxFeatured'));
-        return current;
       }
-      return [...current, id];
+      return next;
     });
-  };
+  }
 
   const handleSubmit = async () => {
     const normalizedHandle = normalizeHandle(form.handle);
@@ -236,25 +228,24 @@ export function ProfileEditDialog({
     }
 
     setSaving(true);
-    const result = await onSave({
-      display_name: form.display_name.trim(),
-      handle: normalizedHandle,
-      avatar_url: form.avatar_url.trim() || null,
-      bio: form.bio.trim(),
-      fitness_level: form.fitness_level,
-      main_goal: form.main_goal,
-      featured_badge_ids: selectedBadgeIds,
-    });
+    const payload = { ...dirtyPayload };
+    if (!Object.keys(payload).length) {
+      setSaving(false);
+      onOpenChange(false);
+      return;
+    }
+    const result = await onSave(payload);
     setSaving(false);
 
     if (result?.success) {
-      const returnedIds = Array.isArray(result?.user?.featured_badge_ids)
+      const rawReturned = Array.isArray(result?.user?.featured_badge_ids)
         ? result.user.featured_badge_ids.map(String)
         : Array.isArray(result?.user?.featured_badges)
           ? result.user.featured_badges.map((b) => (typeof b === 'string' ? b : b?.id)).filter(Boolean).map(String)
           : [];
-      setSelectedBadgeIds(returnedIds.slice(0, 3));
-      setBaselineBadgeIds(returnedIds.slice(0, 3));
+      const returnedIds = normalizeFeaturedBadgeIds(rawReturned, unlockedSoloBadges, { max: 3 });
+      setSelectedBadgeIds(returnedIds);
+      setBaselineBadgeIds(returnedIds);
       setFeaturedTouched(false);
       toast.success(t('edit.success'));
       onOpenChange(false);
@@ -393,46 +384,52 @@ export function ProfileEditDialog({
               {t('edit.featuredCount', { count: selectedBadgeIds.length })}
             </p>
           </div>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-3 gap-2">
             {unlockedSoloBadges.map((badge) => {
               const selectedIndex = selectedBadgeIds.indexOf(String(badge.id));
               const isSelected = selectedIndex >= 0;
+              const badgeName = getBadgeDisplayName(badge, (key, opts) => t(key, { ...opts, ns: 'badges' }));
               return (
                 <button
                   key={badge.id}
                   type="button"
                   onClick={() => toggleFeaturedBadge(badge.id)}
                   aria-pressed={isSelected}
-                  className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-left transition-colors ${
+                  className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-center transition-colors ${
                     isSelected
                       ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)] ring-1 ring-[var(--theme-primary)]/40'
                       : 'border-white/10 bg-white/5 hover:border-white/20'
                   }`}
                 >
                   <span
-                    className={`absolute right-2 top-2 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      isSelected ? 'bg-[var(--theme-primary)] text-white' : 'bg-black/30 text-zinc-500'
+                    className={`absolute left-1.5 top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
+                      isSelected
+                        ? 'bg-[var(--theme-primary)] text-white'
+                        : 'bg-black/40 text-zinc-500'
                     }`}
                   >
                     {isSelected ? (
                       <>
-                        <Check size={12} className="mr-1" />
+                        <Check size={10} className="mr-0.5" />
                         {selectedIndex + 1}
                       </>
                     ) : '—'}
                   </span>
-                  <p className="text-white text-sm font-medium min-w-0 line-clamp-2 break-words pr-10">
-                    {badge.name}
+                  <BadgeArtwork
+                    rarity={badge.rarity_key || badge.rarity}
+                    iconKey={badge.icon_key || badge.icon || 'trophy'}
+                    locked={false}
+                    size={40}
+                    className="mx-auto shrink-0 size-10"
+                  />
+                  <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[10px] text-zinc-300">
+                    {badgeName}
                   </p>
                   {isSelected ? (
-                    <p className="mt-1 text-[11px] font-medium text-[var(--theme-primary)]">
+                    <span className="text-[9px] font-medium text-[var(--theme-primary)]">
                       {t('edit.selected')}
-                    </p>
-                  ) : (
-                    <p className="mt-1 text-[11px] text-zinc-500">
-                      {t('edit.tapToSelect')}
-                    </p>
-                  )}
+                    </span>
+                  ) : null}
                 </button>
               );
             })}
