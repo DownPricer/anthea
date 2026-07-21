@@ -1021,37 +1021,56 @@ class BadgeProgressService:
         except Exception:
             notify_push = None
 
-        name = definition.get("name") or "un badge"
+        try:
+            from i18n_messages import DEFAULT_LOCALE, badge_name, badge_unlock_texts, load_user_locale
+        except Exception:
+            DEFAULT_LOCALE = "fr-FR"
+            badge_name = lambda bid, loc=None: definition.get("name") or "un badge"  # noqa: E731
+            badge_unlock_texts = None
+            load_user_locale = None
+
+        badge_id = definition["id"]
         rarity = definition.get("rarity") or "common"
-        rarity_labels = {"common": "commun", "rare": "rare", "epic": "épique", "legendary": "légendaire"}
-        rarity_fr = rarity_labels.get(rarity, rarity)
 
         if scope == "solo":
             recipients = notify_user_ids or [owner_id]
-            title = f"Nouveau badge {rarity_fr} !"
-            body = f"Vous avez débloqué « {name} »."
             url = "/profile?tab=badges"
             notif_type = "badge_unlocked"
-            tag = f"badge-{definition['id']}"
         else:
             parts = owner_id.split("_")
             recipients = notify_user_ids or parts
-            title = "Nouveau badge Duo"
-            body = f"Votre Duo a obtenu « {name} »."
             url = "/duo?tab=stats&section=badges"
             notif_type = "duo_badge_unlocked"
-            tag = f"badge-{definition['id']}"
+        tag = f"badge-{badge_id}"
 
         now = _now_iso()
         sent = 0
         for rid in recipients:
             if not rid:
                 continue
-            # Idempotence notif
+            locale = DEFAULT_LOCALE
+            if load_user_locale:
+                try:
+                    locale = await load_user_locale(self.db, rid)
+                except Exception:
+                    pass
+            if badge_unlock_texts:
+                try:
+                    title, body = badge_unlock_texts(scope, badge_id, rarity, locale)
+                    name = badge_name(badge_id, locale)
+                except Exception:
+                    name = definition.get("name") or "un badge"
+                    title = f"Nouveau badge !"
+                    body = f"Vous avez débloqué « {name} »."
+            else:
+                name = definition.get("name") or "un badge"
+                title = f"Nouveau badge !"
+                body = f"Vous avez débloqué « {name} »."
+
             existing = await self.db.notifications.find_one({
                 "user_id": rid,
                 "type": notif_type,
-                "badge_id": definition["id"],
+                "badge_id": badge_id,
             })
             if existing:
                 continue
@@ -1060,7 +1079,7 @@ class BadgeProgressService:
                     "user_id": rid,
                     "type": notif_type,
                     "actor_id": rid,
-                    "badge_id": definition["id"],
+                    "badge_id": badge_id,
                     "badge_name": name,
                     "title": title,
                     "body": body,
@@ -1077,7 +1096,7 @@ class BadgeProgressService:
                     await notify_push(
                         self.db,
                         rid,
-                        notif_type if notif_type in ("badge_unlocked",) else "badge_unlocked",
+                        notif_type,
                         title=title,
                         body=body,
                         url=url,

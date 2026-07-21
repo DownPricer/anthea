@@ -33,5 +33,405 @@
   "publishDuo": "Publier sur le mur Duo",
   "published": "Badge publié",
   "locked": "Verrouillé",
-  "progress": "Progression"
+  "progress": "Progression",
+  "solo_first_workout": {
+    "name": "Premier pas",
+    "description": "Terminez votre première séance."
+  },
+  "solo_three_workouts": {
+    "name": "C’est parti",
+    "description": "Terminez 3 séances."
+  },
+  "solo_five_workouts": {
+    "name": "Nouvelle habitude",
+    "description": "Terminez 5 séances."
+  },
+  "solo_three_days_week": {
+    "name": "Semaine active",
+    "description": "Soyez actif 3 jours dans une même semaine."
+  },
+  "solo_early_workout": {
+    "name": "Réveil musculaire",
+    "description": "Terminez 1 séance avant 9 h."
+  },
+  "solo_night_workout": {
+    "name": "Oiseau de nuit",
+    "description": "Terminez 1 séance après 21 h."
+  },
+  "solo_thirty_minutes": {
+    "name": "Trente minutes",
+    "description": "Terminez une séance d’au moins 30 minutes."
+  },
+  "solo_sixty_minutes": {
+    "name": "Une heure pour soi",
+    "description": "Terminez une séance d’au moins 60 minutes."
+  },
+  "solo_hundred_minutes": {
+    "name": "Première centaine",
+    "description": "Cumulez 100 minutes d’entraînement."
+  },
+  "solo_five_hundred_calories": {
+    "name": "Premières flammes",
+    "description": "Dépensez 500 calories au total."
+  },
+  "solo_streak_three": {
+    "name": "Trois jours lancés",
+    "description": "Atteignez un streak de 3 jours."
+  },
+  "solo_streak_five": {
+    "name": "Cinq jours solides",
+    "description": "Atteignez un streak de 5 jours."
+  },
+  "solo_first_no_abandon": {
+    "name": "Jusqu’au bout",
+    "description": "Terminez 1 séance sans abandon."
+  },
+  "solo_three_categories": {
+    "name": "Explorateur",
+    "description": "Pratiquez 3 catégories différentes."
+  },
+  "solo_legs_workout": {
+    "name": "Jambes en feu",
+    "description": "Terminez une séance jambes."
+  },
+  "solo_upper_body_workout": {
+    "name": "Haut du corps",
+    "description": "Terminez une séance haut du corps."
+  },
+  "solo_cardio_workout": {
+    "name": "Cœur en action",
+    "description": "Terminez une séance cardio."
+  },
+  "solo_mobility_workout": {
+    "name": "Souplesse retrouvée",
+    "description": "Terminez une séance mobilité ou étirements."
+  },
+  "solo_first_planned_workout": {
+    "name": "Organisé",
+    "description": "Planifiez votre première séance."
+  },
+  "solo_first_custom_workout": {
+    "name": "Créateur",
+    "description": "Créez votre première séance personnalisée."
+  },
+  "solo_ten_workouts": {
+    "name": "Dix sur dix",
+    "description": "Terminez 10 séances."
+  },
+  "solo_twenty_five_workouts": {
+    "name": "Un vrai rythme",
+    "description": "Terminez 25 séances."
+  },
+  "solo_ten_active_days": {
+    "name": "Dix jours actifs",
+    "description": "Soyez actif 10 jours au total."
+  },
+  "solo_fifteen_hours": {
+    "name": "Quinze heures",
+    "description": "Cumulez 15 heures d’entraînement."
+  },
+  "solo_five_thousand_calories": {
+    "name": "Fournaise",
+    "description": "Dépensez 5000 calories au total."
+  },
+  "solo_streak_seven": {
+    "name": "Semaine parfaite",
+    "description": "Atteignez un streak de 7 jours."
+  },
+  "solo_streak_ten": {
+    "name": "Dix jours de suite",
+    "description": "Atteignez un streak de 10 jours."
+  },
+  "solo_four_workouts_week": {
+    "name": "Semaine chargée",
+    "description": "Terminez 4 séances dans une même semaine."
+  },
+  "solo_five_categories": {
+    "name": "Polyvalent",
+    "description": "Pratiquez 5 catégories différentes."
+  },
+  "solo_ten_planned_completed": {
+    "name": "Plan respecté",
+    "description": "Terminez 10 séances planifiées."
+  },
+  "solo_three_early_workouts": {
+    "name": "Lève-tôt",
+    "description": "Terminez 3 séances avant 8 h."
+  },
+  "solo_three_night_workouts": {
+    "name": "Après la tombée de la nuit",
+    "description": "Terminez 3 séances après 21 h."
+  },
+  "solo_five_no_skips": {
+    "name": "Aucun exercice laissé derrière",
+    "description": "Terminez 5 séances sans exercice sauté."
+  },
+  "solo_comeback": {
+    "name": "Le retour",
+    "description": "Revenez après 14 jours d’inactivité."
+  },
+  "solo_first_weekly_challenge": {
+    "name": "Défi relevé",
+    "description": "Réussissez votre premier défi hebdomadaire solo."
+  },
+  "solo_fifty_workouts": {
+    "name": "Cinquante séances",
+    "description": "Terminez 50 séances."
+  },
+  "solo_fifty_active_days": {
+    "name": "Cinquante jours actifs",
+    "description": "Soyez actif 50 jours au total."
+  },
+  "solo_fifty_hours": {
+    "name": "Cinquante heures",
+    "description": "Cumulez 50 heures d’entraînement."
+  },
+  "solo_twenty_five_thousand_calories": {
+    "name": "Brasier personnel",
+    "description": "Dépensez 25 000 calories au total."
+  },
+  "solo_streak_twenty_one": {
+    "name": "Trois semaines solides",
+    "description": "Atteignez un streak de 21 jours."
+  },
+  "solo_ten_challenges": {
+    "name": "Chasseur de défis",
+    "description": "Réussissez 10 défis hebdomadaires solo."
+  },
+  "solo_twelve_workouts_month": {
+    "name": "Mois intense",
+    "description": "Terminez 12 séances dans un même mois."
+  },
+  "solo_twenty_five_planned": {
+    "name": "Toujours au rendez-vous",
+    "description": "Terminez 25 séances planifiées."
+  },
+  "solo_regular_month": {
+    "name": "Mois régulier",
+    "description": "Soyez actif au moins 3 jours dans chacune des 4 semaines d’un mois."
+  },
+  "solo_ten_no_skips": {
+    "name": "Zéro raccourci",
+    "description": "Terminez 10 séances sans exercice sauté."
+  },
+  "solo_one_hundred_workouts": {
+    "name": "Centurion",
+    "description": "Terminez 100 séances."
+  },
+  "solo_one_hundred_hours": {
+    "name": "Maître du temps",
+    "description": "Cumulez 100 heures d’entraînement."
+  },
+  "solo_one_hundred_active_days": {
+    "name": "Cent jours actifs",
+    "description": "Soyez actif 100 jours au total."
+  },
+  "solo_forty_active_weeks": {
+    "name": "Année sportive",
+    "description": "Cumulez 40 semaines actives."
+  },
+  "solo_two_hundred_fifty_workouts": {
+    "name": "Titan",
+    "description": "Terminez 250 séances."
+  },
+  "duo_created": {
+    "name": "L’aventure commence",
+    "description": "Créez ou rejoignez un Duo."
+  },
+  "duo_first_common_workout": {
+    "name": "Première séance à deux",
+    "description": "Terminez votre première séance commune."
+  },
+  "duo_three_common_workouts": {
+    "name": "Trio de séances",
+    "description": "Terminez 3 séances communes."
+  },
+  "duo_five_common_workouts": {
+    "name": "Cinq ensemble",
+    "description": "Terminez 5 séances communes."
+  },
+  "duo_same_active_day": {
+    "name": "Même journée",
+    "description": "Soyez tous les deux actifs le même jour."
+  },
+  "duo_three_workouts_week": {
+    "name": "Semaine partagée",
+    "description": "Terminez 3 séances communes dans une même semaine."
+  },
+  "duo_first_challenge_participation": {
+    "name": "Premier défi Duo",
+    "description": "Participez à votre premier défi Duo."
+  },
+  "duo_first_post": {
+    "name": "Première publication",
+    "description": "Publiez votre premier post Duo."
+  },
+  "duo_first_encouragement": {
+    "name": "Premier encouragement",
+    "description": "Réagissez une fois à l’activité de votre partenaire."
+  },
+  "duo_first_planned_workout": {
+    "name": "Rendez-vous programmé",
+    "description": "Planifiez votre première séance Duo."
+  },
+  "duo_same_program": {
+    "name": "Même programme",
+    "description": "Terminez le même programme tous les deux."
+  },
+  "duo_sixty_common_minutes": {
+    "name": "Une heure ensemble",
+    "description": "Cumulez 60 minutes communes."
+  },
+  "duo_three_active_days": {
+    "name": "Trois jours Duo",
+    "description": "Partagez 3 jours actifs communs."
+  },
+  "duo_streak_three": {
+    "name": "Petit streak partagé",
+    "description": "Atteignez un streak Duo de 3 jours."
+  },
+  "duo_roles_configured": {
+    "name": "Équipe organisée",
+    "description": "Configurez les rôles de votre Duo."
+  },
+  "duo_banner_configured": {
+    "name": "Notre identité",
+    "description": "Ajoutez une bannière à votre Duo."
+  },
+  "duo_privacy_configured": {
+    "name": "Profil configuré",
+    "description": "Configurez la confidentialité de votre Duo."
+  },
+  "duo_first_goal": {
+    "name": "Objectif commun",
+    "description": "Créez un objectif Duo commun."
+  },
+  "duo_first_active_week": {
+    "name": "Première semaine terminée",
+    "description": "Complétez une semaine active Duo."
+  },
+  "duo_comeback": {
+    "name": "On revient plus forts",
+    "description": "Revenez ensemble après 14 jours d’inactivité Duo."
+  },
+  "duo_ten_common_workouts": {
+    "name": "Dix séances à deux",
+    "description": "Terminez 10 séances communes."
+  },
+  "duo_twenty_five_common_workouts": {
+    "name": "Vingt-cinq ensemble",
+    "description": "Terminez 25 séances communes."
+  },
+  "duo_ten_active_days": {
+    "name": "Dix jours partagés",
+    "description": "Partagez 10 jours actifs communs."
+  },
+  "duo_ten_common_hours": {
+    "name": "Dix heures ensemble",
+    "description": "Cumulez 10 heures communes."
+  },
+  "duo_streak_seven": {
+    "name": "Semaine soudée",
+    "description": "Atteignez un streak Duo de 7 jours."
+  },
+  "duo_four_common_workouts_week": {
+    "name": "Semaine intensive",
+    "description": "Terminez 4 séances communes dans une même semaine."
+  },
+  "duo_three_challenges": {
+    "name": "Défis en série",
+    "description": "Réussissez 3 défis Duo."
+  },
+  "duo_double_individual_goal": {
+    "name": "Double objectif",
+    "description": "Les deux membres atteignent leur objectif individuel la même semaine."
+  },
+  "duo_ten_planned_completed": {
+    "name": "Plan Duo respecté",
+    "description": "Terminez 10 séances Duo planifiées."
+  },
+  "duo_ten_encouragements": {
+    "name": "Soutien mutuel",
+    "description": "Échangez 10 encouragements."
+  },
+  "duo_five_categories": {
+    "name": "Duo polyvalent",
+    "description": "Partagez 5 catégories communes différentes."
+  },
+  "duo_three_early_workouts": {
+    "name": "Duo matinal",
+    "description": "Terminez 3 séances communes avant 9 h."
+  },
+  "duo_three_night_workouts": {
+    "name": "Duo nocturne",
+    "description": "Terminez 3 séances communes après 21 h."
+  },
+  "duo_five_without_abandon": {
+    "name": "Personne ne lâche",
+    "description": "Terminez 5 séances communes sans abandon."
+  },
+  "duo_active_thirty_days": {
+    "name": "Un mois ensemble",
+    "description": "Duo âgé de 30 jours avec 10 séances communes."
+  },
+  "duo_fifty_common_workouts": {
+    "name": "Cinquante à deux",
+    "description": "Terminez 50 séances communes."
+  },
+  "duo_fifty_active_days": {
+    "name": "Cinquante jours partagés",
+    "description": "Partagez 50 jours actifs communs."
+  },
+  "duo_fifty_common_hours": {
+    "name": "Cinquante heures ensemble",
+    "description": "Cumulez 50 heures communes."
+  },
+  "duo_streak_twenty_one": {
+    "name": "Trois semaines inséparables",
+    "description": "Atteignez un streak Duo de 21 jours."
+  },
+  "duo_ten_challenges": {
+    "name": "Maîtres des défis",
+    "description": "Réussissez 10 défis Duo."
+  },
+  "duo_twenty_planned_completed": {
+    "name": "Toujours présents",
+    "description": "Terminez 20 séances Duo planifiées."
+  },
+  "duo_regular_month": {
+    "name": "Mois parfaitement régulier",
+    "description": "3 jours communs minimum durant chacune des 4 semaines d’un mois."
+  },
+  "duo_fifteen_without_abandon": {
+    "name": "Aucun abandon",
+    "description": "Terminez 15 séances communes sans abandon."
+  },
+  "duo_one_hundred_combined_activities": {
+    "name": "Cent activités combinées",
+    "description": "Cumulez 100 séances terminées à deux pendant l’existence du Duo."
+  },
+  "duo_ten_badges": {
+    "name": "Collectionneurs",
+    "description": "Débloquez 10 badges Duo."
+  },
+  "duo_one_hundred_common_workouts": {
+    "name": "Cent séances ensemble",
+    "description": "Terminez 100 séances communes."
+  },
+  "duo_one_hundred_common_hours": {
+    "name": "Cent heures à deux",
+    "description": "Cumulez 100 heures communes."
+  },
+  "duo_one_hundred_active_days": {
+    "name": "Cent jours soudés",
+    "description": "Partagez 100 jours actifs communs."
+  },
+  "duo_forty_challenges": {
+    "name": "Une année de défis",
+    "description": "Réussissez 40 défis Duo."
+  },
+  "duo_legendary": {
+    "name": "Duo légendaire",
+    "description": "Duo âgé d’au moins 365 jours avec 100 séances communes."
+  }
 }

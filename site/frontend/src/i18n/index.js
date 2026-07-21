@@ -15,6 +15,7 @@ const PRELOADED_NAMESPACES = [
   "settings",
   "badges",
   "notifications",
+  "challenges",
   "errors",
 ];
 
@@ -33,6 +34,7 @@ function loadJson(locale, ns) {
       if (ns === "settings") return import("./locales/fr/settings.json");
       if (ns === "badges") return import("./locales/fr/badges.json");
       if (ns === "notifications") return import("./locales/fr/notifications.json");
+      if (ns === "challenges") return import("./locales/fr/challenges.json");
       if (ns === "errors") return import("./locales/fr/errors.json");
       break;
     case "en-US":
@@ -47,6 +49,7 @@ function loadJson(locale, ns) {
       if (ns === "settings") return import("./locales/en/settings.json");
       if (ns === "badges") return import("./locales/en/badges.json");
       if (ns === "notifications") return import("./locales/en/notifications.json");
+      if (ns === "challenges") return import("./locales/en/challenges.json");
       if (ns === "errors") return import("./locales/en/errors.json");
       break;
     case "es-ES":
@@ -61,6 +64,7 @@ function loadJson(locale, ns) {
       if (ns === "settings") return import("./locales/es/settings.json");
       if (ns === "badges") return import("./locales/es/badges.json");
       if (ns === "notifications") return import("./locales/es/notifications.json");
+      if (ns === "challenges") return import("./locales/es/challenges.json");
       if (ns === "errors") return import("./locales/es/errors.json");
       break;
     default:
@@ -129,6 +133,7 @@ i18n
         settings: require("./locales/fr/settings.json"),
         badges: require("./locales/fr/badges.json"),
         notifications: require("./locales/fr/notifications.json"),
+        challenges: require("./locales/fr/challenges.json"),
         errors: require("./locales/fr/errors.json"),
       },
     },

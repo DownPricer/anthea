@@ -551,7 +551,7 @@ def serialize_user(user: dict) -> dict:
         raw_ids = user.get("featured_badges") or []
     if not isinstance(raw_ids, list):
         raw_ids = []
-    featured_ids = [str(b) for b in raw_ids[:3]]
+    featured_ids = [canonical_badge_id(str(b)) for b in raw_ids[:3] if canonical_badge_id(str(b))]
     return {
         "id": str(user["_id"]) if "_id" in user else user.get("id"),
         "username": user.get("username"),
@@ -698,7 +698,7 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
         raw_ids = profile_user.get("featured_badges") or []
     if not isinstance(raw_ids, list):
         raw_ids = []
-    featured_ids = [str(b) for b in raw_ids[:3]]
+    featured_ids = [canonical_badge_id(str(b)) for b in raw_ids[:3] if canonical_badge_id(str(b))]
 
     base = {
         "id": profile_id,
@@ -778,20 +778,60 @@ async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> di
             unlocked_map = await BadgeProgressService(db).get_unlocked_solo(profile_id)
         except Exception:
             unlocked_map = {}
-        cards = []
-        for bid in list(base.get("featured_badge_ids") or [])[:3]:
-            definition = get_badge_definition(bid)
-            if not definition or definition.get("scope") != "solo":
-                continue
-            if unlocked_map and bid not in unlocked_map:
-                continue
-            cards.append(catalog_badge_to_public(definition, unlocked=True))
+        featured_ids, cards = build_featured_solo_badges(base.get("featured_badge_ids") or [], unlocked_map)
+        base["featured_badge_ids"] = featured_ids
         base["featured_badges"] = cards
-        base["featured_badge_ids"] = [c.get("id") for c in cards if c.get("id")]
     else:
         base["featured_badge_ids"] = []
         base["featured_badges"] = []
     return base
+
+
+def _featured_badge_http_error(code: str, message: str) -> HTTPException:
+    return HTTPException(status_code=400, detail={"code": code, "message": message})
+
+
+def normalize_featured_badge_ids(raw_ids, unlocked_map: dict, *, max_count: int = 3) -> List[str]:
+    """Normalisation non stricte (GET / affichage) : legacy → canonique, drop invalides."""
+    if not isinstance(raw_ids, list):
+        return []
+    cleaned: List[str] = []
+    seen = set()
+    for raw in raw_ids:
+        bid = canonical_badge_id(str(raw))
+        if not bid or bid in seen:
+            continue
+        definition = get_badge_definition(bid)
+        if not definition or definition.get("scope") != "solo":
+            continue
+        if definition.get("enabled", True) is False:
+            continue
+        if bid.startswith("duo_"):
+            continue
+        if unlocked_map and bid not in unlocked_map:
+            continue
+        seen.add(bid)
+        cleaned.append(bid)
+        if len(cleaned) >= max_count:
+            break
+    return cleaned
+
+
+def build_featured_solo_badges(raw_ids, unlocked_map: dict) -> tuple:
+    """Retourne (featured_badge_ids, featured_badges enrichis depuis le catalogue)."""
+    featured_ids = normalize_featured_badge_ids(raw_ids, unlocked_map)
+    cards = []
+    for bid in featured_ids:
+        definition = get_badge_definition(bid)
+        if not definition or definition.get("scope") != "solo":
+            continue
+        if definition.get("enabled", True) is False:
+            continue
+        if unlocked_map and bid not in unlocked_map:
+            continue
+        cards.append(catalog_badge_to_public(definition, unlocked=True))
+    ids = [c.get("id") for c in cards if c.get("id")]
+    return ids, cards
 
 
 def clean_featured_badge_ids(raw_ids, unlocked_map: dict) -> List[str]:
@@ -800,20 +840,22 @@ def clean_featured_badge_ids(raw_ids, unlocked_map: dict) -> List[str]:
     if not isinstance(raw_ids, list):
         raise HTTPException(status_code=400, detail="featured_badge_ids doit être une liste")
     if len(raw_ids) > 3:
-        raise HTTPException(status_code=400, detail="Maximum 3 badges mis en avant")
+        raise _featured_badge_http_error("FEATURED_BADGE_MAX", "Maximum 3 badges mis en avant")
     cleaned: List[str] = []
     seen = set()
     for raw in raw_ids:
         bid = canonical_badge_id(str(raw))
         if not bid:
-            raise HTTPException(status_code=400, detail="ID de badge vide")
+            raise _featured_badge_http_error("FEATURED_BADGE_INVALID", "ID de badge vide")
         if bid in seen:
-            raise HTTPException(status_code=400, detail="Badge dupliqué")
+            raise _featured_badge_http_error("FEATURED_BADGE_DUPLICATE", "Badge dupliqué")
         definition = get_badge_definition(bid)
         if not definition or definition.get("scope") != "solo":
-            raise HTTPException(status_code=400, detail=f"Badge solo invalide: {raw}")
+            raise _featured_badge_http_error("FEATURED_BADGE_INVALID_SCOPE", f"Badge solo invalide: {raw}")
+        if definition.get("enabled", True) is False:
+            raise _featured_badge_http_error("FEATURED_BADGE_DISABLED", f"Badge désactivé: {raw}")
         if bid not in (unlocked_map or {}):
-            raise HTTPException(status_code=400, detail=f"Badge non débloqué: {raw}")
+            raise _featured_badge_http_error("FEATURED_BADGE_LOCKED", f"Badge non débloqué: {raw}")
         seen.add(bid)
         cleaned.append(bid)
         if len(cleaned) >= 3:
@@ -888,26 +930,47 @@ async def create_notification(
     if skip_push:
         return
     try:
-        from push_service import notify_push
+        from push_service import notify_push, build_push_payload
+        from i18n_messages import load_user_locale, t, DEFAULT_LOCALE
+        recipient_locale = await load_user_locale(db, recipient_id)
         actor_name = (
             actor.get("display_name")
             or actor.get("username")
             or actor.get("handle")
-            or "Quelqu'un"
+            or t(recipient_locale, "push.generic.actor")
         )
+        if actor_name == "push.generic.actor":
+            actor_name = t(DEFAULT_LOCALE, "push.generic.actor")
         url = push_url or "/notifications"
         if not push_url and notif_type and str(notif_type).startswith("duo_"):
             url = "/notifications?filter=duo"
         if not push_url and notif_type == "partner_workout_started":
             url = "/duo"
+        resolved_title = push_title
+        resolved_body = push_body
+        if resolved_title is None or resolved_body is None:
+            try:
+                payload_preview = build_push_payload(
+                    notif_type,
+                    locale=recipient_locale,
+                    actor_name=actor_name,
+                    url=url,
+                    title=resolved_title,
+                    body=resolved_body,
+                    tag=push_tag,
+                )
+                resolved_title = resolved_title or payload_preview.get("title")
+                resolved_body = resolved_body or payload_preview.get("body")
+            except Exception:
+                pass
         await notify_push(
             db,
             recipient_id,
             notif_type,
             actor_name=actor_name,
             url=url,
-            title=push_title,
-            body=push_body,
+            title=resolved_title,
+            body=resolved_body,
             tag=push_tag,
         )
     except Exception:
@@ -1487,7 +1550,9 @@ def normalize_upload_path(url: Optional[str]) -> Optional[str]:
     return raw[:500]
 
 
-async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
+async def assemble_duo_common_stats(
+    user_a_id: str, user_b_id: str, *, locale: Optional[str] = None
+) -> dict:
     """Stats communes duo — source unique pour /duo/stats et /duos/{tag}/stats."""
     together = await compute_together_stats(db, user_a_id, user_b_id)
     streak = await calculate_streak(user_a_id, user_b_id)
@@ -1495,7 +1560,7 @@ async def assemble_duo_common_stats(user_a_id: str, user_b_id: str) -> dict:
     service = BadgeProgressService(db)
     duo_catalog = await service.get_duo_catalog_with_progress(pair_key)
     badges = list(duo_catalog.get("badges") or [])
-    challenge = await get_current_challenge(user_a_id, user_b_id, streak)
+    challenge = await get_current_challenge(user_a_id, user_b_id, streak, locale=locale)
 
     if challenge and challenge.get("status") == "completed":
         week_key = challenge.get("week_key", "")
@@ -2018,21 +2083,13 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
 
     updated_user = await db.users.find_one({"_id": ObjectId(user["id"])})
     base = serialize_user(updated_user)
-    # enrichit featured_badges pour le profil perso
     try:
         unlocked_map = await BadgeProgressService(db).get_unlocked_solo(user["id"])
     except Exception:
         unlocked_map = {}
-    cards = []
-    for bid in list(base.get("featured_badge_ids") or [])[:3]:
-        definition = get_badge_definition(bid)
-        if not definition or definition.get("scope") != "solo":
-            continue
-        if unlocked_map and bid not in unlocked_map:
-            continue
-        cards.append(catalog_badge_to_public(definition, unlocked=True))
+    featured_ids, cards = build_featured_solo_badges(base.get("featured_badge_ids") or [], unlocked_map)
+    base["featured_badge_ids"] = featured_ids
     base["featured_badges"] = cards
-    base["featured_badge_ids"] = [c.get("id") for c in cards if c.get("id")]
     return base
 
 # ============ PARTNER ROUTES ============
@@ -3073,7 +3130,7 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
     if not a_id or not b_id:
         return {"sessions_together": 0, "badges": [], "badges_unlocked": 0, "badges_total": 0}
 
-    together = await assemble_duo_common_stats(a_id, b_id)
+    together = await assemble_duo_common_stats(a_id, b_id, locale=user.get("locale"))
     calculated = await calculate_streak(a_id, b_id)
     manual = await _get_manual_streak_override(a_id, b_id)
     streak = manual if manual is not None else calculated
@@ -4578,7 +4635,9 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         elif post_type == "duo_challenge":
             if not user.get("partner_id"):
                 raise HTTPException(status_code=400, detail="Défi duo requiert un partenaire")
-            challenge = await get_current_challenge(user["id"], user["partner_id"])
+            challenge = await get_current_challenge(
+                user["id"], user["partner_id"], locale=user.get("locale")
+            )
             if not challenge or challenge.get("status") != "completed":
                 raise HTTPException(status_code=400, detail="Défi de la semaine non complété")
             if not title:
@@ -5667,7 +5726,9 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
     service = BadgeProgressService(db)
     solo_catalog = await service.get_solo_catalog_with_progress(user["id"], streak_value=streak)
     badges = list(solo_catalog.get("badges") or [])
-    challenge = await get_current_challenge(user["id"], user.get("partner_id"), streak_value=streak)
+    challenge = await get_current_challenge(
+        user["id"], user.get("partner_id"), streak_value=streak, locale=user.get("locale")
+    )
 
     if not user.get("partner_id"):
         user_sessions = await db.workout_sessions.count_documents({
@@ -5728,7 +5789,9 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "created_at": {"$gte": week_start}
     })
 
-    together = await assemble_duo_common_stats(user["id"], user["partner_id"])
+    together = await assemble_duo_common_stats(
+        user["id"], user["partner_id"], locale=user.get("locale")
+    )
     duo_social_badges = together.get("duo_badges") or together.get("badges") or []
     # Séparation stricte : badges = solo, duo_badges = duo
     all_badges_for_compat = badges + [b for b in duo_social_badges if b.get("id") not in {x.get("id") for x in badges}]
@@ -5780,11 +5843,21 @@ async def get_duo_badges(user_id: str, partner_id: Optional[str], streak_value: 
 
 
 async def get_current_challenge(
-    user_id: str, partner_id: Optional[str] = None, streak_value: int = 0
+    user_id: str,
+    partner_id: Optional[str] = None,
+    streak_value: int = 0,
+    *,
+    locale: Optional[str] = None,
 ) -> Optional[dict]:
+    from i18n_messages import load_user_locale
+    loc = locale
+    if not loc:
+        loc = await load_user_locale(db, user_id)
     scope = "duo" if partner_id else "solo"
-    challenge_def = pick_weekly_challenge(scope)
-    return await compute_challenge_progress(db, challenge_def, user_id, partner_id, streak_value)
+    challenge_def = pick_weekly_challenge(scope, locale=loc)
+    return await compute_challenge_progress(
+        db, challenge_def, user_id, partner_id, streak_value, locale=loc
+    )
 
 
 DUO_NOTIFICATION_TYPES = (

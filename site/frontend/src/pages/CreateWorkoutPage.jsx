@@ -53,9 +53,9 @@ import {
   Pencil,
 } from 'lucide-react';
 import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { useLocaleFormat } from '../hooks/useLocaleFormat';
 
 const BLOCK_TYPE_VALUES = ['warmup', 'main', 'cooldown'];
 const DIFFICULTY_VALUES = ['easy', 'medium', 'hard', 'intense'];
@@ -77,6 +77,7 @@ const MAX_GIF_FILE_BYTES = 2 * 1024 * 1024;
 
 export function CreateWorkoutPage() {
   const { t } = useTranslation(['workouts', 'common']);
+  const { dateFnsLocale, formatShortDate, formatDate } = useLocaleFormat();
   const blockTypes = useMemo(
     () =>
       BLOCK_TYPE_VALUES.map((value) => ({
@@ -1083,7 +1084,7 @@ export function CreateWorkoutPage() {
                 mode="single"
                 selected={singleDate}
                 onSelect={(date) => date && setSingleDate(date)}
-                locale={fr}
+                locale={dateFnsLocale}
                 className="rounded-xl bg-white/5 p-3"
               />
             </div>
@@ -1097,7 +1098,7 @@ export function CreateWorkoutPage() {
                   mode="multiple"
                   selected={multipleDates}
                   onSelect={(dates) => dates && setMultipleDates(dates)}
-                  locale={fr}
+                  locale={dateFnsLocale}
                   className="rounded-xl bg-white/5 p-3 shrink-0"
                 />
               </div>
@@ -1116,7 +1117,7 @@ export function CreateWorkoutPage() {
                           onClick={() => toggleMultipleDate(date)}
                           className="inline-flex items-center gap-1.5 rounded-full bg-white/5 border border-white/10 px-3 py-1.5 text-xs text-white hover:bg-white/10 transition-colors max-w-full"
                         >
-                          <span className="truncate">{format(date, 'EEE d MMM yyyy', { locale: fr })}</span>
+                          <span className="truncate">{formatShortDate(date)}</span>
                           <span className="text-zinc-500 shrink-0">×</span>
                         </button>
                       ))}
@@ -1215,7 +1216,7 @@ export function CreateWorkoutPage() {
                 <div className="mt-3 max-h-40 overflow-y-auto space-y-1">
                   {previewDates.map((date) => (
                     <div key={date} className="text-zinc-400 text-sm py-1">
-                      {format(new Date(date), 'EEEE d MMMM yyyy', { locale: fr })}
+                      {formatDate(new Date(date))}
                     </div>
                   ))}
                 </div>

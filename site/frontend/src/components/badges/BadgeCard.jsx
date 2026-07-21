@@ -1,17 +1,20 @@
+import { useTranslation } from 'react-i18next';
 import { BadgeArtwork, normalizeBadgeRarityKey } from './BadgeArtwork';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
+import { resolveBadgeLabels } from '../../i18n/badgeLabels';
 
 /**
  * Carte badge partagée — taille indépendante de la longueur du nom.
  */
 export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
+  const { t } = useTranslation('badges');
+
   if (!badge) return null;
 
   const unlocked = Boolean(badge.unlocked);
   const rarityKey = normalizeBadgeRarityKey(badge.rarity_key || badge.rarity);
   const rarityStyle = getBadgeRarityStyle(badge.rarity);
-  const isSecret = Boolean(badge.is_secret) && !unlocked;
-  const name = isSecret ? 'Succès secret' : badge.name;
+  const { name, description } = resolveBadgeLabels(badge, t);
   const progress = typeof badge.progress === 'number' ? badge.progress : 0;
   const current = badge.current;
   const target = badge.target;
@@ -28,7 +31,7 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
     <button
       type="button"
       onClick={() => onClick?.(badge)}
-      title={`${name} — ${badge.description || ''}`}
+      title={`${name} — ${description || ''}`}
       data-testid={`badge-card-${badge.id}`}
       data-scope={scope}
       className={`relative min-w-0 overflow-hidden rounded-2xl p-2.5 text-center border transition-all w-[5.25rem] sm:w-[5.5rem] group ${

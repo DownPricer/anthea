@@ -1,0 +1,76 @@
+{
+  "ui": {
+    "objective": "Objetivo",
+    "progress": "Progreso",
+    "timeRemaining": "Tiempo restante",
+    "succeeded": "Logrado",
+    "expired": "Caducado",
+    "upcoming": "Próximo",
+    "completed": "Completado",
+    "inProgress": "En curso"
+  },
+  "solo_weekly_3_sessions": {
+    "title": "3 sesiones esta semana",
+    "description": "Completa 3 sesiones esta semana"
+  },
+  "solo_weekly_90_min": {
+    "title": "90 minutos acumulados",
+    "description": "Acumula 90 minutos de entrenamiento esta semana"
+  },
+  "solo_weekly_3_days": {
+    "title": "3 días activos",
+    "description": "Entrena en 3 días diferentes esta semana"
+  },
+  "solo_weekly_all_planned": {
+    "title": "Semana perfecta",
+    "description": "Completa todas las sesiones planificadas de la semana"
+  },
+  "solo_weekly_no_miss": {
+    "title": "Cero olvidos",
+    "description": "No faltes a ninguna sesión planificada pasada"
+  },
+  "solo_weekly_2_streak": {
+    "title": "2 días seguidos",
+    "description": "Entrena 2 días consecutivos"
+  },
+  "solo_weekly_streak_5": {
+    "title": "Racha de 5",
+    "description": "Alcanza una racha de 5 días"
+  },
+  "duo_weekly_3_each": {
+    "title": "3 sesiones cada uno esta semana",
+    "description": "Tú y tu pareja: 3 sesiones completadas cada uno"
+  },
+  "duo_weekly_5_combined": {
+    "title": "5 sesiones combinadas",
+    "description": "5 sesiones completadas juntos en total"
+  },
+  "duo_weekly_120_min": {
+    "title": "120 minutos juntos",
+    "description": "Acumulad 120 min de deporte esta semana"
+  },
+  "duo_weekly_all_planned": {
+    "title": "Semana perfecta",
+    "description": "Completad todas las sesiones planificadas de la semana"
+  },
+  "duo_weekly_no_miss": {
+    "title": "Cero olvidos",
+    "description": "No falten a ninguna sesión planificada pasada"
+  },
+  "duo_weekly_2_streak": {
+    "title": "2 días seguidos",
+    "description": "Entrenad 2 días consecutivos"
+  },
+  "duo_weekly_same_day": {
+    "title": "Mismo día juntos",
+    "description": "Entrena el mismo día que tu pareja"
+  },
+  "duo_weekly_streak_5": {
+    "title": "Racha de 5",
+    "description": "Alcanzad una racha de 5 días"
+  },
+  "duo_weekly_3_encourage": {
+    "title": "3 ánimos",
+    "description": "Envía 3 ánimos esta semana"
+  }
+}

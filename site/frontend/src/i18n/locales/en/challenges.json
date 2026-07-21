@@ -1,0 +1,76 @@
+{
+  "ui": {
+    "objective": "Objective",
+    "progress": "Progress",
+    "timeRemaining": "Time remaining",
+    "succeeded": "Succeeded",
+    "expired": "Expired",
+    "upcoming": "Upcoming",
+    "completed": "Completed",
+    "inProgress": "In progress"
+  },
+  "solo_weekly_3_sessions": {
+    "title": "3 workouts this week",
+    "description": "Complete 3 workouts this week"
+  },
+  "solo_weekly_90_min": {
+    "title": "90 minutes total",
+    "description": "Accumulate 90 minutes of training this week"
+  },
+  "solo_weekly_3_days": {
+    "title": "3 active days",
+    "description": "Train on 3 different days this week"
+  },
+  "solo_weekly_all_planned": {
+    "title": "Perfect week",
+    "description": "Complete all planned workouts for the week"
+  },
+  "solo_weekly_no_miss": {
+    "title": "Zero missed",
+    "description": "Don't miss any past planned workout"
+  },
+  "solo_weekly_2_streak": {
+    "title": "2 days in a row",
+    "description": "Work out 2 consecutive days"
+  },
+  "solo_weekly_streak_5": {
+    "title": "5-day streak",
+    "description": "Reach a 5-day streak"
+  },
+  "duo_weekly_3_each": {
+    "title": "3 workouts each this week",
+    "description": "You and your partner: 3 completed workouts each"
+  },
+  "duo_weekly_5_combined": {
+    "title": "5 combined workouts",
+    "description": "5 completed workouts together in total"
+  },
+  "duo_weekly_120_min": {
+    "title": "120 minutes together",
+    "description": "Accumulate 120 min of exercise this week"
+  },
+  "duo_weekly_all_planned": {
+    "title": "Perfect week",
+    "description": "Complete all planned workouts for the week"
+  },
+  "duo_weekly_no_miss": {
+    "title": "Zero missed",
+    "description": "Don't miss any past planned workout"
+  },
+  "duo_weekly_2_streak": {
+    "title": "2 days in a row",
+    "description": "Work out 2 consecutive days"
+  },
+  "duo_weekly_same_day": {
+    "title": "Same day together",
+    "description": "Work out on the same day as your partner"
+  },
+  "duo_weekly_streak_5": {
+    "title": "5-day streak",
+    "description": "Reach a 5-day streak"
+  },
+  "duo_weekly_3_encourage": {
+    "title": "3 encouragements",
+    "description": "Send 3 encouragements this week"
+  }
+}

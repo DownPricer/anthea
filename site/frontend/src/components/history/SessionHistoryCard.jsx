@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { parseISO } from 'date-fns';
 import { ChevronDown, ChevronUp, Clock, User, Flame } from 'lucide-react';
 import { formatCalories, estimateCalories } from '../../lib/calories';
 import { cn } from '@/lib/utils';
+import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 
 const STATUS_LABELS = {
   completed: { label: 'Terminée', className: 'bg-green-500/15 text-green-400' },
@@ -13,6 +13,7 @@ const STATUS_LABELS = {
 
 export function SessionHistoryCard({ session, canAdjustTime, onAdjustTime }) {
   const [open, setOpen] = useState(false);
+  const { formatDayMonthTime } = useLocaleFormat();
   const st = STATUS_LABELS[session.display_status || session.status] || STATUS_LABELS.completed;
   const calories = session.estimated_calories ?? estimateCalories(session.total_time, session.difficulty_felt);
 
@@ -42,7 +43,7 @@ export function SessionHistoryCard({ session, canAdjustTime, onAdjustTime }) {
             </span>
             {session.created_at && (
               <span>
-                {format(parseISO(session.created_at), 'd MMM yyyy · HH:mm', { locale: fr })}
+                {formatDayMonthTime(parseISO(session.created_at))}
               </span>
             )}
           </p>

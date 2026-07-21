@@ -16,12 +16,13 @@ import { SessionHistoryCard } from '../history/SessionHistoryCard';
 import { AnnualHeatmap } from '../agenda/AnnualHeatmap';
 import { getAccentForUser } from '../../lib/userAccent';
 import { computeBestStreak } from '../../lib/streakUtils';
-import { formatCalories } from '../../lib/calories';
-import { formatDuration } from '../../lib/userProfile';
 import { Button } from '../ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { getBadgeDisplayName } from '../../lib/featuredBadges';
+import { resolveChallengeLabels } from '../../i18n/challengeLabels';
+import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 import { PageHeader } from '../layout/PageHeader';
 import { BadgeArtwork } from '../badges/BadgeArtwork';
 
@@ -30,7 +31,8 @@ function filterSoloBadges(badges = []) {
 }
 
 export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoading: parentStatsLoading }) {
-  const { t } = useTranslation(['duo', 'common']);
+  const { t } = useTranslation(['duo', 'common', 'badges', 'challenges']);
+  const { formatDuration, formatCalories } = useLocaleFormat();
   const { user } = useAuth();
   const { theme } = useTheme();
   const [searchParams] = useSearchParams();
@@ -208,8 +210,15 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
                 <Zap className="text-[var(--theme-primary)]" size={18} />
                 <span className="text-white font-medium">{t('duo:weeklyChallenge')}</span>
               </div>
-              <p className="text-zinc-400 text-sm mb-1">{duoStats.current_challenge.title}</p>
-              <p className="text-zinc-500 text-xs mb-3">{duoStats.current_challenge.description}</p>
+              {(() => {
+                const labels = resolveChallengeLabels(duoStats.current_challenge, t);
+                return (
+                  <>
+                    <p className="text-zinc-400 text-sm mb-1">{labels.title}</p>
+                    <p className="text-zinc-500 text-xs mb-3">{labels.description}</p>
+                  </>
+                );
+              })()}
               <div className="h-2 bg-white/5 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[var(--theme-primary)] transition-all"
@@ -222,7 +231,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
                 />
               </div>
               <p className="text-zinc-500 text-xs mt-2">
-                {duoStats.current_challenge.current}/{duoStats.current_challenge.target}
+                {t('challenges:ui.progress')}: {duoStats.current_challenge.current}/{duoStats.current_challenge.target}
               </p>
             </div>
           )}
@@ -321,8 +330,10 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             </div>
             {recentSoloBadges.length > 0 ? (
               <div className="mt-3 flex items-center gap-3">
-                {recentSoloBadges.map((badge) => (
-                  <div key={badge.id} className="min-w-0 w-16 overflow-hidden text-center" title={badge.name}>
+                {recentSoloBadges.map((badge) => {
+                  const badgeName = getBadgeDisplayName(badge, (key, opts) => t(key, { ...opts, ns: 'badges' }));
+                  return (
+                  <div key={badge.id} className="min-w-0 w-16 overflow-hidden text-center" title={badgeName}>
                     <BadgeArtwork
                       rarity={badge.rarity_key || badge.rarity}
                       iconKey={badge.icon_key || badge.icon || 'trophy'}
@@ -331,10 +342,10 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
                       className="mx-auto shrink-0 size-10"
                     />
                     <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-zinc-400">
-                      {badge.name}
+                      {badgeName}
                     </p>
                   </div>
-                ))}
+                );})}
               </div>
             ) : null}
           </div>

@@ -10,6 +10,7 @@ import { sessionsApi, duoApi, partnerApi, streakApi, notificationsApi, duoProfil
 import { SoloDashboard } from '../components/duo/SoloDashboard';
 import { NotificationBell } from '../components/NotificationBell';
 import { BadgeArtwork } from '../components/badges/BadgeArtwork';
+import { getBadgeDisplayName } from '../lib/featuredBadges';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import {
@@ -63,10 +64,10 @@ import {
   Flame as FlameIcon,
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../components/layout/PageHeader';
+import { useLocaleFormat } from '../hooks/useLocaleFormat';
 
 const REACTION_TYPES = [
   { type: 'bravo', emoji: '👏', key: 'bravo' },
@@ -198,7 +199,8 @@ function normalizeStatsView(payload) {
 }
 
 export function DuoPage() {
-  const { t } = useTranslation(['duo', 'common', 'notifications', 'workouts']);
+  const { t } = useTranslation(['duo', 'common', 'notifications', 'workouts', 'badges']);
+  const { formatDayMonth, formatDayMonthTime } = useLocaleFormat();
   const { user, refreshUser } = useAuth();
   const quickReactions = useMemo(
     () => REACTION_TYPES.map((r) => ({ ...r, label: t(`duo:reactions.${r.key}`) })),
@@ -1361,8 +1363,10 @@ export function DuoPage() {
                   </div>
                   {recentDuoBadges.length > 0 ? (
                     <div className="mt-3 flex items-center gap-3">
-                      {recentDuoBadges.map((badge) => (
-                        <div key={badge.id} className="min-w-0 w-16 overflow-hidden text-center" title={badge.name}>
+                      {recentDuoBadges.map((badge) => {
+                        const badgeName = getBadgeDisplayName(badge, (key, opts) => t(key, { ...opts, ns: 'badges' }));
+                        return (
+                        <div key={badge.id} className="min-w-0 w-16 overflow-hidden text-center" title={badgeName}>
                           <BadgeArtwork
                             rarity={badge.rarity_key || badge.rarity}
                             iconKey={badge.icon_key || badge.icon || 'trophy'}
@@ -1371,10 +1375,10 @@ export function DuoPage() {
                             className="mx-auto shrink-0 size-10"
                           />
                           <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-zinc-400">
-                            {badge.name}
+                            {badgeName}
                           </p>
                         </div>
-                      ))}
+                      );})}
                     </div>
                   ) : null}
                 </div>
@@ -1575,7 +1579,7 @@ export function DuoPage() {
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-medium text-sm truncate">{session.workout_title}</p>
                           <p className="text-zinc-500 text-xs">
-                            {session.created_at && format(parseISO(session.created_at), 'd MMM', { locale: fr })}
+                            {session.created_at && formatDayMonth(parseISO(session.created_at))}
                             {' • '}
                             {formatDuration(session.total_time)}
                             {session.difficulty_felt && ` • Diff: ${session.difficulty_felt}/10`}
@@ -1629,6 +1633,7 @@ function SessionCard({
   quickReactions = [],
 }) {
   const { t } = useTranslation(['duo', 'workouts']);
+  const { formatDayMonthTime } = useLocaleFormat();
   const member = resolveSessionMember(session, user, partner);
   const isOwn = member && user?.id && String(member.id) === String(user.id);
   const displayName = getDisplayName(member) || session.display_name || session.username || 'Membre';
@@ -1646,7 +1651,7 @@ function SessionCard({
     return `${mins} min`;
   };
   const dateLabel = session.created_at
-    ? format(parseISO(session.created_at), "d MMM · HH:mm", { locale: fr })
+    ? formatDayMonthTime(parseISO(session.created_at))
     : '';
   const calories = session.estimated_calories;
   const exercisesDone = session.exercises_completed;

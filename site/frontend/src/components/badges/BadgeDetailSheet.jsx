@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Loader2, Share2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -13,19 +14,8 @@ import { BadgeArtwork, normalizeBadgeRarityKey } from './BadgeArtwork';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
 import { postsApi, formatApiError } from '../../lib/api';
 import { toast } from 'sonner';
-
-function formatUnlockedAt(iso) {
-  if (!iso) return null;
-  try {
-    return new Date(iso).toLocaleDateString('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    });
-  } catch {
-    return null;
-  }
-}
+import { resolveBadgeLabels } from '../../i18n/badgeLabels';
+import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 
 /**
  * Fiche badge (bottom-sheet mobile / modal desktop) + publication.
@@ -40,17 +30,15 @@ export function BadgeDetailSheet({
   pairKey = null,
   onShared,
 }) {
+  const { t } = useTranslation('badges');
+  const { formatDate } = useLocaleFormat();
   const [message, setMessage] = useState('');
   const [saving, setSaving] = useState(false);
 
   const unlocked = Boolean(badge?.unlocked);
   const rarityKey = normalizeBadgeRarityKey(badge?.rarity_key || badge?.rarity);
   const rarityStyle = getBadgeRarityStyle(badge?.rarity);
-  const isSecret = Boolean(badge?.is_secret) && !unlocked;
-  const name = isSecret ? 'Succès secret' : badge?.name;
-  const description = isSecret
-    ? 'Continuez pour découvrir ce succès.'
-    : badge?.description;
+  const { name, description, isSecret } = resolveBadgeLabels(badge, t);
 
   const progressText = useMemo(() => {
     if (!badge || unlocked) return null;
@@ -76,19 +64,19 @@ export function BadgeDetailSheet({
           badge_id: badge.id,
           pair_key: pairKey || undefined,
           description:
-            message.trim() || 'Notre Duo vient de débloquer un nouveau succès !',
+            message.trim() || t('publishDuoDefault', { defaultValue: 'Notre Duo vient de débloquer un nouveau succès !' }),
           visibility: 'public',
           post_on_duo_wall: true,
         });
-        toast.success('Badge publié');
+        toast.success(t('published'));
       } else {
         await postsApi.create({
           type: 'badge',
           badge_id: badge.id,
-          description: message.trim() || 'J’ai débloqué un nouveau succès !',
+          description: message.trim() || t('publishDefault', { defaultValue: 'J’ai débloqué un nouveau succès !' }),
           visibility: 'public',
         });
-        toast.success('Badge publié');
+        toast.success(t('published'));
       }
       onShared?.(badge);
       setMessage('');
@@ -100,7 +88,9 @@ export function BadgeDetailSheet({
     }
   };
 
-  const unlockedLabel = formatUnlockedAt(badge.unlocked_at || badge.progress_detail?.unlocked_at);
+  const unlockedLabel = badge.unlocked_at || badge.progress_detail?.unlocked_at
+    ? formatDate(badge.unlocked_at || badge.progress_detail?.unlocked_at)
+    : null;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -111,7 +101,7 @@ export function BadgeDetailSheet({
         <DialogHeader>
           <DialogTitle className="text-white">{name}</DialogTitle>
           <DialogDescription className="text-zinc-500">
-            {description || (unlocked ? 'Succès débloqué' : 'Continuez pour le débloquer')}
+            {description || (unlocked ? t('unlocked') : t('keepGoing'))}
           </DialogDescription>
         </DialogHeader>
 
@@ -136,12 +126,12 @@ export function BadgeDetailSheet({
                 />
               </div>
               {badge.description && !isSecret ? (
-                <p className="text-zinc-500 text-xs">{badge.description}</p>
+                <p className="text-zinc-500 text-xs">{description}</p>
               ) : null}
             </div>
           )}
           {unlocked && unlockedLabel ? (
-            <p className="text-zinc-500 text-xs mt-3">Obtenu le {unlockedLabel}</p>
+            <p className="text-zinc-500 text-xs mt-3">{t('obtainedOn', { date: unlockedLabel })}</p>
           ) : null}
         </div>
 
@@ -153,8 +143,8 @@ export function BadgeDetailSheet({
               className="rounded-xl bg-[#0A0A0A] border-white/10 text-white"
               placeholder={
                 scope === 'duo'
-                  ? 'Notre Duo vient de débloquer un nouveau succès !'
-                  : 'J’ai débloqué un nouveau succès !'
+                  ? t('publishDuoDefault', { defaultValue: 'Notre Duo vient de débloquer un nouveau succès !' })
+                  : t('publishDefault', { defaultValue: 'J’ai débloqué un nouveau succès !' })
               }
               data-testid="badge-publish-message"
             />
@@ -169,7 +159,7 @@ export function BadgeDetailSheet({
               ) : (
                 <>
                   <Share2 size={16} className="mr-2" />
-                  {scope === 'duo' ? 'Publier sur le mur Duo' : 'Publier'}
+                  {scope === 'duo' ? t('publishDuo') : t('publish')}
                 </>
               )}
             </Button>

@@ -243,6 +243,7 @@ def is_push_configured() -> bool:
 def build_push_payload(
     notif_type: str,
     *,
+    locale: Optional[str] = None,
     actor_name: Optional[str] = None,
     url: Optional[str] = None,
     title: Optional[str] = None,
@@ -250,22 +251,52 @@ def build_push_payload(
     tag: Optional[str] = None,
 ) -> Dict[str, Any]:
     tpl = PUSH_TYPE_PAYLOADS.get(notif_type) or {
-        "title": "FitMatch",
-        "body": "Nouvelle activité",
         "url": "/notifications",
         "tag": notif_type or "generic",
     }
-    actor = actor_name or "Quelqu'un"
-    resolved_body = (body or tpl["body"]).replace("{actor}", actor)
-    resolved_title = title or tpl["title"]
+    actor = actor_name or _default_actor_name(locale)
+    resolved_title = title
+    resolved_body = body
+    if resolved_title is None or resolved_body is None:
+        try:
+            from i18n_messages import DEFAULT_LOCALE, t
+            loc = locale or DEFAULT_LOCALE
+            if resolved_title is None:
+                key = f"push.{notif_type}.title" if notif_type else "push.generic.title"
+                resolved_title = t(loc, key)
+                if resolved_title == key:
+                    resolved_title = t(DEFAULT_LOCALE, "push.generic.title")
+            if resolved_body is None:
+                key = f"push.{notif_type}.body" if notif_type else "push.generic.body"
+                resolved_body = t(loc, key, actor=actor)
+                if resolved_body == key:
+                    resolved_body = t(DEFAULT_LOCALE, "push.generic.body", actor=actor)
+        except Exception:
+            fallback = PUSH_TYPE_PAYLOADS.get(notif_type) or {}
+            resolved_title = resolved_title or fallback.get("title", "FitMatch")
+            resolved_body = resolved_body or fallback.get("body", "Nouvelle activité")
+    if "{actor}" in resolved_body:
+        resolved_body = resolved_body.replace("{actor}", actor)
     return {
         "title": resolved_title,
         "body": resolved_body,
         "icon": "/icons/icon-192.png",
         "badge": "/icons/badge-72.png",
-        "url": url or tpl["url"],
-        "tag": tag or tpl["tag"],
+        "url": url or tpl.get("url", "/notifications"),
+        "tag": tag or tpl.get("tag", notif_type or "generic"),
     }
+
+
+def _default_actor_name(locale: Optional[str] = None) -> str:
+    try:
+        from i18n_messages import DEFAULT_LOCALE, t
+        loc = locale or DEFAULT_LOCALE
+        label = t(loc, "push.generic.actor")
+        if label != "push.generic.actor":
+            return label
+    except Exception:
+        pass
+    return "Quelqu'un"
 
 
 async def send_web_push_to_user(db, user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
@@ -333,13 +364,22 @@ async def _load_user_notification_prefs(db, recipient_id: str) -> Optional[Dict[
         from bson import ObjectId
         user_doc = await db.users.find_one(
             {"_id": ObjectId(str(recipient_id))},
-            {"notification_prefs": 1},
+            {"notification_prefs": 1, "locale": 1},
         )
     except Exception:
         user_doc = None
     if user_doc is None:
         return None
     return user_doc.get("notification_prefs")
+
+
+async def _load_recipient_locale(db, recipient_id: str) -> str:
+    try:
+        from i18n_messages import DEFAULT_LOCALE, load_user_locale
+        return await load_user_locale(db, recipient_id)
+    except Exception:
+        from i18n_messages import DEFAULT_LOCALE
+        return DEFAULT_LOCALE
 
 
 async def notify_push(
@@ -361,8 +401,10 @@ async def notify_push(
             if not push_allowed_for_prefs(notif_type, prefs):
                 return
 
+        locale = await _load_recipient_locale(db, recipient_id)
         payload = build_push_payload(
             notif_type,
+            locale=locale,
             actor_name=actor_name,
             url=url,
             title=title,

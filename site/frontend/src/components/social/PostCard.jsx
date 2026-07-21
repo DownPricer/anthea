@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import {
   Heart,
   MessageCircle,
@@ -28,6 +27,8 @@ import { getPostActorDisplay, canDeletePost } from '../../lib/postActor';
 import { DuoAvatarStack } from '../duo/DuoAvatar';
 import { postsApi, formatApiError } from '../../lib/api';
 import { toast } from 'sonner';
+import { useLocaleFormat } from '../../hooks/useLocaleFormat';
+import { getBadgeName } from '../../i18n/badgeLabels';
 
 const BADGE_ICONS = { trophy: Trophy, flame: Flame, heart: Heart, zap: Zap };
 
@@ -39,7 +40,8 @@ export function PostCard({
   showRepostAction = true,
   isRepost = false,
 }) {
-  const { t } = useTranslation(['common']);
+  const { t } = useTranslation(['common', 'badges']);
+  const { formatDateTime, formatDayMonthTime } = useLocaleFormat();
   const [liked, setLiked] = useState(!!post?.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
@@ -222,9 +224,7 @@ export function PostCard({
             )}
           </div>
           <p className="text-zinc-500 text-xs">
-            {post.created_at
-              ? format(parseISO(post.created_at), "d MMM yyyy 'à' HH:mm", { locale: fr })
-              : ''}
+            {post.created_at ? formatDateTime(parseISO(post.created_at)) : ''}
           </p>
         </div>
         {isOwn && !post.id?.startsWith('session-') && (
@@ -254,7 +254,9 @@ export function PostCard({
             size={72}
             className="mx-auto mb-2"
           />
-          <p className="text-white font-semibold">{post.badge_name || post.title}</p>
+          <p className="text-white font-semibold">
+            {getBadgeName(post.badge_id, t, post.badge_name || post.title)}
+          </p>
           {post.description && (
             <p className="text-zinc-400 text-sm mt-1">{post.description}</p>
           )}
@@ -434,7 +436,7 @@ export function PostCard({
                 <div className="flex items-center gap-3 mt-0.5">
                   {comment.created_at && (
                     <p className="text-zinc-600 text-[10px]">
-                      {format(parseISO(comment.created_at), 'd MMM HH:mm', { locale: fr })}
+                      {formatDayMonthTime(parseISO(comment.created_at))}
                     </p>
                   )}
                   {!post.id?.startsWith('session-') && comment.id ? (

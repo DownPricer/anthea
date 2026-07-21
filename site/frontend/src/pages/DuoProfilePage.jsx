@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { parseISO } from 'date-fns';
 import { Loader2, LayoutGrid, BarChart3, Activity, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -16,6 +15,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { UserAvatar } from '../components/UserAvatar';
 import { canViewDuoSection, isDuoLimited } from '../lib/duoProfile';
 import { getDisplayName, formatDuration } from '../lib/userProfile';
+import { useLocaleFormat } from '../hooks/useLocaleFormat';
 
 /**
  * Page profil duo consultable — réutilisable pour profil public ou membre.
@@ -23,6 +23,7 @@ import { getDisplayName, formatDuration } from '../lib/userProfile';
 export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = null }) {
   const { user } = useAuth();
   const { theme } = useTheme();
+  const { formatDate } = useLocaleFormat();
   const [duoProfile, setDuoProfile] = useState(viewedDuo);
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
@@ -299,7 +300,7 @@ function DuoActivityList({ activity, loading, canView, members }) {
             >
               <p className="text-amber-300 text-xs uppercase tracking-wide mb-2">Séance commune</p>
               <p className="text-zinc-500 text-xs mb-3">
-                {item.date && format(parseISO(item.date), 'd MMMM yyyy', { locale: fr })}
+                {item.date && formatDate(parseISO(item.date))}
               </p>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <ActivityMini session={item.session_a} member={memberMap[item.session_a?.user_id]} />
@@ -326,7 +327,7 @@ function DuoActivityList({ activity, loading, canView, members }) {
                 {session?.status ? <span>· {session.status}</span> : null}
                 {session?.created_at ? (
                   <span>
-                    · {format(parseISO(session.created_at), 'd MMM yyyy', { locale: fr })}
+                    · {formatDate(parseISO(session.created_at))}
                   </span>
                 ) : null}
               </p>

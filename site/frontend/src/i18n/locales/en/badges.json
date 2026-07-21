@@ -33,5 +33,405 @@
   "publishDuo": "Publish on Duo wall",
   "published": "Badge published",
   "locked": "Locked",
-  "progress": "Progress"
+  "progress": "Progress",
+  "solo_first_workout": {
+    "name": "First step",
+    "description": "Complete your first workout."
+  },
+  "solo_three_workouts": {
+    "name": "Let's go",
+    "description": "Complete 3 workouts."
+  },
+  "solo_five_workouts": {
+    "name": "New habit",
+    "description": "Complete 5 workouts."
+  },
+  "solo_three_days_week": {
+    "name": "Active week",
+    "description": "Be active 3 days in the same week."
+  },
+  "solo_early_workout": {
+    "name": "Morning muscles",
+    "description": "Complete 1 workout before 9 a.m."
+  },
+  "solo_night_workout": {
+    "name": "Night owl",
+    "description": "Complete 1 workout after 9 p.m."
+  },
+  "solo_thirty_minutes": {
+    "name": "Thirty minutes",
+    "description": "Complete a workout of at least 30 minutes."
+  },
+  "solo_sixty_minutes": {
+    "name": "An hour for yourself",
+    "description": "Complete a workout of at least 60 minutes."
+  },
+  "solo_hundred_minutes": {
+    "name": "First hundred",
+    "description": "Accumulate 100 minutes of training."
+  },
+  "solo_five_hundred_calories": {
+    "name": "First flames",
+    "description": "Burn 500 calories in total."
+  },
+  "solo_streak_three": {
+    "name": "Three days rolling",
+    "description": "Reach a 3-day streak."
+  },
+  "solo_streak_five": {
+    "name": "Five solid days",
+    "description": "Reach a 5-day streak."
+  },
+  "solo_first_no_abandon": {
+    "name": "All the way",
+    "description": "Complete 1 workout without quitting."
+  },
+  "solo_three_categories": {
+    "name": "Explorer",
+    "description": "Try 3 different categories."
+  },
+  "solo_legs_workout": {
+    "name": "Legs on fire",
+    "description": "Complete a leg workout."
+  },
+  "solo_upper_body_workout": {
+    "name": "Upper body",
+    "description": "Complete an upper body workout."
+  },
+  "solo_cardio_workout": {
+    "name": "Heart in action",
+    "description": "Complete a cardio workout."
+  },
+  "solo_mobility_workout": {
+    "name": "Flexibility restored",
+    "description": "Complete a mobility or stretching workout."
+  },
+  "solo_first_planned_workout": {
+    "name": "Organized",
+    "description": "Schedule your first workout."
+  },
+  "solo_first_custom_workout": {
+    "name": "Creator",
+    "description": "Create your first custom workout."
+  },
+  "solo_ten_workouts": {
+    "name": "Ten out of ten",
+    "description": "Complete 10 workouts."
+  },
+  "solo_twenty_five_workouts": {
+    "name": "Real rhythm",
+    "description": "Complete 25 workouts."
+  },
+  "solo_ten_active_days": {
+    "name": "Ten active days",
+    "description": "Be active 10 days in total."
+  },
+  "solo_fifteen_hours": {
+    "name": "Fifteen hours",
+    "description": "Accumulate 15 hours of training."
+  },
+  "solo_five_thousand_calories": {
+    "name": "Furnace",
+    "description": "Burn 5,000 calories in total."
+  },
+  "solo_streak_seven": {
+    "name": "Perfect week",
+    "description": "Reach a 7-day streak."
+  },
+  "solo_streak_ten": {
+    "name": "Ten days in a row",
+    "description": "Reach a 10-day streak."
+  },
+  "solo_four_workouts_week": {
+    "name": "Busy week",
+    "description": "Complete 4 workouts in the same week."
+  },
+  "solo_five_categories": {
+    "name": "Versatile",
+    "description": "Try 5 different categories."
+  },
+  "solo_ten_planned_completed": {
+    "name": "Plan honored",
+    "description": "Complete 10 scheduled workouts."
+  },
+  "solo_three_early_workouts": {
+    "name": "Early bird",
+    "description": "Complete 3 workouts before 8 a.m."
+  },
+  "solo_three_night_workouts": {
+    "name": "After dark",
+    "description": "Complete 3 workouts after 9 p.m."
+  },
+  "solo_five_no_skips": {
+    "name": "No exercise left behind",
+    "description": "Complete 5 workouts without skipping an exercise."
+  },
+  "solo_comeback": {
+    "name": "The comeback",
+    "description": "Return after 14 days of inactivity."
+  },
+  "solo_first_weekly_challenge": {
+    "name": "Challenge accepted",
+    "description": "Complete your first solo weekly challenge."
+  },
+  "solo_fifty_workouts": {
+    "name": "Fifty workouts",
+    "description": "Complete 50 workouts."
+  },
+  "solo_fifty_active_days": {
+    "name": "Fifty active days",
+    "description": "Be active 50 days in total."
+  },
+  "solo_fifty_hours": {
+    "name": "Fifty hours",
+    "description": "Accumulate 50 hours of training."
+  },
+  "solo_twenty_five_thousand_calories": {
+    "name": "Personal blaze",
+    "description": "Burn 25,000 calories in total."
+  },
+  "solo_streak_twenty_one": {
+    "name": "Three solid weeks",
+    "description": "Reach a 21-day streak."
+  },
+  "solo_ten_challenges": {
+    "name": "Challenge hunter",
+    "description": "Complete 10 solo weekly challenges."
+  },
+  "solo_twelve_workouts_month": {
+    "name": "Intense month",
+    "description": "Complete 12 workouts in the same month."
+  },
+  "solo_twenty_five_planned": {
+    "name": "Always on time",
+    "description": "Complete 25 scheduled workouts."
+  },
+  "solo_regular_month": {
+    "name": "Regular month",
+    "description": "Be active at least 3 days in each of 4 weeks in a month."
+  },
+  "solo_ten_no_skips": {
+    "name": "Zero shortcuts",
+    "description": "Complete 10 workouts without skipping an exercise."
+  },
+  "solo_one_hundred_workouts": {
+    "name": "Centurion",
+    "description": "Complete 100 workouts."
+  },
+  "solo_one_hundred_hours": {
+    "name": "Master of time",
+    "description": "Accumulate 100 hours of training."
+  },
+  "solo_one_hundred_active_days": {
+    "name": "One hundred active days",
+    "description": "Be active 100 days in total."
+  },
+  "solo_forty_active_weeks": {
+    "name": "Sporty year",
+    "description": "Accumulate 40 active weeks."
+  },
+  "solo_two_hundred_fifty_workouts": {
+    "name": "Titan",
+    "description": "Complete 250 workouts."
+  },
+  "duo_created": {
+    "name": "The adventure begins",
+    "description": "Create or join a Duo."
+  },
+  "duo_first_common_workout": {
+    "name": "First workout together",
+    "description": "Complete your first shared workout."
+  },
+  "duo_three_common_workouts": {
+    "name": "Workout trio",
+    "description": "Complete 3 shared workouts."
+  },
+  "duo_five_common_workouts": {
+    "name": "Five together",
+    "description": "Complete 5 shared workouts."
+  },
+  "duo_same_active_day": {
+    "name": "Same day",
+    "description": "Both be active on the same day."
+  },
+  "duo_three_workouts_week": {
+    "name": "Shared week",
+    "description": "Complete 3 shared workouts in the same week."
+  },
+  "duo_first_challenge_participation": {
+    "name": "First Duo challenge",
+    "description": "Join your first Duo challenge."
+  },
+  "duo_first_post": {
+    "name": "First post",
+    "description": "Publish your first Duo post."
+  },
+  "duo_first_encouragement": {
+    "name": "First encouragement",
+    "description": "React once to your partner's activity."
+  },
+  "duo_first_planned_workout": {
+    "name": "Scheduled meetup",
+    "description": "Schedule your first Duo workout."
+  },
+  "duo_same_program": {
+    "name": "Same program",
+    "description": "Both complete the same program."
+  },
+  "duo_sixty_common_minutes": {
+    "name": "An hour together",
+    "description": "Accumulate 60 shared minutes."
+  },
+  "duo_three_active_days": {
+    "name": "Three Duo days",
+    "description": "Share 3 active days together."
+  },
+  "duo_streak_three": {
+    "name": "Small shared streak",
+    "description": "Reach a 3-day Duo streak."
+  },
+  "duo_roles_configured": {
+    "name": "Organized team",
+    "description": "Configure your Duo roles."
+  },
+  "duo_banner_configured": {
+    "name": "Our identity",
+    "description": "Add a banner to your Duo."
+  },
+  "duo_privacy_configured": {
+    "name": "Profile configured",
+    "description": "Configure your Duo privacy."
+  },
+  "duo_first_goal": {
+    "name": "Shared goal",
+    "description": "Create a shared Duo goal."
+  },
+  "duo_first_active_week": {
+    "name": "First week completed",
+    "description": "Complete one active Duo week."
+  },
+  "duo_comeback": {
+    "name": "Back stronger",
+    "description": "Return together after 14 days of Duo inactivity."
+  },
+  "duo_ten_common_workouts": {
+    "name": "Ten workouts together",
+    "description": "Complete 10 shared workouts."
+  },
+  "duo_twenty_five_common_workouts": {
+    "name": "Twenty-five together",
+    "description": "Complete 25 shared workouts."
+  },
+  "duo_ten_active_days": {
+    "name": "Ten shared days",
+    "description": "Share 10 active days together."
+  },
+  "duo_ten_common_hours": {
+    "name": "Ten hours together",
+    "description": "Accumulate 10 shared hours."
+  },
+  "duo_streak_seven": {
+    "name": "Tight-knit week",
+    "description": "Reach a 7-day Duo streak."
+  },
+  "duo_four_common_workouts_week": {
+    "name": "Intensive week",
+    "description": "Complete 4 shared workouts in the same week."
+  },
+  "duo_three_challenges": {
+    "name": "Challenge streak",
+    "description": "Complete 3 Duo challenges."
+  },
+  "duo_double_individual_goal": {
+    "name": "Double goal",
+    "description": "Both members reach their individual goal the same week."
+  },
+  "duo_ten_planned_completed": {
+    "name": "Duo plan honored",
+    "description": "Complete 10 scheduled Duo workouts."
+  },
+  "duo_ten_encouragements": {
+    "name": "Mutual support",
+    "description": "Exchange 10 encouragements."
+  },
+  "duo_five_categories": {
+    "name": "Versatile Duo",
+    "description": "Share 5 different common categories."
+  },
+  "duo_three_early_workouts": {
+    "name": "Morning Duo",
+    "description": "Complete 3 shared workouts before 9 a.m."
+  },
+  "duo_three_night_workouts": {
+    "name": "Night Duo",
+    "description": "Complete 3 shared workouts after 9 p.m."
+  },
+  "duo_five_without_abandon": {
+    "name": "No one gives up",
+    "description": "Complete 5 shared workouts without quitting."
+  },
+  "duo_active_thirty_days": {
+    "name": "A month together",
+    "description": "Duo aged 30 days with 10 shared workouts."
+  },
+  "duo_fifty_common_workouts": {
+    "name": "Fifty together",
+    "description": "Complete 50 shared workouts."
+  },
+  "duo_fifty_active_days": {
+    "name": "Fifty shared days",
+    "description": "Share 50 active days together."
+  },
+  "duo_fifty_common_hours": {
+    "name": "Fifty hours together",
+    "description": "Accumulate 50 shared hours."
+  },
+  "duo_streak_twenty_one": {
+    "name": "Three inseparable weeks",
+    "description": "Reach a 21-day Duo streak."
+  },
+  "duo_ten_challenges": {
+    "name": "Challenge masters",
+    "description": "Complete 10 Duo challenges."
+  },
+  "duo_twenty_planned_completed": {
+    "name": "Always there",
+    "description": "Complete 20 scheduled Duo workouts."
+  },
+  "duo_regular_month": {
+    "name": "Perfectly regular month",
+    "description": "At least 3 shared days in each of 4 weeks in a month."
+  },
+  "duo_fifteen_without_abandon": {
+    "name": "No quitting",
+    "description": "Complete 15 shared workouts without quitting."
+  },
+  "duo_one_hundred_combined_activities": {
+    "name": "One hundred combined activities",
+    "description": "Accumulate 100 workouts completed together during the Duo's lifetime."
+  },
+  "duo_ten_badges": {
+    "name": "Collectors",
+    "description": "Unlock 10 Duo badges."
+  },
+  "duo_one_hundred_common_workouts": {
+    "name": "One hundred workouts together",
+    "description": "Complete 100 shared workouts."
+  },
+  "duo_one_hundred_common_hours": {
+    "name": "One hundred hours together",
+    "description": "Accumulate 100 shared hours."
+  },
+  "duo_one_hundred_active_days": {
+    "name": "One hundred bonded days",
+    "description": "Share 100 active days together."
+  },
+  "duo_forty_challenges": {
+    "name": "A year of challenges",
+    "description": "Complete 40 Duo challenges."
+  },
+  "duo_legendary": {
+    "name": "Legendary Duo",
+    "description": "Duo aged at least 365 days with 100 shared workouts."
+  }
 }

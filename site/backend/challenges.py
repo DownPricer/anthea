@@ -2,60 +2,48 @@
 from datetime import datetime, timedelta, timezone
 from typing import List, Optional
 
+from i18n_messages import DEFAULT_LOCALE, localize_challenge
+
 
 SOLO_CHALLENGE_POOL: List[dict] = [
     {
         "id": "solo_weekly_3_sessions",
-        "title": "3 séances cette semaine",
-        "description": "Terminer 3 séances cette semaine",
         "target": 3,
         "metric": "sessions_combined",
         "scope": "solo",
     },
     {
         "id": "solo_weekly_90_min",
-        "title": "90 minutes cumulées",
-        "description": "Cumuler 90 minutes d'entraînement cette semaine",
         "target": 90,
         "metric": "minutes_combined",
         "scope": "solo",
     },
     {
         "id": "solo_weekly_3_days",
-        "title": "3 jours actifs",
-        "description": "S'entraîner sur 3 jours différents cette semaine",
         "target": 3,
         "metric": "distinct_days",
         "scope": "solo",
     },
     {
         "id": "solo_weekly_all_planned",
-        "title": "Semaine parfaite",
-        "description": "Terminer toutes les séances planifiées de la semaine",
         "target": 1,
         "metric": "all_planned_done",
         "scope": "solo",
     },
     {
         "id": "solo_weekly_no_miss",
-        "title": "Zéro oubli",
-        "description": "Ne manquer aucune séance planifiée passée",
         "target": 1,
         "metric": "no_missed_planned",
         "scope": "solo",
     },
     {
         "id": "solo_weekly_2_streak",
-        "title": "2 jours d'affilée",
-        "description": "Faire une séance 2 jours consécutifs",
         "target": 2,
         "metric": "consecutive_days",
         "scope": "solo",
     },
     {
         "id": "solo_weekly_streak_5",
-        "title": "Streak de 5",
-        "description": "Atteindre une streak de 5 jours",
         "target": 5,
         "metric": "streak_reach",
         "scope": "solo",
@@ -65,72 +53,54 @@ SOLO_CHALLENGE_POOL: List[dict] = [
 DUO_CHALLENGE_POOL: List[dict] = [
     {
         "id": "duo_weekly_3_each",
-        "title": "3 séances chacun cette semaine",
-        "description": "Toi et ton partenaire : 3 séances terminées chacun",
         "target": 6,
         "metric": "sessions_each_3",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_5_combined",
-        "title": "5 séances combinées",
-        "description": "Au total 5 séances terminées à deux",
         "target": 5,
         "metric": "sessions_combined",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_120_min",
-        "title": "120 minutes à deux",
-        "description": "Cumulez 120 min de sport cette semaine",
         "target": 120,
         "metric": "minutes_combined",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_all_planned",
-        "title": "Semaine parfaite",
-        "description": "Terminer toutes les séances planifiées de la semaine",
         "target": 1,
         "metric": "all_planned_done",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_no_miss",
-        "title": "Zéro oubli",
-        "description": "Ne manquer aucune séance planifiée passée",
         "target": 1,
         "metric": "no_missed_planned",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_2_streak",
-        "title": "2 jours d'affilée",
-        "description": "Faire une séance 2 jours consécutifs",
         "target": 2,
         "metric": "consecutive_days",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_same_day",
-        "title": "Même jour ensemble",
-        "description": "Séance le même jour que ton partenaire",
         "target": 1,
         "metric": "same_day_session",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_streak_5",
-        "title": "Streak de 5",
-        "description": "Atteindre une streak de 5 jours",
         "target": 5,
         "metric": "streak_reach",
         "scope": "duo",
     },
     {
         "id": "duo_weekly_3_encourage",
-        "title": "3 encouragements",
-        "description": "Envoyer 3 encouragements cette semaine",
         "target": 3,
         "metric": "encouragements",
         "scope": "duo",
@@ -154,7 +124,7 @@ def iso_week_key(dt: Optional[datetime] = None) -> str:
     return f"{iso.year}-W{iso.week:02d}"
 
 
-def pick_weekly_challenge(scope: str = "solo") -> dict:
+def pick_weekly_challenge(scope: str = "solo", *, locale: Optional[str] = None) -> dict:
     """Choisit un défi stable pour la semaine ISO et le scope (solo | duo)."""
     pool = SOLO_CHALLENGE_POOL if scope == "solo" else DUO_CHALLENGE_POOL
     today = datetime.now(timezone.utc)
@@ -162,15 +132,22 @@ def pick_weekly_challenge(scope: str = "solo") -> dict:
     year = today.year
     idx = (year * 53 + week_num) % len(pool)
     base_key = iso_week_key(today)
-    return {
+    base = {
         **pool[idx],
         "week_key": f"{base_key}-{scope}",
         "scope": scope,
     }
+    return localize_challenge(base, locale or DEFAULT_LOCALE)
 
 
 async def compute_challenge_progress(
-    db, challenge: dict, user_id: str, partner_id: Optional[str], streak_value: int
+    db,
+    challenge: dict,
+    user_id: str,
+    partner_id: Optional[str],
+    streak_value: int,
+    *,
+    locale: Optional[str] = None,
 ) -> dict:
     week_start, week_end = _week_bounds()
     ws = week_start.isoformat()
@@ -289,10 +266,11 @@ async def compute_challenge_progress(
     elif datetime.now(timezone.utc) > week_end:
         status = "failed"
 
-    return {
+    result = {
         **challenge,
         "current": current,
         "status": status,
         "end_date": we_date,
         "week_start": ws_date,
     }
+    return localize_challenge(result, locale or DEFAULT_LOCALE)

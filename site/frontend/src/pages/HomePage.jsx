@@ -28,13 +28,13 @@ import {
   Search,
 } from 'lucide-react';
 import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { useTheme } from '../context/ThemeContext';
 import { WeekAgendaStrip } from '../components/agenda/WeekAgendaStrip';
 import { HomeFeed } from '../components/social/HomeFeed';
 import { PartnerLiveStatus } from '../components/PartnerLiveStatus';
 import { useUserAccent } from '../hooks/useUserAccent';
 import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
+import { useLocaleFormat } from '../hooks/useLocaleFormat';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
 import { UserAvatar } from '../components/UserAvatar';
@@ -45,6 +45,7 @@ import { useTranslation } from 'react-i18next';
 
 export function HomePage() {
   const { t } = useTranslation(['home', 'common']);
+  const { formatWeekdayDate } = useLocaleFormat();
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -271,7 +272,7 @@ export function HomePage() {
       <div className="mx-auto w-full max-w-4xl space-y-6">
         <PageHeader
           title={t('home:title')}
-          subtitle={format(new Date(), 'EEEE d MMMM', { locale: fr })}
+          subtitle={formatWeekdayDate(new Date())}
           subtitleClassName="capitalize"
           actions={
             <>
@@ -489,7 +490,7 @@ export function HomePage() {
         <DialogContent className="bg-[#1a1a1a] border-white/10 max-w-sm mx-auto">
           <DialogHeader>
             <DialogTitle className="text-white text-center">
-              {selectedDay && format(selectedDay, 'EEEE d MMMM', { locale: fr })}
+              {selectedDay && formatWeekdayDate(selectedDay)}
             </DialogTitle>
             <p className="text-zinc-500 text-sm text-center">{t('home:manageStreakDay')}</p>
           </DialogHeader>

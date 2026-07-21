@@ -1,9 +1,9 @@
 import { useMemo } from 'react';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { DayPicker } from 'react-day-picker';
 import { Flame, X, BedDouble } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 
 export function AgendaCalendar({
   month,
@@ -15,6 +15,7 @@ export function AgendaCalendar({
   partnerAccent,
   streak = 0,
 }) {
+  const { dateFnsLocale } = useLocaleFormat();
   const get = (date) => dayMap[format(date, 'yyyy-MM-dd')] || {};
 
   const modifiers = useMemo(
@@ -78,7 +79,7 @@ export function AgendaCalendar({
         onSelect={(d) => d && onSelect(d)}
         month={month}
         onMonthChange={onMonthChange}
-        locale={fr}
+        locale={dateFnsLocale}
         showOutsideDays
         modifiers={modifiers}
         modifiersClassNames={modifiersClassNames}

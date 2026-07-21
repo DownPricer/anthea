@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { format, parseISO } from 'date-fns';
-
-import { fr } from 'date-fns/locale';
+import { parseISO } from 'date-fns';
 
 import { Clock, Trophy, Zap, Users, ChevronDown, Repeat2, Loader2, LayoutGrid } from 'lucide-react';
 
@@ -14,6 +12,7 @@ import { UserAvatar } from '../UserAvatar';
 import { getDuoGradientStyle } from '../../lib/duoProfile';
 
 import { getDisplayName } from '../../lib/userProfile';
+import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 
 
 
@@ -147,6 +146,7 @@ export function CommonDuoSessionCard({
 
   
   const { t } = useTranslation('duo');
+  const { formatDate } = useLocaleFormat();
 const [detailsOpen, setDetailsOpen] = useState(false);
 
 
@@ -170,9 +170,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
 
   const dateLabel = item?.date
-
-    ? format(parseISO(item.date), 'd MMM yyyy', { locale: fr })
-
+    ? formatDate(parseISO(item.date))
     : null;
 
 

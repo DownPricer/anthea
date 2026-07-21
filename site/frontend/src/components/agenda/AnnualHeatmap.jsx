@@ -7,13 +7,12 @@ import {
   getMonth,
   isSameDay,
 } from 'date-fns';
-import { fr } from 'date-fns/locale';
-import { Download, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { streakApi } from '../../lib/api';
 import { calendarDaysToMap } from '../../lib/agendaDayMap';
 import { getHeatmapDayStyle, heatmapDayTitle, paintHeatmapCell } from '../../lib/heatmapDayStyle';
 import { Button } from '../ui/button';
+import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
 
@@ -27,6 +26,7 @@ export function AnnualHeatmap({
   initialDays = null,
 }) {
   const { t } = useTranslation(['settings']);
+  const { formatDate, formatWeekdayDate } = useLocaleFormat();
   const [dayMap, setDayMap] = useState(() =>
     initialDays ? calendarDaysToMap(initialDays) : {}
   );
@@ -169,7 +169,7 @@ export function AnnualHeatmap({
                   const info = dayMap[key] || {};
                   const style = getCellStyle(info);
                   const isSelected = selectedDay && isSameDay(selectedDay, date);
-                  const dateLabel = format(date, 'd MMMM yyyy', { locale: fr });
+                  const dateLabel = formatDate(date);
                   return (
                     <button
                       key={key}
@@ -202,7 +202,7 @@ export function AnnualHeatmap({
         <p className="text-zinc-400 text-sm text-center">
           {heatmapDayTitle(
             selectedInfo,
-            format(selectedDay, 'EEEE d MMMM yyyy', { locale: fr })
+            formatWeekdayDate(selectedDay)
           )}
         </p>
       ) : null}

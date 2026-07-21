@@ -15,6 +15,7 @@ import { NotificationPrefsSection } from '../components/settings/NotificationPre
 import { ProfileEditDialog } from '../components/profile/ProfileEditDialog';
 import { AvatarCropDialog } from '../components/profile/AvatarCropDialog';
 import { BadgeArtwork } from '../components/badges/BadgeArtwork';
+import { getBadgeDisplayName } from '../lib/featuredBadges';
 import { PageHeader } from '../components/layout/PageHeader';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -174,7 +175,7 @@ function SectionIcon({ icon: Icon }) {
 }
 
 export function SettingsPage() {
-  const { t } = useTranslation(['settings', 'common']);
+  const { t } = useTranslation(['settings', 'common', 'badges']);
   const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
@@ -681,11 +682,13 @@ export function SettingsPage() {
                 </p>
                 {recentBadges.length > 0 ? (
                   <div className="flex gap-3 justify-center sm:justify-start">
-                    {recentBadges.map((badge) => (
+                    {recentBadges.map((badge) => {
+                      const badgeName = getBadgeDisplayName(badge, (key, opts) => t(key, { ...opts, ns: 'badges' }));
+                      return (
                       <div
                         key={badge.id}
                         className="min-w-0 w-16 overflow-hidden text-center"
-                        title={badge.name}
+                        title={badgeName}
                       >
                         <BadgeArtwork
                           rarity={badge.rarity_key || badge.rarity}
@@ -695,10 +698,10 @@ export function SettingsPage() {
                           className="mx-auto shrink-0 size-10"
                         />
                         <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-zinc-400">
-                          {badge.name}
+                          {badgeName}
                         </p>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 ) : (
                   <p className="text-zinc-500 text-sm">

@@ -36,6 +36,7 @@ import { UserAvatar } from '../UserAvatar';
 import { BadgeArtwork } from '../badges/BadgeArtwork';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
+import { getBadgeDisplayName } from '../../lib/featuredBadges';
 import {
   Loader2,
   ImagePlus,
@@ -162,7 +163,7 @@ function idsEqual(a = [], b = []) {
  * Panneau Modifier le Duo — bottom sheet mobile / panneau latéral desktop.
  */
 export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }) {
-  const { t } = useTranslation(['duo', 'common', 'profile']);
+  const { t } = useTranslation(['duo', 'common', 'profile', 'badges']);
   const isMobile = useIsMobile();
   const [form, setForm] = useState(() => buildInitialForm(duoProfile));
   const [baseline, setBaseline] = useState(() => buildInitialForm(duoProfile));
@@ -632,6 +633,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
             {unlockedBadges.map((badge) => {
               const selected = selectedBadgeIds.includes(badge.id);
               const order = selectedBadgeIds.indexOf(badge.id);
+              const badgeName = getBadgeDisplayName(badge, (key, opts) => t(key, { ...opts, ns: 'badges' }));
               return (
                 <button
                   key={badge.id}
@@ -666,7 +668,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
                     className="mx-auto shrink-0 size-10"
                   />
                   <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[10px] text-zinc-300">
-                    {badge.name}
+                    {badgeName}
                   </p>
                   {selected ? (
                     <span className="text-[9px] font-medium text-[var(--theme-primary)]">

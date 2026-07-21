@@ -1,0 +1,76 @@
+{
+  "ui": {
+    "objective": "Objectif",
+    "progress": "Progression",
+    "timeRemaining": "Temps restant",
+    "succeeded": "Réussi",
+    "expired": "Expiré",
+    "upcoming": "À venir",
+    "completed": "Terminé",
+    "inProgress": "En cours"
+  },
+  "solo_weekly_3_sessions": {
+    "title": "3 séances cette semaine",
+    "description": "Terminer 3 séances cette semaine"
+  },
+  "solo_weekly_90_min": {
+    "title": "90 minutes cumulées",
+    "description": "Cumuler 90 minutes d'entraînement cette semaine"
+  },
+  "solo_weekly_3_days": {
+    "title": "3 jours actifs",
+    "description": "S'entraîner sur 3 jours différents cette semaine"
+  },
+  "solo_weekly_all_planned": {
+    "title": "Semaine parfaite",
+    "description": "Terminer toutes les séances planifiées de la semaine"
+  },
+  "solo_weekly_no_miss": {
+    "title": "Zéro oubli",
+    "description": "Ne manquer aucune séance planifiée passée"
+  },
+  "solo_weekly_2_streak": {
+    "title": "2 jours d'affilée",
+    "description": "Faire une séance 2 jours consécutifs"
+  },
+  "solo_weekly_streak_5": {
+    "title": "Streak de 5",
+    "description": "Atteindre une streak de 5 jours"
+  },
+  "duo_weekly_3_each": {
+    "title": "3 séances chacun cette semaine",
+    "description": "Toi et ton partenaire : 3 séances terminées chacun"
+  },
+  "duo_weekly_5_combined": {
+    "title": "5 séances combinées",
+    "description": "Au total 5 séances terminées à deux"
+  },
+  "duo_weekly_120_min": {
+    "title": "120 minutes à deux",
+    "description": "Cumulez 120 min de sport cette semaine"
+  },
+  "duo_weekly_all_planned": {
+    "title": "Semaine parfaite",
+    "description": "Terminer toutes les séances planifiées de la semaine"
+  },
+  "duo_weekly_no_miss": {
+    "title": "Zéro oubli",
+    "description": "Ne manquer aucune séance planifiée passée"
+  },
+  "duo_weekly_2_streak": {
+    "title": "2 jours d'affilée",
+    "description": "Faire une séance 2 jours consécutifs"
+  },
+  "duo_weekly_same_day": {
+    "title": "Même jour ensemble",
+    "description": "Séance le même jour que ton partenaire"
+  },
+  "duo_weekly_streak_5": {
+    "title": "Streak de 5",
+    "description": "Atteindre une streak de 5 jours"
+  },
+  "duo_weekly_3_encourage": {
+    "title": "3 encouragements",
+    "description": "Envoyer 3 encouragements cette semaine"
+  }
+}

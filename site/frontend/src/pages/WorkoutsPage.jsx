@@ -35,13 +35,14 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
-import { fr } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../components/layout/PageHeader';
+import { useLocaleFormat } from '../hooks/useLocaleFormat';
 
 export function WorkoutsPage() {
   const { t } = useTranslation(['workouts', 'common']);
+  const { formatWeekdayDate } = useLocaleFormat();
   const { user } = useAuth();
   const { theme } = useTheme();
   const navigate = useNavigate();
@@ -457,7 +458,7 @@ export function WorkoutsPage() {
               <div>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-white font-medium">
-                    {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
+                    {formatWeekdayDate(selectedDate)}
                   </h3>
                   {selectedDateWorkouts.length > 0 && (
                     <button

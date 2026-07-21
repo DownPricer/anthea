@@ -1,8 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Bell, ChevronLeft, Loader2, UserPlus, Heart } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { parseISO } from 'date-fns';
 import { notificationsApi, usersApi, duoProfilesApi } from '../lib/api';
 import { duoProfilePath } from '../lib/duoProfile';
 import { UserAvatar } from '../components/UserAvatar';
@@ -12,6 +11,8 @@ import { toast } from 'sonner';
 import { formatApiError } from '../lib/api';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useTranslation } from 'react-i18next';
+import { useLocaleFormat } from '../hooks/useLocaleFormat';
+import { getBadgeName } from '../i18n/badgeLabels';
 
 function NotificationIcon({ type }) {
   if (type === 'follow_back') {
@@ -21,7 +22,8 @@ function NotificationIcon({ type }) {
 }
 
 export function NotificationsPage() {
-  const { t } = useTranslation(['notifications', 'common']);
+  const { t } = useTranslation(['notifications', 'badges', 'common']);
+  const { formatDateTime } = useLocaleFormat();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const filterDuo = searchParams.get('filter') === 'duo';
@@ -30,36 +32,33 @@ export function NotificationsPage() {
   const [followLoading, setFollowLoading] = useState(null);
   const [requestLoading, setRequestLoading] = useState(null);
 
+  const resolveBadgeName = useCallback((notif) => {
+    return getBadgeName(
+      notif.badge_id,
+      t,
+      notif.badge_name || t('notifications:types.aBadge')
+    );
+  }, [t]);
+
   const notificationLabel = useCallback((notif) => {
+    const typeKey = `notifications:types.${notif.type}`;
+    const hasTypeKey = notif.type && t(typeKey, { defaultValue: '__missing__' }) !== '__missing__';
+
     switch (notif.type) {
-      case 'new_follower':
-        return t('notifications:types.new_follower');
-      case 'follow_request':
-        return t('notifications:types.follow_request');
-      case 'follow_accepted':
-        return t('notifications:types.follow_accepted');
-      case 'follow_back':
-        return t('notifications:types.follow_back');
-      case 'like':
-        return t('notifications:types.like');
-      case 'comment':
-        return t('notifications:types.comment');
-      case 'duo_follow_request':
-        return t('notifications:types.duo_follow_request');
-      case 'duo_follow_accepted':
-        return t('notifications:types.duo_follow_accepted');
       case 'badge_unlocked':
-        return notif.body || t('notifications:types.badge_unlocked', {
-          badge: notif.badge_name || t('notifications:types.aBadge'),
-        });
+        return t('notifications:types.badge_unlocked', { badge: resolveBadgeName(notif) });
       case 'duo_badge_unlocked':
-        return notif.body || t('notifications:types.duo_badge_unlocked', {
-          badge: notif.badge_name || t('notifications:types.aBadge'),
-        });
+        return t('notifications:types.duo_badge_unlocked', { badge: resolveBadgeName(notif) });
       default:
+        if (hasTypeKey) {
+          return t(typeKey, {
+            badge: resolveBadgeName(notif),
+            actor: notif.actor_display_name || notif.actor_username || '',
+          });
+        }
         return notif.body || t('notifications:types.default');
     }
-  }, [t]);
+  }, [t, resolveBadgeName]);
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -220,9 +219,7 @@ export function NotificationsPage() {
               display_name: notif.actor_display_name,
               avatar_url: notif.actor_avatar_url,
             };
-            const dateLabel = notif.created_at
-              ? format(parseISO(notif.created_at), "d MMM 'à' HH:mm", { locale: fr })
-              : '';
+            const dateLabel = notif.created_at ? formatDateTime(parseISO(notif.created_at)) : '';
 
             return (
               <div
