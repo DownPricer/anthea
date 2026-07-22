@@ -37,7 +37,8 @@
     "inProgress": "En cours",
     "planned": "Planifiée",
     "draft": "Brouillon",
-    "abandoned": "Abandonnée"
+    "abandoned": "Abandonnée",
+    "skipped": "Sauté"
   },
   "create": {
     "title": "Créer une séance",

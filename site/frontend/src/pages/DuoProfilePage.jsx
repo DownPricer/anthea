@@ -300,8 +300,8 @@ function DuoActivityList({ activity, loading, canView, members }) {
               key={`common-${item.date}-${idx}`}
               className="card min-w-0 overflow-visible border border-amber-500/20 p-4"
             >
-              <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2.5 py-1 text-xs font-semibold text-amber-950 mb-2 w-fit">
-                <Users size={12} strokeWidth={2.25} />
+              <p className="shared-workout-badge mb-2">
+                <Users size={14} />
                 {t('workouts:labels.sharedWorkout')}
               </p>
               <p className="text-subtle text-xs mb-3">

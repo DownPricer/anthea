@@ -375,21 +375,21 @@ export function PostCard({
       )}
 
       {isCommonSession ? (
-        <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2.5 py-1 text-xs font-semibold text-amber-950">
-          <Users size={14} className="shrink-0" strokeWidth={2.25} />
+        <span className="shared-workout-badge">
+          <Users size={14} />
           {t('workouts:labels.sharedWorkout')}
-        </div>
+        </span>
       ) : null}
 
       {snapshot && (
-        <div className={`rounded-xl bg-hover border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/35' : 'border-border'}`}>
+        <div className={`rounded-xl bg-hover border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-border'}`}>
           {isCommonSession ? (
-            <p className="text-amber-600 text-xs font-semibold uppercase tracking-wide mb-1">{t('duo:commonSession.mySession')}</p>
+            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">{t('duo:commonSession.mySession')}</p>
           ) : post.type === 'duo' && post.partner_session_snapshot ? (
-            <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2 py-0.5 text-[11px] font-semibold text-amber-950 mb-1 w-fit">
-              <Users size={12} className="shrink-0" strokeWidth={2.25} />
+            <span className="shared-workout-badge mb-1">
+              <Users size={14} />
               {t('workouts:labels.sharedWorkout')}
-            </p>
+            </span>
           ) : null}
           <button
             type="button"

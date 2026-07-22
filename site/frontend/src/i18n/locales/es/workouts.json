@@ -37,7 +37,8 @@
     "inProgress": "En curso",
     "planned": "Planificada",
     "draft": "Borrador",
-    "abandoned": "Abandonada"
+    "abandoned": "Abandonada",
+    "skipped": "Saltado"
   },
   "create": {
     "title": "Crear una sesión",

@@ -531,19 +531,6 @@ export function SettingsPage() {
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value={SECTION_IDS.notifications} className="card border-0 rounded-2xl overflow-hidden px-0">
-          <AccordionTrigger className={triggerClass} data-testid="settings-section-notifications">
-            <span className="flex items-center">
-              <SectionIcon icon={Bell} />
-              {t('sections.notifications')}
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 space-y-5">
-            <PushNotificationsCard />
-            <NotificationPrefsSection />
-          </AccordionContent>
-        </AccordionItem>
-
         <AccordionItem value={SECTION_IDS.appearance} className="card border-0 rounded-2xl overflow-hidden px-0">
           <AccordionTrigger className={triggerClass} data-testid="settings-section-appearance">
             <span className="flex items-center">
@@ -671,57 +658,6 @@ export function SettingsPage() {
           </AccordionContent>
         </AccordionItem>
 
-        <AccordionItem value={SECTION_IDS.player} className="card border-0 rounded-2xl overflow-hidden px-0">
-          <AccordionTrigger className={triggerClass} data-testid="settings-section-player">
-            <span className="flex items-center">
-              <SectionIcon icon={Play} />
-              {t('sections.player')}
-            </span>
-          </AccordionTrigger>
-          <AccordionContent className="px-4 pb-4 space-y-3">
-            <div className="flex items-center justify-between rounded-xl bg-hover p-3">
-              <div className="flex items-center gap-3">
-                <Volume2 className="text-muted" size={20} />
-                <span className="text-foreground">{t('player.tts')}</span>
-              </div>
-              <Switch
-                checked={ttsEnabled}
-                onCheckedChange={(checked) => {
-                  setTtsEnabled(checked);
-                  setPlayerDirty(true);
-                }}
-                data-testid="tts-toggle"
-              />
-            </div>
-
-            <div className="flex items-center justify-between rounded-xl bg-hover p-3">
-              <div className="flex items-center gap-3">
-                <Music className="text-muted" size={20} />
-                <div>
-                  <span className="text-foreground block">{t('player.musicMode')}</span>
-                  <span className="text-subtle text-xs">{t('player.musicModeHint')}</span>
-                </div>
-              </div>
-              <Switch
-                checked={musicMode}
-                onCheckedChange={(checked) => {
-                  setMusicMode(checked);
-                  setPlayerDirty(true);
-                }}
-                data-testid="music-mode-toggle"
-              />
-            </div>
-
-            <Button
-              onClick={handleSavePlayer}
-              disabled={savingPlayer || !playerDirty}
-              className="w-full h-11 rounded-xl btn-primary text-foreground"
-            >
-              {savingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : t('player.save')}
-            </Button>
-          </AccordionContent>
-        </AccordionItem>
-
         <AccordionItem value={SECTION_IDS.badges} className="card border-0 rounded-2xl overflow-hidden px-0">
           <AccordionTrigger className={triggerClass} data-testid="settings-section-badges">
             <span className="flex items-center">
@@ -783,6 +719,70 @@ export function SettingsPage() {
                 ) : null}
               </>
             )}
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value={SECTION_IDS.notifications} className="card border-0 rounded-2xl overflow-hidden px-0">
+          <AccordionTrigger className={triggerClass} data-testid="settings-section-notifications">
+            <span className="flex items-center">
+              <SectionIcon icon={Bell} />
+              {t('sections.notifications')}
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 space-y-5">
+            <PushNotificationsCard />
+            <NotificationPrefsSection />
+          </AccordionContent>
+        </AccordionItem>
+
+        <AccordionItem value={SECTION_IDS.player} className="card border-0 rounded-2xl overflow-hidden px-0">
+          <AccordionTrigger className={triggerClass} data-testid="settings-section-player">
+            <span className="flex items-center">
+              <SectionIcon icon={Play} />
+              {t('sections.player')}
+            </span>
+          </AccordionTrigger>
+          <AccordionContent className="px-4 pb-4 space-y-3">
+            <div className="flex items-center justify-between rounded-xl bg-hover p-3">
+              <div className="flex items-center gap-3">
+                <Volume2 className="text-muted" size={20} />
+                <span className="text-foreground">{t('player.tts')}</span>
+              </div>
+              <Switch
+                checked={ttsEnabled}
+                onCheckedChange={(checked) => {
+                  setTtsEnabled(checked);
+                  setPlayerDirty(true);
+                }}
+                data-testid="tts-toggle"
+              />
+            </div>
+
+            <div className="flex items-center justify-between rounded-xl bg-hover p-3">
+              <div className="flex items-center gap-3">
+                <Music className="text-muted" size={20} />
+                <div>
+                  <span className="text-foreground block">{t('player.musicMode')}</span>
+                  <span className="text-subtle text-xs">{t('player.musicModeHint')}</span>
+                </div>
+              </div>
+              <Switch
+                checked={musicMode}
+                onCheckedChange={(checked) => {
+                  setMusicMode(checked);
+                  setPlayerDirty(true);
+                }}
+                data-testid="music-mode-toggle"
+              />
+            </div>
+
+            <Button
+              onClick={handleSavePlayer}
+              disabled={savingPlayer || !playerDirty}
+              className="w-full h-11 rounded-xl btn-primary text-foreground"
+            >
+              {savingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : t('player.save')}
+            </Button>
           </AccordionContent>
         </AccordionItem>
 
@@ -968,6 +968,7 @@ export function SettingsPage() {
             </Button>
           </AccordionContent>
         </AccordionItem>
+
       </Accordion>
 
       <ProfileEditDialog

@@ -221,15 +221,15 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
       <div className="flex items-start gap-3">
 
-        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-amber-700/30 bg-amber-400 shrink-0">
+        <div className="shared-workout-badge-icon">
 
-          <Users className="text-amber-950" size={18} strokeWidth={2.25} />
+          <Users size={18} />
 
         </div>
 
         <div className="flex-1 min-w-0">
 
-          <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2.5 py-1 text-xs font-semibold text-amber-950">
+          <p className="shared-workout-badge shared-workout-badge--title">
 
             {t('commonSession.label')}
 

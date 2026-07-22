@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, Newspaper, Flame, Trophy } from 'lucide-react';
+import { Loader2, Newspaper, Flame } from 'lucide-react';
 import { feedApi, formatApiError } from '../../lib/api';
 import { PostCard } from './PostCard';
 import { ProfileEmptyState } from '../profile/ProfileEmptyState';
@@ -51,7 +51,7 @@ function TrendingBadge({ rank }) {
       data-testid={`trending-rank-${rank}`}
       className="inline-flex items-center gap-1 rounded-full border border-amber-600/40 bg-amber-400 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-950 shadow-sm"
     >
-      <Trophy size={12} strokeWidth={2.25} className="shrink-0" />
+      <Flame size={12} strokeWidth={2.25} className="shrink-0 text-orange-700" />
       {t('feed.topRank', { rank })}
     </span>
   );

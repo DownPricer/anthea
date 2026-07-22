@@ -37,7 +37,8 @@
     "inProgress": "In progress",
     "planned": "Scheduled",
     "draft": "Draft",
-    "abandoned": "Abandoned"
+    "abandoned": "Abandoned",
+    "skipped": "Skipped"
   },
   "create": {
     "title": "Create a workout",

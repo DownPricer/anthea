@@ -8,12 +8,6 @@ import {
 import { formatDuration } from '../../lib/userProfile';
 import { useTranslation } from 'react-i18next';
 
-const STATUS_LABELS = {
-  completed: 'Terminé',
-  skipped: 'Sauté',
-  not_done: 'Non fait',
-};
-
 function formatExerciseDetail(ex) {
   if (ex.exercise_type === 'reps' && ex.reps) return `${ex.reps} reps`;
   if (ex.duration) return formatDuration(ex.duration);
@@ -21,8 +15,16 @@ function formatExerciseDetail(ex) {
 }
 
 function SessionBlock({ title, snapshot, details, canView }) {
+  const { t } = useTranslation('workouts');
   if (!canView || !snapshot) return null;
   const exercises = details?.exercise_log || [];
+
+  const statusLabel = (status) => {
+    if (status === 'completed') return 'Terminé';
+    if (status === 'skipped') return t('status.skipped');
+    if (status === 'not_done') return 'Non fait';
+    return status;
+  };
 
   return (
     <div className="space-y-3 rounded-xl border border-border bg-hover p-3">
@@ -58,17 +60,19 @@ function SessionBlock({ title, snapshot, details, canView }) {
                   <p className="text-foreground text-sm font-medium truncate">{ex.name}</p>
                   <p className="text-subtle text-xs">{formatExerciseDetail(ex)}</p>
                 </div>
-                <span
-                  className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
-                    status === 'completed'
-                      ? 'bg-green-500/20 text-green-400'
-                      : status === 'skipped'
-                        ? 'bg-amber-500/20 text-amber-400'
+                {status === 'skipped' ? (
+                  <span className="workout-status-skipped">{statusLabel(status)}</span>
+                ) : (
+                  <span
+                    className={`text-xs px-2 py-0.5 rounded-full shrink-0 ${
+                      status === 'completed'
+                        ? 'bg-green-500/20 text-green-400'
                         : 'bg-hover text-muted'
-                  }`}
-                >
-                  {STATUS_LABELS[status] || status}
-                </span>
+                    }`}
+                  >
+                    {statusLabel(status)}
+                  </span>
+                )}
               </div>
             );
           })
