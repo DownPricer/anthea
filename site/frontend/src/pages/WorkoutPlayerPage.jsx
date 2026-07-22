@@ -1141,17 +1141,23 @@ export function WorkoutPlayerPage() {
         </DropdownMenu>
       </header>
 
-      <main className="relative flex flex-1 flex-col w-full min-h-0">
-        <div className="flex flex-1 w-full items-center justify-center px-4 py-4 md:px-8 md:py-8">
-          <div className="flex w-full max-w-2xl flex-col items-center gap-6 text-center">
+      <main className="relative flex flex-1 flex-col w-full max-w-full min-w-0 overflow-hidden min-h-0">
+        <div className="flex flex-1 w-full max-w-full min-w-0 items-center justify-center px-3 py-3 sm:px-4 sm:py-4 md:px-8 md:py-8">
+          <div
+            className="flex w-full max-w-full min-w-0 mx-auto md:max-w-2xl flex-col items-center gap-4 sm:gap-6 text-center overflow-hidden"
+            data-testid="player-exercise-stage"
+          >
               {(currentExercise?.image_url || currentExercise?.media_snapshot) && phase === 'exercise' && (
-                <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-hover aspect-video">
+                <div
+                  className="w-auto max-w-[200px] max-h-[200px] md:max-w-sm md:max-h-none mx-auto overflow-hidden rounded-2xl bg-hover md:w-full md:aspect-video"
+                  data-testid="player-exercise-gif"
+                >
                   <img
                     src={resolveExerciseMediaUrl(currentExercise.image_url || currentExercise.media_snapshot)}
                     alt={localizedCurrentName}
                     decoding="async"
                     referrerPolicy="no-referrer"
-                    className="h-full w-full object-contain"
+                    className="mx-auto h-auto max-h-[200px] w-auto max-w-[200px] object-contain md:h-full md:max-h-none md:w-full md:max-w-none"
                     onError={(e) => {
                       if (e.currentTarget.dataset.fallbackApplied === '1') return;
                       e.currentTarget.dataset.fallbackApplied = '1';
@@ -1163,7 +1169,7 @@ export function WorkoutPlayerPage() {
                 </div>
               )}
 
-              <div className="w-full space-y-2">
+              <div className="w-full max-w-full min-w-0 space-y-2 overflow-hidden">
                 {phaseLabel && (
                   <p className="inline-flex rounded-full bg-[var(--theme-surface-active)] px-4 py-1 text-sm uppercase tracking-wider text-[var(--theme-primary)]">
                     {phaseLabel}
@@ -1171,11 +1177,11 @@ export function WorkoutPlayerPage() {
                 )}
                 {phase === 'exercise' && currentExercise && (
                   <>
-                    <h1 className="text-3xl font-bold text-foreground font-['Outfit'] md:text-5xl">
+                    <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-['Outfit'] md:text-5xl break-words [overflow-wrap:anywhere] line-clamp-3">
                       {localizedCurrentName}
                     </h1>
                     {currentExercise.description && (
-                      <p className="text-muted">
+                      <p className="text-muted text-sm sm:text-base line-clamp-2 break-words [overflow-wrap:anywhere] max-w-full">
                         {getLocalizedExerciseField(currentExercise, 'description', i18n.language) ||
                           currentExercise.description}
                       </p>
@@ -1183,13 +1189,13 @@ export function WorkoutPlayerPage() {
                   </>
                 )}
                 {phase === 'countdown' && currentExercise && (
-                  <h1 className="text-2xl font-bold text-foreground font-['Outfit'] md:text-3xl">
+                  <h1 className="text-2xl font-bold text-foreground font-['Outfit'] md:text-3xl break-words [overflow-wrap:anywhere] line-clamp-2">
                     {localizedCurrentName}
                   </h1>
                 )}
               </div>
 
-              <div className="flex w-full flex-col items-center">
+              <div className="flex w-full max-w-full min-w-0 flex-col items-center">
                 {phase === 'countdown' && (
                   <div className="animate-pulse text-7xl font-mono font-bold leading-none tracking-tighter text-yellow-500 sm:text-8xl md:text-9xl">
                     {timeRemaining}
@@ -1228,18 +1234,21 @@ export function WorkoutPlayerPage() {
                 <Button
                   type="button"
                   onClick={completeCurrentExercise}
-                  className="h-16 w-full max-w-md rounded-2xl text-lg font-bold text-foreground btn-primary"
+                  className="h-12 sm:h-16 w-full max-w-md rounded-2xl text-base sm:text-lg font-bold text-foreground btn-primary"
                 >
                   {t('player:exerciseDone')}
                 </Button>
               )}
 
-              <div className="flex w-full max-w-md flex-col items-center gap-3">
-                <div className="flex items-center justify-center gap-3">
+              <div
+                className="flex w-full max-w-md min-w-0 flex-col items-center gap-2 sm:gap-3 overflow-hidden"
+                data-testid="player-controls"
+              >
+                <div className="flex flex-wrap items-center justify-center gap-2 sm:gap-3 w-full max-w-full min-w-0">
                   <button
                     type="button"
                     onClick={() => setIsPaused(!isPaused)}
-                    className="h-12 rounded-full border border-border bg-hover px-4 text-sm font-medium text-muted transition-colors hover:bg-active hover:text-foreground"
+                    className="min-h-10 min-w-10 h-10 sm:h-12 rounded-full border border-border bg-hover px-3 sm:px-4 text-xs sm:text-sm font-medium text-muted transition-colors hover:bg-active hover:text-foreground shrink-0"
                   >
                     {isPaused ? t('player:resume') : t('player:pause')}
                   </button>
@@ -1248,20 +1257,20 @@ export function WorkoutPlayerPage() {
                     type="button"
                     onClick={() => setIsPaused(!isPaused)}
                     data-testid="pause-btn"
-                    className="flex h-14 w-14 items-center justify-center rounded-full text-foreground animate-pulse-glow"
+                    className="flex h-11 w-11 sm:h-14 sm:w-14 items-center justify-center rounded-full text-foreground animate-pulse-glow shrink-0"
                     style={{
                       background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
                     }}
                     aria-label={isPaused ? t('player:resume') : t('player:pause')}
                   >
-                    {isPaused ? <Play size={26} fill="currentColor" /> : <Pause size={26} />}
+                    {isPaused ? <Play size={22} fill="currentColor" /> : <Pause size={22} />}
                   </button>
 
                   <button
                     type="button"
                     onClick={phase === 'rest' ? skipRest : skipCurrentExercise}
                     data-testid={phase === 'rest' ? 'skip-rest-btn' : 'skip-exercise-btn'}
-                    className="h-12 rounded-full border border-border-strong bg-surface-subtle px-4 text-sm font-semibold text-foreground transition-colors hover:bg-active hover:border-[var(--theme-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:pointer-events-none"
+                    className="min-h-10 min-w-10 h-10 sm:h-12 rounded-full border border-border-strong bg-surface-subtle px-3 sm:px-4 text-xs sm:text-sm font-semibold text-foreground transition-colors hover:bg-active hover:border-[var(--theme-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:pointer-events-none shrink-0"
                   >
                     {phase === 'rest' ? t('player:skipRest') : t('player:skipExercise')}
                   </button>
@@ -1271,7 +1280,7 @@ export function WorkoutPlayerPage() {
                   <button
                     type="button"
                     onClick={() => addTime(15)}
-                    className="flex items-center gap-1.5 text-sm text-subtle transition-colors hover:text-muted"
+                    className="flex min-h-10 items-center gap-1.5 px-2 text-sm text-subtle transition-colors hover:text-muted"
                   >
                     <Plus size={14} />
                     {t('player:add15')}

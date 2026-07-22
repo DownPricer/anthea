@@ -167,6 +167,7 @@ describe('WorkoutPlayer legacy media (source)', () => {
     expect(src).toContain('object-contain');
     expect(src).toContain('getLocalizedExerciseField');
     expect(src).toContain('resolveExerciseMediaUrl');
+    expect(src).toContain('max-w-[200px]');
   });
 });
 
