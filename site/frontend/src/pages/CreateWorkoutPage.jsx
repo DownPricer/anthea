@@ -12,6 +12,10 @@ import {
   ExerciseMediaThumb,
   exerciseSecondaryLabel,
 } from '../components/exercises/ExerciseMediaThumb';
+import {
+  getLocalizedExerciseField,
+  buildExerciseNameI18nSnapshot,
+} from '../lib/exerciseLocale';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -380,11 +384,14 @@ export function CreateWorkoutPage() {
 
   const addExerciseToBlock = (exercise) => {
     if (currentBlockIndex === null) return;
+    const locale = (i18n?.language || 'fr').split('-')[0];
+    const localizedName = getLocalizedExerciseField(exercise, 'name', locale);
+    const localizedDescription = getLocalizedExerciseField(exercise, 'description', locale);
 
     const newExercise = {
       exercise_id: exercise.id,
-      name: exercise.name,
-      description: exercise.description,
+      name: localizedName,
+      description: localizedDescription,
       exercise_type: exercise.exercise_type,
       duration: exercise.default_duration,
       reps: exercise.default_reps,
@@ -392,7 +399,8 @@ export function CreateWorkoutPage() {
       order: blocks[currentBlockIndex].exercises.length,
       tts_enabled: true,
       image_url: exercise.image_url,
-      exercise_name_snapshot: exercise.name,
+      exercise_name_snapshot: localizedName,
+      exercise_name_i18n_snapshot: buildExerciseNameI18nSnapshot(exercise),
       media_snapshot: exercise.image_url || null,
       tracking_type_snapshot: exercise.tracking_type || exercise.exercise_type || 'reps',
     };
@@ -1610,9 +1618,18 @@ export function CreateWorkoutPage() {
                                       className="w-16 h-16"
                                     />
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-foreground font-medium truncate">{exercise.name}</p>
-                                      {exercise.description ? (
-                                        <p className="text-subtle text-sm line-clamp-2">{exercise.description}</p>
+                                      <p className="text-foreground font-medium truncate">
+                                        {getLocalizedExerciseField(exercise, 'name', i18n.language)}
+                                        {exercise.source_kind === 'custom' || exercise.legacy_label ? (
+                                          <span className="ml-2 text-[10px] uppercase tracking-wide text-subtle">
+                                            {t('workouts:create.customBadge')}
+                                          </span>
+                                        ) : null}
+                                      </p>
+                                      {getLocalizedExerciseField(exercise, 'description', i18n.language) ? (
+                                        <p className="text-subtle text-sm line-clamp-2">
+                                          {getLocalizedExerciseField(exercise, 'description', i18n.language)}
+                                        </p>
                                       ) : null}
                                       <p className="text-subtle text-xs mt-0.5 truncate">
                                         {exerciseSecondaryLabel(exercise) || (

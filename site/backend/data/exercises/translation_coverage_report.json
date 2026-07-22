@@ -1,0 +1,239 @@
+{
+  "total": 1320,
+  "names": {
+    "en": 1320,
+    "fr": 1320,
+    "es": 1320
+  },
+  "descriptions": {
+    "en": 1320,
+    "fr": 1320,
+    "es": 1320
+  },
+  "search_text": 1320,
+  "partial_translations": 0,
+  "missing_translations": [],
+  "qa_samples": [
+    {
+      "query": "push-up",
+      "found": true,
+      "id": "exdb_I4hDWkc",
+      "en": "push-up",
+      "fr": "Pompes",
+      "es": "Flexiones",
+      "description_en": "A bodyweight exercise primarily targeting the chest.",
+      "description_fr": "Exercice au poids du corps ciblant principalement les pectoraux.",
+      "description_es": "Ejercicio con el peso corporal que trabaja principalmente el pecho."
+    },
+    {
+      "query": "pull-up",
+      "found": true,
+      "id": "exdb_lBDjFxJ",
+      "en": "pull-up",
+      "fr": "Tractions",
+      "es": "Dominadas",
+      "description_en": "A bodyweight exercise primarily targeting the back.",
+      "description_fr": "Exercice au poids du corps ciblant principalement le dos.",
+      "description_es": "Ejercicio con el peso corporal que trabaja principalmente la espalda."
+    },
+    {
+      "query": "bench press",
+      "found": true,
+      "id": "exdb_EIeI8Vf",
+      "en": "barbell bench press",
+      "fr": "Développé couché à la barre",
+      "es": "Press de banca con barra",
+      "description_en": "A strength exercise performed with barbell, primarily targeting the chest.",
+      "description_fr": "Exercice de musculation réalisé avec barre, ciblant principalement les pectoraux.",
+      "description_es": "Ejercicio de fuerza realizado con barra, que trabaja principalmente el pecho."
+    },
+    {
+      "query": "incline dumbbell press",
+      "found": true,
+      "id": "exdb_ns0SIbU",
+      "en": "dumbbell incline bench press",
+      "fr": "Développé incliné haltères",
+      "es": "Press inclinado con mancuernas",
+      "description_en": "A strength exercise performed with dumbbells, primarily targeting the chest.",
+      "description_fr": "Exercice de musculation réalisé avec haltères, ciblant principalement les pectoraux.",
+      "description_es": "Ejercicio de fuerza realizado con mancuernas, que trabaja principalmente el pecho."
+    },
+    {
+      "query": "barbell squat",
+      "found": true,
+      "id": "exdb_oR7O9LW",
+      "en": "barbell squat (on knees)",
+      "fr": "Squat à genoux à la barre",
+      "es": "Sentadilla de rodillas con barra",
+      "description_en": "A strength exercise performed with barbell, primarily targeting the quadriceps.",
+      "description_fr": "Exercice de musculation réalisé avec barre, ciblant principalement les quadriceps.",
+      "description_es": "Ejercicio de fuerza realizado con barra, que trabaja principalmente los cuádriceps."
+    },
+    {
+      "query": "romanian deadlift",
+      "found": true,
+      "id": "exdb_wQ2c4XD",
+      "en": "barbell romanian deadlift",
+      "fr": "Soulevé de terre roumain à la barre",
+      "es": "Peso muerto rumano con barra",
+      "description_en": "A strength exercise performed with barbell, primarily targeting the glutes.",
+      "description_fr": "Exercice de musculation réalisé avec barre, ciblant principalement les fessiers.",
+      "description_es": "Ejercicio de fuerza realizado con barra, que trabaja principalmente los glúteos."
+    },
+    {
+      "query": "leg press",
+      "found": true,
+      "id": "exdb_V07qpXy",
+      "en": "lever alternate leg press",
+      "fr": "Presse à cuisses alternée",
+      "es": "Prensa de piernas alterna",
+      "description_en": "A strength exercise performed with leg press machine, primarily targeting the quadriceps.",
+      "description_fr": "Exercice de musculation réalisé avec presse à cuisses, ciblant principalement les quadriceps.",
+      "description_es": "Ejercicio de fuerza realizado con prensa de piernas, que trabaja principalmente los cuádriceps."
+    },
+    {
+      "query": "leg extension",
+      "found": true,
+      "id": "exdb_my33uHU",
+      "en": "lever leg extension",
+      "fr": "Extension des jambes à la machine",
+      "es": "Extensión de piernas en máquina",
+      "description_en": "A strength exercise performed with leg extension machine, primarily targeting the quadriceps.",
+      "description_fr": "Exercice de musculation réalisé avec extension des jambes, ciblant principalement les quadriceps.",
+      "description_es": "Ejercicio de fuerza realizado con extensión de piernas, que trabaja principalmente los cuádriceps."
+    },
+    {
+      "query": "lat pulldown",
+      "found": true,
+      "id": "exdb_ecpY0rH",
+      "en": "reverse grip machine lat pulldown",
+      "fr": "Tirage vertical prise inversée",
+      "es": "Jalón al pecho agarre inverso",
+      "description_en": "A strength exercise performed with lat pulldown machine, primarily targeting the back.",
+      "description_fr": "Exercice de musculation réalisé avec tirage vertical, ciblant principalement le dos.",
+      "description_es": "Ejercicio de fuerza realizado con jalón al pecho, que trabaja principalmente la espalda."
+    },
+    {
+      "query": "seated row",
+      "found": true,
+      "id": "exdb_fUBheHs",
+      "en": "cable seated row",
+      "fr": "Tirage horizontal assis à la poulie",
+      "es": "Remo sentado en polea",
+      "description_en": "A strength exercise performed with seated row machine, cable, primarily targeting the back.",
+      "description_fr": "Exercice de musculation réalisé avec tirage horizontal, poulie, ciblant principalement le dos.",
+      "description_es": "Ejercicio de fuerza realizado con remo sentado, polea, que trabaja principalmente la espalda."
+    },
+    {
+      "query": "cable lateral raise",
+      "found": true,
+      "id": "exdb_goJ6ezq",
+      "en": "cable lateral raise",
+      "fr": "Élévations latérales à la poulie",
+      "es": "Elevaciones laterales en polea",
+      "description_en": "A strength exercise performed with cable, primarily targeting the shoulders.",
+      "description_fr": "Exercice de musculation réalisé avec poulie, ciblant principalement les épaules.",
+      "description_es": "Ejercicio de fuerza realizado con polea, que trabaja principalmente los hombros."
+    },
+    {
+      "query": "dumbbell biceps curl",
+      "found": true,
+      "id": "exdb_NbVPDMW",
+      "en": "dumbbell biceps curl",
+      "fr": "Curl biceps haltères",
+      "es": "Curl de bíceps con mancuernas",
+      "description_en": "A strength exercise performed with dumbbells, primarily targeting the biceps.",
+      "description_fr": "Exercice de musculation réalisé avec haltères, ciblant principalement les biceps.",
+      "description_es": "Ejercicio de fuerza realizado con mancuernas, que trabaja principalmente los bíceps."
+    },
+    {
+      "query": "triceps pushdown",
+      "found": true,
+      "id": "exdb_gAwDzB3",
+      "en": "cable triceps pushdown (v-bar)",
+      "fr": "Pushdown triceps barre en V",
+      "es": "Pushdown de tríceps con barra en V",
+      "description_en": "A strength exercise performed with cable, primarily targeting the triceps.",
+      "description_fr": "Exercice de musculation réalisé avec poulie, ciblant principalement les triceps.",
+      "description_es": "Ejercicio de fuerza realizado con polea, que trabaja principalmente los tríceps."
+    },
+    {
+      "query": "hip thrust",
+      "found": true,
+      "id": "exdb_Pjbc0Kt",
+      "en": "resistance band hip thrusts on knees",
+      "fr": "Hip thrust à genoux à l'élastique",
+      "es": "Empuje de cadera de rodillas con banda",
+      "description_en": "A strength exercise performed with resistance band, primarily targeting the glutes.",
+      "description_fr": "Exercice de musculation réalisé avec élastique, ciblant principalement les fessiers.",
+      "description_es": "Ejercicio de fuerza realizado con banda elástica, que trabaja principalmente los glúteos."
+    },
+    {
+      "query": "glute bridge",
+      "found": true,
+      "id": "exdb_qKBpF7I",
+      "en": "barbell glute bridge",
+      "fr": "Pont fessier à la barre",
+      "es": "Puente de glúteos con barra",
+      "description_en": "A strength exercise performed with barbell, primarily targeting the glutes.",
+      "description_fr": "Exercice de musculation réalisé avec barre, ciblant principalement les fessiers.",
+      "description_es": "Ejercicio de fuerza realizado con barra, que trabaja principalmente los glúteos."
+    },
+    {
+      "query": "plank",
+      "found": true,
+      "id": "exdb_CosupLu",
+      "en": "front plank with twist",
+      "fr": "Planche avec rotation",
+      "es": "Plancha con rotación",
+      "description_en": "A bodyweight exercise primarily targeting the abdominals.",
+      "description_fr": "Exercice au poids du corps ciblant principalement les abdominaux.",
+      "description_es": "Ejercicio con el peso corporal que trabaja principalmente los abdominales."
+    },
+    {
+      "query": "crunch",
+      "found": true,
+      "id": "exdb_TFqbd8t",
+      "en": "crunch floor",
+      "fr": "Crunch au sol",
+      "es": "Abdominal corto en el suelo",
+      "description_en": "A bodyweight exercise primarily targeting the abdominals.",
+      "description_fr": "Exercice au poids du corps ciblant principalement les abdominaux.",
+      "description_es": "Ejercicio con el peso corporal que trabaja principalmente los abdominales."
+    },
+    {
+      "query": "calf raise",
+      "found": true,
+      "id": "exdb_bOOdeyc",
+      "en": "lever seated calf raise",
+      "fr": "Mollets assis à la machine",
+      "es": "Gemelos sentado en máquina",
+      "description_en": "A strength exercise performed with calf raise machine, primarily targeting the calves.",
+      "description_fr": "Exercice de musculation réalisé avec machine mollets, ciblant principalement les mollets.",
+      "description_es": "Ejercicio de fuerza realizado con máquina de gemelos, que trabaja principalmente los gemelos."
+    },
+    {
+      "query": "hamstring stretch",
+      "found": true,
+      "id": "exdb_99rWm7w",
+      "en": "hamstring stretch",
+      "fr": "Étirement des ischio-jambiers",
+      "es": "Estiramiento de isquiotibiales",
+      "description_en": "A stretching exercise primarily targeting the hamstrings.",
+      "description_fr": "Étirement ciblant principalement les ischio-jambiers.",
+      "description_es": "Estiramiento dirigido principalmente a los isquiotibiales."
+    },
+    {
+      "query": "smith machine squat",
+      "found": true,
+      "id": "exdb_jFtipLl",
+      "en": "smith squat",
+      "fr": "Squat smith machine",
+      "es": "Sentadilla en smith",
+      "description_en": "A strength exercise performed with Smith machine, primarily targeting the glutes.",
+      "description_fr": "Exercice de musculation réalisé avec smith machine, ciblant principalement les fessiers.",
+      "description_es": "Ejercicio de fuerza realizado con máquina Smith, que trabaja principalmente los glúteos."
+    }
+  ],
+  "generated_at": "2026-07-22T22:17:00.789200+00:00"
+}

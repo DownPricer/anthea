@@ -64,13 +64,23 @@ export function ExerciseMediaThumb({
 export function exerciseSecondaryLabel(exercise) {
   if (exercise?.secondary_label) return exercise.secondary_label;
   const bits = [];
-  if (Array.isArray(exercise?.equipment) && exercise.equipment.length) {
-    bits.push(exercise.equipment.slice(0, 2).join(', '));
+  const equip =
+    (Array.isArray(exercise?.equipment_labels) && exercise.equipment_labels.length
+      ? exercise.equipment_labels
+      : null) ||
+    (Array.isArray(exercise?.equipment) ? exercise.equipment : null);
+  if (equip && equip.length) {
+    bits.push(equip.slice(0, 2).join(', '));
   } else if (exercise?.category) {
     bits.push(exercise.category);
   }
-  if (Array.isArray(exercise?.primary_muscles) && exercise.primary_muscles.length) {
-    bits.push(exercise.primary_muscles.slice(0, 2).join(', '));
+  const muscles =
+    (Array.isArray(exercise?.muscle_labels) && exercise.muscle_labels.length
+      ? exercise.muscle_labels
+      : null) ||
+    (Array.isArray(exercise?.primary_muscles) ? exercise.primary_muscles : null);
+  if (muscles && muscles.length) {
+    bits.push(muscles.slice(0, 2).join(', '));
   }
   return bits.join(' · ') || null;
 }

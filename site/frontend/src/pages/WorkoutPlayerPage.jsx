@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, sessionsApi, streakApi, partnerApi } from '../lib/api';
 import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
+import { getLocalizedExerciseField } from '../lib/exerciseLocale';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { estimateCalories, formatCalories } from '../lib/calories';
 import { playShortBeep, vibrateShort } from '../lib/workoutFeedback';
@@ -12,6 +13,7 @@ import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Slider } from '../components/ui/slider';
 import { Textarea } from '../components/ui/textarea';
+import { useTranslation } from 'react-i18next';
 import {
   Dialog,
   DialogContent,
@@ -43,7 +45,6 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
 
 export function WorkoutPlayerPage() {
   const { t, i18n } = useTranslation(['player', 'common']);
@@ -106,6 +107,9 @@ export function WorkoutPlayerPage() {
 
   const allExercises = getAllExercises();
   const currentExercise = allExercises[currentExerciseIndex];
+  const localizedCurrentName = currentExercise
+    ? getLocalizedExerciseField(currentExercise, 'name', i18n.language)
+    : '';
   const totalExercises = allExercises.length;
   const progress = totalExercises > 0 ? ((exercisesCompleted / totalExercises) * 100) : 0;
   const completedCount = Object.values(exerciseOutcomes).filter((v) => v === 'completed').length;
@@ -345,7 +349,7 @@ export function WorkoutPlayerPage() {
     }
 
     if (currentExercise.tts_enabled) {
-      speak(currentExercise.name);
+      speak(localizedCurrentName || currentExercise.name);
     }
   };
 
@@ -916,17 +920,21 @@ export function WorkoutPlayerPage() {
               <div className="w-full h-32 rounded-xl overflow-hidden mb-4 bg-hover">
                 <img 
                   src={resolveExerciseMediaUrl(currentExercise.image_url || currentExercise.media_snapshot)} 
-                  alt={currentExercise.name || currentExercise.exercise_name_snapshot || ''}
+                  alt={localizedCurrentName}
                   loading="lazy"
                   decoding="async"
                   referrerPolicy="no-referrer"
                   className="w-full h-full object-contain"
-                  onError={(e) => { e.target.style.display = 'none'; }}
+                  onError={(e) => {
+                    if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                    e.currentTarget.dataset.fallbackApplied = '1';
+                    e.currentTarget.style.display = 'none';
+                  }}
                 />
               </div>
             )}
             <p className="text-subtle text-sm uppercase tracking-wider mb-2">{t('player:firstExercise')}</p>
-            <h2 className="text-xl font-bold text-foreground">{currentExercise.name || currentExercise.exercise_name_snapshot}</h2>
+            <h2 className="text-xl font-bold text-foreground">{localizedCurrentName}</h2>
             {currentExercise.description && (
               <p className="text-muted text-sm mt-1">{currentExercise.description}</p>
             )}
@@ -1140,12 +1148,16 @@ export function WorkoutPlayerPage() {
                 <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-hover aspect-video">
                   <img
                     src={resolveExerciseMediaUrl(currentExercise.image_url || currentExercise.media_snapshot)}
-                    alt={currentExercise.name || currentExercise.exercise_name_snapshot || ''}
+                    alt={localizedCurrentName}
                     decoding="async"
                     referrerPolicy="no-referrer"
                     className="h-full w-full object-contain"
                     onError={(e) => {
-                      e.target.parentElement.style.display = 'none';
+                      if (e.currentTarget.dataset.fallbackApplied === '1') return;
+                      e.currentTarget.dataset.fallbackApplied = '1';
+                      if (e.currentTarget.parentElement) {
+                        e.currentTarget.parentElement.style.display = 'none';
+                      }
                     }}
                   />
                 </div>
@@ -1160,16 +1172,19 @@ export function WorkoutPlayerPage() {
                 {phase === 'exercise' && currentExercise && (
                   <>
                     <h1 className="text-3xl font-bold text-foreground font-['Outfit'] md:text-5xl">
-                      {currentExercise.name}
+                      {localizedCurrentName}
                     </h1>
                     {currentExercise.description && (
-                      <p className="text-muted">{currentExercise.description}</p>
+                      <p className="text-muted">
+                        {getLocalizedExerciseField(currentExercise, 'description', i18n.language) ||
+                          currentExercise.description}
+                      </p>
                     )}
                   </>
                 )}
                 {phase === 'countdown' && currentExercise && (
                   <h1 className="text-2xl font-bold text-foreground font-['Outfit'] md:text-3xl">
-                    {currentExercise.name}
+                    {localizedCurrentName}
                   </h1>
                 )}
               </div>

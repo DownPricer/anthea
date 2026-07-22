@@ -35,13 +35,35 @@ def build_search_text(doc: Dict[str, Any]) -> str:
     desc = doc.get("short_description") or {}
     if isinstance(desc, dict):
         parts.extend([str(v) for v in desc.values() if v])
-    parts.extend(doc.get("aliases") or [])
+    aliases = doc.get("aliases") or []
+    if isinstance(aliases, dict):
+        for values in aliases.values():
+            if isinstance(values, list):
+                parts.extend([str(v) for v in values if v])
+            elif values:
+                parts.append(str(values))
+    elif isinstance(aliases, list):
+        parts.extend([str(v) for v in aliases if v])
+    if doc.get("provider_name"):
+        parts.append(str(doc.get("provider_name")))
     parts.extend(doc.get("equipment") or [])
     parts.extend(doc.get("primary_muscles") or [])
     parts.extend(doc.get("secondary_muscles") or [])
     parts.append(doc.get("category") or "")
     parts.append(doc.get("sport") or "")
     parts.append(doc.get("equipment_raw") or "")
+    try:
+        from .translations.engine import translate_label
+
+        for lang in ("en", "fr", "es"):
+            for eq in doc.get("equipment") or []:
+                parts.append(translate_label("equipment", eq, lang))
+            for m in doc.get("primary_muscles") or []:
+                parts.append(translate_label("muscles", m, lang))
+            for m in doc.get("secondary_muscles") or []:
+                parts.append(translate_label("muscles", m, lang))
+    except Exception:
+        pass
     return fold_text(" ".join(parts))
 
 
@@ -68,19 +90,35 @@ def catalog_to_legacy_response(doc: Dict[str, Any], locale: str = "fr") -> Dict[
     tracking = doc.get("tracking_type") or "reps_weight"
     exercise_type = tracking_to_exercise_type(tracking)
     media = doc.get("media") or {}
-    name = localized_text(doc.get("name"), locale) or doc.get("id") or "Exercise"
+    name_obj = doc.get("name") if isinstance(doc.get("name"), dict) else {}
+    name = localized_text(doc.get("name"), locale) or doc.get("provider_name") or doc.get("id") or "Exercise"
     description = localized_text(doc.get("short_description"), locale)
     equipment = doc.get("equipment") or []
     muscles = doc.get("primary_muscles") or []
+    lang = (locale or "fr").split("-")[0].lower()
+    try:
+        from .translations.engine import translate_label
+
+        equip_labels = [translate_label("equipment", e, lang) for e in equipment[:2]]
+        muscle_labels = [translate_label("muscles", m, lang) for m in muscles[:2]]
+    except Exception:
+        equip_labels = equipment[:2]
+        muscle_labels = muscles[:2]
     secondary_bits = []
-    if equipment:
-        secondary_bits.append(", ".join(equipment[:2]))
-    if muscles:
-        secondary_bits.append(", ".join(muscles[:2]))
+    if equip_labels:
+        secondary_bits.append(", ".join(equip_labels))
+    if muscle_labels:
+        secondary_bits.append(", ".join(muscle_labels))
     return {
         "id": doc.get("id"),
         "name": name,
+        "name_i18n": {
+            "en": (name_obj.get("en") if isinstance(name_obj, dict) else None) or doc.get("provider_name"),
+            "fr": (name_obj.get("fr") if isinstance(name_obj, dict) else None),
+            "es": (name_obj.get("es") if isinstance(name_obj, dict) else None),
+        },
         "description": description,
+        "description_i18n": doc.get("short_description") if isinstance(doc.get("short_description"), dict) else None,
         "category": doc.get("category") or "general",
         "exercise_type": exercise_type,
         "tracking_type": tracking,
@@ -92,9 +130,12 @@ def catalog_to_legacy_response(doc: Dict[str, Any], locale: str = "fr") -> Dict[
         "is_system": True,
         "user_id": None,
         "provider": doc.get("provider"),
+        "provider_name": doc.get("provider_name"),
         "sport": doc.get("sport"),
         "equipment": equipment,
+        "equipment_labels": equip_labels,
         "primary_muscles": muscles,
+        "muscle_labels": muscle_labels,
         "body_part": doc.get("body_part"),
         "media_status": (media.get("status") or "missing"),
         "secondary_label": " · ".join(secondary_bits) if secondary_bits else None,
@@ -110,6 +151,7 @@ def workout_snapshot_from_catalog(doc: Dict[str, Any], locale: str = "fr") -> Di
     return {
         "exercise_id": legacy["id"],
         "exercise_name_snapshot": legacy["name"],
+        "exercise_name_i18n_snapshot": legacy.get("name_i18n"),
         "media_snapshot": media.get("url"),
         "tracking_type_snapshot": doc.get("tracking_type") or "reps_weight",
         "name": legacy["name"],

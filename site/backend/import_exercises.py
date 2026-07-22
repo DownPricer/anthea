@@ -367,27 +367,35 @@ def main(argv: Optional[List[str]] = None) -> int:
         dry = bool(args.dry_run) or not args.apply
         if not args.dry_run and not args.apply:
             dry = True
-        # Also support offline report generation without Mongo via --coverage style
+        mongo_ok = False
+        client = None
+        db = None
         try:
             client, db = get_sync_db(server_selection_timeout_ms=4000)
+            client.admin.command("ping")
+            mongo_ok = True
         except Exception:
-            # Offline: generate translations against fixture/provider dump for report only
+            mongo_ok = False
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+                client = None
+
+        if not mongo_ok:
             from exercises.providers import get_provider
-            from exercises.translations.apply import build_translation_coverage
+            from exercises.translations.apply import build_translation_coverage, localize_document
 
             provider = get_provider(args.provider, fixture_path=args.fixture)
             docs = collect_normalized(provider, build_report_skeleton(provider.name))
-            # Apply translations in-memory
-            from exercises.translations.apply import localize_document
-
             localized = [localize_document(d) for d in docs]
             coverage = build_translation_coverage(localized)
-            if not dry:
-                DATA_DIR.mkdir(parents=True, exist_ok=True)
-                TRANSLATION_COVERAGE_PATH.write_text(
-                    json.dumps(coverage, indent=2, ensure_ascii=False), encoding="utf-8"
-                )
-            print(json.dumps(coverage, indent=2, ensure_ascii=False))
+            DATA_DIR.mkdir(parents=True, exist_ok=True)
+            TRANSLATION_COVERAGE_PATH.write_text(
+                json.dumps(coverage, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
+            print(json.dumps({"mode": "offline", "dry_run": dry, "coverage": coverage}, indent=2, ensure_ascii=False))
             return 0
 
         try:

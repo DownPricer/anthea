@@ -131,6 +131,7 @@
       "library": "Library",
       "newExercise": "New exercise"
     },
+    "customBadge": "Custom exercise",
     "loadingMore": "Loading…",
     "filters": {
       "toggle": "Filters",
