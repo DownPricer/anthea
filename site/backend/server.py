@@ -73,7 +73,6 @@ from exercises.api import (
     admin_set_enabled,
     bootstrap_exercise_catalog,
     create_exercise_handler,
-    custom_creation_enabled,
     delete_exercise_handler,
     facets_handler,
     get_exercise_handler,
@@ -81,6 +80,7 @@ from exercises.api import (
     media_handler,
     update_exercise_handler,
 )
+from exercises.legacy import build_legacy_map_from_system_exercises
 from exercises.resolve import resolve_exercise_reference
 
 # MongoDB connection
@@ -3810,6 +3810,13 @@ async def resolve_exercise(
     user: dict = Depends(get_current_user),
 ):
     return await resolve_exercise_reference(db, exercise_id, locale=locale or "fr")
+
+
+@api_router.post("/exercises/admin/rebuild-legacy-map")
+async def rebuild_legacy_exercise_map(user: dict = Depends(get_current_user)):
+    if not user.get("is_admin") and user.get("role") not in ("admin", "coach_admin"):
+        raise HTTPException(status_code=403, detail="Admin only")
+    return await build_legacy_map_from_system_exercises(db)
 
 # ============ WORKOUT TEMPLATE ROUTES ============
 

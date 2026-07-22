@@ -1472,7 +1472,7 @@ export function CreateWorkoutPage() {
                               : t('workouts:create.dialog.chooseExercise')}
                           </DialogTitle>
                         </DialogHeader>
-                        {customCreationEnabled ? (
+                        {customCreationEnabled || editingExerciseId ? (
                           <div className="grid grid-cols-2 gap-2 rounded-xl bg-background p-1">
                             <button
                               type="button"
@@ -1485,26 +1485,36 @@ export function CreateWorkoutPage() {
                             >
                               {t('workouts:create.dialog.library')}
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setEditingExerciseId(null);
-                                setNewExercise(DEFAULT_NEW_EXERCISE);
-                                setExerciseTab('create');
-                              }}
-                              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                                exerciseTab === 'create'
-                                  ? 'bg-[var(--theme-primary)] text-foreground'
-                                  : 'text-muted hover:bg-hover'
-                              }`}
-                            >
-                              {t('workouts:create.dialog.newExercise')}
-                            </button>
+                            {customCreationEnabled ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingExerciseId(null);
+                                  setNewExercise(DEFAULT_NEW_EXERCISE);
+                                  setExerciseTab('create');
+                                }}
+                                className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                  exerciseTab === 'create'
+                                    ? 'bg-[var(--theme-primary)] text-foreground'
+                                    : 'text-muted hover:bg-hover'
+                                }`}
+                              >
+                                {t('workouts:create.dialog.newExercise')}
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                disabled
+                                className="rounded-lg px-3 py-2 text-sm font-medium text-subtle"
+                              >
+                                {t('workouts:create.dialog.editExercise')}
+                              </button>
+                            )}
                           </div>
                         ) : null}
                       </div>
 
-                      {exerciseTab === 'library' || !customCreationEnabled ? (
+                      {exerciseTab === 'library' ? (
                         <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
                           <div className="relative shrink-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" size={18} />
@@ -1619,7 +1629,7 @@ export function CreateWorkoutPage() {
                                       </p>
                                     </div>
                                   </button>
-                                  {!exercise.is_system && customCreationEnabled ? (
+                                  {!exercise.is_system ? (
                                     <Button
                                       type="button"
                                       variant="ghost"
