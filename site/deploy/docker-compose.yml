@@ -26,6 +26,11 @@ services:
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?set VAPID_PUBLIC_KEY in .env}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?set VAPID_PRIVATE_KEY in .env}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-https://anthea.sitereadyshd.fr}
+      EXERCISE_PROVIDER: ${EXERCISE_PROVIDER:-exercisedb}
+      EXERCISE_PROVIDER_BASE_URL: ${EXERCISE_PROVIDER_BASE_URL:-https://oss.exercisedb.dev/api/v1}
+      EXERCISE_PROVIDER_API_KEY: ${EXERCISE_PROVIDER_API_KEY:-}
+      EXERCISE_MEDIA_MODE: ${EXERCISE_MEDIA_MODE:-remote}
+      EXERCISE_CUSTOM_CREATION_ENABLED: ${EXERCISE_CUSTOM_CREATION_ENABLED:-false}
     volumes:
       - ../backend/uploads:/app/uploads
     depends_on:
