@@ -108,7 +108,16 @@
     "totalTime": "Total time",
     "fatigueBefore": "Fatigue before",
     "exercisesLabel": "exercises",
-    "duoScope": "Duo"
+    "duoScope": "Duo",
+    "currentDuoStreak": "Current duo streak",
+    "bestDuoStreak": "Best duo streak",
+    "personalCurrentStreak": "Personal current streak",
+    "personalBestStreak": "Personal best streak",
+    "partnerCurrentStreak": "Partner current streak",
+    "partnerBestStreak": "Partner best streak",
+    "activeDays": "Active days",
+    "lastSharedWorkout": "Last shared workout",
+    "lastSession": "Last session"
   },
   "session": {
     "defaultTitle": "Workout",

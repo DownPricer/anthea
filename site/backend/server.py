@@ -6057,6 +6057,7 @@ async def get_duo_stats(user: dict = Depends(get_current_user)):
         "duo_streak_current": together.get("duo_streak_current", 0),
         "duo_streak_best": together.get("duo_streak_best", 0),
         "total_training_time_together": together.get("total_training_time_together", 0),
+        "training_days_together": together.get("training_days_together", 0),
         "estimated_calories": together.get("estimated_calories", 0),
         "last_common_session": together.get("last_common_session"),
         "challenges_completed": together.get("challenges_completed", 0),
@@ -6282,7 +6283,45 @@ async def get_detailed_stats(
     
     # Get user info
     stats_user = await db.users.find_one({"_id": ObjectId(stats_user_id)})
-    
+
+    # Streaks personnels (réutilisent calculate_streak / calendrier existants)
+    streak_partner_id = None
+    if str(stats_user_id) == str(user["id"]):
+        streak_partner_id = user.get("partner_id")
+    elif user.get("partner_id") and str(stats_user_id) == str(user["partner_id"]):
+        streak_partner_id = user["id"]
+    elif stats_user:
+        streak_partner_id = stats_user.get("partner_id")
+
+    current_streak = await calculate_streak(stats_user_id, streak_partner_id)
+    cal_end = today.date()
+    cal_start = cal_end - timedelta(days=730)
+    calendar_days = await build_streak_calendar(
+        stats_user_id,
+        streak_partner_id,
+        cal_start.isoformat(),
+        cal_end.isoformat(),
+    )
+    best_streak = compute_best_streak_from_calendar(calendar_days)
+
+    completed_days = {
+        (s.get("created_at") or "")[:10]
+        for s in completed
+        if (s.get("created_at") or "")[:10]
+    }
+    active_days_count = len(completed_days)
+
+    last_session = None
+    if completed:
+        last = completed[0]
+        last_session = {
+            "id": str(last["_id"]) if "_id" in last else last.get("id"),
+            "workout_title": last.get("workout_title"),
+            "created_at": last.get("created_at"),
+            "total_time": last.get("total_time"),
+            "status": last.get("status"),
+        }
+
     return {
         "user": {
             "id": stats_user_id,
@@ -6303,6 +6342,9 @@ async def get_detailed_stats(
             "total_calories": total_calories,
             "week_calories": week_calories,
             "month_calories": month_calories,
+            "current_streak": current_streak,
+            "best_streak": best_streak,
+            "active_days": active_days_count,
         },
         "averages": {
             "fatigue_before": avg_fatigue_before,
@@ -6311,7 +6353,11 @@ async def get_detailed_stats(
         },
         "daily_stats": daily_stats,
         "weekly_stats": weekly_stats,
-        "recent_sessions": recent_sessions
+        "recent_sessions": recent_sessions,
+        "last_session": last_session,
+        "current_streak": current_streak,
+        "best_streak": best_streak,
+        "active_days": active_days_count,
     }
 
 # ============ STREAK DAY ROUTES ============

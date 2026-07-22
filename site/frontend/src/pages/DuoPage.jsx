@@ -14,6 +14,7 @@ import { getBadgeDisplayName } from '../lib/featuredBadges';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CollapsibleAnnualAgenda } from '../components/agenda/CollapsibleAnnualAgenda';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
+import { DuoCompactStatCard } from '../components/duo/DuoCompactStatCard';
 import {
   DuoHeaderSkeleton,
   DuoStatsCardsSkeleton,
@@ -150,9 +151,21 @@ function normalizeStatsView(payload) {
   const totalTimeSec = Number(summary?.total_time ?? 0) || 0;
   const totalCalories = summary?.total_calories;
 
-  const activeDays = Array.isArray(daily)
+  const activeDaysFromSummary = Number.isFinite(Number(summary?.active_days))
+    ? Number(summary.active_days)
+    : null;
+  const activeDaysFromDaily = Array.isArray(daily)
     ? daily.filter((d) => (Number(d?.count ?? 0) || 0) > 0).length
     : 0;
+  const activeDays = activeDaysFromSummary != null ? activeDaysFromSummary : activeDaysFromDaily;
+
+  const currentStreak = Number.isFinite(Number(payload.current_streak ?? summary?.current_streak))
+    ? Number(payload.current_streak ?? summary?.current_streak)
+    : null;
+  const bestStreak = Number.isFinite(Number(payload.best_streak ?? summary?.best_streak))
+    ? Number(payload.best_streak ?? summary?.best_streak)
+    : null;
+  const lastSession = payload.last_session || payload?.data?.last_session || recent?.[0] || null;
 
   return {
     ...base,
@@ -162,7 +175,9 @@ function normalizeStatsView(payload) {
       duration_minutes: Math.round(totalTimeSec / 60),
       calories: Number.isFinite(Number(totalCalories)) ? Number(totalCalories) : null,
       active_days: activeDays,
-      streak: 0,
+      streak: currentStreak ?? 0,
+      current_streak: currentStreak,
+      best_streak: bestStreak,
     },
     wellbeing: {
       ...base.wellbeing,
@@ -172,6 +187,9 @@ function normalizeStatsView(payload) {
       mood_after: averages?.mood_after ?? null,
     },
     recent_sessions: Array.isArray(recent) ? recent : [],
+    last_session: lastSession,
+    current_streak: currentStreak,
+    best_streak: bestStreak,
     charts: [
       { kind: 'daily', data: Array.isArray(daily) ? daily : [] },
       { kind: 'weekly', data: Array.isArray(weekly) ? weekly : [] },
@@ -195,6 +213,10 @@ function normalizeStatsView(payload) {
       difficulty: averages?.difficulty ?? null,
       daily: Array.isArray(daily) ? daily : [],
       weekly: Array.isArray(weekly) ? weekly : [],
+      current_streak: currentStreak,
+      best_streak: bestStreak,
+      active_days: activeDays,
+      last_session: lastSession,
     },
   };
 }
@@ -908,10 +930,10 @@ export function DuoPage() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Activity Tab */}
-        <TabsContent value="activity">
-          <div className="grid gap-6 lg:grid-cols-12">
-            <div className="space-y-6 lg:col-span-7">
+        {/* Activity Tab — séances & feed uniquement (pas de stats) */}
+        <TabsContent value="activity" data-testid="duo-activity-tab">
+          <div className="space-y-6 max-w-3xl">
+            <div className="space-y-6">
               {/* Weekly challenge */}
               {statsBootLoading && !duoStats?.current_challenge ? (
                 <DuoChallengeSkeleton />
@@ -1018,7 +1040,7 @@ export function DuoPage() {
                     <p className="text-subtle">{t('duo:emptyStates.activity')}</p>
                   </div>
                 ) : (
-                  <div className="space-y-4">
+                  <div className="space-y-4" data-testid="duo-activity-feed">
                     {sessions.map((item) =>
                       item.type === 'common_session' ? (
                         <CommonSessionCard
@@ -1051,44 +1073,6 @@ export function DuoPage() {
                   </div>
                 )}
               </div>
-            </div>
-
-            <div className="space-y-6 lg:col-span-5">
-              {/* Duo Stats Card */}
-              {statsBootLoading && !duoStats ? (
-                <DuoStatsCardsSkeleton />
-              ) : duoStats ? (
-                <div className="card p-4">
-                  <div className="grid grid-cols-2 gap-3 md:grid-cols-4 lg:grid-cols-2">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center gap-1">
-                        {theme === 'girly' ? (
-                          <Heart className="text-pink-500" size={16} fill="currentColor" />
-                        ) : (
-                          <Flame className="text-orange-500" size={16} />
-                        )}
-                        <span className="text-xl font-bold text-foreground">{duoStats.streak}</span>
-                      </div>
-                      <p className="text-subtle text-[10px] uppercase tracking-wider">{t('duo:statsCards.streak')}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-foreground">{duoStats.total_workouts_together}</p>
-                      <p className="text-subtle text-[10px] uppercase tracking-wider">{t('duo:statsCards.together')}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-foreground">{duoStats.this_week_user}</p>
-                      <p className="text-subtle text-[10px] uppercase tracking-wider">{t('duo:statsCards.you')}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xl font-bold text-foreground">{duoStats.this_week_partner}</p>
-                      <p className="text-subtle text-[10px] uppercase tracking-wider">
-                        {partner.display_name?.split(' ')[0] || partner.username}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              ) : null}
-
             </div>
           </div>
         </TabsContent>
@@ -1265,80 +1249,101 @@ export function DuoPage() {
               <p className="text-muted">{t('duo:emptyStates.statsPeriod')}</p>
             </div>
           ) : statsScope === 'duo' ? (
-            selectedStats.summary.workouts > 0 && duoStats ? (
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <div className="card p-4 min-w-0 overflow-hidden">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-muted text-xs uppercase truncate">{t('duo:statsCards.combinedActivities')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {selectedStats.summary.workouts}
-                  </p>
-                  <p className="text-subtle text-xs mt-1">
-                    {t('duo:statsCards.completedCount', { count: selectedStats._extras?.total_completed ?? '—' })}
-                  </p>
+            duoStats || selectedStats ? (
+              <div className="space-y-4" data-testid="duo-stats-scope-duo">
+                <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4">
+                  <DuoCompactStatCard
+                    icon={Users}
+                    label={t('duo:profileStats.sessionsTogether')}
+                    value={duoStats?.total_workouts_together ?? duoStats?.sessions_together ?? 0}
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-sessions-together"
+                  />
+                  <DuoCompactStatCard
+                    icon={Clock}
+                    label={t('duo:profileStats.totalTime')}
+                    value={
+                      duoStats
+                        ? formatDuration(duoStats.total_training_time_together ?? duoStats.total_training_time ?? 0)
+                        : null
+                    }
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-time-together"
+                  />
+                  <DuoCompactStatCard
+                    icon={Flame}
+                    label={t('duo:statsCards.currentDuoStreak')}
+                    value={duoStats?.duo_streak_current ?? duoStats?.streak ?? 0}
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-duo-streak-current"
+                  />
+                  <DuoCompactStatCard
+                    icon={Flame}
+                    label={t('duo:statsCards.bestDuoStreak')}
+                    value={duoStats?.duo_streak_best ?? 0}
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-duo-streak-best"
+                  />
+                  <DuoCompactStatCard
+                    icon={Calendar}
+                    label={t('duo:statsCards.activeDays')}
+                    value={duoStats?.training_days_together ?? 0}
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-duo-active-days"
+                  />
+                  <DuoCompactStatCard
+                    icon={History}
+                    label={t('duo:statsCards.lastSharedWorkout')}
+                    value={
+                      duoStats?.last_common_session?.date
+                        ? formatDayMonth(parseISO(duoStats.last_common_session.date))
+                        : '—'
+                    }
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-last-shared"
+                  />
+                  <DuoCompactStatCard
+                    icon={Target}
+                    label={t('duo:profileStats.challengesCompleted')}
+                    value={duoStats?.challenges_completed ?? 0}
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-challenges"
+                  />
+                  <DuoCompactStatCard
+                    icon={Activity}
+                    label={t('duo:statsCards.completionRate')}
+                    value={
+                      selectedStats?._extras?.completion_rate != null
+                        ? `${selectedStats._extras.completion_rate}%`
+                        : selectedStats
+                          ? '0%'
+                          : null
+                    }
+                    loading={statsLoading && !selectedStats}
+                    testId="stat-duo-completion"
+                  />
+                  {(selectedStats?.summary?.calories != null || duoStats?.estimated_calories != null) ? (
+                    <DuoCompactStatCard
+                      icon={FlameIcon}
+                      label={t('duo:statsCards.combinedCalories')}
+                      value={formatCalories(
+                        selectedStats?.summary?.calories ?? duoStats?.estimated_calories ?? 0
+                      )}
+                      valueClassName="text-orange-300"
+                      testId="stat-duo-calories"
+                    />
+                  ) : null}
+                  <DuoCompactStatCard
+                    icon={Trophy}
+                    label={t('duo:statsCards.duoBadges')}
+                    value={`${duoStats?.duo_badges_unlocked ?? 0}/${duoStats?.duo_badges_total ?? 50}`}
+                    loading={statsBootLoading && !duoStats}
+                    testId="stat-duo-badges"
+                  />
                 </div>
-                <div className="card p-4 min-w-0 overflow-hidden">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-muted text-xs uppercase truncate">{t('duo:statsCards.combinedDuration')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatDuration((selectedStats.summary.duration_minutes || 0) * 60)}
-                  </p>
-                  <p className="text-subtle text-xs mt-1">{t('duo:statsCards.twoMembers')}</p>
-                </div>
-                <div className="card p-4 min-w-0 overflow-hidden">
-                  <div className="flex items-center gap-2 mb-2">
-                    <FlameIcon className="text-orange-400 shrink-0" size={16} />
-                    <span className="text-muted text-xs uppercase truncate">{t('duo:statsCards.combinedCalories')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-orange-300">
-                    {formatCalories(selectedStats.summary.calories || 0)}
-                  </p>
-                  <p className="text-subtle text-xs mt-1">{t('duo:statsCards.estimate')}</p>
-                </div>
-                <div className="card p-4 min-w-0 overflow-hidden">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Users className="text-[var(--theme-primary)] shrink-0" size={16} />
-                    <span className="text-muted text-xs uppercase truncate">{t('duo:commonWorkouts')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {duoStats.total_workouts_together ?? duoStats.sessions_together ?? 0}
-                  </p>
-                  <p className="text-subtle text-xs mt-1">{t('duo:statsCards.notDoubled')}</p>
-                </div>
-                <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-2">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="mb-1 flex items-center gap-1.5">
-                        <Flame className="text-orange-400" size={14} />
-                        <p className="text-xs uppercase text-subtle">{t('duo:statsCards.duoStreak')}</p>
-                      </div>
-                      <p className="text-xl font-bold text-foreground">
-                        {duoStats.duo_streak_current ?? duoStats.streak ?? 0}
-                      </p>
-                      <p className="text-xs text-subtle">
-                        {t('duo:statsCards.record')} {duoStats.duo_streak_best ?? '—'}
-                      </p>
-                    </div>
-                    <div>
-                      <div className="mb-1 flex items-center gap-1.5">
-                        <Trophy className="text-[var(--theme-primary)]" size={14} />
-                        <p className="text-xs uppercase text-subtle">{t('duo:statsCards.duoBadges')}</p>
-                      </div>
-                      <p className="text-xl font-bold text-foreground">
-                        {duoStats.duo_badges_unlocked ?? 0}
-                      </p>
-                      <p className="text-xs text-subtle">
-                        / {duoStats.duo_badges_total ?? 50}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                {duoStats.current_challenge ? (
-                  <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-4">
+
+                {duoStats?.current_challenge ? (
+                  <div className="card p-4 min-w-0 overflow-hidden">
                     <div className="flex items-center gap-2 mb-2">
                       <Zap className="text-[var(--theme-primary)] shrink-0" size={16} />
                       <span className="text-foreground font-medium text-sm">{t('duo:duoChallenge')}</span>
@@ -1350,14 +1355,14 @@ export function DuoPage() {
                   </div>
                 ) : null}
 
-                <div className="card p-4 min-w-0 overflow-hidden col-span-2 md:col-span-4">
+                <div className="card p-4 min-w-0 overflow-hidden">
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-foreground font-medium">{t('duo:duoBadgesTitle')}</p>
                       <p className="text-subtle text-xs">
                         {t('duo:badgesUnlockedCount', {
-                          unlocked: duoStats.duo_badges_unlocked ?? 0,
-                          total: duoStats.duo_badges_total ?? 50,
+                          unlocked: duoStats?.duo_badges_unlocked ?? 0,
+                          total: duoStats?.duo_badges_total ?? 50,
                         })}
                       </p>
                     </div>
@@ -1399,60 +1404,96 @@ export function DuoPage() {
                 <p className="text-muted">{t('duo:emptyStates.duoStats')}</p>
               </div>
             )
-          ) : selectedStats.summary.workouts > 0 ? (
+          ) : (
             <>
-              {/* Summary Cards */}
-              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-                <div className="card p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Target className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-muted text-xs uppercase">{t('duo:statsCards.completionRate')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {selectedStats._extras.completion_rate != null ? `${selectedStats._extras.completion_rate}%` : '—'}
-                  </p>
-                  <p className="text-subtle text-xs mt-1">
-                    {selectedStats._extras.total_completed}/{selectedStats._extras.total_sessions} séances
-                  </p>
-                </div>
-                <div className="card p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Clock className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-muted text-xs uppercase">{t('duo:statsCards.totalTime')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">
-                    {formatDuration((selectedStats.summary.duration_minutes || 0) * 60)}
-                  </p>
-                  <p className="text-subtle text-xs mt-1">
-                    {selectedStats._extras.avg_time_minutes != null
-                      ? `~${selectedStats._extras.avg_time_minutes} min / séance`
-                      : '—'}
-                  </p>
-                </div>
-                <div className="card p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Calendar className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-muted text-xs uppercase">{t('duo:statsCards.thisWeek')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">{selectedStats._extras.this_week ?? '—'}</p>
-                  <p className="text-subtle text-xs mt-1">{t('duo:statsCards.sessionsShort')}</p>
-                </div>
-                <div className="card p-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Activity className="text-[var(--theme-primary)]" size={16} />
-                    <span className="text-muted text-xs uppercase">{t('duo:statsCards.thisMonth')}</span>
-                  </div>
-                  <p className="text-2xl font-bold text-foreground">{selectedStats._extras.this_month ?? '—'}</p>
-                  <p className="text-subtle text-xs mt-1">{t('duo:statsCards.sessionsShort')}</p>
-                </div>
+              {/* Summary Cards — Moi / Partenaire */}
+              <div
+                className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4"
+                data-testid="duo-stats-scope-member"
+              >
+                <DuoCompactStatCard
+                  icon={Target}
+                  label={t('duo:solo.completedWorkouts')}
+                  value={selectedStats._extras?.total_completed ?? 0}
+                  loading={statsLoading}
+                  testId="stat-member-completed"
+                />
+                <DuoCompactStatCard
+                  icon={Clock}
+                  label={t('duo:statsCards.totalTime')}
+                  value={formatDuration((selectedStats.summary?.duration_minutes || 0) * 60)}
+                  loading={statsLoading}
+                  testId="stat-member-time"
+                />
+                <DuoCompactStatCard
+                  icon={Flame}
+                  label={
+                    statsScope === viewerScopeValue
+                      ? t('duo:statsCards.personalCurrentStreak')
+                      : t('duo:statsCards.partnerCurrentStreak')
+                  }
+                  value={selectedStats.current_streak ?? selectedStats._extras?.current_streak ?? 0}
+                  loading={statsLoading}
+                  testId="stat-member-streak-current"
+                />
+                <DuoCompactStatCard
+                  icon={Flame}
+                  label={
+                    statsScope === viewerScopeValue
+                      ? t('duo:statsCards.personalBestStreak')
+                      : t('duo:statsCards.partnerBestStreak')
+                  }
+                  value={selectedStats.best_streak ?? selectedStats._extras?.best_streak ?? 0}
+                  loading={statsLoading}
+                  testId="stat-member-streak-best"
+                />
+                <DuoCompactStatCard
+                  icon={Calendar}
+                  label={t('duo:statsCards.activeDays')}
+                  value={selectedStats.summary?.active_days ?? selectedStats._extras?.active_days ?? 0}
+                  loading={statsLoading}
+                  testId="stat-member-active-days"
+                />
+                <DuoCompactStatCard
+                  icon={History}
+                  label={t('duo:statsCards.lastSession')}
+                  value={
+                    (selectedStats.last_session || selectedStats._extras?.last_session)?.created_at
+                      ? formatDayMonth(
+                          parseISO(
+                            (selectedStats.last_session || selectedStats._extras.last_session).created_at
+                          )
+                        )
+                      : '—'
+                  }
+                  loading={statsLoading}
+                  testId="stat-member-last-session"
+                />
+                <DuoCompactStatCard
+                  icon={Activity}
+                  label={t('duo:statsCards.completionRate')}
+                  value={
+                    selectedStats._extras?.completion_rate != null
+                      ? `${selectedStats._extras.completion_rate}%`
+                      : '—'
+                  }
+                  loading={statsLoading}
+                  testId="stat-member-completion"
+                />
+                <DuoCompactStatCard
+                  icon={Calendar}
+                  label={t('duo:statsCards.thisWeek')}
+                  value={selectedStats._extras?.this_week ?? 0}
+                  loading={statsLoading}
+                  testId="stat-member-week"
+                />
               </div>
 
-              {selectedStats.summary.calories != null && (
+              {selectedStats.summary?.calories != null && (
                 <div className="card p-4">
                   <div className="flex items-center gap-2 mb-3">
                     <FlameIcon className="text-orange-400" size={16} />
                     <span className="text-foreground font-medium text-sm">{t('duo:statsCards.estimatedCalories')}</span>
-                    <span className="text-subtle text-[10px]">(approximatif)</span>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-center">
                     <div className="p-2 rounded-xl bg-hover">
@@ -1608,11 +1649,6 @@ export function DuoPage() {
                 </div>
               )}
             </>
-          ) : (
-            <div className="card p-8 text-center">
-              <BarChart3 className="mx-auto text-subtle mb-4" size={32} />
-              <p className="text-muted">{t('duo:emptyStates.noData')}</p>
-            </div>
           )}
         </TabsContent>
       </Tabs>

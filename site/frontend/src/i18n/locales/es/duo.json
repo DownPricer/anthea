@@ -108,7 +108,16 @@
     "totalTime": "Tiempo total",
     "fatigueBefore": "Fatiga antes",
     "exercisesLabel": "ejercicios",
-    "duoScope": "Dúo"
+    "duoScope": "Dúo",
+    "currentDuoStreak": "Racha dúo actual",
+    "bestDuoStreak": "Mejor racha dúo",
+    "personalCurrentStreak": "Racha personal actual",
+    "personalBestStreak": "Mejor racha personal",
+    "partnerCurrentStreak": "Racha actual de la pareja",
+    "partnerBestStreak": "Mejor racha de la pareja",
+    "activeDays": "Días activos",
+    "lastSharedWorkout": "Última sesión compartida",
+    "lastSession": "Última sesión"
   },
   "session": {
     "defaultTitle": "Sesión",

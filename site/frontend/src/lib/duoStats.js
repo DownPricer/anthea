@@ -14,6 +14,7 @@ export function normalizeDuoStats(data) {
     duo_streak_current: data.duo_streak_current ?? streak ?? 0,
     duo_streak_best: data.duo_streak_best ?? 0,
     training_days_together: data.training_days_together ?? sessions,
+    last_common_session: data.last_common_session ?? null,
     estimated_calories: data.estimated_calories ?? 0,
     challenges_completed: data.challenges_completed ?? 0,
     badges_unlocked: data.badges_unlocked ?? (data.badges || []).filter((b) => b.unlocked).length,
