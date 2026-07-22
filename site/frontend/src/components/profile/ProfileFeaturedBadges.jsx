@@ -1,6 +1,7 @@
 import { Trophy } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { resolveBadgeLabels } from '../../i18n/badgeLabels';
+import { BadgeArtwork, normalizeBadgeRarityKey } from '../badges/BadgeArtwork';
 
 export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty = true }) {
   const { t } = useTranslation(['profile', 'badges']);
@@ -12,26 +13,37 @@ export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty
   if (!featured.length) {
     if (!showEmpty) return null;
     return (
-      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-3 py-2 border border-white/5 sm:justify-start">
-        <Trophy size={14} className="text-zinc-600 shrink-0" />
-        <span className="text-zinc-600 text-xs">{t('featuredEmpty')}</span>
+      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-2.5 py-1.5 border border-white/5 sm:justify-start">
+        <Trophy size={12} className="text-zinc-600 shrink-0" />
+        <span className="text-zinc-600 text-[11px]">{t('featuredEmpty')}</span>
       </div>
     );
   }
 
   return (
-    <div className="flex w-full flex-wrap items-center justify-center gap-2 text-center sm:justify-start">
+    <div
+      className="flex w-full flex-wrap items-start justify-center gap-2 sm:gap-2.5 text-center sm:justify-start"
+      data-testid="profile-featured-badges"
+    >
       {featured.map((badge) => {
         const { name, description } = resolveBadgeLabels(badge, t);
+        const rarityKey = normalizeBadgeRarityKey(badge.rarity_key || badge.rarity);
         return (
-          <span
+          <div
             key={badge.id}
             title={description || name}
-            className="inline-flex items-center gap-1.5 rounded-full border border-[var(--theme-primary)]/30 bg-[var(--theme-surface-active)] px-3 py-1.5 text-xs font-medium text-white"
+            className="inline-flex w-[4.5rem] flex-col items-center gap-1"
           >
-            <Trophy size={12} className="text-[var(--theme-primary)]" />
-            {name}
-          </span>
+            <BadgeArtwork
+              rarity={rarityKey}
+              iconKey={badge.icon_key || badge.icon || 'trophy'}
+              locked={false}
+              size={36}
+            />
+            <span className="text-[10px] leading-tight text-zinc-300 line-clamp-2 w-full">
+              {name}
+            </span>
+          </div>
         );
       })}
     </div>

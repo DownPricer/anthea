@@ -1,4 +1,5 @@
 import { UserPlus, UserMinus, Pencil, Lock, Heart, Loader2 } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 import { UserAvatar } from '../UserAvatar';
 import { ProfileFeaturedBadges } from './ProfileFeaturedBadges';
 import { Button } from '../ui/button';
@@ -11,9 +12,9 @@ import {
 
 function StatItem({ value, label }) {
   return (
-    <div className="text-center min-w-[4.5rem]">
-      <p className="text-lg font-bold text-white font-['Outfit'] leading-tight">{value}</p>
-      <p className="text-[11px] text-zinc-500 uppercase tracking-wide mt-0.5">{label}</p>
+    <div className="text-center min-w-[3.75rem]">
+      <p className="text-base sm:text-lg font-bold text-white font-['Outfit'] leading-tight">{value}</p>
+      <p className="text-[10px] sm:text-[11px] text-zinc-500 uppercase tracking-wide mt-0.5">{label}</p>
     </div>
   );
 }
@@ -34,6 +35,7 @@ export function ProfileHeader({
   followRequestPending = false,
   isLimited = false,
 }) {
+  const { t } = useTranslation(['profile', 'common']);
   const displayName = getDisplayName(profileUser);
   const handle = formatHandle(profileUser);
   const bio = profileUser?.bio?.trim();
@@ -45,96 +47,98 @@ export function ProfileHeader({
   const showBadges = isOwn || !isLimited;
 
   return (
-    <section className="card overflow-hidden">
-      <div className="relative px-5 pt-5 pb-4 md:px-8 md:pt-8">
-        <div className="flex flex-col sm:flex-row sm:items-start gap-5">
+    <section className="card overflow-hidden" data-testid="profile-header">
+      <div className="relative p-4 sm:p-5">
+        <div className="flex flex-col sm:flex-row sm:items-start gap-3 sm:gap-4">
           <UserAvatar
             user={profileUser}
-            className="w-24 h-24 sm:w-28 sm:h-28 text-3xl ring-2 ring-white/10 shrink-0 mx-auto sm:mx-0"
+            className="w-[72px] h-[72px] sm:w-20 sm:h-20 md:w-24 md:h-24 text-2xl sm:text-3xl ring-2 ring-white/10 shrink-0 mx-auto sm:mx-0"
           />
 
           <div className="flex-1 min-w-0 text-center sm:text-left">
-            <h1 className="text-2xl font-bold text-white font-['Outfit'] truncate">{displayName}</h1>
+            <h1 className="text-xl sm:text-2xl font-bold text-white font-['Outfit'] truncate leading-tight">
+              {displayName}
+            </h1>
             {handle ? (
-              <p className="text-zinc-500 text-sm mt-0.5">{handle}</p>
+              <p className="text-zinc-500 text-xs sm:text-sm mt-0.5">{handle}</p>
             ) : (
-              <p className="text-zinc-600 text-sm mt-0.5 italic">Arobase non défini</p>
+              <p className="text-zinc-600 text-xs sm:text-sm mt-0.5 italic">{t('profile:handleUndefined')}</p>
             )}
 
-            <div className="flex items-center justify-center sm:justify-start gap-5 mt-4">
-              <StatItem value={formatCount(followersCount)} label="Abonnés" />
-              <StatItem value={formatCount(followingCount)} label="Suivis" />
+            <div className="flex items-center justify-center sm:justify-start gap-4 sm:gap-5 mt-2.5 sm:mt-3">
+              <StatItem value={formatCount(followersCount)} label={t('profile:followers')} />
+              <StatItem value={formatCount(followingCount)} label={t('profile:following')} />
             </div>
 
             {bio ? (
-              <p className="text-zinc-300 text-sm mt-4 leading-relaxed whitespace-pre-wrap break-words">
+              <p className="text-zinc-300 text-xs sm:text-sm mt-2.5 sm:mt-3 leading-relaxed whitespace-pre-wrap break-words line-clamp-4">
                 {bio}
               </p>
             ) : isOwn ? (
-              <p className="text-zinc-600 text-sm mt-4 italic">Ajoute une bio pour te présenter</p>
+              <p className="text-zinc-600 text-xs sm:text-sm mt-2.5 sm:mt-3 italic">{t('profile:bioPlaceholderOwn')}</p>
             ) : null}
 
             {showBadges ? (
-              <div className="mt-4 flex w-full justify-center sm:justify-start">
+              <div className="mt-2.5 sm:mt-3 flex w-full justify-center sm:justify-start">
                 <ProfileFeaturedBadges badges={badges} featuredIds={featuredIds} showEmpty={isOwn} />
               </div>
             ) : null}
 
-            <div className="flex flex-wrap gap-2 mt-5 justify-center sm:justify-start">
+            <div className="flex flex-wrap gap-2 mt-3 sm:mt-4 justify-center sm:justify-start">
               {isOwn ? (
                 <Button
                   type="button"
                   onClick={onEdit}
                   data-testid="profile-edit-btn"
-                  className="h-10 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/10 px-5"
+                  className="h-9 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/10 px-4 text-sm"
                 >
-                  <Pencil size={16} className="mr-2" />
-                  Modifier le profil
+                  <Pencil size={14} className="mr-1.5" />
+                  {t('profile:editProfile')}
                 </Button>
               ) : isLimited ? (
                 followRequestPending ? (
                   <Button
                     type="button"
                     disabled
-                    className="h-10 rounded-xl px-5 bg-white/5 text-zinc-400 border border-white/10"
+                    className="h-9 rounded-xl px-4 bg-white/5 text-zinc-400 border border-white/10 text-sm"
                   >
-                    Demande envoyée
+                    {t('profile:requestSent')}
                   </Button>
                 ) : (
                   <Button
                     type="button"
                     onClick={onFollow}
                     disabled={followLoading}
-                    className="h-10 rounded-xl px-5 btn-primary text-white"
+                    className="h-9 rounded-xl px-4 btn-primary text-white text-sm"
                   >
                     {followLoading ? (
-                      <Loader2 size={16} className="mr-2 animate-spin" />
+                      <Loader2 size={14} className="mr-1.5 animate-spin" />
                     ) : (
-                      <UserPlus size={16} className="mr-2" />
+                      <UserPlus size={14} className="mr-1.5" />
                     )}
-                    Demander à suivre
+                    {t('profile:requestFollow')}
                   </Button>
                 )
               ) : isFollowing ? (
                 <>
                   {isMutual ? (
-                    <span className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl bg-[var(--theme-primary)]/15 text-[var(--theme-primary)] text-sm font-medium border border-[var(--theme-primary)]/25">
-                      <Heart size={16} fill="currentColor" />
-                      Ami mutuel
+                    <span className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl bg-[var(--theme-primary)]/15 text-[var(--theme-primary)] text-xs sm:text-sm font-medium border border-[var(--theme-primary)]/25">
+                      <Heart size={14} fill="currentColor" />
+                      {t('profile:mutualFriend')}
                     </span>
                   ) : null}
                   <Button
                     type="button"
                     onClick={onUnfollow}
                     disabled={followLoading}
-                    className="h-10 rounded-xl bg-white/10 text-white border border-white/15 px-5 hover:bg-white/15"
+                    className="h-9 rounded-xl bg-white/10 text-white border border-white/15 px-4 hover:bg-white/15 text-sm"
                   >
                     {followLoading ? (
-                      <Loader2 size={16} className="mr-2 animate-spin" />
+                      <Loader2 size={14} className="mr-1.5 animate-spin" />
                     ) : (
-                      <UserMinus size={16} className="mr-2" />
+                      <UserMinus size={14} className="mr-1.5" />
                     )}
-                    Ne plus suivre
+                    {t('profile:unfollow')}
                   </Button>
                 </>
               ) : (
@@ -142,27 +146,27 @@ export function ProfileHeader({
                   type="button"
                   onClick={onFollow}
                   disabled={followLoading}
-                  className="h-10 rounded-xl px-5 btn-primary text-white"
+                  className="h-9 rounded-xl px-4 btn-primary text-white text-sm"
                 >
                   {followLoading ? (
-                    <Loader2 size={16} className="mr-2 animate-spin" />
+                    <Loader2 size={14} className="mr-1.5 animate-spin" />
                   ) : (
-                    <UserPlus size={16} className="mr-2" />
+                    <UserPlus size={14} className="mr-1.5" />
                   )}
-                  Suivre
+                  {t('profile:follow')}
                 </Button>
               )}
             </div>
 
             {isLimited && !isOwn ? (
-              <div className="mt-4 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2.5 text-zinc-400 text-sm">
-                <Lock size={16} className="shrink-0" />
+              <div className="mt-3 flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2 text-zinc-400 text-xs sm:text-sm">
+                <Lock size={14} className="shrink-0" />
                 <span>
                   {isMutual
-                    ? 'Vous êtes amis mutuels.'
+                    ? t('profile:limitedMutual')
                     : isProfilePrivate(profileUser)
-                      ? 'Ce compte est privé. Seules les infos de base sont visibles.'
-                      : 'Certaines informations sont masquées par cet utilisateur.'}
+                      ? t('profile:limitedPrivate')
+                      : t('profile:limitedHidden')}
                 </span>
               </div>
             ) : null}

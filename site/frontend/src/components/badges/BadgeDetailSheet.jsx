@@ -40,6 +40,11 @@ export function BadgeDetailSheet({
   const rarityStyle = getBadgeRarityStyle(badge?.rarity);
   const { name, description, isSecret } = resolveBadgeLabels(badge, t);
 
+  const placeholderMessage = useMemo(() => {
+    if (scope === 'duo') return t('sharing.duoDefaultMessage');
+    return t('sharing.defaultMessage');
+  }, [scope, t]);
+
   const progressText = useMemo(() => {
     if (!badge || unlocked) return null;
     const { current, target } = badge;
@@ -64,7 +69,7 @@ export function BadgeDetailSheet({
           badge_id: badge.id,
           pair_key: pairKey || undefined,
           description:
-            message.trim() || t('publishDuoDefault', { defaultValue: 'Notre Duo vient de débloquer un nouveau succès !' }),
+            message.trim() || t('sharing.duoDefaultMessageWithName', { badgeName: name }),
           visibility: 'public',
           post_on_duo_wall: true,
         });
@@ -73,7 +78,7 @@ export function BadgeDetailSheet({
         await postsApi.create({
           type: 'badge',
           badge_id: badge.id,
-          description: message.trim() || t('publishDefault', { defaultValue: 'J’ai débloqué un nouveau succès !' }),
+          description: message.trim() || t('sharing.defaultMessageWithName', { badgeName: name }),
           visibility: 'public',
         });
         toast.success(t('published'));
@@ -141,11 +146,7 @@ export function BadgeDetailSheet({
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               className="rounded-xl bg-[#0A0A0A] border-white/10 text-white"
-              placeholder={
-                scope === 'duo'
-                  ? t('publishDuoDefault', { defaultValue: 'Notre Duo vient de débloquer un nouveau succès !' })
-                  : t('publishDefault', { defaultValue: 'J’ai débloqué un nouveau succès !' })
-              }
+              placeholder={placeholderMessage}
               data-testid="badge-publish-message"
             />
             <Button
