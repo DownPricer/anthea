@@ -1000,6 +1000,12 @@ def serialize_notification(doc: dict) -> dict:
         out["badge_id"] = doc.get("badge_id")
     if doc.get("badge_name"):
         out["badge_name"] = doc.get("badge_name")
+    if doc.get("scope"):
+        out["scope"] = doc.get("scope")
+    if doc.get("translation_key"):
+        out["translation_key"] = doc.get("translation_key")
+    if doc.get("translation_params"):
+        out["translation_params"] = doc.get("translation_params")
     if doc.get("title"):
         out["title"] = doc.get("title")
     if doc.get("body"):

@@ -17,10 +17,20 @@
     "comment": "a commenté ta publication",
     "duo_follow_request": "demande à suivre votre duo",
     "duo_follow_accepted": "a accepté votre demande de suivi duo",
-    "badge_unlocked": "Vous avez obtenu « {{badge}} ».",
+    "badge_unlocked": "Vous avez débloqué « {{badge}} ».",
     "duo_badge_unlocked": "Votre Duo a obtenu « {{badge}} ».",
     "default": "nouvelle activité",
     "aBadge": "un badge"
+  },
+  "badgeUnlocked": {
+    "title": "Badge obtenu",
+    "body": "Vous avez débloqué « {{badge}} ».",
+    "viewMyBadge": "Voir mon badge"
+  },
+  "duoBadgeUnlocked": {
+    "title": "Badge Duo obtenu",
+    "body": "Votre Duo a débloqué « {{badge}} ».",
+    "viewMyBadge": "Voir mon badge"
   },
   "actions": {
     "accept": "Accepter",
@@ -28,6 +38,7 @@
     "seeDuo": "Voir le duo",
     "followBack": "Suivre en retour",
     "seeMyBadges": "Voir mes badges",
+    "seeMyBadge": "Voir mon badge",
     "seeDuoBadges": "Voir les badges Duo"
   },
   "toasts": {

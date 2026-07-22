@@ -33,6 +33,7 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
       onClick={() => onClick?.(badge)}
       title={`${name} — ${description || ''}`}
       data-testid={`badge-card-${badge.id}`}
+      data-badge-id={badge.id}
       data-scope={scope}
       className={`relative min-w-0 overflow-hidden rounded-2xl p-2.5 text-center border transition-all w-[5.25rem] sm:w-[5.5rem] group ${
         unlocked

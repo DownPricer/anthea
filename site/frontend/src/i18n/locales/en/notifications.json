@@ -17,10 +17,20 @@
     "comment": "commented on your post",
     "duo_follow_request": "wants to follow your duo",
     "duo_follow_accepted": "accepted your duo follow request",
-    "badge_unlocked": "You earned “{{badge}}”.",
-    "duo_badge_unlocked": "Your Duo earned “{{badge}}”.",
+    "badge_unlocked": "You unlocked “{{badge}}”.",
+    "duo_badge_unlocked": "Your Duo unlocked “{{badge}}”.",
     "default": "new activity",
     "aBadge": "a badge"
+  },
+  "badgeUnlocked": {
+    "title": "Badge unlocked",
+    "body": "You unlocked “{{badge}}”.",
+    "viewMyBadge": "View my badge"
+  },
+  "duoBadgeUnlocked": {
+    "title": "Duo badge unlocked",
+    "body": "Your Duo unlocked “{{badge}}”.",
+    "viewMyBadge": "View my badge"
   },
   "actions": {
     "accept": "Accept",
@@ -28,6 +38,7 @@
     "seeDuo": "View duo",
     "followBack": "Follow back",
     "seeMyBadges": "See my badges",
+    "seeMyBadge": "View my badge",
     "seeDuoBadges": "See Duo badges"
   },
   "toasts": {

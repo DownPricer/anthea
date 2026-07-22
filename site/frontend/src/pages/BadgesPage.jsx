@@ -13,6 +13,7 @@ export function BadgesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const scope = searchParams.get('scope') === 'duo' ? 'duo' : 'solo';
+  const initialBadgeId = searchParams.get('badge') || null;
   const [badges, setBadges] = useState([]);
   const [summary, setSummary] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -109,6 +110,7 @@ export function BadgesPage() {
           scope={scope}
           canPublish={scope === 'solo' || Boolean(user?.partner_id)}
           pairKey={pairKey}
+          initialBadgeId={initialBadgeId}
         />
       )}
 

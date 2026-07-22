@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, ChevronLeft, Loader2, UserPlus, Heart } from 'lucide-react';
+import { Bell, ChevronLeft, Loader2, UserPlus, Heart, Trophy } from 'lucide-react';
 import { parseISO } from 'date-fns';
 import { notificationsApi, usersApi, duoProfilesApi } from '../lib/api';
 import { duoProfilePath } from '../lib/duoProfile';
@@ -13,12 +13,28 @@ import { PageHeader } from '../components/layout/PageHeader';
 import { useTranslation } from 'react-i18next';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
 import { getBadgeName } from '../i18n/badgeLabels';
+import { BadgeArtwork } from '../components/badges/BadgeArtwork';
+import {
+  badgeNotificationDeepLink,
+  isBadgeUnlockNotification,
+} from '../lib/badgeNotificationLink';
+
+function isBadgeNotif(type) {
+  return isBadgeUnlockNotification(type);
+}
 
 function NotificationIcon({ type }) {
+  if (isBadgeNotif(type)) {
+    return <Trophy size={16} className="text-[var(--theme-primary)]" />;
+  }
   if (type === 'follow_back') {
     return <Heart size={16} className="text-[var(--theme-primary)]" />;
   }
   return <UserPlus size={16} className="text-[var(--theme-primary)]" />;
+}
+
+function badgeDeepLink(notif) {
+  return badgeNotificationDeepLink(notif);
 }
 
 export function NotificationsPage() {
@@ -32,33 +48,53 @@ export function NotificationsPage() {
   const [followLoading, setFollowLoading] = useState(null);
   const [requestLoading, setRequestLoading] = useState(null);
 
-  const resolveBadgeName = useCallback((notif) => {
-    return getBadgeName(
-      notif.badge_id,
-      t,
-      notif.badge_name || t('notifications:types.aBadge')
-    );
-  }, [t]);
+  const resolveBadgeName = useCallback(
+    (notif) => {
+      return getBadgeName(
+        notif.badge_id || notif.translation_params?.badge_id,
+        t,
+        notif.badge_name || t('notifications:types.aBadge')
+      );
+    },
+    [t]
+  );
 
-  const notificationLabel = useCallback((notif) => {
-    const typeKey = `notifications:types.${notif.type}`;
-    const hasTypeKey = notif.type && t(typeKey, { defaultValue: '__missing__' }) !== '__missing__';
+  const badgeCopy = useCallback(
+    (notif) => {
+      const badge = resolveBadgeName(notif);
+      const isDuo = notif.type === 'duo_badge_unlocked';
+      const prefix = isDuo ? 'notifications:duoBadgeUnlocked' : 'notifications:badgeUnlocked';
+      return {
+        title: t(`${prefix}.title`),
+        body: t(`${prefix}.body`, { badge }),
+        cta: t(`${prefix}.viewMyBadge`),
+      };
+    },
+    [t, resolveBadgeName]
+  );
 
-    switch (notif.type) {
-      case 'badge_unlocked':
-        return t('notifications:types.badge_unlocked', { badge: resolveBadgeName(notif) });
-      case 'duo_badge_unlocked':
-        return t('notifications:types.duo_badge_unlocked', { badge: resolveBadgeName(notif) });
-      default:
-        if (hasTypeKey) {
-          return t(typeKey, {
-            badge: resolveBadgeName(notif),
-            actor: notif.actor_display_name || notif.actor_username || '',
-          });
-        }
-        return notif.body || t('notifications:types.default');
-    }
-  }, [t, resolveBadgeName]);
+  const notificationLabel = useCallback(
+    (notif) => {
+      const typeKey = `notifications:types.${notif.type}`;
+      const hasTypeKey = notif.type && t(typeKey, { defaultValue: '__missing__' }) !== '__missing__';
+
+      switch (notif.type) {
+        case 'badge_unlocked':
+          return t('notifications:types.badge_unlocked', { badge: resolveBadgeName(notif) });
+        case 'duo_badge_unlocked':
+          return t('notifications:types.duo_badge_unlocked', { badge: resolveBadgeName(notif) });
+        default:
+          if (hasTypeKey) {
+            return t(typeKey, {
+              badge: resolveBadgeName(notif),
+              actor: notif.actor_display_name || notif.actor_username || '',
+            });
+          }
+          return notif.body || t('notifications:types.default');
+      }
+    },
+    [t, resolveBadgeName]
+  );
 
   const loadNotifications = useCallback(async () => {
     setLoading(true);
@@ -156,7 +192,7 @@ export function NotificationsPage() {
   };
 
   return (
-    <div data-testid="notifications-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto">
+    <div className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto" data-testid="notifications-page">
       <PageHeader
         title={t('notifications:title')}
         subtitle={filterDuo ? t('notifications:subtitleDuo') : t('notifications:subtitle')}
@@ -172,30 +208,31 @@ export function NotificationsPage() {
         }
       />
 
-      <div className="flex gap-2 mb-4">
-        <Button
-          type="button"
-          size="sm"
-          variant={filterDuo ? 'outline' : 'default'}
-          className={`rounded-full ${filterDuo ? 'border-white/15 text-white' : 'btn-primary text-white'}`}
-          onClick={() => navigate('/notifications')}
+      <div className="mb-4 flex gap-2">
+        <Link
+          to="/notifications"
+          className={`px-3 py-1.5 rounded-lg text-xs border ${
+            !filterDuo
+              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
+              : 'border-white/10 text-zinc-500'
+          }`}
         >
           {t('notifications:filters.all')}
-        </Button>
-        <Button
-          type="button"
-          size="sm"
-          variant={filterDuo ? 'default' : 'outline'}
-          data-testid="notifications-filter-duo"
-          className={`rounded-full ${filterDuo ? 'btn-primary text-white' : 'border-white/15 text-white'}`}
-          onClick={() => navigate('/notifications?filter=duo')}
+        </Link>
+        <Link
+          to="/notifications?filter=duo"
+          className={`px-3 py-1.5 rounded-lg text-xs border ${
+            filterDuo
+              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
+              : 'border-white/10 text-zinc-500'
+          }`}
         >
           {t('notifications:filters.duo')}
-        </Button>
+        </Link>
       </div>
 
       {loading ? (
-        <div className="flex justify-center py-16">
+        <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
         </div>
       ) : displayedNotifications.length === 0 ? (
@@ -220,6 +257,9 @@ export function NotificationsPage() {
               avatar_url: notif.actor_avatar_url,
             };
             const dateLabel = notif.created_at ? formatDateTime(parseISO(notif.created_at)) : '';
+            const badgeNotif = isBadgeNotif(notif.type);
+            const copy = badgeNotif ? badgeCopy(notif) : null;
+            const deepLink = badgeNotif ? badgeDeepLink(notif) : null;
 
             return (
               <div
@@ -227,23 +267,49 @@ export function NotificationsPage() {
                 className={`card p-4 flex items-start gap-3 ${
                   !notif.read ? 'border-[var(--theme-primary)]/20 bg-[var(--theme-surface-active)]/30' : ''
                 }`}
+                data-testid={badgeNotif ? 'notification-badge-unlock' : undefined}
               >
-                <Link to={`/profile/${handle}`} className="shrink-0">
-                  <UserAvatar user={actor} className="w-11 h-11 text-base" />
-                </Link>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start gap-2">
-                    <NotificationIcon type={notif.type} />
-                    <p className="text-sm text-zinc-300 leading-relaxed">
-                      <Link
-                        to={`/profile/${handle}`}
-                        className="font-medium text-white hover:underline"
-                      >
-                        {notif.actor_display_name || notif.actor_username}
-                      </Link>{' '}
-                      {notificationLabel(notif)}
-                    </p>
+                {badgeNotif ? (
+                  <div className="shrink-0 w-11 h-11 rounded-full bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/25 flex items-center justify-center overflow-hidden">
+                    {notif.badge_id ? (
+                      <BadgeArtwork
+                        rarity={notif.badge_rarity || 'common'}
+                        iconKey={notif.badge_icon || 'trophy'}
+                        locked={false}
+                        size={40}
+                      />
+                    ) : (
+                      <Trophy size={20} className="text-[var(--theme-primary)]" />
+                    )}
                   </div>
+                ) : (
+                  <Link to={`/profile/${handle}`} className="shrink-0">
+                    <UserAvatar user={actor} className="w-11 h-11 text-base" />
+                  </Link>
+                )}
+                <div className="flex-1 min-w-0">
+                  {badgeNotif ? (
+                    <div className="flex items-start gap-2">
+                      <NotificationIcon type={notif.type} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white leading-snug">{copy.title}</p>
+                        <p className="text-sm text-zinc-300 leading-relaxed mt-0.5">{copy.body}</p>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-start gap-2">
+                      <NotificationIcon type={notif.type} />
+                      <p className="text-sm text-zinc-300 leading-relaxed">
+                        <Link
+                          to={`/profile/${handle}`}
+                          className="font-medium text-white hover:underline"
+                        >
+                          {notif.actor_display_name || notif.actor_username}
+                        </Link>{' '}
+                        {notificationLabel(notif)}
+                      </p>
+                    </div>
+                  )}
                   <p className="text-zinc-600 text-xs mt-1.5">{dateLabel}</p>
                   {notif.type === 'duo_follow_request' && notif.request_id ? (
                     <div className="mt-3 flex gap-2 flex-wrap">
@@ -311,24 +377,14 @@ export function NotificationsPage() {
                       )}
                     </Button>
                   ) : null}
-                  {notif.type === 'badge_unlocked' ? (
+                  {badgeNotif ? (
                     <Button
                       asChild
                       size="sm"
                       variant="outline"
                       className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
                     >
-                      <Link to={notif.url || '/badges?scope=solo'}>{t('notifications:actions.seeMyBadges')}</Link>
-                    </Button>
-                  ) : null}
-                  {notif.type === 'duo_badge_unlocked' ? (
-                    <Button
-                      asChild
-                      size="sm"
-                      variant="outline"
-                      className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
-                    >
-                      <Link to={notif.url || '/duo?tab=stats&section=badges'}>{t('notifications:actions.seeDuoBadges')}</Link>
+                      <Link to={deepLink}>{copy.cta}</Link>
                     </Button>
                   ) : null}
                 </div>

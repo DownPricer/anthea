@@ -17,10 +17,20 @@
     "comment": "ha comentado tu publicación",
     "duo_follow_request": "quiere seguir vuestro dúo",
     "duo_follow_accepted": "ha aceptado tu solicitud de seguimiento del dúo",
-    "badge_unlocked": "Has conseguido « {{badge}} ».",
-    "duo_badge_unlocked": "Vuestro Dúo ha conseguido « {{badge}} ».",
+    "badge_unlocked": "Has desbloqueado « {{badge}} ».",
+    "duo_badge_unlocked": "Vuestro Dúo ha desbloqueado « {{badge}} ».",
     "default": "nueva actividad",
     "aBadge": "una insignia"
+  },
+  "badgeUnlocked": {
+    "title": "Insignia desbloqueada",
+    "body": "Has desbloqueado «{{badge}}».",
+    "viewMyBadge": "Ver mi insignia"
+  },
+  "duoBadgeUnlocked": {
+    "title": "Insignia Dúo desbloqueada",
+    "body": "Vuestro Dúo ha desbloqueado «{{badge}}».",
+    "viewMyBadge": "Ver mi insignia"
   },
   "actions": {
     "accept": "Aceptar",
@@ -28,6 +38,7 @@
     "seeDuo": "Ver el dúo",
     "followBack": "Seguir también",
     "seeMyBadges": "Ver mis insignias",
+    "seeMyBadge": "Ver mi insignia",
     "seeDuoBadges": "Ver insignias Dúo"
   },
   "toasts": {

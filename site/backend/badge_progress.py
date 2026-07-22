@@ -1034,13 +1034,17 @@ class BadgeProgressService:
 
         if scope == "solo":
             recipients = notify_user_ids or [owner_id]
-            url = "/profile?tab=badges"
             notif_type = "badge_unlocked"
+            scope_value = "solo"
+            translation_key = "notifications.badgeUnlocked"
+            url = f"/badges?scope=solo&badge={badge_id}"
         else:
             parts = owner_id.split("_")
             recipients = notify_user_ids or parts
-            url = "/duo?tab=stats&section=badges"
             notif_type = "duo_badge_unlocked"
+            scope_value = "duo"
+            translation_key = "notifications.duoBadgeUnlocked"
+            url = f"/badges?scope=duo&badge={badge_id}"
         tag = f"badge-{badge_id}"
 
         now = _now_iso()
@@ -1081,6 +1085,9 @@ class BadgeProgressService:
                     "actor_id": rid,
                     "badge_id": badge_id,
                     "badge_name": name,
+                    "scope": scope_value,
+                    "translation_key": translation_key,
+                    "translation_params": {"badge_id": badge_id},
                     "title": title,
                     "body": body,
                     "read": False,
