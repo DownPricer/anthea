@@ -226,7 +226,7 @@ export function WorkoutsPage() {
     <div
       key={workout.id}
       data-testid={`workout-item-${workout.id}`}
-      className={`card p-4 flex items-center gap-4 transition-all ${
+      className={`card p-4 flex flex-wrap sm:flex-nowrap items-center gap-3 sm:gap-4 w-full max-w-full min-w-0 overflow-hidden transition-all ${
         showSelect && selectedWorkouts.includes(workout.id)
           ? 'ring-2 ring-[var(--theme-primary)]'
           : ''
@@ -235,7 +235,7 @@ export function WorkoutsPage() {
       {showSelect && (
         <button
           onClick={() => toggleWorkoutSelection(workout.id)}
-          className="flex-shrink-0"
+          className="shrink-0"
         >
           {selectedWorkouts.includes(workout.id) ? (
             <CheckSquare className="text-[var(--theme-primary)]" size={22} />
@@ -245,20 +245,23 @@ export function WorkoutsPage() {
         </button>
       )}
 
-      <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ${getStatusColor(workout.status)}`}>
+      <div className={`w-10 h-10 shrink-0 rounded-2xl flex items-center justify-center ${getStatusColor(workout.status)}`}>
         {getStatusIcon(workout.status)}
       </div>
 
-      <div className="flex-1 min-w-0">
-        <h4 className="text-foreground font-medium truncate flex items-center gap-2">
+      <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+        <h4
+          className="block min-w-0 max-w-full text-foreground font-medium break-words [overflow-wrap:anywhere] line-clamp-2"
+          data-testid="selected-day-workout-title"
+        >
           {workout.title}
           {workout.is_draft && (
-            <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400">
+            <span className="ml-2 inline-block shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400 align-middle">
               {t('workouts:draft')}
             </span>
           )}
         </h4>
-        <p className="text-subtle text-sm">
+        <p className="text-subtle text-sm min-w-0 max-w-full break-words [overflow-wrap:anywhere] line-clamp-2">
           {workout.scheduled_time || t('workouts:flexible')}
           {workout.for_user_id !== user?.id && (
             <span className="text-[var(--theme-primary)]"> • {t('workouts:forUser', { username: workout.for_username })}</span>
@@ -267,14 +270,14 @@ export function WorkoutsPage() {
       </div>
 
           {!showSelect && (
-        <>
+        <div className="flex items-center gap-1 shrink-0 ml-auto sm:ml-0">
           {(workout.status === 'pending' || workout.status === 'in_progress') &&
             workout.for_user_id === user?.id &&
             !workout.is_draft && (
             <Button
               size="sm"
               onClick={() => navigate(`/player/${workout.id}`)}
-              className="bg-[var(--theme-primary)] text-foreground rounded-full px-5"
+              className="bg-[var(--theme-primary)] text-foreground rounded-full px-4 sm:px-5 shrink-0"
             >
               {workout.status === 'in_progress' ? (
                 <>
@@ -292,7 +295,7 @@ export function WorkoutsPage() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 hover:bg-active rounded-full transition-colors">
+              <button className="p-2 min-h-10 min-w-10 hover:bg-active rounded-full transition-colors shrink-0 inline-flex items-center justify-center">
                 <MoreVertical size={18} className="text-muted" />
               </button>
             </DropdownMenuTrigger>
@@ -317,7 +320,7 @@ export function WorkoutsPage() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-        </>
+        </div>
       )}
     </div>
   );
@@ -387,9 +390,9 @@ export function WorkoutsPage() {
           ) : null}
         </TabsContent>
 
-        <TabsContent value="agenda" className="space-y-4">
-          <div className="grid gap-4 lg:grid-cols-12">
-            <div className="space-y-4 lg:col-span-7">
+        <TabsContent value="agenda" className="space-y-4 w-full max-w-full min-w-0 overflow-hidden">
+          <div className="grid gap-4 lg:grid-cols-12 w-full max-w-full min-w-0">
+            <div className="space-y-4 lg:col-span-7 min-w-0 max-w-full overflow-hidden">
               <div className="card p-4 min-w-0 max-w-full overflow-hidden">
                 {agendaLoading ? (
                   <div className="space-y-4 py-6">
@@ -418,11 +421,14 @@ export function WorkoutsPage() {
               )}
             </div>
 
-            <div className="space-y-4 lg:col-span-5">
+            <div
+              className="space-y-4 lg:col-span-5 w-full max-w-full min-w-0 overflow-hidden"
+              data-testid="selected-day-detail-panel"
+            >
               {/* Selection mode toolbar */}
               {selectMode && (
-                <div className="flex items-center gap-2 p-3 bg-surface-elevated rounded-xl border border-border">
-                  <span className="text-sm text-muted flex-1">
+                <div className="flex flex-wrap items-center gap-2 p-3 bg-surface-elevated rounded-xl border border-border w-full max-w-full min-w-0 overflow-hidden">
+                  <span className="text-sm text-muted flex-1 min-w-0">
                     {t('workouts:selected', { count: selectedWorkouts.length })}
                   </span>
                   <Button
@@ -430,7 +436,7 @@ export function WorkoutsPage() {
                     variant="outline"
                     onClick={() => handleDuplicate(selectedWorkouts, 7)}
                     disabled={selectedWorkouts.length === 0}
-                    className="text-foreground border-border"
+                    className="text-foreground border-border shrink-0"
                   >
                     {t('workouts:plus7')}
                   </Button>
@@ -439,7 +445,7 @@ export function WorkoutsPage() {
                     variant="outline"
                     onClick={() => handleDuplicate(selectedWorkouts, 14)}
                     disabled={selectedWorkouts.length === 0}
-                    className="text-foreground border-border"
+                    className="text-foreground border-border shrink-0"
                   >
                     {t('workouts:plus14')}
                   </Button>
@@ -448,22 +454,22 @@ export function WorkoutsPage() {
                       setSelectMode(false);
                       setSelectedWorkouts([]);
                     }}
-                    className="p-2 hover:bg-active rounded-lg"
+                    className="p-2 hover:bg-active rounded-lg shrink-0"
                   >
                     <X size={18} className="text-muted" />
                   </button>
                 </div>
               )}
 
-              <div>
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-foreground font-medium">
+              <div className="w-full max-w-full min-w-0 overflow-hidden">
+                <div className="flex items-center justify-between gap-2 mb-3 min-w-0">
+                  <h3 className="text-foreground font-medium min-w-0 max-w-full break-words [overflow-wrap:anywhere] line-clamp-2">
                     {formatWeekdayDate(selectedDate)}
                   </h3>
                   {selectedDateWorkouts.length > 0 && (
                     <button
                       onClick={() => setSelectMode(!selectMode)}
-                      className="text-sm text-[var(--theme-primary)]"
+                      className="text-sm text-[var(--theme-primary)] shrink-0"
                     >
                       {selectMode ? t('workouts:cancel') : t('workouts:select')}
                     </button>
@@ -471,11 +477,11 @@ export function WorkoutsPage() {
                 </div>
 
                 {selectedDateWorkouts.length === 0 ? (
-                  <div className="card p-6 text-center">
+                  <div className="card p-6 text-center w-full max-w-full min-w-0 overflow-hidden">
                     <p className="text-subtle text-sm">{t('workouts:emptyDay')}</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-3 w-full max-w-full min-w-0 overflow-hidden">
                     {selectedDateWorkouts.map((workout) =>
                       renderWorkoutCard(workout, selectMode)
                     )}

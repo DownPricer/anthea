@@ -288,18 +288,18 @@ export function AnnualHeatmap({
 
       {selectedDay ? (
         <div
-          className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-surface-elevated/60 px-3 py-2"
+          className="w-full max-w-full min-w-0 overflow-hidden rounded-xl border border-border bg-surface-elevated/60 px-3 py-2"
           data-testid="annual-heatmap-day-detail"
         >
-          <p className="text-muted text-sm text-center min-w-0 break-words [overflow-wrap:anywhere] line-clamp-3">
+          <p className="text-muted text-sm text-center w-full max-w-full min-w-0 break-words [overflow-wrap:anywhere] line-clamp-3">
             {heatmapDayTitle(selectedInfo, formatWeekdayDate(selectedDay))}
           </p>
           {selectedTitles.length > 0 ? (
-            <ul className="mt-1.5 space-y-0.5 min-w-0">
+            <ul className="mt-1.5 space-y-0.5 w-full max-w-full min-w-0 overflow-hidden">
               {selectedTitles.map((titleText, idx) => (
                 <li
                   key={`${titleText}-${idx}`}
-                  className="block min-w-0 max-w-full text-xs text-foreground text-center break-words [overflow-wrap:anywhere] line-clamp-2"
+                  className="block w-full max-w-full min-w-0 text-xs text-foreground text-center break-words [overflow-wrap:anywhere] line-clamp-2"
                   data-testid="annual-heatmap-session-title"
                 >
                   {titleText}

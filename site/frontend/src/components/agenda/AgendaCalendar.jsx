@@ -135,12 +135,6 @@ function AgendaDayContent({ date, state }) {
   const sessionTitles = [...(myTitles || []), ...(partnerTitles || [])].filter(Boolean);
   const sessionCount =
     (state.my_session_count || 0) + (state.partner_session_count || 0) || sessionTitles.length;
-  const cellLabel =
-    sessionCount > 1
-      ? String(sessionCount)
-      : sessionTitles[0]
-        ? sessionTitles[0]
-        : null;
 
   return (
     <span className="relative flex flex-col items-center justify-center w-full h-full min-h-[2rem] min-w-0 max-w-full overflow-hidden px-0.5">
@@ -154,13 +148,12 @@ function AgendaDayContent({ date, state }) {
       <span className={cn('text-sm leading-none z-[2]', inStreak ? 'mt-1' : '')}>
         {date.getDate()}
       </span>
-      {cellLabel ? (
+      {sessionCount > 1 ? (
         <span
-          className="block max-w-full truncate overflow-hidden whitespace-nowrap text-[8px] leading-tight text-subtle z-[2] mt-0.5"
-          data-testid="agenda-day-title"
-          title={sessionTitles.join(' · ') || undefined}
+          className="block max-w-full truncate overflow-hidden text-[8px] leading-tight text-subtle z-[2] mt-0.5 tabular-nums"
+          data-testid="agenda-day-count"
         >
-          {sessionCount > 1 ? sessionCount : cellLabel}
+          {sessionCount}
         </span>
       ) : null}
       <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5 z-[2]">

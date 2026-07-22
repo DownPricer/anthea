@@ -29,10 +29,11 @@ describe('AgendaCalendar overflow guards', () => {
     expect(source).toMatch(/day:[\s\S]*max-w-full/);
   });
 
-  it('truncates long session titles inside cells', () => {
-    expect(source).toContain('agenda-day-title');
-    expect(source).toMatch(/truncate/);
-    expect(source).toMatch(/whitespace-nowrap/);
+  it('does not render session names inside calendar cells', () => {
+    expect(source).not.toContain('agenda-day-title');
+    expect(source).not.toMatch(/sessionTitles\[0\]/);
+    expect(source).toContain('agenda-day-count');
+    expect(source).toMatch(/sessionCount > 1/);
   });
 
   it('keeps month navigation arrows accessible', () => {

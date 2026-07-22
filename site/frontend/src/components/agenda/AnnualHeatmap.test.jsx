@@ -32,11 +32,21 @@ describe('AnnualHeatmap', () => {
 
   it('wraps long selected-day titles in a constrained detail panel', () => {
     expect(source).toContain('annual-heatmap-day-detail');
+    expect(source).toMatch(
+      /annual-heatmap-day-detail[\s\S]*?w-full max-w-full min-w-0 overflow-hidden/
+    );
     expect(source).toContain('break-words');
     expect(source).toContain('line-clamp-3');
     expect(source).toContain('annual-heatmap-session-title');
     expect(source).toContain('line-clamp-2');
+    expect(source).toContain('[overflow-wrap:anywhere]');
   });
+
+  it('does not render session names inside heatmap cells', () => {
+    expect(source).not.toMatch(/agenda-day-title/);
+    expect(source).toMatch(/sr-only[\s\S]*?séances/);
+  });
+
 
   it('keeps year navigation arrows shrink-0 when enabled', () => {
     expect(source).toContain('annual-heatmap-prev-year');
