@@ -26,15 +26,31 @@ export function resolveUserAccent(user, theme = 'default') {
   return THEME_DEFAULTS[theme] || THEME_DEFAULTS.default;
 }
 
+function hexToRgba(hex, alpha) {
+  const normalized = normalizeAccentColor(hex);
+  if (!normalized) return `rgba(6, 182, 212, ${alpha})`;
+  const r = parseInt(normalized.slice(1, 3), 16);
+  const g = parseInt(normalized.slice(3, 5), 16);
+  const b = parseInt(normalized.slice(5, 7), 16);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /** Applique l'accent global UI — l'agenda gère ses propres variables localement. */
 export function applyAccentToDocument(color) {
   const root = document.documentElement;
   if (color) {
     root.style.setProperty('--user-accent', color);
-    root.style.setProperty('--user-accent-glow', `${color}4D`);
+    root.style.setProperty('--user-accent-glow', hexToRgba(color, 0.3));
+    // Couleur perso = accent principal dans les deux thèmes
+    root.style.setProperty('--theme-primary', color);
+    root.style.setProperty('--theme-primary-glow', hexToRgba(color, 0.3));
+    root.style.setProperty('--theme-surface-active', hexToRgba(color, 0.12));
   } else {
     root.style.removeProperty('--user-accent');
     root.style.removeProperty('--user-accent-glow');
+    root.style.removeProperty('--theme-primary');
+    root.style.removeProperty('--theme-primary-glow');
+    root.style.removeProperty('--theme-surface-active');
   }
 }
 

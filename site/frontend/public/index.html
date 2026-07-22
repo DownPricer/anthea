@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="fr">
+<html lang="fr" data-theme="dark">
     <head>
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <meta name="theme-color" content="#06B6D4" />
+        <meta name="theme-color" content="#09090B" />
         <meta name="description" content="FitMatch — application fitness pour couples. Ensemble, on va plus loin." />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="mobile-web-app-capable" content="yes" />
@@ -13,6 +13,20 @@
         <link rel="apple-touch-icon" href="%PUBLIC_URL%/icons/icon-192.png" />
         <link rel="icon" type="image/png" sizes="192x192" href="%PUBLIC_URL%/icons/icon-192.png" />
         <title>FitMatch</title>
+        <script>
+          (function () {
+            try {
+              var mode = localStorage.getItem('anthea-color-mode');
+              if (mode !== 'light' && mode !== 'dark') mode = 'dark';
+              document.documentElement.setAttribute('data-theme', mode);
+              document.documentElement.style.colorScheme = mode;
+              var meta = document.querySelector('meta[name="theme-color"]');
+              if (meta) meta.setAttribute('content', mode === 'light' ? '#F4F5F7' : '#09090B');
+              var accent = localStorage.getItem('anthea-theme') || localStorage.getItem('fitduo-theme');
+              if (accent === 'girly') document.documentElement.classList.add('theme-girly');
+            } catch (e) {}
+          })();
+        </script>
         <script>window.addEventListener("error",function(e){if(e.error instanceof DOMException&&e.error.name==="DataCloneError"&&e.message&&e.message.includes("PerformanceServerTiming")){e.stopImmediatePropagation();e.preventDefault()}},true);</script>
     </head>
     <body>

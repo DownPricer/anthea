@@ -109,6 +109,7 @@ class UserUpdate(BaseModel):
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
     theme: Optional[str] = "default"
+    appearance: Optional[str] = None
     accent_color: Optional[str] = None
     tts_enabled: Optional[bool] = True
     music_mode: Optional[bool] = None
@@ -141,6 +142,7 @@ class UserResponse(BaseModel):
     fitness_level: Optional[str] = None
     main_goal: Optional[str] = None
     theme: str = "default"
+    appearance: str = "dark"
     accent_color: Optional[str] = None
     tts_enabled: bool = True
     music_mode: bool = False
@@ -501,6 +503,14 @@ async def get_current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+def normalize_appearance(value: Optional[str]) -> Optional[str]:
+    if not value:
+        return None
+    raw = str(value).strip().lower()
+    if raw in ("dark", "light"):
+        return raw
+    return None
+
 def normalize_accent_color(value: Optional[str]) -> Optional[str]:
     if not value or not str(value).strip():
         return None
@@ -576,6 +586,7 @@ def serialize_user(user: dict) -> dict:
         "fitness_level": user.get("fitness_level"),
         "main_goal": user.get("main_goal"),
         "theme": user.get("theme", "default"),
+        "appearance": normalize_appearance(user.get("appearance")) or "dark",
         "accent_color": user.get("accent_color"),
         "tts_enabled": user.get("tts_enabled", True),
         "music_mode": user.get("music_mode", False),
@@ -1904,6 +1915,7 @@ async def seed_test_user():
             "display_name": "Test User",
             "fitness_level": "intermediate",
             "theme": "default",
+            "appearance": "dark",
             "tts_enabled": True,
             "timer_sound": "beep",
             "created_at": datetime.now(timezone.utc).isoformat()
@@ -1943,6 +1955,7 @@ async def register(data: UserCreate, response: Response):
         "fitness_level": data.fitness_level,
         "main_goal": data.main_goal,
         "theme": "default",
+        "appearance": "dark",
         "tts_enabled": True,
         "timer_sound": "beep",
         "account_visibility": "private",
@@ -2097,7 +2110,13 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
             set_data[legacy_key] = value in ("public", "followers")
 
     for key, value in payload.items():
-        if key == "accent_color" and (value is None or value == ""):
+        if key == "appearance":
+            normalized_appearance = normalize_appearance(value)
+            if normalized_appearance:
+                set_data["appearance"] = normalized_appearance
+            else:
+                raise HTTPException(status_code=400, detail="appearance invalide")
+        elif key == "accent_color" and (value is None or value == ""):
             unset_data["accent_color"] = ""
         elif key == "accent_color" and value is not None:
             normalized = normalize_accent_color(value)

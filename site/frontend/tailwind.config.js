@@ -13,46 +13,78 @@ module.exports = {
   			sm: 'calc(var(--radius) - 4px)'
   		},
   		colors: {
-  			background: 'hsl(var(--background))',
-  			foreground: 'hsl(var(--foreground))',
-  			card: {
-  				DEFAULT: 'hsl(var(--card))',
-  				foreground: 'hsl(var(--card-foreground))'
-  			},
-  			popover: {
-  				DEFAULT: 'hsl(var(--popover))',
-  				foreground: 'hsl(var(--popover-foreground))'
-  			},
-  			primary: {
-  				DEFAULT: 'hsl(var(--primary))',
-  				foreground: 'hsl(var(--primary-foreground))'
-  			},
-  			secondary: {
-  				DEFAULT: 'hsl(var(--secondary))',
-  				foreground: 'hsl(var(--secondary-foreground))'
+  			background: 'var(--background)',
+  			foreground: 'var(--foreground)',
+  			surface: {
+  				DEFAULT: 'var(--surface)',
+  				elevated: 'var(--surface-elevated)',
+  				subtle: 'var(--surface-subtle)',
+  				high: 'var(--surface-high)',
   			},
   			muted: {
-  				DEFAULT: 'hsl(var(--muted))',
-  				foreground: 'hsl(var(--muted-foreground))'
+  				DEFAULT: 'var(--foreground-muted)',
+  				foreground: 'var(--foreground-muted)',
+  				subtle: 'var(--foreground-subtle)',
+  			},
+  			subtle: 'var(--foreground-subtle)',
+  			border: {
+  				DEFAULT: 'var(--border)',
+  				strong: 'var(--border-strong)',
+  			},
+  			input: {
+  				DEFAULT: 'var(--border)',
+  				background: 'var(--input-background)',
+  			},
+  			overlay: 'var(--overlay)',
+  			hover: 'var(--hover)',
+  			active: 'var(--active)',
+  			card: {
+  				DEFAULT: 'var(--surface-elevated)',
+  				foreground: 'var(--foreground)',
+  			},
+  			popover: {
+  				DEFAULT: 'var(--surface-elevated)',
+  				foreground: 'var(--foreground)',
+  			},
+  			primary: {
+  				DEFAULT: 'var(--theme-primary)',
+  				foreground: 'var(--theme-primary-foreground)',
+  			},
+  			secondary: {
+  				DEFAULT: 'var(--surface-subtle)',
+  				foreground: 'var(--foreground)',
   			},
   			accent: {
-  				DEFAULT: 'hsl(var(--accent))',
-  				foreground: 'hsl(var(--accent-foreground))'
+  				DEFAULT: 'var(--theme-surface-active)',
+  				foreground: 'var(--theme-primary)',
   			},
   			destructive: {
-  				DEFAULT: 'hsl(var(--destructive))',
-  				foreground: 'hsl(var(--destructive-foreground))'
+  				DEFAULT: 'var(--destructive)',
+  				foreground: 'var(--destructive-foreground)',
   			},
-  			border: 'hsl(var(--border))',
-  			input: 'hsl(var(--input))',
-  			ring: 'hsl(var(--ring))',
+  			ring: 'var(--theme-primary)',
+  			skeleton: 'var(--skeleton)',
+  			unread: 'var(--unread)',
+  			nav: 'var(--nav-bg)',
   			chart: {
-  				'1': 'hsl(var(--chart-1))',
-  				'2': 'hsl(var(--chart-2))',
-  				'3': 'hsl(var(--chart-3))',
-  				'4': 'hsl(var(--chart-4))',
-  				'5': 'hsl(var(--chart-5))'
+  				grid: 'var(--chart-grid)',
+  				axis: 'var(--chart-axis)',
+  				tooltip: 'var(--chart-tooltip-bg)',
+  				'tooltip-text': 'var(--chart-tooltip-text)',
+  				'1': 'var(--theme-primary)',
+  				'2': 'var(--theme-secondary)',
+  				'3': 'var(--theme-accent)',
+  				'4': 'var(--warning)',
+  				'5': 'var(--success)',
   			}
+  		},
+  		boxShadow: {
+  			theme: '0 1px 3px var(--shadow-color)',
+  			'theme-md': '0 4px 16px var(--shadow-color)',
+  		},
+  		ringOffsetColor: {
+  			background: 'var(--background)',
+  			surface: 'var(--surface)',
   		},
   		keyframes: {
   			'accordion-down': {
