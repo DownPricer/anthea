@@ -38,20 +38,20 @@ export function NotificationPrefsSection() {
 
   return (
     <div className="space-y-4" data-testid="notification-prefs-section">
-      <p className="text-zinc-500 text-xs">
+      <p className="text-subtle text-xs">
         {t('notifications:prefs.hint')}
       </p>
 
       {prefGroups.map((group) => (
         <div key={group.id} className="space-y-2">
-          <h3 className="text-xs uppercase tracking-wider text-zinc-500 font-medium">{group.label}</h3>
+          <h3 className="text-xs uppercase tracking-wider text-subtle font-medium">{group.label}</h3>
           <div className="space-y-1.5">
             {group.keys.map(({ key, label }) => (
               <div
                 key={key}
-                className="flex items-center justify-between gap-3 rounded-xl bg-white/5 p-3"
+                className="flex items-center justify-between gap-3 rounded-xl bg-hover p-3"
               >
-                <span className="text-white text-sm min-w-0 leading-snug">{label}</span>
+                <span className="text-foreground text-sm min-w-0 leading-snug">{label}</span>
                 <Switch
                   checked={!!prefs[key]}
                   onCheckedChange={(checked) => updatePreference(key, checked)}

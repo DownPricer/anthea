@@ -277,7 +277,7 @@ export function ProfileEditDialog({
             variant="outline"
             disabled={avatarUploading}
             onClick={() => fileInputRef.current?.click()}
-            className="rounded-xl border-white/15 text-white w-full sm:w-auto"
+            className="rounded-xl border-border text-foreground w-full sm:w-auto"
           >
             {avatarUploading ? (
               <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -294,62 +294,62 @@ export function ProfileEditDialog({
                 revokePreviewUrl(avatarPreview);
                 setAvatarPreview(null);
               }}
-              className="text-zinc-500 text-xs hover:text-red-400 flex items-center gap-1"
+              className="text-subtle text-xs hover:text-red-400 flex items-center gap-1"
             >
               <X size={12} /> {t('edit.removePhoto')}
             </button>
           ) : (
-            <p className="text-zinc-600 text-xs">{t('edit.photoFormats')}</p>
+            <p className="text-subtle text-xs">{t('edit.photoFormats')}</p>
           )}
         </div>
       </div>
 
       <div>
-        <Label className="text-zinc-400 text-sm">{t('edit.displayName')}</Label>
+        <Label className="text-muted text-sm">{t('edit.displayName')}</Label>
         <Input
           value={form.display_name}
           onChange={(e) => setForm((f) => ({ ...f, display_name: e.target.value }))}
-          className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+          className="mt-2 h-11 rounded-xl bg-background border-border text-foreground"
         />
       </div>
 
       <div>
-        <Label className="text-zinc-400 text-sm">{t('edit.handle')}</Label>
+        <Label className="text-muted text-sm">{t('edit.handle')}</Label>
         <div className="relative mt-2">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500">@</span>
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle">@</span>
           <Input
             value={form.handle}
             onChange={(e) => setForm((f) => ({ ...f, handle: normalizeHandle(e.target.value) }))}
             placeholder="mon_pseudo"
-            className="h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white pl-8"
+            className="h-11 rounded-xl bg-background border-border text-foreground pl-8"
           />
         </div>
-        <p className="text-zinc-600 text-xs mt-1">{t('edit.handleHint')}</p>
+        <p className="text-subtle text-xs mt-1">{t('edit.handleHint')}</p>
       </div>
 
       <div>
-        <Label className="text-zinc-400 text-sm">{t('edit.bio')}</Label>
+        <Label className="text-muted text-sm">{t('edit.bio')}</Label>
         <Textarea
           value={form.bio}
           onChange={(e) => setForm((f) => ({ ...f, bio: e.target.value }))}
           placeholder={t('edit.bioPlaceholder')}
-          className="mt-2 rounded-xl bg-[#0A0A0A] border-white/10 text-white min-h-[80px]"
+          className="mt-2 rounded-xl bg-background border-border text-foreground min-h-[80px]"
         />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <Label className="text-zinc-400 text-sm">{t('edit.level')}</Label>
+          <Label className="text-muted text-sm">{t('edit.level')}</Label>
           <Select
             value={form.fitness_level}
             onValueChange={(v) => setForm((f) => ({ ...f, fitness_level: v }))}
           >
-            <SelectTrigger className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+            <SelectTrigger className="mt-2 h-11 rounded-xl bg-background border-border text-foreground">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-[#141414] border-white/10">
+            <SelectContent className="bg-surface-elevated border-border">
               {FITNESS_LEVEL_VALUES.map((value) => (
-                <SelectItem key={value} value={value} className="text-white">
+                <SelectItem key={value} value={value} className="text-foreground">
                   {t(`common:fitnessLevels.${value}`)}
                 </SelectItem>
               ))}
@@ -357,17 +357,17 @@ export function ProfileEditDialog({
           </Select>
         </div>
         <div>
-          <Label className="text-zinc-400 text-sm">{t('edit.goal')}</Label>
+          <Label className="text-muted text-sm">{t('edit.goal')}</Label>
           <Select
             value={form.main_goal || undefined}
             onValueChange={(v) => setForm((f) => ({ ...f, main_goal: v }))}
           >
-            <SelectTrigger className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+            <SelectTrigger className="mt-2 h-11 rounded-xl bg-background border-border text-foreground">
               <SelectValue placeholder={t('edit.choose')} />
             </SelectTrigger>
-            <SelectContent className="bg-[#141414] border-white/10">
+            <SelectContent className="bg-surface-elevated border-border">
               {GOAL_VALUES.map((value) => (
-                <SelectItem key={value} value={value} className="text-white">
+                <SelectItem key={value} value={value} className="text-foreground">
                   {t(`common:goals.${value}`)}
                 </SelectItem>
               ))}
@@ -379,8 +379,8 @@ export function ProfileEditDialog({
       {unlockedSoloBadges.length > 0 ? (
         <div className="space-y-2">
           <div>
-            <Label className="text-zinc-400 text-sm">{t('edit.featuredBadges')}</Label>
-            <p className="text-zinc-600 text-xs mt-0.5">
+            <Label className="text-muted text-sm">{t('edit.featuredBadges')}</Label>
+            <p className="text-subtle text-xs mt-0.5">
               {t('edit.featuredCount', { count: selectedBadgeIds.length })}
             </p>
           </div>
@@ -398,14 +398,14 @@ export function ProfileEditDialog({
                   className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-center transition-colors ${
                     isSelected
                       ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)] ring-1 ring-[var(--theme-primary)]/40'
-                      : 'border-white/10 bg-white/5 hover:border-white/20'
+                      : 'border-border bg-hover hover:border-border-strong'
                   }`}
                 >
                   <span
                     className={`absolute left-1.5 top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
                       isSelected
-                        ? 'bg-[var(--theme-primary)] text-white'
-                        : 'bg-black/40 text-zinc-500'
+                        ? 'bg-[var(--theme-primary)] text-foreground'
+                        : 'bg-overlay text-subtle'
                     }`}
                   >
                     {isSelected ? (
@@ -422,7 +422,7 @@ export function ProfileEditDialog({
                     size={40}
                     className="mx-auto shrink-0 size-10"
                   />
-                  <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[10px] text-zinc-300">
+                  <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[10px] text-muted">
                     {badgeName}
                   </p>
                   {isSelected ? (
@@ -444,7 +444,7 @@ export function ProfileEditDialog({
       type="button"
       onClick={handleSubmit}
       disabled={saving || avatarUploading}
-      className="w-full h-11 rounded-xl btn-primary text-white font-medium"
+      className="w-full h-11 rounded-xl btn-primary text-foreground font-medium"
       data-testid="profile-settings-save"
     >
       {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : t('edit.save')}
@@ -453,19 +453,19 @@ export function ProfileEditDialog({
 
   const discardDialog = (
     <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
-      <AlertDialogContent className="bg-[#141414] border-white/10 text-white">
+      <AlertDialogContent className="bg-surface-elevated border-border text-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle>{t('edit.discardTitle')}</AlertDialogTitle>
-          <AlertDialogDescription className="text-zinc-400">
+          <AlertDialogDescription className="text-muted">
             {t('edit.discardDescription')}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="rounded-xl border-white/15 bg-transparent text-white">
+          <AlertDialogCancel className="rounded-xl border-border bg-transparent text-foreground">
             {t('edit.discardContinue')}
           </AlertDialogCancel>
           <AlertDialogAction
-            className="rounded-xl bg-red-600 hover:bg-red-500 text-white"
+            className="rounded-xl bg-red-600 hover:bg-red-500 text-foreground"
             onClick={confirmDiscard}
           >
             {t('edit.discardLeave')}
@@ -480,19 +480,19 @@ export function ProfileEditDialog({
       <>
         <Drawer open={open} onOpenChange={requestClose}>
           <DrawerContent
-            className="bg-[#141414] border-white/10 text-white max-h-[92vh] flex flex-col"
+            className="bg-surface-elevated border-border text-foreground max-h-[92vh] flex flex-col"
             onCloseAutoFocus={(event) => {
               if (suppressCloseAutoFocus) event.preventDefault();
             }}
           >
             <DrawerHeader className="text-left shrink-0">
-              <DrawerTitle className="font-['Outfit'] text-white">{t('edit.title')}</DrawerTitle>
-              <DrawerDescription className="text-zinc-500">
+              <DrawerTitle className="font-['Outfit'] text-foreground">{t('edit.title')}</DrawerTitle>
+              <DrawerDescription className="text-subtle">
                 {t('edit.description')}
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex-1 overflow-y-auto px-4">{formBody}</div>
-            <DrawerFooter className="shrink-0 border-t border-white/10">{saveButton}</DrawerFooter>
+            <DrawerFooter className="shrink-0 border-t border-border">{saveButton}</DrawerFooter>
           </DrawerContent>
         </Drawer>
         {discardDialog}
@@ -505,19 +505,19 @@ export function ProfileEditDialog({
       <Sheet open={open} onOpenChange={requestClose}>
         <SheetContent
           side="right"
-          className="bg-[#141414] border-white/10 text-white w-full sm:max-w-[480px] flex flex-col p-0"
+          className="bg-surface-elevated border-border text-foreground w-full sm:max-w-[480px] flex flex-col p-0"
           onCloseAutoFocus={(event) => {
             if (suppressCloseAutoFocus) event.preventDefault();
           }}
         >
-          <SheetHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-white/10">
-            <SheetTitle className="font-['Outfit'] text-white text-left">{t('edit.title')}</SheetTitle>
-            <SheetDescription className="text-zinc-500 text-left">
+          <SheetHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border">
+            <SheetTitle className="font-['Outfit'] text-foreground text-left">{t('edit.title')}</SheetTitle>
+            <SheetDescription className="text-subtle text-left">
               {t('edit.description')}
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-4">{formBody}</div>
-          <div className="shrink-0 border-t border-white/10 px-6 py-4">{saveButton}</div>
+          <div className="shrink-0 border-t border-border px-6 py-4">{saveButton}</div>
         </SheetContent>
       </Sheet>
       {discardDialog}

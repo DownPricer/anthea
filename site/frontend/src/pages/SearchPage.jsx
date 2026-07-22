@@ -56,7 +56,7 @@ function FollowButton({ result, onUpdate }) {
         variant="outline"
         disabled={loading}
         onClick={handleUnfollow}
-        className="rounded-xl border-white/15 text-zinc-300 shrink-0"
+        className="rounded-xl border-border text-muted shrink-0"
       >
         {loading ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} className="mr-1" />}
         Ne plus suivre
@@ -66,7 +66,7 @@ function FollowButton({ result, onUpdate }) {
 
   if (result.follow_request_pending) {
     return (
-      <Button type="button" size="sm" disabled className="rounded-xl bg-white/5 text-zinc-500 shrink-0">
+      <Button type="button" size="sm" disabled className="rounded-xl bg-hover text-subtle shrink-0">
         Demande envoyée
       </Button>
     );
@@ -80,7 +80,7 @@ function FollowButton({ result, onUpdate }) {
       size="sm"
       disabled={loading}
       onClick={handleFollow}
-      className="rounded-xl btn-primary text-white shrink-0"
+      className="rounded-xl btn-primary text-foreground shrink-0"
     >
       {loading ? (
         <Loader2 size={14} className="animate-spin" />
@@ -152,16 +152,16 @@ export function SearchPage() {
         <button
           type="button"
           onClick={() => navigate(-1)}
-          className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
+          className="flex h-10 w-10 items-center justify-center rounded-xl bg-hover text-muted hover:text-foreground"
           aria-label="Retour"
         >
           <ChevronLeft size={20} />
         </button>
-        <h1 className="text-xl font-bold text-white font-['Outfit']">Recherche</h1>
+        <h1 className="text-xl font-bold text-foreground font-['Outfit']">Recherche</h1>
       </header>
 
       <div className="relative mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" size={18} />
         <Input
           value={query}
           onChange={(e) => handleQueryChange(e.target.value)}
@@ -171,7 +171,7 @@ export function SearchPage() {
               : 'Nom de duo ou LesGuerriers#1042…'
           }
           autoFocus
-          className="pl-10 h-12 rounded-xl bg-[#141414] border-white/10 text-white"
+          className="pl-10 h-12 rounded-xl bg-surface-elevated border-border text-foreground"
         />
       </div>
 
@@ -186,8 +186,8 @@ export function SearchPage() {
               onClick={() => handleTabChange(tab.id)}
               className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-medium transition-colors ${
                 active
-                  ? 'bg-[var(--theme-surface-active)] text-white border border-[var(--theme-primary)]/30'
-                  : 'bg-white/5 text-zinc-400 hover:text-white'
+                  ? 'bg-[var(--theme-surface-active)] text-foreground border border-[var(--theme-primary)]/30'
+                  : 'bg-hover text-muted hover:text-foreground'
               }`}
             >
               <Icon size={16} />
@@ -212,15 +212,15 @@ export function SearchPage() {
               >
                 <UserAvatar user={result} className="w-12 h-12 text-lg shrink-0" />
                 <div className="flex-1 min-w-0">
-                  <p className="text-white font-medium truncate">{getDisplayName(result)}</p>
-                  <p className="text-zinc-500 text-sm">{formatHandle(result)}</p>
+                  <p className="text-foreground font-medium truncate">{getDisplayName(result)}</p>
+                  <p className="text-subtle text-sm">{formatHandle(result)}</p>
                   <div className="flex items-center gap-1.5 mt-1">
                     {result.account_visibility === 'public' ? (
                       <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-emerald-400/80">
                         <Globe size={10} /> Public
                       </span>
                     ) : (
-                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+                      <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-subtle">
                         <Lock size={10} /> Privé
                       </span>
                     )}
@@ -237,7 +237,7 @@ export function SearchPage() {
                     asChild
                     size="sm"
                     variant="outline"
-                    className="rounded-xl border-white/15 text-white"
+                    className="rounded-xl border-border text-foreground"
                   >
                     <Link to={`/profile/${handle}`}>Voir profil</Link>
                   </Button>
@@ -246,12 +246,12 @@ export function SearchPage() {
             );
           })}
           {searched && results.length === 0 ? (
-            <div className="text-center py-14 text-zinc-500 text-sm">
+            <div className="text-center py-14 text-subtle text-sm">
               Aucun utilisateur trouvé.
             </div>
           ) : null}
           {!searched ? (
-            <div className="text-center py-14 text-zinc-600 text-sm">
+            <div className="text-center py-14 text-subtle text-sm">
               Tape au moins 2 caractères ou un @arobase exact.
             </div>
           ) : null}
@@ -262,16 +262,16 @@ export function SearchPage() {
             <div key={duo.id} className="card p-4 flex items-center gap-3">
               <DuoAvatar duoProfile={duo} members={duo.members} className="w-12 h-12 shrink-0" textSize="text-sm" />
               <div className="flex-1 min-w-0">
-                <p className="text-white font-medium truncate">{duo.name}</p>
-                <p className="text-zinc-500 text-sm font-mono">{duo.tag}</p>
+                <p className="text-foreground font-medium truncate">{duo.name}</p>
+                <p className="text-subtle text-sm font-mono">{duo.tag}</p>
                 <div className="flex items-center gap-2 mt-1">
                   {duo.account_visibility === 'public' ? (
                     <span className="text-[10px] uppercase text-emerald-400/80">Public</span>
                   ) : (
-                    <span className="text-[10px] uppercase text-zinc-500">Privé</span>
+                    <span className="text-[10px] uppercase text-subtle">Privé</span>
                   )}
                   {duo.followers_count != null ? (
-                    <span className="text-zinc-600 text-xs">{duo.followers_count} abonnés</span>
+                    <span className="text-subtle text-xs">{duo.followers_count} abonnés</span>
                   ) : null}
                 </div>
               </div>
@@ -279,7 +279,7 @@ export function SearchPage() {
                 {!duo.is_member ? (
                   <DuoFollowButton duoProfile={duo} onUpdate={(d) => updateResult(d)} />
                 ) : null}
-                <Button asChild size="sm" className="rounded-xl btn-primary text-white">
+                <Button asChild size="sm" className="rounded-xl btn-primary text-foreground">
                   <Link to={duoProfilePath(duo.tag)}>Voir profil</Link>
                 </Button>
               </div>
@@ -287,14 +287,14 @@ export function SearchPage() {
           ))}
           {searched && results.length === 0 ? (
             <div className="text-center py-14">
-              <p className="text-zinc-500 text-sm">Aucun duo trouvé.</p>
-              <p className="text-zinc-600 text-xs mt-2">
+              <p className="text-subtle text-sm">Aucun duo trouvé.</p>
+              <p className="text-subtle text-xs mt-2">
                 Les profils duo apparaissent quand deux partenaires sont liés.
               </p>
             </div>
           ) : null}
           {!searched ? (
-            <div className="text-center py-14 text-zinc-600 text-sm">
+            <div className="text-center py-14 text-subtle text-sm">
               Recherche par nom ou identifiant unique (ex. LesGuerriers#1042).
             </div>
           ) : null}

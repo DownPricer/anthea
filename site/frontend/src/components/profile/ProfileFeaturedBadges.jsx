@@ -13,9 +13,9 @@ export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty
   if (!featured.length) {
     if (!showEmpty) return null;
     return (
-      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-white/[0.03] px-2.5 py-1.5 border border-white/5 sm:justify-start">
-        <Trophy size={12} className="text-zinc-600 shrink-0" />
-        <span className="text-zinc-600 text-[11px]">{t('featuredEmpty')}</span>
+      <div className="flex w-full items-center justify-center gap-2 rounded-xl bg-hover px-2.5 py-1.5 border border-border sm:justify-start">
+        <Trophy size={12} className="text-subtle shrink-0" />
+        <span className="text-subtle text-[11px]">{t('featuredEmpty')}</span>
       </div>
     );
   }
@@ -40,7 +40,7 @@ export function ProfileFeaturedBadges({ badges = [], featuredIds = [], showEmpty
               locked={false}
               size={36}
             />
-            <span className="text-[10px] leading-tight text-zinc-300 line-clamp-2 w-full">
+            <span className="text-[10px] leading-tight text-muted line-clamp-2 w-full">
               {name}
             </span>
           </div>

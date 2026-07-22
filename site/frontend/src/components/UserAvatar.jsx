@@ -19,7 +19,7 @@ export function UserAvatar({ user, className, fallbackClassName, cacheVersion = 
         <AvatarImage src={avatarSrc} alt={user.display_name || user.username || ''} />
       ) : null}
       <AvatarFallback
-        className={cn('text-white font-bold', fallbackClassName)}
+        className={cn('text-foreground font-bold', fallbackClassName)}
         style={fallbackStyle}
       >
         {initial}

@@ -48,9 +48,9 @@ export function PublicProfilePage() {
   if (notFound || !profileUser) {
     return (
       <div className="p-5 text-center py-20">
-        <p className="text-white font-medium mb-2">Profil introuvable</p>
-        <p className="text-zinc-500 text-sm mb-6">Cet arobase n'existe pas ou a été supprimé.</p>
-        <Button onClick={() => navigate('/search')} className="btn-primary text-white rounded-xl">
+        <p className="text-foreground font-medium mb-2">Profil introuvable</p>
+        <p className="text-subtle text-sm mb-6">Cet arobase n'existe pas ou a été supprimé.</p>
+        <Button onClick={() => navigate('/search')} className="btn-primary text-foreground rounded-xl">
           Rechercher un utilisateur
         </Button>
       </div>

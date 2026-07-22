@@ -30,13 +30,13 @@ function FeedSkeleton() {
       {[1, 2].map((i) => (
         <div key={i} className="card p-4 space-y-3 animate-pulse">
           <div className="flex gap-3">
-            <div className="w-10 h-10 rounded-full bg-white/5" />
+            <div className="w-10 h-10 rounded-full bg-hover" />
             <div className="flex-1 space-y-2">
-              <div className="h-3 w-32 rounded bg-white/5" />
-              <div className="h-2 w-20 rounded bg-white/5" />
+              <div className="h-3 w-32 rounded bg-hover" />
+              <div className="h-2 w-20 rounded bg-hover" />
             </div>
           </div>
-          <div className="h-16 rounded-xl bg-white/5" />
+          <div className="h-16 rounded-xl bg-hover" />
         </div>
       ))}
     </div>
@@ -317,22 +317,22 @@ export function HomeFeed() {
   return (
     <section data-testid="home-feed" className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-semibold text-white font-['Outfit']">{t('home:feed.title')}</h2>
+        <h2 className="text-lg font-semibold text-foreground font-['Outfit']">{t('home:feed.title')}</h2>
       </div>
 
       <Tabs value={scope} onValueChange={handleTabChange}>
-        <TabsList className="grid w-full grid-cols-2 h-11 rounded-2xl bg-[#141414] border border-white/10 p-1">
+        <TabsList className="grid w-full grid-cols-2 h-11 rounded-2xl bg-surface-elevated border border-border p-1">
           <TabsTrigger
             value="global"
             data-testid="feed-tab-global"
-            className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 text-xs sm:text-sm"
+            className="rounded-full data-[state=active]:bg-active data-[state=active]:text-foreground text-subtle text-xs sm:text-sm"
           >
             {t('home:feed.world')}
           </TabsTrigger>
           <TabsTrigger
             value="following"
             data-testid="feed-tab-following"
-            className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 text-xs sm:text-sm"
+            className="rounded-full data-[state=active]:bg-active data-[state=active]:text-foreground text-subtle text-xs sm:text-sm"
           >
             {t('home:feed.following')}
           </TabsTrigger>
@@ -355,7 +355,7 @@ export function HomeFeed() {
               variant="outline"
               disabled={loadingFollowing}
               onClick={() => loadFollowing(followingCursor, true)}
-              className="w-full rounded-xl border-white/15 text-white"
+              className="w-full rounded-xl border-border text-foreground"
             >
               {loadingFollowing ? <Loader2 className="w-4 h-4 animate-spin" /> : t('home:feed.loadMore')}
             </Button>
@@ -366,8 +366,8 @@ export function HomeFeed() {
           <div className="space-y-3">
             <div className="flex items-center gap-2">
               <Flame size={18} className="text-orange-400" />
-              <h3 className="text-white font-medium text-sm">{t('home:feed.trending')}</h3>
-              <span className="text-zinc-600 text-xs">{t('home:feed.trendingPeriod')}</span>
+              <h3 className="text-foreground font-medium text-sm">{t('home:feed.trending')}</h3>
+              <span className="text-subtle text-xs">{t('home:feed.trendingPeriod')}</span>
             </div>
             {loadingTrending && trendingPosts.length === 0 ? (
               <FeedSkeleton />
@@ -380,12 +380,12 @@ export function HomeFeed() {
                 ))}
               </div>
             ) : (
-              <p className="text-zinc-500 text-sm">{t('home:feed.emptyTrending')}</p>
+              <p className="text-subtle text-sm">{t('home:feed.emptyTrending')}</p>
             )}
           </div>
 
           <div className="space-y-3">
-            <h3 className="text-white font-medium text-sm">{t('home:feed.latest')}</h3>
+            <h3 className="text-foreground font-medium text-sm">{t('home:feed.latest')}</h3>
             <FeedList
               posts={globalPosts}
               loading={loadingGlobal}
@@ -402,7 +402,7 @@ export function HomeFeed() {
                 variant="outline"
                 disabled={loadingGlobal}
                 onClick={() => loadGlobal(globalCursor, true)}
-                className="w-full rounded-xl border-white/15 text-white"
+                className="w-full rounded-xl border-border text-foreground"
               >
                 {loadingGlobal ? <Loader2 className="w-4 h-4 animate-spin" /> : t('home:feed.loadMore')}
               </Button>

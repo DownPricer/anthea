@@ -25,10 +25,10 @@ function StatCard({ icon: Icon, label, value, sub }) {
     <div className="card p-4">
       <div className="flex items-center gap-2 mb-2">
         <Icon size={16} className="text-[var(--theme-primary)]" />
-        <span className="text-zinc-400 text-xs uppercase tracking-wide">{label}</span>
+        <span className="text-muted text-xs uppercase tracking-wide">{label}</span>
       </div>
-      <p className="text-2xl font-bold text-white font-['Outfit']">{value}</p>
-      {sub ? <p className="text-zinc-500 text-xs mt-1">{sub}</p> : null}
+      <p className="text-2xl font-bold text-foreground font-['Outfit']">{value}</p>
+      {sub ? <p className="text-subtle text-xs mt-1">{sub}</p> : null}
     </div>
   );
 }
@@ -69,10 +69,10 @@ export function ProfileStatsTab({
 
   if (isLimited && !isOwn) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-white/10 bg-white/[0.02] px-6 py-14 text-center">
-        <Lock size={28} className="text-zinc-500 mb-3" />
-        <p className="text-white font-medium">{t('profile:statsTab.privateTitle')}</p>
-        <p className="text-zinc-500 text-sm mt-2 max-w-sm">
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-border bg-hover px-6 py-14 text-center">
+        <Lock size={28} className="text-subtle mb-3" />
+        <p className="text-foreground font-medium">{t('profile:statsTab.privateTitle')}</p>
+        <p className="text-subtle text-sm mt-2 max-w-sm">
           {t('profile:statsTab.privateHint')}
         </p>
       </div>
@@ -89,9 +89,9 @@ export function ProfileStatsTab({
 
   if (!canShowStats) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
-        <BarChart3 size={28} className="text-zinc-600 mb-3" />
-        <p className="text-zinc-400 text-sm">{t('profile:statsTab.notVisible')}</p>
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 py-14 text-center">
+        <BarChart3 size={28} className="text-subtle mb-3" />
+        <p className="text-muted text-sm">{t('profile:statsTab.notVisible')}</p>
       </div>
     );
   }
@@ -174,11 +174,11 @@ export function ProfileStatsTab({
 
   if (!statItems.length && !recentSessions.length) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-white/10 px-6 py-14 text-center">
-        <BarChart3 size={28} className="text-zinc-600 mb-3" />
-        <p className="text-zinc-400 text-sm">{t('profile:statsTab.empty')}</p>
+      <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border px-6 py-14 text-center">
+        <BarChart3 size={28} className="text-subtle mb-3" />
+        <p className="text-muted text-sm">{t('profile:statsTab.empty')}</p>
         {isOwn ? (
-          <p className="text-zinc-600 text-xs mt-2">{t('profile:statsTab.emptyOwnHint')}</p>
+          <p className="text-subtle text-xs mt-2">{t('profile:statsTab.emptyOwnHint')}</p>
         ) : null}
       </div>
     );
@@ -217,7 +217,7 @@ export function ProfileStatsTab({
 
       {recentSessions.length > 0 ? (
         <div className="space-y-3">
-          <h3 className="text-sm font-semibold text-white font-['Outfit'] uppercase tracking-wide text-zinc-400">
+          <h3 className="text-sm font-semibold text-foreground font-['Outfit'] uppercase tracking-wide text-muted">
             {t('profile:statsTab.recentSessions')}
           </h3>
           <div className="space-y-2">

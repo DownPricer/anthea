@@ -32,13 +32,13 @@ export function DesktopNav() {
   }
 
   return (
-    <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-white/5 bg-[#0A0A0A]">
+    <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-border bg-background">
       <div className="flex h-full flex-col p-4">
         <div className="px-2 py-3">
-          <div className="text-white font-black tracking-tight font-['Outfit'] text-lg">
+          <div className="text-foreground font-black tracking-tight font-['Outfit'] text-lg">
             Anthea
           </div>
-          <div className="text-zinc-500 text-xs mt-0.5">{t('tagline')}</div>
+          <div className="text-subtle text-xs mt-0.5">{t('tagline')}</div>
         </div>
 
         <nav className="mt-4 flex-1 space-y-1 overflow-y-auto min-h-0">
@@ -58,8 +58,8 @@ export function DesktopNav() {
                   cn(
                     'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
                     isActive
-                      ? 'bg-[var(--theme-surface-active)] text-white border border-[var(--theme-primary)]/20'
-                      : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                      ? 'bg-[var(--theme-surface-active)] text-foreground border border-[var(--theme-primary)]/20'
+                      : 'text-muted hover:text-foreground hover:bg-hover border border-transparent'
                   )
                 }
               >
@@ -68,7 +68,7 @@ export function DesktopNav() {
                   {item.isDuo && duoBadge ? (
                     <span
                       data-testid="nav-duo-unread-badge-desktop"
-                      className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white"
+                      className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-foreground"
                     >
                       {duoBadge}
                     </span>
@@ -80,22 +80,22 @@ export function DesktopNav() {
           })}
         </nav>
 
-        <div className="mt-auto shrink-0 border-t border-white/5 pt-4 space-y-1">
+        <div className="mt-auto shrink-0 border-t border-border pt-4 space-y-1">
           <NavLink
             to="/settings"
             className={({ isActive }) =>
               cn(
                 'flex items-center gap-3 rounded-2xl px-3 py-2.5 transition-colors',
                 isActive
-                  ? 'bg-[var(--theme-surface-active)] text-white border border-[var(--theme-primary)]/20'
-                  : 'text-zinc-400 hover:text-white hover:bg-white/5 border border-transparent'
+                  ? 'bg-[var(--theme-surface-active)] text-foreground border border-[var(--theme-primary)]/20'
+                  : 'text-muted hover:text-foreground hover:bg-hover border border-transparent'
               )
             }
           >
             <Settings size={18} />
             <span className="text-sm font-medium">{t('items.settings')}</span>
           </NavLink>
-          <p className="text-[10px] text-zinc-600 px-2 pt-2">v0.x • responsive patch</p>
+          <p className="text-[10px] text-subtle px-2 pt-2">v0.x • responsive patch</p>
         </div>
       </div>
     </aside>

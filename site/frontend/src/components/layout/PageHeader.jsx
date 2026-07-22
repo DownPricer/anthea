@@ -22,7 +22,7 @@ export function PageHeader({
           {leading}
           <div className="min-w-0">
             <h1
-              className="text-xl md:text-2xl font-bold text-white font-['Outfit'] leading-tight"
+              className="text-xl md:text-2xl font-bold text-foreground font-['Outfit'] leading-tight"
               data-testid={titleTestId}
             >
               {title}
@@ -30,7 +30,7 @@ export function PageHeader({
             {subtitle ? (
               <p
                 className={cn(
-                  'text-zinc-500 text-sm mt-0.5 leading-snug',
+                  'text-subtle text-sm mt-0.5 leading-snug',
                   subtitleClassName
                 )}
               >

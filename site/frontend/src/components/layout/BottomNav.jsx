@@ -29,7 +29,7 @@ export function BottomNav() {
   return (
     <nav
       data-testid="bottom-nav"
-      className="md:hidden fixed bottom-0 left-0 right-0 z-50 grid h-20 grid-cols-5 items-end border-t border-white/10 bg-[#0A0A0A]/80 backdrop-blur-2xl safe-bottom"
+      className="md:hidden fixed bottom-0 left-0 right-0 z-50 grid h-20 grid-cols-5 items-end border-t border-border bg-background/80 backdrop-blur-2xl safe-bottom"
     >
       {navItems.map((item) => {
         const Icon = item.icon;
@@ -42,7 +42,7 @@ export function BottomNav() {
                 to={item.path}
                 data-testid="nav-create"
                 aria-label={t('aria.create')}
-                className="flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full border-4 border-[#0A0A0A] text-white transition-transform active:scale-95"
+                className="flex h-14 w-14 -translate-y-4 items-center justify-center rounded-full border-4 border-background text-[var(--theme-primary-foreground)] transition-transform active:scale-95"
                 style={{
                   background: `linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))`,
                   boxShadow: `0 8px 25px var(--theme-primary-glow)`,
@@ -67,7 +67,7 @@ export function BottomNav() {
               data-testid={`nav-${item.testId}`}
               aria-label={ariaLabel}
               className={`flex flex-col items-center gap-1.5 text-[10px] font-medium uppercase tracking-wider transition-colors ${
-                isActive ? 'text-[var(--theme-primary)]' : 'text-zinc-500 hover:text-white'
+                isActive ? 'text-[var(--theme-primary)]' : 'text-subtle hover:text-foreground'
               }`}
             >
               <span className="relative inline-flex">
@@ -75,7 +75,7 @@ export function BottomNav() {
                 {item.isDuo && duoBadge ? (
                   <span
                     data-testid="nav-duo-unread-badge"
-                    className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white"
+                    className="absolute -top-1.5 -right-2.5 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-foreground"
                   >
                     {duoBadge}
                   </span>

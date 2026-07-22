@@ -84,34 +84,34 @@ const SECTION_IDS = {
 
 function SettingsLinkRow({ to, icon: Icon, label, description, onClick }) {
   const className =
-    'flex items-center gap-3 rounded-xl bg-white/5 p-3 transition-colors hover:bg-white/10 w-full text-left';
+    'flex items-center gap-3 rounded-xl bg-hover p-3 transition-colors hover:bg-active w-full text-left';
   if (onClick) {
     return (
       <button type="button" onClick={onClick} className={className}>
-        <Icon size={18} className="text-zinc-400 shrink-0" />
+        <Icon size={18} className="text-muted shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="text-white font-medium">{label}</p>
-          {description ? <p className="text-zinc-500 text-xs truncate">{description}</p> : null}
+          <p className="text-foreground font-medium">{label}</p>
+          {description ? <p className="text-subtle text-xs truncate">{description}</p> : null}
         </div>
-        <ChevronRight size={16} className="text-zinc-500 shrink-0" />
+        <ChevronRight size={16} className="text-subtle shrink-0" />
       </button>
     );
   }
   return (
     <Link to={to} className={className}>
-      <Icon size={18} className="text-zinc-400 shrink-0" />
+      <Icon size={18} className="text-muted shrink-0" />
       <div className="flex-1 min-w-0">
-        <p className="text-white font-medium">{label}</p>
-        {description ? <p className="text-zinc-500 text-xs truncate">{description}</p> : null}
+        <p className="text-foreground font-medium">{label}</p>
+        {description ? <p className="text-subtle text-xs truncate">{description}</p> : null}
       </div>
-      <ChevronRight size={16} className="text-zinc-500 shrink-0" />
+      <ChevronRight size={16} className="text-subtle shrink-0" />
     </Link>
   );
 }
 
 function PrivacyStatus({ children, locked = false }) {
   return (
-    <span className={`text-xs ${locked ? 'text-zinc-500 flex items-center gap-1' : 'text-zinc-400'}`}>
+    <span className={`text-xs ${locked ? 'text-subtle flex items-center gap-1' : 'text-muted'}`}>
       {locked ? <Lock size={12} /> : null}
       {children}
     </span>
@@ -120,21 +120,21 @@ function PrivacyStatus({ children, locked = false }) {
 
 function PrivacySelectRow({ icon: Icon, label, value, onChange, options, locked, lockedLabel }) {
   return (
-    <div className="flex items-center justify-between rounded-xl bg-white/5 p-3 gap-3">
+    <div className="flex items-center justify-between rounded-xl bg-hover p-3 gap-3">
       <div className="flex items-center gap-2 min-w-0">
-        <Icon size={16} className="text-zinc-500 shrink-0" />
-        <span className="text-white text-sm">{label}</span>
+        <Icon size={16} className="text-subtle shrink-0" />
+        <span className="text-foreground text-sm">{label}</span>
       </div>
       {locked ? (
         <PrivacyStatus locked>{lockedLabel || 'Visible'}</PrivacyStatus>
       ) : (
         <Select value={value} onValueChange={onChange}>
-          <SelectTrigger className="w-40 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs shrink-0">
+          <SelectTrigger className="w-40 h-9 rounded-lg bg-background border-border text-foreground text-xs shrink-0">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-[#141414] border-white/10">
+          <SelectContent className="bg-surface-elevated border-border">
             {options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-white">
+              <SelectItem key={opt.value} value={opt.value} className="text-foreground">
                 {opt.label}
               </SelectItem>
             ))}
@@ -168,7 +168,7 @@ function contrastOnAccent(hex) {
 
 function SectionIcon({ icon: Icon }) {
   return (
-    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/5 mr-3">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-hover mr-3">
       <Icon size={16} className="text-[var(--theme-primary)]" />
     </div>
   );
@@ -177,7 +177,7 @@ function SectionIcon({ icon: Icon }) {
 export function SettingsPage() {
   const { t } = useTranslation(['settings', 'common', 'badges']);
   const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
-  const { theme, setTheme } = useTheme();
+  const { colorMode, setColorMode, theme } = useTheme();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
@@ -333,6 +333,7 @@ export function SettingsPage() {
     const normalizedAccent = normalizeAccentColor(accentColor);
     const result = await updateProfile({
       theme,
+      appearance: colorMode,
       accent_color: normalizedAccent || null,
     });
     setSavingPrefs(false);
@@ -479,7 +480,7 @@ export function SettingsPage() {
   const contrast = contrastOnAccent(previewAccent);
 
   const triggerClass =
-    "px-4 hover:no-underline text-white font-['Outfit'] text-base font-semibold [&[data-state=open]]:text-white";
+    "px-4 hover:no-underline text-foreground font-['Outfit'] text-base font-semibold [&[data-state=open]]:text-foreground";
 
   return (
     <div data-testid="settings-page" className="p-5 pb-32 md:pb-8 animate-fade-in max-w-2xl mx-auto">
@@ -504,7 +505,7 @@ export function SettingsPage() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-3">
-            <p className="text-zinc-500 text-sm">{t('sections.profileHint')}</p>
+            <p className="text-subtle text-sm">{t('sections.profileHint')}</p>
             <SettingsLinkRow
               icon={User}
               label={t('sections.editProfile')}
@@ -551,40 +552,77 @@ export function SettingsPage() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-3">
-            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
-              <div className="flex items-center gap-3">
-                <Palette className="text-zinc-400" size={20} />
-                <span className="text-white">{t('appearance.theme')}</span>
-              </div>
-              <div className="flex gap-2">
+            <div className="rounded-xl bg-hover p-3 space-y-3">
+              <p className="text-foreground text-sm">{t('appearance.theme')}</p>
+              <div className="grid grid-cols-2 gap-3">
                 <button
                   type="button"
-                  onClick={() => setTheme('default')}
-                  data-testid="theme-default"
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    theme === 'default' ? 'ring-2 ring-cyan-500 ring-offset-2 ring-offset-[#141414]' : ''
+                  onClick={() => setColorMode('dark')}
+                  data-testid="theme-dark"
+                  className={`relative rounded-xl border-2 p-2 text-left transition-all ${
+                    colorMode === 'dark'
+                      ? 'border-[var(--theme-primary)]'
+                      : 'border-border'
                   }`}
-                  style={{ background: 'linear-gradient(135deg, #06B6D4, #10B981)' }}
                 >
-                  {theme === 'default' && <Check size={14} className="text-white" />}
+                  <div
+                    data-theme="dark"
+                    className="rounded-lg overflow-hidden border border-border bg-background p-2 space-y-1.5"
+                  >
+                    <div className="h-2 w-1/2 rounded bg-surface-elevated" />
+                    <div className="h-8 rounded-md bg-surface border border-border" />
+                    <div className="flex gap-1">
+                      <div className="h-2 flex-1 rounded bg-surface-subtle" />
+                      <div className="h-2 flex-1 rounded bg-surface-subtle" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-foreground text-sm font-medium">{t('appearance.dark')}</p>
+                      <p className="text-subtle text-xs">{t('appearance.darkHint')}</p>
+                    </div>
+                    {colorMode === 'dark' ? (
+                      <Check size={16} className="text-[var(--theme-primary)] shrink-0" />
+                    ) : null}
+                  </div>
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTheme('girly')}
-                  data-testid="theme-girly"
-                  className={`w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                    theme === 'girly' ? 'ring-2 ring-pink-500 ring-offset-2 ring-offset-[#141414]' : ''
+                  onClick={() => setColorMode('light')}
+                  data-testid="theme-light"
+                  className={`relative rounded-xl border-2 p-2 text-left transition-all ${
+                    colorMode === 'light'
+                      ? 'border-[var(--theme-primary)]'
+                      : 'border-border'
                   }`}
-                  style={{ background: 'linear-gradient(135deg, #D946EF, #8B5CF6)' }}
                 >
-                  {theme === 'girly' && <Heart size={14} className="text-white" fill="currentColor" />}
+                  <div
+                    data-theme="light"
+                    className="rounded-lg overflow-hidden border border-border bg-background p-2 space-y-1.5"
+                  >
+                    <div className="h-2 w-1/2 rounded bg-surface-elevated" />
+                    <div className="h-8 rounded-md bg-surface border border-border" />
+                    <div className="flex gap-1">
+                      <div className="h-2 flex-1 rounded bg-surface-subtle" />
+                      <div className="h-2 flex-1 rounded bg-surface-subtle" />
+                    </div>
+                  </div>
+                  <div className="mt-2 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-foreground text-sm font-medium">{t('appearance.light')}</p>
+                      <p className="text-subtle text-xs">{t('appearance.lightHint')}</p>
+                    </div>
+                    {colorMode === 'light' ? (
+                      <Check size={16} className="text-[var(--theme-primary)] shrink-0" />
+                    ) : null}
+                  </div>
                 </button>
               </div>
             </div>
 
-            <div className="rounded-xl bg-white/5 p-3 space-y-3">
-              <p className="text-white text-sm">{t('appearance.accent')}</p>
-              <p className="text-zinc-500 text-xs">{t('appearance.accentHint')}</p>
+            <div className="rounded-xl bg-hover p-3 space-y-3">
+              <p className="text-foreground text-sm">{t('appearance.accent')}</p>
+              <p className="text-subtle text-xs">{t('appearance.accentHint')}</p>
               <div className="flex flex-wrap gap-2">
                 {ACCENT_PRESETS.map((preset) => (
                   <button
@@ -592,7 +630,9 @@ export function SettingsPage() {
                     type="button"
                     onClick={() => setAccentPreview(preset.value)}
                     className={`w-9 h-9 rounded-full border-2 transition-all ${
-                      accentColor === preset.value ? 'border-white scale-110' : 'border-transparent'
+                      accentColor === preset.value
+                        ? 'border-foreground scale-110'
+                        : 'border-transparent'
                     }`}
                     style={{
                       background: preset.value
@@ -611,8 +651,8 @@ export function SettingsPage() {
               />
             </div>
 
-            <div className="rounded-xl bg-white/5 p-3 space-y-2" data-testid="accent-contrast-preview">
-              <p className="text-white text-sm">{t('appearance.preview')}</p>
+            <div className="rounded-xl bg-hover p-3 space-y-2" data-testid="accent-contrast-preview">
+              <p className="text-foreground text-sm">{t('appearance.preview')}</p>
               <div
                 className="h-14 rounded-xl flex items-center justify-center font-medium text-sm"
                 style={{ background: previewAccent, color: contrast.text }}
@@ -624,7 +664,7 @@ export function SettingsPage() {
             <Button
               onClick={handleSaveAppearance}
               disabled={savingPrefs}
-              className="w-full h-11 rounded-xl btn-primary text-white"
+              className="w-full h-11 rounded-xl btn-primary text-foreground"
             >
               {savingPrefs ? <Loader2 className="w-4 h-4 animate-spin" /> : t('appearance.save')}
             </Button>
@@ -639,10 +679,10 @@ export function SettingsPage() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-3">
-            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
+            <div className="flex items-center justify-between rounded-xl bg-hover p-3">
               <div className="flex items-center gap-3">
-                <Volume2 className="text-zinc-400" size={20} />
-                <span className="text-white">{t('player.tts')}</span>
+                <Volume2 className="text-muted" size={20} />
+                <span className="text-foreground">{t('player.tts')}</span>
               </div>
               <Switch
                 checked={ttsEnabled}
@@ -654,12 +694,12 @@ export function SettingsPage() {
               />
             </div>
 
-            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3">
+            <div className="flex items-center justify-between rounded-xl bg-hover p-3">
               <div className="flex items-center gap-3">
-                <Music className="text-zinc-400" size={20} />
+                <Music className="text-muted" size={20} />
                 <div>
-                  <span className="text-white block">{t('player.musicMode')}</span>
-                  <span className="text-zinc-500 text-xs">{t('player.musicModeHint')}</span>
+                  <span className="text-foreground block">{t('player.musicMode')}</span>
+                  <span className="text-subtle text-xs">{t('player.musicModeHint')}</span>
                 </div>
               </div>
               <Switch
@@ -675,7 +715,7 @@ export function SettingsPage() {
             <Button
               onClick={handleSavePlayer}
               disabled={savingPlayer || !playerDirty}
-              className="w-full h-11 rounded-xl btn-primary text-white"
+              className="w-full h-11 rounded-xl btn-primary text-foreground"
             >
               {savingPlayer ? <Loader2 className="w-4 h-4 animate-spin" /> : t('player.save')}
             </Button>
@@ -696,7 +736,7 @@ export function SettingsPage() {
               </div>
             ) : (
               <>
-                <p className="text-white text-sm">
+                <p className="text-foreground text-sm">
                   {t('badges.unlockedOf', { count: unlockedCount, total: totalBadges })}
                 </p>
                 {recentBadges.length > 0 ? (
@@ -716,14 +756,14 @@ export function SettingsPage() {
                           size={40}
                           className="mx-auto shrink-0 size-10"
                         />
-                        <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-zinc-400">
+                        <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-muted">
                           {badgeName}
                         </p>
                       </div>
                     );})}
                   </div>
                 ) : (
-                  <p className="text-zinc-500 text-sm">
+                  <p className="text-subtle text-sm">
                     {t('badges.empty')}
                   </p>
                 )}
@@ -754,10 +794,10 @@ export function SettingsPage() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4 space-y-3">
-            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3 gap-3">
+            <div className="flex items-center justify-between rounded-xl bg-hover p-3 gap-3">
               <div className="flex items-center gap-2 min-w-0">
-                <Globe size={16} className="text-zinc-500 shrink-0" />
-                <span className="text-white text-sm">{t('languageRegion.language.label')}</span>
+                <Globe size={16} className="text-subtle shrink-0" />
+                <span className="text-foreground text-sm">{t('languageRegion.language.label')}</span>
               </div>
               <Select
                 value={locale}
@@ -767,20 +807,20 @@ export function SettingsPage() {
                 }}
                 disabled={savingLocale}
               >
-                <SelectTrigger className="w-40 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs shrink-0">
+                <SelectTrigger className="w-40 h-9 rounded-lg bg-background border-border text-foreground text-xs shrink-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="fr-FR" className="text-white">{t('languageRegion.language.fr-FR')}</SelectItem>
-                  <SelectItem value="en-US" className="text-white">{t('languageRegion.language.en-US')}</SelectItem>
-                  <SelectItem value="es-ES" className="text-white">{t('languageRegion.language.es-ES')}</SelectItem>
+                <SelectContent className="bg-surface-elevated border-border">
+                  <SelectItem value="fr-FR" className="text-foreground">{t('languageRegion.language.fr-FR')}</SelectItem>
+                  <SelectItem value="en-US" className="text-foreground">{t('languageRegion.language.en-US')}</SelectItem>
+                  <SelectItem value="es-ES" className="text-foreground">{t('languageRegion.language.es-ES')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
 
-            <div className="flex items-center justify-between rounded-xl bg-white/5 p-3 gap-3">
+            <div className="flex items-center justify-between rounded-xl bg-hover p-3 gap-3">
               <div className="flex items-center gap-2 min-w-0">
-                <span className="text-white text-sm">{t('languageRegion.timeFormat.label')}</span>
+                <span className="text-foreground text-sm">{t('languageRegion.timeFormat.label')}</span>
               </div>
               <Select
                 value={timeFormat}
@@ -792,13 +832,13 @@ export function SettingsPage() {
                 }}
                 disabled={savingLocale}
               >
-                <SelectTrigger className="w-40 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs shrink-0">
+                <SelectTrigger className="w-40 h-9 rounded-lg bg-background border-border text-foreground text-xs shrink-0">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="auto" className="text-white">{t('languageRegion.timeFormat.auto')}</SelectItem>
-                  <SelectItem value="24h" className="text-white">{t('languageRegion.timeFormat.24h')}</SelectItem>
-                  <SelectItem value="12h" className="text-white">{t('languageRegion.timeFormat.12h')}</SelectItem>
+                <SelectContent className="bg-surface-elevated border-border">
+                  <SelectItem value="auto" className="text-foreground">{t('languageRegion.timeFormat.auto')}</SelectItem>
+                  <SelectItem value="24h" className="text-foreground">{t('languageRegion.timeFormat.24h')}</SelectItem>
+                  <SelectItem value="12h" className="text-foreground">{t('languageRegion.timeFormat.12h')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -821,7 +861,7 @@ export function SettingsPage() {
                 title=""
               />
             ) : (
-              <p className="text-zinc-500 text-sm">{t('agenda.loadHint')}</p>
+              <p className="text-subtle text-sm">{t('agenda.loadHint')}</p>
             )}
           </AccordionContent>
         </AccordionItem>
@@ -836,19 +876,19 @@ export function SettingsPage() {
           <AccordionContent className="px-4 pb-4 space-y-4">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>
-                <p className="text-white text-sm font-medium">{t('privacy.title')}</p>
-                <p className="text-zinc-500 text-xs mt-0.5">{t('privacy.hint')}</p>
+                <p className="text-foreground text-sm font-medium">{t('privacy.title')}</p>
+                <p className="text-subtle text-xs mt-0.5">{t('privacy.hint')}</p>
               </div>
               <Select value={accountVisibility} onValueChange={setAccountVisibility}>
                 <SelectTrigger
                   data-testid="account-visibility-select"
-                  className="w-40 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs"
+                  className="w-40 h-9 rounded-lg bg-background border-border text-foreground text-xs"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#141414] border-white/10">
-                  <SelectItem value="public" className="text-white">{t('privacy.publicAccount')}</SelectItem>
-                  <SelectItem value="private" className="text-white">{t('privacy.privateAccount')}</SelectItem>
+                <SelectContent className="bg-surface-elevated border-border">
+                  <SelectItem value="public" className="text-foreground">{t('privacy.publicAccount')}</SelectItem>
+                  <SelectItem value="private" className="text-foreground">{t('privacy.privateAccount')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -856,13 +896,13 @@ export function SettingsPage() {
             <button
               type="button"
               onClick={() => setPrivacyAdvancedOpen((v) => !v)}
-              className="flex w-full items-center justify-between rounded-xl bg-white/5 p-3 text-left"
+              className="flex w-full items-center justify-between rounded-xl bg-hover p-3 text-left"
               data-testid="privacy-advanced-toggle"
             >
-              <span className="text-white text-sm">{t('privacy.details')}</span>
+              <span className="text-foreground text-sm">{t('privacy.details')}</span>
               <ChevronDown
                 size={16}
-                className={`text-zinc-500 transition-transform ${privacyAdvancedOpen ? 'rotate-180' : ''}`}
+                className={`text-subtle transition-transform ${privacyAdvancedOpen ? 'rotate-180' : ''}`}
               />
             </button>
 
@@ -906,7 +946,7 @@ export function SettingsPage() {
             <Button
               onClick={handleSavePrivacy}
               disabled={savingPrivacy}
-              className="w-full h-11 rounded-xl btn-primary text-white"
+              className="w-full h-11 rounded-xl btn-primary text-foreground"
             >
               {savingPrivacy ? <Loader2 className="w-4 h-4 animate-spin" /> : t('privacy.save')}
             </Button>

@@ -294,12 +294,12 @@ export function PostCard({
           <div className="flex items-center gap-2 flex-wrap">
             <Link
               to={actorDisplay.link}
-              className="text-white font-medium hover:underline"
+              className="text-foreground font-medium hover:underline"
             >
               {actorDisplay.name}
             </Link>
             {actorDisplay.handleLabel ? (
-              <span className="text-zinc-500 text-xs">{actorDisplay.handleLabel}</span>
+              <span className="text-subtle text-xs">{actorDisplay.handleLabel}</span>
             ) : null}
             {isDuoActor ? (
               <span className="text-[10px] uppercase tracking-wide text-violet-400/80 bg-violet-500/10 px-1.5 py-0.5 rounded">
@@ -307,12 +307,12 @@ export function PostCard({
               </span>
             ) : null}
             {isRepost && (
-              <span className="text-zinc-500 text-xs flex items-center gap-1">
+              <span className="text-subtle text-xs flex items-center gap-1">
                 <Repeat2 size={12} /> Republication
               </span>
             )}
           </div>
-          <p className="text-zinc-500 text-xs">
+          <p className="text-subtle text-xs">
             {post.created_at ? formatDateTime(parseISO(post.created_at)) : ''}
           </p>
         </div>
@@ -320,7 +320,7 @@ export function PostCard({
           <button
             type="button"
             onClick={handleDelete}
-            className="p-2 text-zinc-500 hover:text-red-400 transition-colors"
+            className="p-2 text-subtle hover:text-red-400 transition-colors"
             aria-label={t('common:actions.delete')}
           >
             <Trash2 size={16} />
@@ -343,25 +343,25 @@ export function PostCard({
             size={72}
             className="mx-auto mb-2"
           />
-          <p className="text-white font-semibold">
+          <p className="text-foreground font-semibold">
             {getBadgeName(post.badge_id, t, post.badge_name || post.title)}
           </p>
           {post.description && (
-            <p className="text-zinc-400 text-sm mt-1">{post.description}</p>
+            <p className="text-muted text-sm mt-1">{post.description}</p>
           )}
         </div>
       )}
 
       {post.type !== 'badge' && post.type !== 'duo_badge' && post.title && (
-        <h3 className="text-white font-semibold font-['Outfit']">{post.title}</h3>
+        <h3 className="text-foreground font-semibold font-['Outfit']">{post.title}</h3>
       )}
 
       {post.description && post.type !== 'badge' && post.type !== 'duo_badge' && (
-        <p className="text-zinc-300 text-sm whitespace-pre-wrap">{post.description}</p>
+        <p className="text-muted text-sm whitespace-pre-wrap">{post.description}</p>
       )}
 
       {post.image_url && (
-        <div className="rounded-xl overflow-hidden border border-white/10 bg-black/30">
+        <div className="rounded-xl overflow-hidden border border-border bg-overlay">
           <img
             src={post.image_url}
             alt={post.title || 'Publication'}
@@ -382,7 +382,7 @@ export function PostCard({
       ) : null}
 
       {snapshot && (
-        <div className={`rounded-xl bg-white/5 border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-white/10'}`}>
+        <div className={`rounded-xl bg-hover border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-border'}`}>
           {isCommonSession ? (
             <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">{t('duo:commonSession.mySession')}</p>
           ) : post.type === 'duo' && post.partner_session_snapshot ? (
@@ -393,9 +393,9 @@ export function PostCard({
             onClick={() => post.can_view_session_details && setDetailsOpen(true)}
             className={`text-left w-full ${post.can_view_session_details ? 'hover:opacity-90' : ''}`}
           >
-            <p className="text-white font-medium">{snapshot.workout_title}</p>
+            <p className="text-foreground font-medium">{snapshot.workout_title}</p>
           </button>
-          <div className="flex flex-wrap gap-3 text-sm text-zinc-400">
+          <div className="flex flex-wrap gap-3 text-sm text-muted">
             <span className="flex items-center gap-1">
               <Clock size={14} />
               {formatDuration(snapshot.total_time)}
@@ -429,12 +429,12 @@ export function PostCard({
       )}
 
       {post.partner_session_snapshot && (
-        <div className={`rounded-xl bg-white/5 border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-white/10'}`}>
-          <p className="text-zinc-500 text-xs uppercase tracking-wide">
+        <div className={`rounded-xl bg-hover border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-border'}`}>
+          <p className="text-subtle text-xs uppercase tracking-wide">
             {isCommonSession ? 'Séance partenaire' : 'Partenaire'}
           </p>
-          <p className="text-white font-medium">{post.partner_session_snapshot.workout_title || 'Séance'}</p>
-          <div className="flex flex-wrap gap-3 text-sm text-zinc-400">
+          <p className="text-foreground font-medium">{post.partner_session_snapshot.workout_title || 'Séance'}</p>
+          <div className="flex flex-wrap gap-3 text-sm text-muted">
             <span className="flex items-center gap-1">
               <Clock size={14} />
               {formatDuration(post.partner_session_snapshot.total_time)}
@@ -448,10 +448,10 @@ export function PostCard({
       )}
 
       {post.duo_tag && (
-        <p className="text-zinc-600 text-xs font-mono">{post.duo_tag}</p>
+        <p className="text-subtle text-xs font-mono">{post.duo_tag}</p>
       )}
 
-      <div className="flex items-center gap-2 pt-2 border-t border-white/5">
+      <div className="flex items-center gap-2 pt-2 border-t border-border">
         {!post.id?.startsWith('session-') && (
           <>
             <button
@@ -461,7 +461,7 @@ export function PostCard({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
                 liked
                   ? 'bg-red-500/20 text-red-500'
-                  : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                  : 'bg-hover text-muted hover:bg-active'
               }`}
             >
               <Heart size={16} fill={liked ? 'currentColor' : 'none'} />
@@ -474,7 +474,7 @@ export function PostCard({
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
                 commentOpen
                   ? 'bg-[var(--theme-surface-active)] text-[var(--theme-primary)]'
-                  : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                  : 'bg-hover text-muted hover:bg-active'
               }`}
             >
               <MessageCircle size={16} />
@@ -491,7 +491,7 @@ export function PostCard({
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
                   reposted
                     ? 'bg-[var(--theme-surface-active)] text-[var(--theme-primary)]'
-                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                    : 'bg-hover text-muted hover:bg-active'
                 }`}
               >
                 <Repeat2 size={16} />
@@ -522,10 +522,10 @@ export function PostCard({
                 <UserAvatar user={commentUser} className="w-6 h-6" />
               </Link>
               <div className="flex-1 min-w-0">
-                <p className="text-zinc-400 text-sm">
+                <p className="text-muted text-sm">
                   <Link
                     to={commentHandle ? `/profile/${commentHandle}` : '#'}
-                    className="text-white font-medium hover:underline"
+                    className="text-foreground font-medium hover:underline"
                   >
                     {comment.display_name || comment.username || 'Utilisateur'}
                   </Link>{' '}
@@ -533,7 +533,7 @@ export function PostCard({
                 </p>
                 <div className="flex items-center gap-3 mt-0.5">
                   {comment.created_at && (
-                    <p className="text-zinc-600 text-[10px]">
+                    <p className="text-subtle text-[10px]">
                       {formatDayMonthTime(parseISO(comment.created_at))}
                     </p>
                   )}
@@ -542,7 +542,7 @@ export function PostCard({
                       type="button"
                       onClick={() => handleCommentLike(comment)}
                       className={`flex items-center gap-1 text-[10px] transition-colors ${
-                        likeState.is_liked ? 'text-red-400' : 'text-zinc-500 hover:text-zinc-300'
+                        likeState.is_liked ? 'text-red-400' : 'text-subtle hover:text-muted'
                       }`}
                     >
                       <Heart size={10} fill={likeState.is_liked ? 'currentColor' : 'none'} />
@@ -571,7 +571,7 @@ export function PostCard({
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
                 placeholder={t('home:comments.addPlaceholder')}
-                className="flex-1 h-10 rounded-xl bg-[#0A0A0A] border-white/10 text-white text-sm"
+                className="flex-1 h-10 rounded-xl bg-background border-border text-foreground text-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleComment();
                 }}
@@ -580,7 +580,7 @@ export function PostCard({
                 size="sm"
                 onClick={handleComment}
                 disabled={!commentText.trim() || commentLoading}
-                className="bg-[var(--theme-primary)] text-white rounded-xl"
+                className="bg-[var(--theme-primary)] text-foreground rounded-xl"
               >
                 <Send size={16} />
               </Button>

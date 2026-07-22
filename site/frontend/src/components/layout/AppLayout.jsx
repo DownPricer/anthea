@@ -7,7 +7,7 @@ import { useUserAccent } from '../../hooks/useUserAccent';
 export function AppLayout() {
   useUserAccent();
   return (
-    <div className="min-h-[100dvh] bg-[#0A0A0A] overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground overflow-x-hidden">
       <div className="min-h-[100dvh] flex">
         <DesktopNav />
         <div className="flex-1 min-w-0 md:ml-64">

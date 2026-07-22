@@ -223,7 +223,7 @@ export function NotificationsPage() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hover text-muted hover:text-foreground"
             aria-label={t('common:aria.back')}
           >
             <ChevronLeft size={20} />
@@ -236,8 +236,8 @@ export function NotificationsPage() {
           to="/notifications"
           className={`px-3 py-1.5 rounded-lg text-xs border ${
             !filterDuo
-              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
-              : 'border-white/10 text-zinc-500'
+              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
+              : 'border-border text-subtle'
           }`}
         >
           {t('notifications:filters.all')}
@@ -246,8 +246,8 @@ export function NotificationsPage() {
           to="/notifications?filter=duo"
           className={`px-3 py-1.5 rounded-lg text-xs border ${
             filterDuo
-              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
-              : 'border-white/10 text-zinc-500'
+              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
+              : 'border-border text-subtle'
           }`}
         >
           {t('notifications:filters.duo')}
@@ -260,8 +260,8 @@ export function NotificationsPage() {
         </div>
       ) : displayedNotifications.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 text-center">
-          <Bell size={32} className="text-zinc-600 mb-3" />
-          <p className="text-zinc-400 text-sm">
+          <Bell size={32} className="text-subtle mb-3" />
+          <p className="text-muted text-sm">
             {filterDuo ? t('notifications:emptyDuo') : t('notifications:empty')}
           </p>
         </div>
@@ -327,18 +327,18 @@ export function NotificationsPage() {
                     <div className="flex items-start gap-2">
                       <NotificationIcon type={notif.type} />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-white leading-snug">{copy.title}</p>
-                        <p className="text-sm text-zinc-300 leading-relaxed mt-0.5">{copy.body}</p>
+                        <p className="text-sm font-medium text-foreground leading-snug">{copy.title}</p>
+                        <p className="text-sm text-muted leading-relaxed mt-0.5">{copy.body}</p>
                       </div>
                     </div>
                   ) : duoRequest ? (
                     <div className="flex items-start gap-2">
                       <NotificationIcon type={notif.type} />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium text-white leading-snug">
+                        <p className="text-sm font-medium text-foreground leading-snug">
                           {t('notifications:duoRequestReceived.title')}
                         </p>
-                        <p className="text-sm text-zinc-300 leading-relaxed mt-0.5">
+                        <p className="text-sm text-muted leading-relaxed mt-0.5">
                           {t('notifications:duoRequestReceived.body', { actorName })}
                         </p>
                       </div>
@@ -346,10 +346,10 @@ export function NotificationsPage() {
                   ) : (
                     <div className="flex items-start gap-2">
                       <NotificationIcon type={notif.type} />
-                      <p className="text-sm text-zinc-300 leading-relaxed">
+                      <p className="text-sm text-muted leading-relaxed">
                         <Link
                           to={`/profile/${handle}`}
-                          className="font-medium text-white hover:underline"
+                          className="font-medium text-foreground hover:underline"
                         >
                           {notif.actor_display_name || notif.actor_username}
                         </Link>{' '}
@@ -357,13 +357,13 @@ export function NotificationsPage() {
                       </p>
                     </div>
                   )}
-                  <p className="text-zinc-600 text-xs mt-1.5">{dateLabel}</p>
+                  <p className="text-subtle text-xs mt-1.5">{dateLabel}</p>
                   {duoRequest ? (
                     <Button
                       asChild
                       size="sm"
                       variant="outline"
-                      className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                      className="mt-3 h-8 rounded-lg border-border text-muted text-xs"
                     >
                       <Link to={deepLink}>{t('notifications:duoRequestReceived.cta')}</Link>
                     </Button>
@@ -375,7 +375,7 @@ export function NotificationsPage() {
                         size="sm"
                         disabled={requestLoading === notif.id}
                         onClick={() => handleAcceptDuoFollowRequest(notif)}
-                        className="h-8 rounded-lg btn-primary text-white text-xs"
+                        className="h-8 rounded-lg btn-primary text-foreground text-xs"
                       >
                         {t('notifications:actions.accept')}
                       </Button>
@@ -385,12 +385,12 @@ export function NotificationsPage() {
                         variant="outline"
                         disabled={requestLoading === notif.id}
                         onClick={() => handleRejectDuoFollowRequest(notif)}
-                        className="h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                        className="h-8 rounded-lg border-border text-muted text-xs"
                       >
                         {t('notifications:actions.reject')}
                       </Button>
                       {notif.duo_tag ? (
-                        <Button asChild size="sm" variant="ghost" className="h-8 text-xs text-zinc-400">
+                        <Button asChild size="sm" variant="ghost" className="h-8 text-xs text-muted">
                           <Link to={duoProfilePath(notif.duo_tag)}>{t('notifications:actions.seeDuo')}</Link>
                         </Button>
                       ) : null}
@@ -403,7 +403,7 @@ export function NotificationsPage() {
                         size="sm"
                         disabled={requestLoading === notif.id}
                         onClick={() => handleAcceptFollowRequest(notif)}
-                        className="h-8 rounded-lg btn-primary text-white text-xs"
+                        className="h-8 rounded-lg btn-primary text-foreground text-xs"
                       >
                         {t('notifications:actions.accept')}
                       </Button>
@@ -413,7 +413,7 @@ export function NotificationsPage() {
                         variant="outline"
                         disabled={requestLoading === notif.id}
                         onClick={() => handleRejectFollowRequest(notif)}
-                        className="h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                        className="h-8 rounded-lg border-border text-muted text-xs"
                       >
                         {t('notifications:actions.reject')}
                       </Button>
@@ -425,7 +425,7 @@ export function NotificationsPage() {
                       size="sm"
                       disabled={followLoading === notif.id}
                       onClick={() => handleFollowBack(notif)}
-                      className="mt-3 h-9 rounded-full px-4 btn-primary text-white text-xs"
+                      className="mt-3 h-9 rounded-full px-4 btn-primary text-foreground text-xs"
                     >
                       {followLoading === notif.id ? (
                         <Loader2 size={14} className="animate-spin" />
@@ -439,7 +439,7 @@ export function NotificationsPage() {
                       asChild
                       size="sm"
                       variant="outline"
-                      className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                      className="mt-3 h-8 rounded-lg border-border text-muted text-xs"
                     >
                       <Link to={deepLink}>{copy.cta}</Link>
                     </Button>

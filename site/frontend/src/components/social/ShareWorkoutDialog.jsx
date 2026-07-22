@@ -168,13 +168,13 @@ export function ShareWorkoutDialog({
 
     <Dialog open={open} onOpenChange={onOpenChange}>
 
-      <DialogContent className="bg-[#141414] border-white/10 max-w-md">
+      <DialogContent className="bg-surface-elevated border-border max-w-md">
 
         <DialogHeader>
 
-          <DialogTitle className="text-white font-['Outfit']">Partager ta séance</DialogTitle>
+          <DialogTitle className="text-foreground font-['Outfit']">Partager ta séance</DialogTitle>
 
-          <DialogDescription className="text-zinc-400">
+          <DialogDescription className="text-muted">
 
             Publie sur ton mur avec ou sans photo. Les stats de la séance seront affichées.
 
@@ -188,7 +188,7 @@ export function ShareWorkoutDialog({
 
           <div>
 
-            <Label className="text-zinc-400 text-sm">Titre (facultatif)</Label>
+            <Label className="text-muted text-sm">Titre (facultatif)</Label>
 
             <Input
 
@@ -198,7 +198,7 @@ export function ShareWorkoutDialog({
 
               placeholder={session?.workout_title || 'Ma séance'}
 
-              className="mt-1.5 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+              className="mt-1.5 h-11 rounded-xl bg-background border-border text-foreground"
 
             />
 
@@ -208,7 +208,7 @@ export function ShareWorkoutDialog({
 
           <div>
 
-            <Label className="text-zinc-400 text-sm">Description (facultative)</Label>
+            <Label className="text-muted text-sm">Description (facultative)</Label>
 
             <Textarea
 
@@ -218,7 +218,7 @@ export function ShareWorkoutDialog({
 
               placeholder="Comment s'est passée la séance ?"
 
-              className="mt-1.5 rounded-xl bg-[#0A0A0A] border-white/10 text-white min-h-[80px]"
+              className="mt-1.5 rounded-xl bg-background border-border text-foreground min-h-[80px]"
 
             />
 
@@ -228,7 +228,7 @@ export function ShareWorkoutDialog({
 
           <div>
 
-            <Label className="text-zinc-400 text-sm flex items-center gap-1.5">
+            <Label className="text-muted text-sm flex items-center gap-1.5">
 
               <Camera size={14} /> Photo (facultatif)
 
@@ -260,7 +260,7 @@ export function ShareWorkoutDialog({
 
                 onClick={() => fileInputRef.current?.click()}
 
-                className="rounded-xl border-white/15 text-white"
+                className="rounded-xl border-border text-foreground"
 
               >
 
@@ -284,7 +284,7 @@ export function ShareWorkoutDialog({
 
                   }}
 
-                  className="text-zinc-500 text-xs hover:text-red-400 flex items-center gap-1"
+                  className="text-subtle text-xs hover:text-red-400 flex items-center gap-1"
 
                 >
 
@@ -304,7 +304,7 @@ export function ShareWorkoutDialog({
 
                 alt="Aperçu"
 
-                className="mt-3 w-full max-h-40 object-cover rounded-xl border border-white/10"
+                className="mt-3 w-full max-h-40 object-cover rounded-xl border border-border"
 
               />
 
@@ -316,23 +316,23 @@ export function ShareWorkoutDialog({
 
           <div>
 
-            <Label className="text-zinc-400 text-sm">Visibilité</Label>
+            <Label className="text-muted text-sm">Visibilité</Label>
 
             <Select value={visibility} onValueChange={setVisibility}>
 
-              <SelectTrigger className="mt-1.5 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+              <SelectTrigger className="mt-1.5 h-11 rounded-xl bg-background border-border text-foreground">
 
                 <SelectValue />
 
               </SelectTrigger>
 
-              <SelectContent className="bg-[#141414] border-white/10">
+              <SelectContent className="bg-surface-elevated border-border">
 
-                <SelectItem value="public" className="text-white">Public</SelectItem>
+                <SelectItem value="public" className="text-foreground">Public</SelectItem>
 
-                <SelectItem value="friends" className="text-white">Amis mutuels</SelectItem>
+                <SelectItem value="friends" className="text-foreground">Amis mutuels</SelectItem>
 
-                <SelectItem value="private" className="text-white">Privé (moi seul)</SelectItem>
+                <SelectItem value="private" className="text-foreground">Privé (moi seul)</SelectItem>
 
               </SelectContent>
 
@@ -350,7 +350,7 @@ export function ShareWorkoutDialog({
 
               disabled={saving || uploading}
 
-              className="w-full h-12 rounded-xl btn-primary text-white"
+              className="w-full h-12 rounded-xl btn-primary text-foreground"
 
             >
 
@@ -386,7 +386,7 @@ export function ShareWorkoutDialog({
 
               disabled={saving}
 
-              className="w-full h-11 rounded-xl bg-white/5 border-white/10 text-zinc-400"
+              className="w-full h-11 rounded-xl bg-hover border-border text-muted"
 
             >
 

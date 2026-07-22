@@ -162,37 +162,37 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
   const addPartnerDialog = !partner ? (
     <Dialog open={partnerDialogOpen} onOpenChange={setPartnerDialogOpen}>
       <DialogTrigger asChild>
-        <Button size="sm" className="bg-[var(--theme-primary)] text-white shrink-0">
+        <Button size="sm" className="bg-[var(--theme-primary)] text-foreground shrink-0">
           <UserPlus size={16} className="mr-1" /> {t('settings:partnerSection.add')}
         </Button>
       </DialogTrigger>
-      <DialogContent className="bg-[#141414] border-white/10">
+      <DialogContent className="bg-surface-elevated border-border">
         <DialogHeader>
-          <DialogTitle className="text-white">{t('settings:partnerSection.findTitle')}</DialogTitle>
-          <DialogDescription className="text-zinc-500">
+          <DialogTitle className="text-foreground">{t('settings:partnerSection.findTitle')}</DialogTitle>
+          <DialogDescription className="text-subtle">
             {t('settings:partnerSection.findDesc')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-zinc-500" size={18} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" size={18} />
             <Input
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               placeholder={t('settings:partnerSection.searchPlaceholder')}
-              className="pl-10 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+              className="pl-10 h-12 rounded-xl bg-background border-border text-foreground"
             />
           </div>
           <div>
-            <Label className="text-zinc-400 text-sm">{t('settings:partnerSection.relationType')}</Label>
+            <Label className="text-muted text-sm">{t('settings:partnerSection.relationType')}</Label>
             <Select value={selectedRelationType} onValueChange={setSelectedRelationType}>
-              <SelectTrigger className="mt-2 h-12 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+              <SelectTrigger className="mt-2 h-12 rounded-xl bg-background border-border text-foreground">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#141414] border-white/10">
-                <SelectItem value="partner" className="text-white">{t('settings:partnerSection.relationPartner')}</SelectItem>
-                <SelectItem value="coach" className="text-white">{t('settings:partnerSection.relationCoach')}</SelectItem>
-                <SelectItem value="coach_partner" className="text-white">{t('settings:partnerSection.relationCoachPartner')}</SelectItem>
+              <SelectContent className="bg-surface-elevated border-border">
+                <SelectItem value="partner" className="text-foreground">{t('settings:partnerSection.relationPartner')}</SelectItem>
+                <SelectItem value="coach" className="text-foreground">{t('settings:partnerSection.relationCoach')}</SelectItem>
+                <SelectItem value="coach_partner" className="text-foreground">{t('settings:partnerSection.relationCoachPartner')}</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -207,16 +207,16 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
                 key={result.id}
                 type="button"
                 onClick={() => handleSendRequest(result.username)}
-                className="w-full p-3 flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-xl transition-colors"
+                className="w-full p-3 flex items-center gap-3 bg-hover hover:bg-active rounded-xl transition-colors"
               >
                 <div className="w-10 h-10 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
-                  <span className="text-white font-medium">
+                  <span className="text-foreground font-medium">
                     {result.display_name?.[0] || result.username?.[0] || '?'}
                   </span>
                 </div>
                 <div className="flex-1 text-left">
-                  <p className="text-white font-medium">{result.display_name || result.username}</p>
-                  <p className="text-zinc-500 text-sm">{result.handle ? `@${result.handle}` : `@${result.username}`}</p>
+                  <p className="text-foreground font-medium">{result.display_name || result.username}</p>
+                  <p className="text-subtle text-sm">{result.handle ? `@${result.handle}` : `@${result.username}`}</p>
                 </div>
                 <UserPlus size={18} className="text-[var(--theme-primary)]" />
               </button>
@@ -237,16 +237,16 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
         <div className="space-y-3">
           <Link
             to={`/profile/${getPublicHandle(partner) || partner.username}`}
-            className="flex items-center gap-4 rounded-xl hover:bg-white/5 p-2 -m-2 transition-colors"
+            className="flex items-center gap-4 rounded-xl hover:bg-hover p-2 -m-2 transition-colors"
           >
             <div className="w-12 h-12 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
-              <span className="text-white font-bold">
+              <span className="text-foreground font-bold">
                 {partner.display_name?.[0] || partner.username?.[0]}
               </span>
             </div>
             <div className="flex-1">
-              <p className="text-white font-medium">{partner.display_name || partner.username}</p>
-              <p className="text-zinc-500 text-sm">
+              <p className="text-foreground font-medium">{partner.display_name || partner.username}</p>
+              <p className="text-subtle text-sm">
                 {partner.relation_type === 'coach'
                   ? t('settings:partnerSection.relationCoach')
                   : partner.relation_type === 'coach_partner'
@@ -254,7 +254,7 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
                     : t('settings:partnerSection.relationPartner')}
               </p>
             </div>
-            <ChevronRight className="text-zinc-500" size={18} />
+            <ChevronRight className="text-subtle" size={18} />
           </Link>
           <Button
             size="sm"
@@ -267,14 +267,14 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
           </Button>
         </div>
       ) : (
-        <p className="text-zinc-500 text-sm">{t('settings:partnerSection.noPartner')}</p>
+        <p className="text-subtle text-sm">{t('settings:partnerSection.noPartner')}</p>
       )}
 
       {(partnerRequests.length > 0 || highlightRequestId) && (
-        <div id="partner-requests-received" className="pt-4 border-t border-white/10">
-          <p className="text-zinc-400 text-sm mb-3">{t('settings:partnerSection.receivedRequests')}</p>
+        <div id="partner-requests-received" className="pt-4 border-t border-border">
+          <p className="text-muted text-sm mb-3">{t('settings:partnerSection.receivedRequests')}</p>
           {highlightRequestId && resolvedHighlightStatus === 'processed' ? (
-            <p className="text-zinc-500 text-sm mb-3" data-testid="partner-request-processed">
+            <p className="text-subtle text-sm mb-3" data-testid="partner-request-processed">
               {t('settings:partnerSection.requestProcessed', {
                 defaultValue: 'Cette demande a déjà été traitée ou a expiré.',
               })}
@@ -289,17 +289,17 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
                 className={`flex items-center gap-3 p-3 rounded-xl mb-2 ${
                   isHighlighted
                     ? 'bg-[var(--theme-surface-active)] border border-[var(--theme-primary)]/40 ring-1 ring-[var(--theme-primary)]/30'
-                    : 'bg-white/5'
+                    : 'bg-hover'
                 }`}
               >
                 <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)] flex items-center justify-center">
-                  <span className="text-white text-sm font-medium">
+                  <span className="text-foreground text-sm font-medium">
                     {request.from_username?.[0]?.toUpperCase()}
                   </span>
                 </div>
                 <div className="flex-1">
-                  <p className="text-white font-medium">{request.from_username}</p>
-                  <p className="text-zinc-500 text-xs capitalize">{request.relation_type}</p>
+                  <p className="text-foreground font-medium">{request.from_username}</p>
+                  <p className="text-subtle text-xs capitalize">{request.relation_type}</p>
                 </div>
                 <button
                   type="button"
@@ -324,18 +324,18 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
       )}
 
       {sentRequests.length > 0 && (
-        <div className="pt-4 border-t border-white/10">
-          <p className="text-zinc-400 text-sm mb-3">{t('settings:partnerSection.sentRequests')}</p>
+        <div className="pt-4 border-t border-border">
+          <p className="text-muted text-sm mb-3">{t('settings:partnerSection.sentRequests')}</p>
           {sentRequests.map((request) => (
-            <div key={request.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2">
-              <div className="w-10 h-10 rounded-full bg-zinc-700 flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
+            <div key={request.id} className="flex items-center gap-3 p-3 bg-hover rounded-xl mb-2">
+              <div className="w-10 h-10 rounded-full bg-surface-subtle flex items-center justify-center">
+                <span className="text-foreground text-sm font-medium">
                   {request.to_username?.[0]?.toUpperCase()}
                 </span>
               </div>
               <div className="flex-1">
-                <p className="text-white font-medium">{request.to_username}</p>
-                <p className="text-zinc-500 text-xs">{t('settings:partnerSection.pending')}</p>
+                <p className="text-foreground font-medium">{request.to_username}</p>
+                <p className="text-subtle text-xs">{t('settings:partnerSection.pending')}</p>
               </div>
             </div>
           ))}
@@ -353,12 +353,12 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
       ) : (
         <section id="partner-settings" className="card p-5 space-y-4">
           <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hover">
               <Heart size={18} className="text-[var(--theme-primary)]" />
             </div>
             <div className="flex-1">
-              <h2 className="text-lg font-semibold text-white font-['Outfit']">{t('settings:partnerSection.title')}</h2>
-              <p className="text-zinc-500 text-sm mt-0.5">{t('settings:partnerSection.hint')}</p>
+              <h2 className="text-lg font-semibold text-foreground font-['Outfit']">{t('settings:partnerSection.title')}</h2>
+              <p className="text-subtle text-sm mt-0.5">{t('settings:partnerSection.hint')}</p>
             </div>
             {addPartnerDialog}
           </div>
@@ -367,15 +367,15 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
       )}
 
       <AlertDialog open={unlinkDialogOpen} onOpenChange={setUnlinkDialogOpen}>
-        <AlertDialogContent className="border-white/10 bg-[#141414] text-white sm:rounded-xl">
+        <AlertDialogContent className="border-border bg-surface-elevated text-foreground sm:rounded-xl">
           <AlertDialogHeader>
             <AlertDialogTitle>{t('settings:partnerSection.unlinkTitle')}</AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400">
+            <AlertDialogDescription className="text-muted">
               {t('settings:partnerSection.unlinkDesc')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 sm:gap-0">
-            <AlertDialogCancel className="border-white/15 bg-white/5 text-white hover:bg-white/10">
+            <AlertDialogCancel className="border-border bg-hover text-foreground hover:bg-active">
               {t('common:actions.cancel')}
             </AlertDialogCancel>
             <AlertDialogAction
@@ -383,7 +383,7 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
                 e.preventDefault();
                 handleUnlinkPartner();
               }}
-              className="bg-red-600 text-white hover:bg-red-700"
+              className="bg-red-600 text-foreground hover:bg-red-700"
             >
               {t('settings:partnerSection.unlinkAction')}
             </AlertDialogAction>

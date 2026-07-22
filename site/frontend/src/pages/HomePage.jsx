@@ -280,14 +280,14 @@ export function HomePage() {
                 type="button"
                 onClick={() => navigate('/search')}
                 data-testid="home-search-btn"
-                className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-hover text-muted transition-colors hover:bg-active hover:text-foreground"
                 aria-label={t('common:aria.search')}
               >
                 <Search size={20} />
               </button>
               <div className="relative">
                 {(unreadNotifications > 0 || partnerRequests.length > 0) && (
-                  <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white">
+                  <span className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-foreground">
                     {unreadNotifications + partnerRequests.length}
                   </span>
                 )}
@@ -295,7 +295,7 @@ export function HomePage() {
                   type="button"
                   onClick={() => navigate('/notifications')}
                   data-testid="home-notifications-btn"
-                  className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                  className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-hover text-muted transition-colors hover:bg-active hover:text-foreground"
                   aria-label={t('common:aria.notifications')}
                 >
                   <Bell size={20} />
@@ -304,7 +304,7 @@ export function HomePage() {
               <button
                 type="button"
                 onClick={() => navigate('/profile')}
-                className="inline-flex size-10 items-center justify-center overflow-hidden rounded-full border border-white/10 bg-white/5 transition-colors hover:bg-white/10"
+                className="inline-flex size-10 items-center justify-center overflow-hidden rounded-full border border-border bg-hover transition-colors hover:bg-active"
                 aria-label={t('common:aria.myProfile')}
               >
                 <UserAvatar user={user} className="w-full h-full" />
@@ -322,10 +322,10 @@ export function HomePage() {
           >
             <div className="flex items-center gap-3">
               <Bell className="text-[var(--theme-primary)]" size={20} />
-              <span className="text-white text-sm flex-1">
+              <span className="text-foreground text-sm flex-1">
                 {t('home:partnerRequests', { count: partnerRequests.length })}
               </span>
-              <ChevronRight className="text-zinc-400" size={18} />
+              <ChevronRight className="text-muted" size={18} />
             </div>
           </Link>
         )}
@@ -340,10 +340,10 @@ export function HomePage() {
           {todayLoading ? (
             <div className="card p-5 relative overflow-hidden">
               <div className="space-y-3">
-                <div className="h-4 w-40 rounded bg-white/5 animate-pulse" />
-                <div className="h-7 w-64 rounded bg-white/5 animate-pulse" />
-                <div className="h-4 w-44 rounded bg-white/5 animate-pulse" />
-                <div className="h-14 w-full rounded-2xl bg-white/5 animate-pulse" />
+                <div className="h-4 w-40 rounded bg-hover animate-pulse" />
+                <div className="h-7 w-64 rounded bg-hover animate-pulse" />
+                <div className="h-4 w-44 rounded bg-hover animate-pulse" />
+                <div className="h-14 w-full rounded-2xl bg-hover animate-pulse" />
               </div>
             </div>
           ) : primaryWorkoutAction ? (
@@ -358,11 +358,11 @@ export function HomePage() {
                 <Zap className="w-full h-full text-[var(--theme-primary)]" />
               </div>
 
-              <p className="text-zinc-400 text-sm uppercase tracking-wider mb-2">
+              <p className="text-muted text-sm uppercase tracking-wider mb-2">
                 {primaryWorkoutAction.resume ? t('home:resumeWorkout') : t('home:nextWorkout')}
               </p>
-              <h3 className="text-xl font-bold text-white mb-1">{primaryWorkoutAction.workout.title}</h3>
-              <p className="text-zinc-500 text-sm mb-4">
+              <h3 className="text-xl font-bold text-foreground mb-1">{primaryWorkoutAction.workout.title}</h3>
+              <p className="text-subtle text-sm mb-4">
                 {primaryWorkoutAction.workout.scheduled_time || t('home:noTimeSet')}
                 {primaryWorkoutAction.workout.for_user_id !== user?.id && (
                   <span className="ml-2 text-[var(--theme-primary)]">
@@ -374,7 +374,7 @@ export function HomePage() {
               <Button
                 onClick={() => navigate(`/player/${primaryWorkoutAction.workout.id}`)}
                 data-testid="start-workout-btn"
-                className="w-full h-14 rounded-2xl font-bold text-white btn-primary"
+                className="w-full h-14 rounded-2xl font-bold text-foreground btn-primary"
               >
                 {primaryWorkoutAction.resume ? (
                   <>
@@ -391,14 +391,14 @@ export function HomePage() {
             </div>
           ) : (
             <div className="card p-5 text-center">
-              <div className="w-14 h-14 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-3">
-                <Calendar className="text-zinc-500" size={24} />
+              <div className="w-14 h-14 mx-auto rounded-full bg-hover flex items-center justify-center mb-3">
+                <Calendar className="text-subtle" size={24} />
               </div>
-              <p className="text-zinc-400 mb-3">{t('home:noWorkoutToday')}</p>
+              <p className="text-muted mb-3">{t('home:noWorkoutToday')}</p>
               <Button
                 onClick={() => navigate('/create')}
                 variant="outline"
-                className="bg-white/5 border-white/10 text-white hover:bg-white/10"
+                className="bg-hover border-border text-foreground hover:bg-active"
               >
                 {t('home:scheduleWorkout')}
               </Button>
@@ -408,7 +408,7 @@ export function HomePage() {
           {/* Week View */}
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-white font-['Outfit']">{t('home:thisWeek')}</h2>
+              <h2 className="text-lg font-semibold text-foreground font-['Outfit']">{t('home:thisWeek')}</h2>
               <Link to="/workouts" className="text-[var(--theme-primary)] text-sm flex items-center">
                 {t('home:seeAll')} <ChevronRight size={16} />
               </Link>
@@ -419,7 +419,7 @@ export function HomePage() {
                 {Array.from({ length: 7 }).map((_, i) => (
                   <div
                     key={i}
-                    className="flex-1 min-w-0 h-[74px] rounded-2xl bg-white/5 animate-pulse"
+                    className="flex-1 min-w-0 h-[74px] rounded-2xl bg-hover animate-pulse"
                   />
                 ))}
               </div>
@@ -442,7 +442,7 @@ export function HomePage() {
           {/* Today's workouts list */}
           {todayWorkouts.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold text-white font-['Outfit'] mb-4">{t('common:relative.today')}</h2>
+              <h2 className="text-lg font-semibold text-foreground font-['Outfit'] mb-4">{t('common:relative.today')}</h2>
               <div className="space-y-3">
                 {todayWorkouts.map((workout) => (
                   <Link
@@ -457,7 +457,7 @@ export function HomePage() {
                           ? 'bg-green-500/20 text-green-500'
                           : workout.status === 'in_progress'
                           ? 'bg-yellow-500/20 text-yellow-500'
-                          : 'bg-white/5 text-zinc-400'
+                          : 'bg-hover text-muted'
                       }`}
                     >
                       {workout.status === 'completed' ? (
@@ -467,15 +467,15 @@ export function HomePage() {
                       )}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <h4 className="text-white font-medium truncate">{workout.title}</h4>
-                      <p className="text-zinc-500 text-sm">
+                      <h4 className="text-foreground font-medium truncate">{workout.title}</h4>
+                      <p className="text-subtle text-sm">
                         {workout.status === 'in_progress' && workout.for_user_id === user?.id
                           ? t('home:pausedPlayer')
                           : workout.scheduled_time || t('home:flexible')}
                         {workout.for_user_id !== user?.id && ` • ${t('home:forUser', { username: workout.for_username })}`}
                       </p>
                     </div>
-                    <ChevronRight className="text-zinc-500" size={18} />
+                    <ChevronRight className="text-subtle" size={18} />
                   </Link>
                 ))}
               </div>
@@ -487,15 +487,15 @@ export function HomePage() {
 
       {/* Streak Day Modal */}
       <Dialog open={showStreakModal} onOpenChange={setShowStreakModal}>
-        <DialogContent className="bg-[#1a1a1a] border-white/10 max-w-sm mx-auto">
+        <DialogContent className="bg-surface-elevated border-border text-foreground max-w-sm mx-auto">
           <DialogHeader>
-            <DialogTitle className="text-white text-center">
+            <DialogTitle className="text-foreground text-center">
               {selectedDay && formatWeekdayDate(selectedDay)}
             </DialogTitle>
-            <p className="text-zinc-500 text-sm text-center">{t('home:manageStreakDay')}</p>
+            <p className="text-subtle text-sm text-center">{t('home:manageStreakDay')}</p>
           </DialogHeader>
           {streakDaysLoading && (
-            <div className="flex items-center justify-center py-2 text-zinc-500 text-xs">
+            <div className="flex items-center justify-center py-2 text-subtle text-xs">
               <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('common:states.loading')}
             </div>
           )}
@@ -516,7 +516,7 @@ export function HomePage() {
                   <Button
                     onClick={() => handleRemoveStreakDay(selectedDay)}
                     data-testid="remove-streak-day-btn"
-                    className="w-full h-12 rounded-xl bg-white/10 hover:bg-white/15 text-white"
+                    className="w-full h-12 rounded-xl bg-active hover:bg-active text-foreground"
                   >
                     <Undo2 size={18} className="mr-2" />
                     {t('home:removeMarker')}
@@ -526,24 +526,24 @@ export function HomePage() {
                     <Button
                       onClick={() => handleMarkRestDay(selectedDay)}
                       data-testid="mark-rest-day-btn"
-                      className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-white"
+                      className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-foreground"
                     >
                       <BedDouble size={18} className="mr-2" />
                       {t('home:restDay')}
                     </Button>
-                    <p className="text-zinc-500 text-xs text-center -mt-1">
+                    <p className="text-subtle text-xs text-center -mt-1">
                       {t('home:restDayHint')}
                     </p>
 
                     <Button
                       onClick={() => handleMarkSkipDay(selectedDay)}
                       data-testid="mark-skip-day-btn"
-                      className="w-full h-12 rounded-xl bg-red-600/80 hover:bg-red-600 text-white"
+                      className="w-full h-12 rounded-xl bg-red-600/80 hover:bg-red-600 text-foreground"
                     >
                       <XCircle size={18} className="mr-2" />
                       {t('home:skipDay')}
                     </Button>
-                    <p className="text-zinc-500 text-xs text-center -mt-1">
+                    <p className="text-subtle text-xs text-center -mt-1">
                       {t('home:skipDayHint')}
                     </p>
                   </>

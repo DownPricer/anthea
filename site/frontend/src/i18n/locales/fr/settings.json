@@ -34,6 +34,10 @@
   "appearance": {
     "theme": "Thème",
     "defaultTheme": "Thème par défaut",
+    "dark": "Sombre",
+    "light": "Clair",
+    "darkHint": "Fonds sombres, confort nocturne",
+    "lightHint": "Fonds clairs, lecture de jour",
     "accent": "Couleur perso",
     "accentHint": "Agenda et repères visuels",
     "preview": "Aperçu & contraste",

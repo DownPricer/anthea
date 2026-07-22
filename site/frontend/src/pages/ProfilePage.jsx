@@ -289,7 +289,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
               <NotificationBell data-testid="profile-notification-bell" />
               <Link
                 to="/settings"
-                className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+                className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-hover text-muted transition-colors hover:bg-active hover:text-foreground"
                 aria-label={t('common:aria.settings')}
               >
                 <Settings size={20} />
@@ -318,24 +318,24 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
         />
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-[#141414] border border-white/10 p-1">
+          <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-surface-elevated border border-border p-1">
             <TabsTrigger
               value="posts"
-              className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
+              className="rounded-full data-[state=active]:bg-active data-[state=active]:text-foreground text-subtle gap-1.5 text-xs sm:text-sm"
             >
               <LayoutGrid size={16} />
               <span className="hidden sm:inline">{t('profile:tabs.posts')}</span>
             </TabsTrigger>
             <TabsTrigger
               value="reposts"
-              className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
+              className="rounded-full data-[state=active]:bg-active data-[state=active]:text-foreground text-subtle gap-1.5 text-xs sm:text-sm"
             >
               <Repeat2 size={16} />
               <span className="hidden sm:inline">{t('profile:tabs.reposts')}</span>
             </TabsTrigger>
             <TabsTrigger
               value="stats"
-              className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 gap-1.5 text-xs sm:text-sm"
+              className="rounded-full data-[state=active]:bg-active data-[state=active]:text-foreground text-subtle gap-1.5 text-xs sm:text-sm"
             >
               <BarChart3 size={16} />
               <span className="hidden sm:inline">{t('profile:tabs.stats')}</span>

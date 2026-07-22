@@ -42,7 +42,7 @@ export function NotificationBell({
       {badge ? (
         <span
           data-testid={`${testId}-badge`}
-          className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-white z-10"
+          className="absolute -top-1 -right-1 min-w-[1rem] h-4 px-1 bg-red-500 rounded-full text-[10px] flex items-center justify-center text-foreground z-10"
         >
           {badge}
         </span>
@@ -51,7 +51,7 @@ export function NotificationBell({
         type="button"
         onClick={() => navigate(target)}
         data-testid={testId}
-        className="inline-flex size-10 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+        className="inline-flex size-10 items-center justify-center rounded-full border border-border bg-hover text-muted transition-colors hover:bg-active hover:text-foreground"
         aria-label={filter === 'duo' ? 'Notifications duo' : 'Notifications'}
       >
         <Bell size={20} />

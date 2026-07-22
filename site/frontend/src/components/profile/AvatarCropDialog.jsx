@@ -140,22 +140,22 @@ export function AvatarCropDialog({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="bg-[#141414] border-white/10 max-w-md"
+        className="bg-surface-elevated border-border max-w-md"
         onCloseAutoFocus={(event) => {
           event.preventDefault();
           confirmBtnRef.current?.focus?.();
         }}
       >
         <DialogHeader>
-          <DialogTitle className="text-white font-['Outfit']">Recadrer la photo</DialogTitle>
-          <DialogDescription className="text-zinc-500">
+          <DialogTitle className="text-foreground font-['Outfit']">Recadrer la photo</DialogTitle>
+          <DialogDescription className="text-subtle">
             Déplacez et zoomez l&apos;image avant de l&apos;enregistrer.
           </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col items-center gap-4">
           <div
-            className="relative rounded-full overflow-hidden border-2 border-white/15 bg-black touch-none select-none"
+            className="relative rounded-full overflow-hidden border-2 border-border bg-background touch-none select-none"
             style={{ width: PREVIEW, height: PREVIEW }}
             onPointerDown={handlePointerDown}
             onPointerMove={handlePointerMove}
@@ -181,7 +181,7 @@ export function AvatarCropDialog({
           </div>
 
           <div className="flex items-center gap-3 w-full max-w-xs">
-            <ZoomOut size={16} className="text-zinc-500 shrink-0" />
+            <ZoomOut size={16} className="text-subtle shrink-0" />
             <input
               type="range"
               min="1"
@@ -191,7 +191,7 @@ export function AvatarCropDialog({
               onChange={(e) => setZoom(Number(e.target.value))}
               className="flex-1 accent-[var(--theme-primary)]"
             />
-            <ZoomIn size={16} className="text-zinc-500 shrink-0" />
+            <ZoomIn size={16} className="text-subtle shrink-0" />
           </div>
         </div>
 
@@ -199,7 +199,7 @@ export function AvatarCropDialog({
           <Button
             type="button"
             variant="outline"
-            className="rounded-xl border-white/15 text-white"
+            className="rounded-xl border-border text-foreground"
             onClick={() => onOpenChange(false)}
             disabled={busy}
           >
@@ -208,7 +208,7 @@ export function AvatarCropDialog({
           <Button
             ref={confirmBtnRef}
             type="button"
-            className="rounded-xl btn-primary text-white"
+            className="rounded-xl btn-primary text-foreground"
             onClick={handleConfirm}
             disabled={busy || !imageSrc}
           >

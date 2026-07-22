@@ -41,7 +41,7 @@ export function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-10">
           <div
@@ -51,17 +51,17 @@ export function LoginPage() {
               boxShadow: '0 8px 30px var(--theme-primary-glow)',
             }}
           >
-            <Dumbbell className="w-8 h-8 text-white" strokeWidth={2} />
+            <Dumbbell className="w-8 h-8 text-[var(--theme-primary-foreground)]" strokeWidth={2} />
           </div>
-          <h1 className="text-3xl font-black text-white tracking-tight font-['Outfit']">
+          <h1 className="text-3xl font-black text-foreground tracking-tight font-['Outfit']">
             {t('common:app.brand')}
           </h1>
-          <p className="text-zinc-500 text-sm mt-2">{t('login.tagline')}</p>
+          <p className="text-subtle text-sm mt-2">{t('login.tagline')}</p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div className="space-y-2">
-            <Label htmlFor="username" className="text-zinc-400 text-sm">
+            <Label htmlFor="username" className="text-muted text-sm">
               {t('login.username')}
             </Label>
             <Input
@@ -71,13 +71,13 @@ export function LoginPage() {
               value={username}
               onChange={(e) => setUsername(e.target.value)}
               placeholder="tonpseudo"
-              className="h-14 rounded-xl bg-[#141414] border-white/10 text-white placeholder:text-zinc-600 focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)]"
+              className="h-14 rounded-xl bg-surface-elevated border-border text-foreground placeholder:text-subtle focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)]"
               autoComplete="username"
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password" className="text-zinc-400 text-sm">
+            <Label htmlFor="password" className="text-muted text-sm">
               {t('login.password')}
             </Label>
             <div className="relative">
@@ -88,13 +88,13 @@ export function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
-                className="h-14 rounded-xl bg-[#141414] border-white/10 text-white placeholder:text-zinc-600 focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)] pr-12"
+                className="h-14 rounded-xl bg-surface-elevated border-border text-foreground placeholder:text-subtle focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)] pr-12"
                 autoComplete="current-password"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-subtle hover:text-foreground transition-colors"
                 aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
               >
                 {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -106,7 +106,7 @@ export function LoginPage() {
             type="submit"
             data-testid="login-submit"
             disabled={isLoading}
-            className="w-full h-14 rounded-xl font-bold text-white btn-primary"
+            className="w-full h-14 rounded-xl font-bold text-foreground btn-primary"
           >
             {isLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -116,7 +116,7 @@ export function LoginPage() {
           </Button>
         </form>
 
-        <p className="text-center mt-8 text-zinc-500 text-sm">
+        <p className="text-center mt-8 text-subtle text-sm">
           {t('login.noAccount')}{' '}
           <Link
             to="/register"

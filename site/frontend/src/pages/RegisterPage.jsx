@@ -84,7 +84,7 @@ export function RegisterPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-6">
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-8">
           <div
@@ -94,23 +94,23 @@ export function RegisterPage() {
               boxShadow: '0 8px 30px var(--theme-primary-glow)',
             }}
           >
-            <Dumbbell className="w-7 h-7 text-white" strokeWidth={2} />
+            <Dumbbell className="w-7 h-7 text-[var(--theme-primary-foreground)]" strokeWidth={2} />
           </div>
-          <h1 className="text-2xl font-black text-white tracking-tight font-['Outfit']">
+          <h1 className="text-2xl font-black text-foreground tracking-tight font-['Outfit']">
             {t('register.title')}
           </h1>
-          <p className="text-zinc-500 text-sm mt-1">{t('register.step', { step })}</p>
+          <p className="text-subtle text-sm mt-1">{t('register.step', { step })}</p>
         </div>
 
         <div className="flex gap-2 mb-8">
           <div
             className={`h-1 flex-1 rounded-full transition-colors ${
-              step >= 1 ? 'bg-[var(--theme-primary)]' : 'bg-zinc-800'
+              step >= 1 ? 'bg-[var(--theme-primary)]' : 'bg-surface-subtle'
             }`}
           />
           <div
             className={`h-1 flex-1 rounded-full transition-colors ${
-              step >= 2 ? 'bg-[var(--theme-primary)]' : 'bg-zinc-800'
+              step >= 2 ? 'bg-[var(--theme-primary)]' : 'bg-surface-subtle'
             }`}
           />
         </div>
@@ -118,7 +118,7 @@ export function RegisterPage() {
         {step === 1 ? (
           <form onSubmit={handleStep1} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="username" className="text-zinc-400 text-sm">
+              <Label htmlFor="username" className="text-muted text-sm">
                 {t('register.username')}
               </Label>
               <Input
@@ -128,13 +128,13 @@ export function RegisterPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value.replace(/\s/g, ''))}
                 placeholder="tonpseudo"
-                className="h-14 rounded-xl bg-[#141414] border-white/10 text-white placeholder:text-zinc-600"
+                className="h-14 rounded-xl bg-surface-elevated border-border text-foreground placeholder:text-subtle"
                 autoComplete="username"
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="password" className="text-zinc-400 text-sm">
+              <Label htmlFor="password" className="text-muted text-sm">
                 {t('register.password')}
               </Label>
               <div className="relative">
@@ -145,13 +145,13 @@ export function RegisterPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="h-14 rounded-xl bg-[#141414] border-white/10 text-white placeholder:text-zinc-600 pr-12"
+                  className="h-14 rounded-xl bg-surface-elevated border-border text-foreground placeholder:text-subtle pr-12"
                   autoComplete="new-password"
                 />
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white transition-colors"
+                  className="absolute right-4 top-1/2 -translate-y-1/2 text-subtle hover:text-foreground transition-colors"
                   aria-label={showPassword ? t('login.hidePassword') : t('login.showPassword')}
                 >
                   {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
@@ -160,7 +160,7 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-zinc-400 text-sm">
+              <Label htmlFor="confirmPassword" className="text-muted text-sm">
                 {t('register.confirmPassword')}
               </Label>
               <Input
@@ -170,7 +170,7 @@ export function RegisterPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="h-14 rounded-xl bg-[#141414] border-white/10 text-white placeholder:text-zinc-600"
+                className="h-14 rounded-xl bg-surface-elevated border-border text-foreground placeholder:text-subtle"
                 autoComplete="new-password"
               />
             </div>
@@ -178,7 +178,7 @@ export function RegisterPage() {
             <Button
               type="submit"
               data-testid="register-next"
-              className="w-full h-14 rounded-xl font-bold text-white btn-primary mt-6"
+              className="w-full h-14 rounded-xl font-bold text-foreground btn-primary mt-6"
             >
               {t('register.continue')}
               <ChevronRight className="w-5 h-5 ml-2" />
@@ -187,7 +187,7 @@ export function RegisterPage() {
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="displayName" className="text-zinc-400 text-sm">
+              <Label htmlFor="displayName" className="text-muted text-sm">
                 {t('register.displayName')}
               </Label>
               <Input
@@ -197,12 +197,12 @@ export function RegisterPage() {
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 placeholder={t('register.displayNamePlaceholder')}
-                className="h-14 rounded-xl bg-[#141414] border-white/10 text-white placeholder:text-zinc-600"
+                className="h-14 rounded-xl bg-surface-elevated border-border text-foreground placeholder:text-subtle"
               />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400 text-sm">{t('register.gender')}</Label>
+              <Label className="text-muted text-sm">{t('register.gender')}</Label>
               <div className="flex gap-3">
                 {['male', 'female', 'other'].map((g) => (
                   <button
@@ -211,8 +211,8 @@ export function RegisterPage() {
                     onClick={() => setGender(g)}
                     className={`flex-1 h-12 rounded-xl border transition-all ${
                       gender === g
-                        ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)] text-white'
-                        : 'border-white/10 bg-[#141414] text-zinc-400 hover:border-white/20'
+                        ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)] text-foreground'
+                        : 'border-border bg-surface-elevated text-muted hover:border-border-strong'
                     }`}
                   >
                     {t(`common:gender.${g}`)}
@@ -222,17 +222,17 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400 text-sm">{t('register.fitnessLevel')}</Label>
+              <Label className="text-muted text-sm">{t('register.fitnessLevel')}</Label>
               <Select value={fitnessLevel} onValueChange={setFitnessLevel}>
                 <SelectTrigger
                   data-testid="register-fitness-level"
-                  className="h-14 rounded-xl bg-[#141414] border-white/10 text-white"
+                  className="h-14 rounded-xl bg-surface-elevated border-border text-foreground"
                 >
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="bg-[#141414] border-white/10">
+                <SelectContent className="bg-surface-elevated border-border">
                   {FITNESS_LEVEL_KEYS.map((level) => (
-                    <SelectItem key={level} value={level} className="text-white hover:bg-white/10">
+                    <SelectItem key={level} value={level} className="text-foreground hover:bg-active">
                       {t(`common:fitnessLevels.${level}`)}
                     </SelectItem>
                   ))}
@@ -241,17 +241,17 @@ export function RegisterPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-zinc-400 text-sm">{t('register.mainGoal')}</Label>
+              <Label className="text-muted text-sm">{t('register.mainGoal')}</Label>
               <Select value={mainGoal} onValueChange={setMainGoal}>
                 <SelectTrigger
                   data-testid="register-main-goal"
-                  className="h-14 rounded-xl bg-[#141414] border-white/10 text-white"
+                  className="h-14 rounded-xl bg-surface-elevated border-border text-foreground"
                 >
                   <SelectValue placeholder={t('register.goalPlaceholder')} />
                 </SelectTrigger>
-                <SelectContent className="bg-[#141414] border-white/10">
+                <SelectContent className="bg-surface-elevated border-border">
                   {GOAL_KEYS.map((goal) => (
-                    <SelectItem key={goal} value={goal} className="text-white hover:bg-white/10">
+                    <SelectItem key={goal} value={goal} className="text-foreground hover:bg-active">
                       {t(`common:goals.${goal}`)}
                     </SelectItem>
                   ))}
@@ -264,7 +264,7 @@ export function RegisterPage() {
                 type="button"
                 onClick={() => setStep(1)}
                 variant="outline"
-                className="flex-1 h-14 rounded-xl bg-white/5 border-white/10 text-white hover:bg-white/10"
+                className="flex-1 h-14 rounded-xl bg-hover border-border text-foreground hover:bg-active"
               >
                 <ChevronLeft className="w-5 h-5 mr-2" />
                 {t('register.back')}
@@ -273,7 +273,7 @@ export function RegisterPage() {
                 type="submit"
                 data-testid="register-submit"
                 disabled={isLoading}
-                className="flex-1 h-14 rounded-xl font-bold text-white btn-primary"
+                className="flex-1 h-14 rounded-xl font-bold text-foreground btn-primary"
               >
                 {isLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : t('register.submit')}
               </Button>
@@ -281,7 +281,7 @@ export function RegisterPage() {
           </form>
         )}
 
-        <p className="text-center mt-8 text-zinc-500 text-sm">
+        <p className="text-center mt-8 text-subtle text-sm">
           {t('register.hasAccount')}{' '}
           <Link
             to="/login"
