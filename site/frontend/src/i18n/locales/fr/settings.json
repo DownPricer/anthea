@@ -66,7 +66,9 @@
   "agenda": {
     "loadHint": "Ouvrez cette section pour charger l'agenda.",
     "completedOnly": "Séances terminées uniquement",
-    "annualTitle": "Agenda annuel"
+    "annualTitle": "Agenda annuel",
+    "loadError": "Impossible de charger l'agenda.",
+    "noActivity": "Aucune activité enregistrée cette année."
   },
   "partnerSection": {
     "title": "Partenaire / Duo",
@@ -85,6 +87,7 @@
     "unlinkDesc": "Vous quitterez le duo. Cette action peut être annulée en créant une nouvelle relation.",
     "unlinkAction": "Délier",
     "receivedRequests": "Demandes reçues",
+    "requestProcessed": "Cette demande a déjà été traitée ou a expiré.",
     "sentRequests": "Demandes envoyées",
     "pending": "En attente...",
     "toasts": {

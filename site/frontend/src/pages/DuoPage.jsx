@@ -12,6 +12,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { BadgeArtwork } from '../components/badges/BadgeArtwork';
 import { getBadgeDisplayName } from '../lib/featuredBadges';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
+import { AnnualHeatmap } from '../components/agenda/AnnualHeatmap';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import {
   DuoHeaderSkeleton,
@@ -199,7 +200,7 @@ function normalizeStatsView(payload) {
 }
 
 export function DuoPage() {
-  const { t } = useTranslation(['duo', 'common', 'notifications', 'workouts', 'badges']);
+  const { t } = useTranslation(['duo', 'common', 'notifications', 'workouts', 'badges', 'settings']);
   const { formatDayMonth, formatDayMonthTime } = useLocaleFormat();
   const { user, refreshUser } = useAuth();
   const quickReactions = useMemo(
@@ -1094,6 +1095,11 @@ export function DuoPage() {
 
         {/* History Tab */}
         <TabsContent value="history" className="space-y-4">
+          <AnnualHeatmap
+            year={new Date().getFullYear()}
+            userId={historyTarget === 'me' ? viewerUserId : partnerUserId}
+            title={t('settings:agenda.annualTitle', { defaultValue: 'Agenda annuel' })}
+          />
           <div className="flex gap-2 flex-wrap items-center">
             <Select value={historyTarget} onValueChange={setHistoryTarget}>
               <SelectTrigger className="w-[130px] h-9 rounded-full bg-[#141414] border-white/10 text-white text-sm">

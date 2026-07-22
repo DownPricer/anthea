@@ -7,6 +7,7 @@ import {
   getMonth,
   isSameDay,
 } from 'date-fns';
+import { Loader2, Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { streakApi } from '../../lib/api';
 import { calendarDaysToMap } from '../../lib/agendaDayMap';
@@ -15,6 +16,15 @@ import { Button } from '../ui/button';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 
 const MONTH_LABELS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+
+function safeDayMap(days) {
+  if (!days || !Array.isArray(days)) return {};
+  try {
+    return calendarDaysToMap(days) || {};
+  } catch {
+    return {};
+  }
+}
 
 export function AnnualHeatmap({
   year = new Date().getFullYear(),
@@ -27,12 +37,13 @@ export function AnnualHeatmap({
 }) {
   const { t } = useTranslation(['settings']);
   const { formatDate, formatWeekdayDate } = useLocaleFormat();
-  const [dayMap, setDayMap] = useState(() =>
-    initialDays ? calendarDaysToMap(initialDays) : {}
-  );
-  const [loading, setLoading] = useState(!initialDays);
+  const [dayMap, setDayMap] = useState(() => safeDayMap(initialDays));
+  const [loading, setLoading] = useState(!Array.isArray(initialDays));
+  const [error, setError] = useState(null);
   const [selectedDay, setSelectedDay] = useState(null);
   const gridRef = useRef(null);
+
+  const safeYear = Number.isFinite(Number(year)) ? Number(year) : new Date().getFullYear();
 
   const colorOpts = useMemo(
     () => ({ accentColor: accentColor || undefined, partnerColor: partnerColor || undefined }),
@@ -40,30 +51,37 @@ export function AnnualHeatmap({
   );
 
   const days = useMemo(() => {
-    const start = startOfYear(new Date(year, 0, 1));
-    const end = endOfYear(new Date(year, 0, 1));
-    return eachDayOfInterval({ start, end });
-  }, [year]);
+    try {
+      const start = startOfYear(new Date(safeYear, 0, 1));
+      const end = endOfYear(new Date(safeYear, 0, 1));
+      return eachDayOfInterval({ start, end });
+    } catch {
+      return [];
+    }
+  }, [safeYear]);
 
   const load = useCallback(async () => {
-    if (initialDays && Array.isArray(initialDays)) {
-      setDayMap(calendarDaysToMap(initialDays));
+    if (Array.isArray(initialDays)) {
+      setDayMap(safeDayMap(initialDays));
+      setError(null);
       setLoading(false);
       return;
     }
     setLoading(true);
+    setError(null);
     try {
-      const startStr = `${year}-01-01`;
-      const endStr = `${year}-12-31`;
+      const startStr = `${safeYear}-01-01`;
+      const endStr = `${safeYear}-12-31`;
       const params = userId ? { target_user: userId } : {};
       const { data } = await streakApi.getCalendar(startStr, endStr, params);
-      setDayMap(calendarDaysToMap(data?.days || []));
+      setDayMap(safeDayMap(data?.days));
     } catch {
       setDayMap({});
+      setError('load');
     } finally {
       setLoading(false);
     }
-  }, [year, userId, initialDays]);
+  }, [safeYear, userId, initialDays]);
 
   useEffect(() => {
     load();
@@ -71,14 +89,15 @@ export function AnnualHeatmap({
 
   const weeksByMonth = useMemo(() => {
     const months = Array.from({ length: 12 }, () => []);
-    days.forEach((date) => {
+    (days || []).forEach((date) => {
+      if (!date) return;
       months[getMonth(date)].push(date);
     });
     return months;
   }, [days]);
 
   const getCellStyle = useCallback(
-    (info) => getHeatmapDayStyle(info, colorOpts),
+    (info) => getHeatmapDayStyle(info || {}, colorOpts),
     [colorOpts]
   );
 
@@ -94,18 +113,20 @@ export function AnnualHeatmap({
     canvas.width = w * 2;
     canvas.height = h * 2;
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
     ctx.scale(2, 2);
     ctx.fillStyle = '#0A0A0A';
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#ffffff';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText(`${title} — ${year}`, w / 2, 16);
+    ctx.fillText(`${title} — ${safeYear}`, w / 2, 16);
 
+    const map = dayMap || {};
     weeksByMonth.forEach((monthDays, monthIdx) => {
-      monthDays.forEach((date, dayIdx) => {
+      (monthDays || []).forEach((date, dayIdx) => {
         const key = format(date, 'yyyy-MM-dd');
-        const info = dayMap[key] || {};
+        const info = map[key] || {};
         const style = getCellStyle(info);
         const col = dayIdx % cols;
         const row = monthIdx;
@@ -120,27 +141,31 @@ export function AnnualHeatmap({
     });
 
     const link = document.createElement('a');
-    link.download = `agenda-${year}.png`;
+    link.download = `agenda-${safeYear}.png`;
     link.href = canvas.toDataURL('image/png');
     link.click();
   };
 
   if (loading) {
     return (
-      <div className="flex justify-center py-12">
+      <div className="flex justify-center py-12" data-testid="annual-heatmap-loading">
         <Loader2 className="w-7 h-7 animate-spin text-[var(--theme-primary)]" />
       </div>
     );
   }
 
   const selectedKey = selectedDay ? format(selectedDay, 'yyyy-MM-dd') : null;
-  const selectedInfo = selectedKey ? dayMap[selectedKey] : null;
+  const selectedInfo = selectedKey && dayMap ? dayMap[selectedKey] : null;
+  const hasActivity = dayMap && Object.keys(dayMap).some((k) => {
+    const info = dayMap[k];
+    return info && (info.completed > 0 || info.has_activity || info.sessions?.length);
+  });
 
   return (
     <div className="space-y-4" data-testid="annual-heatmap">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-white font-semibold font-['Outfit']">{title} — {year}</h3>
+          <h3 className="text-white font-semibold font-['Outfit']">{title} — {safeYear}</h3>
           <p className="text-zinc-500 text-xs mt-0.5">{t('settings:agenda.completedOnly')}</p>
         </div>
         <Button
@@ -155,8 +180,20 @@ export function AnnualHeatmap({
         </Button>
       </div>
 
+      {error ? (
+        <p className="text-zinc-500 text-sm text-center py-2" data-testid="annual-heatmap-error">
+          {t('settings:agenda.loadError', { defaultValue: 'Impossible de charger l’agenda.' })}
+        </p>
+      ) : null}
+
+      {!error && !hasActivity ? (
+        <p className="text-zinc-500 text-sm text-center py-1" data-testid="annual-heatmap-empty">
+          {t('settings:agenda.noActivity', { defaultValue: 'Aucune activité enregistrée cette année.' })}
+        </p>
+      ) : null}
+
       <div ref={gridRef} className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 space-y-4">
-        <p className="text-zinc-500 text-xs text-center">{year}</p>
+        <p className="text-zinc-500 text-xs text-center">{safeYear}</p>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {weeksByMonth.map((monthDays, monthIdx) => (
             <div key={monthIdx} className="space-y-1.5">
@@ -164,9 +201,9 @@ export function AnnualHeatmap({
                 {MONTH_LABELS[monthIdx]}
               </p>
               <div className="flex flex-wrap gap-0.5 justify-center">
-                {monthDays.map((date) => {
+                {(monthDays || []).map((date) => {
                   const key = format(date, 'yyyy-MM-dd');
-                  const info = dayMap[key] || {};
+                  const info = (dayMap && dayMap[key]) || {};
                   const style = getCellStyle(info);
                   const isSelected = selectedDay && isSameDay(selectedDay, date);
                   const dateLabel = formatDate(date);
