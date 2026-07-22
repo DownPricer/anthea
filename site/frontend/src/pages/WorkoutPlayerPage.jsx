@@ -5,7 +5,7 @@ import { workoutsApi, sessionsApi, streakApi, partnerApi } from '../lib/api';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { estimateCalories, formatCalories } from '../lib/calories';
 import { playShortBeep, vibrateShort } from '../lib/workoutFeedback';
-import { LiveWorkoutChat } from '../components/LiveWorkoutChat';
+import { LiveWorkoutReactions } from '../components/LiveWorkoutReactions';
 import { ShareWorkoutDialog } from '../components/social/ShareWorkoutDialog';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -66,7 +66,10 @@ export function WorkoutPlayerPage() {
   const [musicMode, setMusicMode] = useState(false);
   const [partnerLive, setPartnerLive] = useState(null);
   const [duoLive, setDuoLive] = useState(false);
-  const [liveChatOpen, setLiveChatOpen] = useState(false);
+  const [partnerProgress, setPartnerProgress] = useState(null);
+  const [partnerReconnecting, setPartnerReconnecting] = useState(false);
+  const [liveReady, setLiveReady] = useState(false);
+  const lastKnownPartnerProgressRef = useRef(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [createdSession, setCreatedSession] = useState(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
@@ -412,6 +415,7 @@ export function WorkoutPlayerPage() {
         time_elapsed: totalTime,
         pause_time: pauseTime,
         exercises_completed: exercisesCompleted,
+        exercises_total: totalExercises,
         workout_title: workout.title,
         phase: isPaused ? 'paused' : phase,
       });
@@ -427,6 +431,7 @@ export function WorkoutPlayerPage() {
     totalTime,
     pauseTime,
     exercisesCompleted,
+    totalExercises,
     isPaused,
   ]);
 
@@ -441,7 +446,15 @@ export function WorkoutPlayerPage() {
   }, [sessionIsActive, requestWakeLock, releaseWakeLock]);
 
   useEffect(() => {
-    if (phase === 'finished' || phase === 'preparation' || !user?.partner_id) return undefined;
+    if (phase === 'finished' || phase === 'preparation' || !user?.partner_id) {
+      if (phase === 'finished') {
+        setPartnerLive(null);
+        setDuoLive(false);
+        setPartnerReconnecting(false);
+        setLiveReady(false);
+      }
+      return undefined;
+    }
 
     const pollPartner = async () => {
       try {
@@ -449,19 +462,40 @@ export function WorkoutPlayerPage() {
         if (data?.active) {
           setPartnerLive(data);
           setDuoLive(!!data.duo_live);
+          setPartnerReconnecting(data.connection_status === 'degraded');
+          if (typeof data.progress_percent === 'number') {
+            lastKnownPartnerProgressRef.current = data.progress_percent;
+            setPartnerProgress(data.progress_percent);
+          } else if (lastKnownPartnerProgressRef.current != null) {
+            setPartnerProgress(lastKnownPartnerProgressRef.current);
+          }
+          setLiveReady(true);
         } else {
           setPartnerLive(null);
           setDuoLive(false);
+          setPartnerReconnecting(false);
+          setLiveReady(true);
         }
       } catch {
-        setPartnerLive(null);
-        setDuoLive(false);
+        setPartnerReconnecting(true);
+        setLiveReady(true);
       }
     };
 
     pollPartner();
     const id = setInterval(pollPartner, 12000);
-    return () => clearInterval(id);
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') pollPartner();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', pollPartner);
+
+    return () => {
+      clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', pollPartner);
+    };
   }, [phase, user?.partner_id]);
 
   useEffect(() => {
@@ -469,10 +503,10 @@ export function WorkoutPlayerPage() {
     return () => clearInterval(interval);
   }, [persistProgress]);
 
-  // Heartbeat pour statut « en direct » partenaire (saved_at récent)
+  // Heartbeat connexion (60s) — met à jour last_seen_at sans recréer de séance
   useEffect(() => {
     if (!sessionIsActive) return undefined;
-    const heartbeat = setInterval(persistProgress, 30000);
+    const heartbeat = setInterval(persistProgress, 60000);
     return () => clearInterval(heartbeat);
   }, [sessionIsActive, persistProgress]);
 
@@ -927,6 +961,74 @@ export function WorkoutPlayerPage() {
   }
 
   const partnerName = partnerLive?.display_name || partnerLive?.username;
+  const myProgressPercent = totalExercises > 0
+    ? Math.max(0, Math.min(100, Math.round((exercisesCompleted / totalExercises) * 100)))
+    : null;
+  const partnerProgressPercent =
+    typeof partnerProgress === 'number'
+      ? partnerProgress
+      : typeof partnerLive?.progress_percent === 'number'
+        ? partnerLive.progress_percent
+        : lastKnownPartnerProgressRef.current;
+
+  const liveProgressBlock = duoLive ? (
+    <div className="space-y-3" data-testid="duo-live-progress">
+      <p className="text-amber-300 text-xs font-medium flex items-center gap-1.5">
+        <Radio size={12} className={partnerReconnecting ? '' : 'animate-pulse'} />
+        {t('player:liveSessionWith', { name: partnerName })}
+      </p>
+      {!liveReady ? (
+        <div className="space-y-2 animate-pulse" data-testid="duo-live-progress-skeleton">
+          <div className="h-3 w-28 rounded bg-white/10" />
+          <div className="h-2 rounded-full bg-white/10" />
+          <div className="h-3 w-24 rounded bg-white/10" />
+          <div className="h-2 rounded-full bg-white/10" />
+        </div>
+      ) : (
+        <>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-amber-200/90 truncate min-w-0">{partnerName}</span>
+              <span className="text-amber-300 tabular-nums shrink-0">
+                {partnerReconnecting
+                  ? t('player:reconnecting')
+                  : partnerProgressPercent != null
+                    ? `${partnerProgressPercent} %`
+                    : '—'}
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-amber-400 transition-all duration-300"
+                style={{
+                  width: `${partnerProgressPercent != null ? partnerProgressPercent : 0}%`,
+                  opacity: partnerProgressPercent == null ? 0.35 : 1,
+                }}
+              />
+            </div>
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <span className="text-zinc-300">{t('player:myProgress')}</span>
+              <span className="text-[var(--theme-primary)] tabular-nums shrink-0">
+                {myProgressPercent != null ? `${myProgressPercent} %` : '—'}
+              </span>
+            </div>
+            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full bg-[var(--theme-primary)] transition-all duration-300"
+                style={{ width: `${myProgressPercent != null ? myProgressPercent : 0}%` }}
+              />
+            </div>
+          </div>
+          <LiveWorkoutReactions
+            sessionId={partnerLive?.live_session_id || workoutId}
+            enabled={duoLive && phase !== 'finished'}
+          />
+        </>
+      )}
+    </div>
+  ) : null;
 
   const playerSidebar = (
     <div className="space-y-4">
@@ -939,16 +1041,7 @@ export function WorkoutPlayerPage() {
       {duoLive && (
         <div className="card p-4">
           <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">{t('player:duo')}</p>
-          <p className="text-white text-sm">
-            {t('player:liveWith')} <span className="text-amber-300">{partnerName}</span>
-          </p>
-          <button
-            type="button"
-            onClick={() => setLiveChatOpen(true)}
-            className="mt-3 w-full rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-white text-sm py-2"
-          >
-            {t('player:openChat')}
-          </button>
+          {liveProgressBlock}
         </div>
       )}
     </div>
@@ -1014,11 +1107,8 @@ export function WorkoutPlayerPage() {
       </div>
 
       {duoLive && (
-        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center shrink-0">
-          <p className="text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5">
-            <Radio size={12} className="animate-pulse" />
-            {t('player:liveSessionWith', { name: partnerName })}
-          </p>
+        <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 shrink-0 2xl:hidden">
+          {liveProgressBlock}
         </div>
       )}
 
@@ -1084,16 +1174,6 @@ export function WorkoutPlayerPage() {
           </DropdownMenuContent>
         </DropdownMenu>
       </header>
-
-      {duoLive && (
-        <div className="shrink-0 px-4 py-2 2xl:hidden">
-          <LiveWorkoutChat
-            partnerName={partnerName}
-            open={liveChatOpen}
-            onOpenChange={setLiveChatOpen}
-          />
-        </div>
-      )}
 
       <main className="relative flex flex-1 flex-col w-full min-h-0">
         <div className="flex flex-1 w-full items-center justify-center px-4 py-4 md:px-8 md:py-8">
@@ -1255,13 +1335,6 @@ export function WorkoutPlayerPage() {
         <aside className="pointer-events-none absolute right-8 top-24 z-10 hidden w-80 2xl:block">
           <div className="pointer-events-auto space-y-4">
             {playerSidebar}
-            {duoLive && (
-              <LiveWorkoutChat
-                partnerName={partnerName}
-                open={liveChatOpen}
-                onOpenChange={setLiveChatOpen}
-              />
-            )}
           </div>
         </aside>
       </main>

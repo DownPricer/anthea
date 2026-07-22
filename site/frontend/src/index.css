@@ -160,6 +160,22 @@ h1, h2, h3, h4, h5, h6 {
   animation: duoLiveGlow 2.5s ease-in-out infinite;
 }
 
+@keyframes duoReactionFloat {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-72px) scale(1.15); opacity: 0; }
+}
+
+.duo-reaction-float {
+  animation: duoReactionFloat 1.6s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .duo-live-glow,
+  .duo-reaction-float {
+    animation: none !important;
+  }
+}
+
 /* Glass effect */
 .glass {
   background: rgba(10, 10, 10, 0.6);

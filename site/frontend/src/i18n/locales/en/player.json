@@ -22,7 +22,15 @@
   "pauseTime": "Pause: {{time}}",
   "duo": "Duo",
   "liveWith": "Live with",
-  "openChat": "Open chat",
+  "myProgress": "My progress",
+  "reconnecting": "Reconnecting…",
+  "reactions": {
+    "cheer": "Cheer on your partner",
+    "fire": "Fire reaction",
+    "heart": "Heart reaction",
+    "clap": "Clap reaction",
+    "flex": "Strength reaction"
+  },
   "options": "Options",
   "repsToDo": "reps to complete",
   "exerciseDone": "I'm done with this exercise",
