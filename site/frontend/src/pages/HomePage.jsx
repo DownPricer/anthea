@@ -37,6 +37,7 @@ import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
+import { getHomeCache, setHomeCache, homeCacheKey, HOME_STALE } from '../lib/homeCache';
 import { UserAvatar } from '../components/UserAvatar';
 import { PageHeader } from '../components/layout/PageHeader';
 import { getPublicHandle } from '../lib/userProfile';
@@ -87,17 +88,36 @@ export function HomePage() {
     const weStr = format(weekEndDate, 'yyyy-MM-dd');
     weekRangeRef.current = { start: wsStr, end: weStr };
 
-    setTodayLoading(true);
-    setWeekLoading(true);
-    setStreakDays([]);
+    const todayKey = homeCacheKey('today', wsStr);
+    const weekKey = homeCacheKey('week', wsStr, weStr);
+    const cachedToday = getHomeCache(todayKey);
+    const cachedWeek = getHomeCache(weekKey);
+
+    // Afficher immédiatement le dernier cache connu (pas de page vide / faux 0).
+    if (cachedToday) {
+      setTodayWorkouts(cachedToday);
+      setTodayLoading(false);
+    } else {
+      setTodayLoading(true);
+    }
+    if (cachedWeek) {
+      setCalendarDayMap(cachedWeek);
+      setWeekLoading(false);
+    } else {
+      setWeekLoading(true);
+    }
+
     setStreakDaysLoading(false);
     streakDaysRangeRef.current = { start: null, end: null, loaded: false };
 
-    workoutsApi
+    // Priorité 1–2 : séances du jour + « Cette semaine » en parallèle (jamais enchaînés).
+    const todayPromise = workoutsApi
       .getToday()
       .then((todayRes) => {
         if (!isActive()) return;
-        setTodayWorkouts(todayRes.data || []);
+        const list = todayRes.data || [];
+        setTodayWorkouts(list);
+        setHomeCache(todayKey, list, HOME_STALE.today);
       })
       .catch((error) => {
         console.error('Failed to load today workouts:', error);
@@ -107,11 +127,13 @@ export function HomePage() {
         setTodayLoading(false);
       });
 
-    streakApi
+    const weekPromise = streakApi
       .getCalendar(wsStr, weStr)
       .then((calRes) => {
         if (!isActive()) return;
-        setCalendarDayMap(calendarDaysToMap(calRes.data?.days || []));
+        const map = calendarDaysToMap(calRes.data?.days || []);
+        setCalendarDayMap(map);
+        setHomeCache(weekKey, map, HOME_STALE.week);
       })
       .catch((error) => {
         console.error('Failed to load week agenda:', error);
@@ -121,16 +143,22 @@ export function HomePage() {
         setWeekLoading(false);
       });
 
-    // Sections secondaires : ne doivent pas bloquer l'affichage initial.
+    Promise.allSettled([todayPromise, weekPromise]);
+
+    // Secondaire : Duo / partenaire / demandes — après le contenu prioritaire, sans bloquer.
     scheduleNonBlocking(async () => {
       try {
-        const [partnerRes, requestsRes] = await Promise.all([
+        const results = await Promise.allSettled([
           partnerApi.getInfo(),
           partnerApi.getRequests(),
         ]);
         if (!isActive()) return;
-        setPartner(partnerRes.data);
-        setPartnerRequests(requestsRes.data || []);
+        if (results[0].status === 'fulfilled') {
+          setPartner(results[0].value.data);
+        }
+        if (results[1].status === 'fulfilled') {
+          setPartnerRequests(results[1].value.data || []);
+        }
       } catch (error) {
         console.error('Failed to load home secondary data:', error);
       }

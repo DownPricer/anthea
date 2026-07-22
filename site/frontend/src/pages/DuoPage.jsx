@@ -432,18 +432,32 @@ export function DuoPage() {
     const gen = ++loadGenRef.current;
     const endTotal = duoTime('total');
     const endPartner = duoTime('partner');
+    const endProfile = duoTime('profile');
     const endStats = duoTime('stats');
     const endActivity = duoTime('activity');
     const endCoach = duoTime('coach');
 
     const partnerCacheKey = duoCacheKey('partner', user?.id || 'anon');
+    const profileCacheKey = duoCacheKey('profile', user?.id || 'anon');
+    const statsKeyHint = duoCacheKey('stats', pairKey);
+
+    // Hydratation immédiate depuis le cache (retour page = pas d'écran vide).
     const cachedPartner = getDuoCache(partnerCacheKey);
     if (cachedPartner !== null && cachedPartner !== undefined) {
       setPartner(cachedPartner || null);
       setPartnerReady(true);
     }
+    const cachedProfile = getDuoCache(profileCacheKey);
+    if (cachedProfile) {
+      setDuoProfile(cachedProfile);
+    }
+    const cachedStats = getDuoCache(statsKeyHint);
+    if (cachedStats) {
+      setDuoStats(cachedStats);
+      setStatsBootLoading(false);
+    }
 
-    // 1) Partner en priorité — débloque le shell (header / Solo)
+    // Priorité : identité Duo + photo/bannière + défi/semaine (via stats) — en parallèle.
     const partnerPromise = (async () => {
       try {
         const { data } = await partnerApi.getInfo();
@@ -461,42 +475,42 @@ export function DuoPage() {
       }
     })();
 
-    // 2) Profil Duo — source canonique des deux membres et du pair_key.
     const profilePromise = (async () => {
       try {
         const { data } = await duoApi.getProfile();
-        if (gen === loadGenRef.current) setDuoProfile(data || null);
+        if (gen !== loadGenRef.current) return data;
+        setDuoProfile(data || null);
+        if (data) setDuoCache(profileCacheKey, data, DUO_STALE.profile);
         return data;
       } catch (error) {
         console.error('Failed to load duo profile', error);
-        if (gen === loadGenRef.current) setDuoProfile(null);
+        if (gen === loadGenRef.current && !cachedProfile) setDuoProfile(null);
         return null;
+      } finally {
+        endProfile();
       }
     })();
 
-    // 3) Stats (+ badges + challenge inclus) — parallèle
     const statsPromise = (async () => {
-      const pkHint = pairKey;
-      const statsKey = duoCacheKey('stats', pkHint);
-      const cached = getDuoCache(statsKey);
-      if (cached) {
-        setDuoStats(cached);
-        setStatsBootLoading(false);
-        endStats();
-        return cached;
-      }
       try {
         const { data } = await duoApi.getStats();
         if (gen !== loadGenRef.current) return data;
         setDuoStats(data);
-        const pk = data?.duo_profile?.pair_key || pkHint;
+        const pk = data?.duo_profile?.pair_key || pairKey;
         setDuoCache(duoCacheKey('stats', pk), data, DUO_STALE.stats);
+        if (data?.duo_profile) {
+          setDuoCache(profileCacheKey, data.duo_profile, DUO_STALE.profile);
+        }
         if (data?.badges) {
           setDuoCache(duoCacheKey('badges', pk), data.badges, DUO_STALE.badges);
         }
         if (data?.current_challenge) {
           const weekKey = data.current_challenge.week_key || 'current';
-          setDuoCache(duoCacheKey('challenges', pk, weekKey), data.current_challenge, DUO_STALE.challenges);
+          setDuoCache(
+            duoCacheKey('challenges', pk, weekKey),
+            data.current_challenge,
+            DUO_STALE.challenges
+          );
         }
         return data;
       } catch (error) {
@@ -508,52 +522,57 @@ export function DuoPage() {
       }
     })();
 
-    // 4) Activity feed — parallèle, ne bloque pas le header
-    const activityPromise = (async () => {
-      const actKey = duoCacheKey('activity', pairKey);
-      const cached = getDuoCache(actKey);
-      if (cached) {
-        setSessions(cached);
-        setActivityLoading(false);
-        endActivity();
-        return cached;
-      }
-      try {
-        const { data } = await duoApi.getActivityFeed(20);
-        if (gen !== loadGenRef.current) return data;
-        const list = data || [];
-        setSessions(list);
-        setDuoCache(actKey, list, DUO_STALE.activity);
-        return list;
-      } catch (error) {
-        console.error('Failed to load activity', error);
-        return [];
-      } finally {
-        endActivity();
-        if (gen === loadGenRef.current) setActivityLoading(false);
-      }
-    })();
+    await Promise.allSettled([partnerPromise, profilePromise, statsPromise]);
 
-    // 5) Coach status — parallèle, non bloquant
-    const coachPromise = (async () => {
-      try {
-        const { data } = await streakApi.getCoachStatus();
-        if (gen === loadGenRef.current) setCanModerateStreak(!!data?.can_moderate);
-      } catch {
-        if (gen === loadGenRef.current) setCanModerateStreak(false);
-      } finally {
-        endCoach();
+    // Secondaire : activité + coach — ne bloquent pas le contenu prioritaire.
+    const scheduleSecondary = (fn) => {
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        window.requestIdleCallback(fn, { timeout: 1500 });
+      } else {
+        setTimeout(fn, 0);
       }
-    })();
+    };
 
-    await Promise.all([
-      partnerPromise,
-      profilePromise,
-      statsPromise,
-      activityPromise,
-      coachPromise,
-    ]);
-    endTotal();
+    scheduleSecondary(() => {
+      const activityPromise = (async () => {
+        const actKey = duoCacheKey('activity', pairKey);
+        const cached = getDuoCache(actKey);
+        if (cached) {
+          if (gen === loadGenRef.current) {
+            setSessions(cached);
+            setActivityLoading(false);
+          }
+          endActivity();
+        }
+        try {
+          const { data } = await duoApi.getActivityFeed(20);
+          if (gen !== loadGenRef.current) return data;
+          const list = data || [];
+          setSessions(list);
+          setDuoCache(actKey, list, DUO_STALE.activity);
+          return list;
+        } catch (error) {
+          console.error('Failed to load activity', error);
+          return [];
+        } finally {
+          endActivity();
+          if (gen === loadGenRef.current) setActivityLoading(false);
+        }
+      })();
+
+      const coachPromise = (async () => {
+        try {
+          const { data } = await streakApi.getCoachStatus();
+          if (gen === loadGenRef.current) setCanModerateStreak(!!data?.can_moderate);
+        } catch {
+          if (gen === loadGenRef.current) setCanModerateStreak(false);
+        } finally {
+          endCoach();
+        }
+      })();
+
+      Promise.allSettled([activityPromise, coachPromise]).then(() => endTotal());
+    });
   };
 
   const handleCoachSetStreak = async () => {

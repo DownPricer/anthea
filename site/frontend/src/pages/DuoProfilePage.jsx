@@ -17,6 +17,12 @@ import { canViewDuoSection, isDuoLimited } from '../lib/duoProfile';
 import { getDisplayName, formatDuration } from '../lib/userProfile';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
 import { useTranslation } from 'react-i18next';
+import {
+  getDuoCache,
+  setDuoCache,
+  duoCacheKey,
+  DUO_STALE,
+} from '../lib/duoCache';
 
 /**
  * Page profil duo consultable — réutilisable pour profil public ou membre.
@@ -41,13 +47,22 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
 
   const loadProfile = useCallback(async () => {
     if (!resolvedTag) return;
-    setLoading(true);
+    const profileKey = duoCacheKey('publicProfile', resolvedTag);
+    const cached = getDuoCache(profileKey);
+    if (cached) {
+      setDuoProfile(cached);
+      setLoading(false);
+      onDuoUpdate?.(cached);
+    } else {
+      setLoading(true);
+    }
     try {
       const { data } = await duoProfilesApi.getByTag(resolvedTag);
       setDuoProfile(data);
+      if (data) setDuoCache(profileKey, data, DUO_STALE.profile);
       onDuoUpdate?.(data);
     } catch {
-      setDuoProfile(null);
+      if (!cached) setDuoProfile(null);
     } finally {
       setLoading(false);
     }
@@ -70,7 +85,14 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       setStatsLoading(false);
       return;
     }
-    setStatsLoading(true);
+    const statsKey = duoCacheKey('publicStats', resolvedTag);
+    const cached = getDuoCache(statsKey);
+    if (cached) {
+      setStats(cached);
+      setStatsLoading(false);
+    } else {
+      setStatsLoading(true);
+    }
     setStatsError(null);
     try {
       const useMemberStats = isMember && !!user?.partner_id;
@@ -85,10 +107,12 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
           payload: data,
         });
       }
-      setStats(normalizeDuoStats(data));
+      const normalized = normalizeDuoStats(data);
+      setStats(normalized);
+      setDuoCache(statsKey, normalized, DUO_STALE.stats);
     } catch (err) {
       if (process.env.NODE_ENV === 'development') console.error('[duo profile stats]', err);
-      setStats(null);
+      if (!cached) setStats(null);
       const msg = formatApiError(err);
       setStatsError(msg);
       if (duoProfile.is_member) toast.error(msg);
@@ -109,7 +133,14 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       setActivityLoading(false);
       return;
     }
-    setActivityLoading(true);
+    const actKey = duoCacheKey('publicActivity', resolvedTag);
+    const cached = getDuoCache(actKey);
+    if (cached) {
+      setActivity(cached);
+      setActivityLoading(false);
+    } else {
+      setActivityLoading(true);
+    }
     try {
       const useMemberFeed = isMember && !!user?.partner_id;
       const { data } = useMemberFeed
@@ -117,9 +148,10 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
         : await duoProfilesApi.getActivity(resolvedTag, 30);
       const items = (data || []).map(normalizeDuoActivityItem);
       setActivity(items);
+      setDuoCache(actKey, items, DUO_STALE.activity);
     } catch (err) {
       if (process.env.NODE_ENV === 'development') console.error('[duo profile activity]', err);
-      setActivity([]);
+      if (!cached) setActivity([]);
       if (duoProfile.is_member) toast.error(formatApiError(err));
     } finally {
       setActivityLoading(false);
@@ -132,10 +164,9 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
   }, [viewedDuo, resolvedTag, loadProfile]);
 
   useEffect(() => {
-    if (duoProfile) {
-      loadStats();
-      loadActivity();
-    }
+    if (!duoProfile) return;
+    // Profil d'abord ; stats + activité ensuite en parallèle (pas de chaîne séquentielle).
+    Promise.allSettled([loadStats(), loadActivity()]);
   }, [duoProfile, loadStats, loadActivity]);
 
   const canShowPosts = useMemo(
