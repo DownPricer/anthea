@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, sessionsApi, streakApi, partnerApi } from '../lib/api';
+import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
 import { useWakeLock } from '../hooks/useWakeLock';
 import { estimateCalories, formatCalories } from '../lib/calories';
 import { playShortBeep, vibrateShort } from '../lib/workoutFeedback';
@@ -914,8 +915,11 @@ export function WorkoutPlayerPage() {
             {(currentExercise.image_url || currentExercise.media_snapshot) && (
               <div className="w-full h-32 rounded-xl overflow-hidden mb-4 bg-hover">
                 <img 
-                  src={currentExercise.image_url || currentExercise.media_snapshot} 
+                  src={resolveExerciseMediaUrl(currentExercise.image_url || currentExercise.media_snapshot)} 
                   alt={currentExercise.name || currentExercise.exercise_name_snapshot || ''}
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-contain"
                   onError={(e) => { e.target.style.display = 'none'; }}
                 />
@@ -1135,8 +1139,10 @@ export function WorkoutPlayerPage() {
               {(currentExercise?.image_url || currentExercise?.media_snapshot) && phase === 'exercise' && (
                 <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-hover aspect-video">
                   <img
-                    src={currentExercise.image_url || currentExercise.media_snapshot}
+                    src={resolveExerciseMediaUrl(currentExercise.image_url || currentExercise.media_snapshot)}
                     alt={currentExercise.name || currentExercise.exercise_name_snapshot || ''}
+                    decoding="async"
+                    referrerPolicy="no-referrer"
                     className="h-full w-full object-contain"
                     onError={(e) => {
                       e.target.parentElement.style.display = 'none';

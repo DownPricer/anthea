@@ -175,10 +175,18 @@ export const uploadsApi = {
     api.post('/uploads/image', { image_data: imageData, filename }),
 };
 
-/** Résout une URL d'upload — chemins relatifs uniquement (même origine que la page). */
+/** Résout une URL d'upload — chemins relatifs uniquement (même origine que la page).
+ *  Les URL absolues https/http/data/blob ne sont JAMAIS préfixées. */
 export function resolveMediaUrl(value) {
   if (!value) return '';
-  if (value.startsWith('blob:') || value.startsWith('data:')) return value;
+  if (
+    value.startsWith('blob:') ||
+    value.startsWith('data:') ||
+    value.startsWith('https://') ||
+    value.startsWith('http://')
+  ) {
+    return value;
+  }
   if (value.startsWith('/uploads/')) return value;
   if (value.startsWith('uploads/')) return `/${value}`;
   if (value.includes('/uploads/')) {

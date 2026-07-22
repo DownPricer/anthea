@@ -1,4 +1,43 @@
-/** Image de remplacement quand un GIF/média d'exercice est indisponible. */
+/** Résolution d'URL média exercices — ne jamais préfixer une URL absolue. */
+
+export function resolveLocalMediaUrl(url) {
+  if (!url) return null;
+  if (url.startsWith('/uploads/')) return url;
+  if (url.startsWith('uploads/')) return `/${url}`;
+  if (url.includes('/uploads/')) {
+    const idx = url.indexOf('/uploads/');
+    return url.slice(idx);
+  }
+  if (url.startsWith('/')) return url;
+  return `/${url}`;
+}
+
+/**
+ * Règle obligatoire : https/http/data/blob restent inchangés.
+ */
+export function resolveExerciseMediaUrl(url) {
+  if (!url) return null;
+  if (typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  if (
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('data:') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed;
+  }
+
+  // Garde-fou : éviter https://anthea.../https://...
+  if (/^https?:\/\//i.test(trimmed.replace(/^\/+/, ''))) {
+    return trimmed.replace(/^\/+/, '');
+  }
+
+  return resolveLocalMediaUrl(trimmed);
+}
+
 export const FALLBACK_EXERCISE_IMAGE =
   'data:image/svg+xml,' +
   encodeURIComponent(
@@ -7,7 +46,7 @@ export const FALLBACK_EXERCISE_IMAGE =
 
 export function handleExerciseImageError(event) {
   const img = event.currentTarget;
-  if (img.dataset.fallbackApplied === '1') return;
+  if (!img || img.dataset.fallbackApplied === '1') return;
   img.dataset.fallbackApplied = '1';
   img.src = FALLBACK_EXERCISE_IMAGE;
 }

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
 import { sanitizeExerciseForApi, handleExerciseImageError } from '../lib/exerciseMedia';
+import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
 import {
   createExerciseSearchController,
   EXERCISE_FILTER_PRESETS,
@@ -1369,9 +1370,12 @@ export function CreateWorkoutPage() {
                         {exercise.image_url && (
                           <div className="w-12 h-12 rounded-lg overflow-hidden bg-active flex-shrink-0">
                             <img
-                              src={exercise.image_url}
+                              src={resolveExerciseMediaUrl(exercise.image_url) || exercise.image_url}
                               alt=""
-                              className="w-full h-full object-cover"
+                              loading="lazy"
+                              decoding="async"
+                              referrerPolicy="no-referrer"
+                              className="w-full h-full object-contain"
                               onError={handleExerciseImageError}
                             />
                           </div>

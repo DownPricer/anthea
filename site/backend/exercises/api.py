@@ -171,14 +171,22 @@ async def facets_handler(db, user: dict):
 
 
 async def media_handler(db, exercise_id: str, user: dict):
-    if media_mode() == "remote":
-        raise HTTPException(status_code=404, detail="Media proxy disabled (remote mode)")
+    """
+    Mode remote : redirection 302 vers l'URL CDN allowlistée (pas de téléchargement).
+    Modes proxy_cache/download : streaming depuis cache/fournisseur.
+    """
+    from fastapi.responses import RedirectResponse
+
     doc = await db[CATALOG_COLLECTION].find_one({"id": exercise_id})
     if not doc:
         raise HTTPException(status_code=404, detail="Exercise not found")
     url = (doc.get("media") or {}).get("url")
     if not url or not is_allowed_media_url(url):
         raise HTTPException(status_code=404, detail="Media unavailable")
+
+    if media_mode() == "remote":
+        return RedirectResponse(url=url, status_code=302)
+
     try:
         data, content_type = get_or_fetch_cached_media(url)
     except FileNotFoundError:

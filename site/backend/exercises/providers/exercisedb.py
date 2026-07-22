@@ -165,6 +165,8 @@ class ExerciseDbProvider(ExerciseProvider):
         if not isinstance(raw, dict):
             return None
 
+        from ..media_urls import build_cdn_gif_url, extract_cdn_id_from_path
+
         def _as_list(value: Any) -> List[str]:
             if value is None:
                 return []
@@ -174,34 +176,37 @@ class ExerciseDbProvider(ExerciseProvider):
                 return [value] if value.strip() else []
             return [str(value)]
 
-        eid = raw.get("exerciseId") or raw.get("exercise_id") or raw.get("id")
+        aquarius_id = raw.get("id")
+        eid = raw.get("exerciseId") or raw.get("exercise_id")
         name = raw.get("name")
         image = str(raw.get("image") or raw.get("gif_url") or raw.get("gifUrl") or "")
-        if (not eid or isinstance(eid, int)) and image:
-            base = image.split("/")[-1]
-            stem = base.rsplit(".", 1)[0]
-            # Aquariius: "0001-2gPfomN.gif" → id 2gPfomN
-            if "-" in stem:
-                maybe = stem.split("-", 1)[1]
-                if maybe:
-                    eid = maybe
-            elif not eid:
-                eid = stem
-        if isinstance(eid, int):
-            # Garder aussi le vrai id CDN depuis le nom de fichier si possible
-            if "-" in (image.split("/")[-1]):
-                stem = image.split("/")[-1].rsplit(".", 1)[0]
-                eid = stem.split("-", 1)[1] if "-" in stem else str(eid)
-            else:
-                eid = str(eid)
-        if not eid or not name:
+        gif_raw = raw.get("gifUrl") or raw.get("gif_url") or ""
+        cdn_id = (
+            extract_cdn_id_from_path(str(gif_raw))
+            or extract_cdn_id_from_path(image)
+            or extract_cdn_id_from_path(str(eid or ""))
+        )
+        # Conserver l'id Aquariius numérique pour stabilité des documents déjà importés
+        if aquarius_id is not None and str(aquarius_id).strip():
+            provider_key = str(aquarius_id).strip()
+        elif eid and not str(eid).isdigit():
+            provider_key = str(eid)
+        else:
+            provider_key = cdn_id or (str(eid) if eid else None)
+
+        if not provider_key or not name:
             return None
-        eid = str(eid)
-        gif = raw.get("gifUrl") or raw.get("gif_url")
-        if gif and not str(gif).startswith("http"):
-            gif = f"https://static.exercisedb.dev/media/{eid}.gif"
-        if not gif:
-            gif = f"https://static.exercisedb.dev/media/{eid}.gif"
+
+        if gif_raw and str(gif_raw).startswith("http") and cdn_id is None:
+            gif = str(gif_raw)
+        elif cdn_id:
+            gif = build_cdn_gif_url(cdn_id)
+        elif gif_raw and str(gif_raw).startswith("http"):
+            gif = str(gif_raw)
+        else:
+            # Dernier recours (peut être invalide) — éviter les ids numériques seuls
+            gif = None if str(provider_key).isdigit() else build_cdn_gif_url(str(provider_key))
+
         body = raw.get("bodyParts") or raw.get("body_parts") or raw.get("bodyPart") or raw.get("body_part")
         equip = raw.get("equipments") or raw.get("equipment")
         targets = (
@@ -210,17 +215,21 @@ class ExerciseDbProvider(ExerciseProvider):
             or raw.get("primaryMuscles")
             or raw.get("primary_muscles")
             or raw.get("target")
+            or raw.get("muscle_group")
         )
-        secondary = raw.get("secondaryMuscles") or raw.get("secondary_muscles") or raw.get("secondaryMuscles")
+        secondary = raw.get("secondaryMuscles") or raw.get("secondary_muscles") or []
+        instructions = raw.get("instructions") or raw.get("instruction_steps") or []
         return {
-            "exerciseId": eid,
+            "exerciseId": provider_key,
+            "cdnId": cdn_id,
             "name": name,
             "gifUrl": gif,
             "bodyParts": _as_list(body),
             "equipments": _as_list(equip),
             "targetMuscles": _as_list(targets),
             "secondaryMuscles": _as_list(secondary),
-            "instructions": list(raw.get("instructions") or []),
+            "instructions": list(instructions) if isinstance(instructions, list) else [],
+            "_source_gif_path": str(gif_raw) if gif_raw else image,
         }
 
     def fetch_all(self) -> Iterable[Dict[str, Any]]:
@@ -248,7 +257,7 @@ class ExerciseDbProvider(ExerciseProvider):
         if isinstance(body_parts, str):
             body_parts = [body_parts]
         media = self.get_media_url(coerced)
-        return normalize_from_structured(
+        doc = normalize_from_structured(
             provider=self.name,
             provider_id=provider_id,
             name=name,
@@ -263,3 +272,9 @@ class ExerciseDbProvider(ExerciseProvider):
             attribution=ATTRIBUTION,
             original_url=f"https://oss.exercisedb.dev/api/v1/exercises/{provider_id}",
         )
+        if coerced.get("cdnId") and isinstance(doc.get("media"), dict):
+            doc["media"]["cdn_id"] = coerced["cdnId"]
+        if coerced.get("_source_gif_path"):
+            doc.setdefault("source", {})["gif_path"] = coerced["_source_gif_path"]
+        doc["provider_name"] = name
+        return doc

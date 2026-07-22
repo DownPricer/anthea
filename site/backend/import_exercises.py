@@ -26,6 +26,10 @@ load_dotenv(ROOT / ".env")
 
 DATA_DIR = ROOT / "data" / "exercises"
 COVERAGE_PATH = DATA_DIR / "coverage_report.json"
+TRANSLATION_COVERAGE_PATH = DATA_DIR / "translation_coverage_report.json"
+AQUARIUS_JSON_URL = (
+    "https://raw.githubusercontent.com/Aquariius/exercises-dataset/main/data/exercises.json"
+)
 
 
 def _now() -> str:
@@ -226,6 +230,87 @@ def print_human_report(report: Dict[str, Any], coverage: Optional[Dict[str, Any]
         print(f"machines: {coverage.get('machines')}")
 
 
+def load_aquarius_cdn_map() -> Dict[str, str]:
+    """Map Aquariius numeric id → CDN media id."""
+    from urllib.request import Request, urlopen
+
+    from exercises.media_urls import extract_cdn_id_from_path
+
+    req = Request(AQUARIUS_JSON_URL, headers={"User-Agent": "AntheaFitMatchMediaRepair/1.0"})
+    with urlopen(req, timeout=120) as resp:
+        data = json.loads(resp.read().decode("utf-8"))
+    mapping: Dict[str, str] = {}
+    if not isinstance(data, list):
+        return mapping
+    for raw in data:
+        if not isinstance(raw, dict):
+            continue
+        aid = str(raw.get("id") or "").strip()
+        path = str(raw.get("gif_url") or raw.get("image") or "")
+        cdn = extract_cdn_id_from_path(path)
+        if aid and cdn:
+            mapping[aid] = cdn
+            mapping[aid.lstrip("0") or "0"] = cdn
+    return mapping
+
+
+def repair_media_in_db(db, *, dry_run: bool = True) -> Dict[str, Any]:
+    from exercises.catalog import CATALOG_COLLECTION
+    from exercises.media_urls import parse_existing_media_url, repair_media_fields
+
+    cdn_map = load_aquarius_cdn_map()
+    report = {
+        "examined": 0,
+        "repaired": 0,
+        "already_ok": 0,
+        "unresolved": 0,
+        "errors": [],
+        "samples": [],
+        "dry_run": dry_run,
+        "cdn_map_size": len(cdn_map),
+    }
+    col = db[CATALOG_COLLECTION]
+    for doc in col.find({}):
+        report["examined"] += 1
+        try:
+            pid = str(doc.get("provider_id") or "")
+            catalog_id = str(doc.get("id") or "")
+            cdn = cdn_map.get(pid) or cdn_map.get(pid.lstrip("0") or "")
+            if not cdn and catalog_id.startswith("exdb_"):
+                suffix = catalog_id[5:]
+                cdn = cdn_map.get(suffix) or cdn_map.get(suffix.lstrip("0") or "")
+            current = (doc.get("media") or {}).get("url")
+            _, valid = parse_existing_media_url(current)
+            if valid and not cdn:
+                report["already_ok"] += 1
+                continue
+            patch = repair_media_fields(doc, cdn_id=cdn)
+            if not patch:
+                if valid:
+                    report["already_ok"] += 1
+                else:
+                    report["unresolved"] += 1
+                continue
+            report["repaired"] += 1
+            if len(report["samples"]) < 8:
+                report["samples"].append(
+                    {
+                        "id": catalog_id,
+                        "before": current,
+                        "after": patch["media"]["url"],
+                    }
+                )
+            if not dry_run:
+                patch["media"]["status"] = "available"
+                col.update_one(
+                    {"_id": doc["_id"]},
+                    {"$set": {"media": patch["media"], "updated_at": _now()}},
+                )
+        except Exception as exc:  # noqa: BLE001
+            report["errors"].append(str(exc))
+    return report
+
+
 def main(argv: Optional[List[str]] = None) -> int:
     parser = argparse.ArgumentParser(description="Import Anthea exercise catalog")
     parser.add_argument("--dry-run", action="store_true", help="No DB / disk / media writes")
@@ -237,9 +322,80 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Fetch+normalize and write coverage_report.json (no Mongo required, no media download)",
     )
+    parser.add_argument(
+        "--repair-media",
+        action="store_true",
+        help="Repair broken CDN GIF URLs on existing catalog docs (keeps IDs)",
+    )
+    parser.add_argument(
+        "--translations-only",
+        action="store_true",
+        help="Apply FR/EN/ES translations + rebuild search_text on existing docs",
+    )
+    parser.add_argument(
+        "--translations-report",
+        action="store_true",
+        help="Print translation coverage report",
+    )
     parser.add_argument("--provider", default=None, help="exercisedb | free_exercise_db")
     parser.add_argument("--fixture", default=None, help="Optional local JSON fixture")
     args = parser.parse_args(argv)
+
+    if args.translations_report and not args.translations_only:
+        if TRANSLATION_COVERAGE_PATH.exists():
+            print(TRANSLATION_COVERAGE_PATH.read_text(encoding="utf-8"))
+            return 0
+        print("{}")
+        return 0
+
+    if args.repair_media:
+        dry = bool(args.dry_run) or not args.apply
+        # allow: --repair-media --dry-run OR --repair-media --apply
+        if not args.dry_run and not args.apply:
+            dry = True
+        client, db = get_sync_db()
+        try:
+            report = repair_media_in_db(db, dry_run=dry)
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+            return 0 if not report.get("errors") else 1
+        finally:
+            client.close()
+
+    if args.translations_only:
+        from exercises.translations.apply import apply_translations_to_catalog
+
+        dry = bool(args.dry_run) or not args.apply
+        if not args.dry_run and not args.apply:
+            dry = True
+        # Also support offline report generation without Mongo via --coverage style
+        try:
+            client, db = get_sync_db(server_selection_timeout_ms=4000)
+        except Exception:
+            # Offline: generate translations against fixture/provider dump for report only
+            from exercises.providers import get_provider
+            from exercises.translations.apply import build_translation_coverage
+
+            provider = get_provider(args.provider, fixture_path=args.fixture)
+            docs = collect_normalized(provider, build_report_skeleton(provider.name))
+            # Apply translations in-memory
+            from exercises.translations.apply import localize_document
+
+            localized = [localize_document(d) for d in docs]
+            coverage = build_translation_coverage(localized)
+            if not dry:
+                DATA_DIR.mkdir(parents=True, exist_ok=True)
+                TRANSLATION_COVERAGE_PATH.write_text(
+                    json.dumps(coverage, indent=2, ensure_ascii=False), encoding="utf-8"
+                )
+            print(json.dumps(coverage, indent=2, ensure_ascii=False))
+            return 0
+
+        try:
+            report = apply_translations_to_catalog(db, dry_run=dry, report_path=TRANSLATION_COVERAGE_PATH)
+            print(json.dumps(report, indent=2, ensure_ascii=False))
+            return 0
+        finally:
+            client.close()
 
     if not args.dry_run and not args.apply and not args.report and not args.coverage:
         args.dry_run = True

@@ -1,24 +1,33 @@
-import { FALLBACK_EXERCISE_IMAGE, handleExerciseImageError } from '../../lib/exerciseMedia';
+import { useState } from 'react';
+import {
+  FALLBACK_EXERCISE_IMAGE,
+  handleExerciseImageError,
+  resolveExerciseMediaUrl,
+} from '../../lib/exerciseMedia';
 
 /**
- * GIF / média exercice avec lazy-load et respects prefers-reduced-motion.
+ * GIF / média exercice avec lazy-load, états loading/loaded/error,
+ * referrerPolicy no-referrer, prefers-reduced-motion.
  */
 export function ExerciseMediaThumb({
   src,
   alt = '',
-  className = 'w-16 h-16',
+  className = 'h-16 w-16',
   rounded = 'rounded-lg',
   eager = false,
 }) {
+  const [status, setStatus] = useState('loading');
+  const resolved = resolveExerciseMediaUrl(src);
+
   const reducedMotion =
     typeof window !== 'undefined' &&
     window.matchMedia &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  if (!src) {
+  if (!resolved) {
     return (
       <div
-        className={`${className} ${rounded} bg-active flex items-center justify-center flex-shrink-0`}
+        className={`${className} ${rounded} bg-active flex items-center justify-center flex-shrink-0 shrink-0`}
         aria-hidden
       >
         <span className="text-subtle text-xs">—</span>
@@ -27,15 +36,26 @@ export function ExerciseMediaThumb({
   }
 
   return (
-    <div className={`${className} ${rounded} overflow-hidden bg-active flex-shrink-0`}>
+    <div
+      className={`${className} ${rounded} overflow-hidden bg-active flex-shrink-0 shrink-0 relative`}
+    >
+      {status === 'loading' ? (
+        <div className="absolute inset-0 animate-pulse bg-hover" aria-hidden />
+      ) : null}
       <img
-        src={src}
+        src={resolved}
         alt={alt}
         loading={eager ? 'eager' : 'lazy'}
         decoding="async"
-        className={`w-full h-full object-contain ${reducedMotion ? '' : ''}`}
+        referrerPolicy="no-referrer"
+        className={`h-full w-full object-contain ${status === 'error' ? 'opacity-70' : ''}`}
         style={reducedMotion ? { animationPlayState: 'paused' } : undefined}
-        onError={handleExerciseImageError}
+        onLoad={() => setStatus('loaded')}
+        onError={(event) => {
+          if (status === 'error') return;
+          setStatus('error');
+          handleExerciseImageError(event);
+        }}
       />
     </div>
   );
@@ -55,4 +75,4 @@ export function exerciseSecondaryLabel(exercise) {
   return bits.join(' · ') || null;
 }
 
-export { FALLBACK_EXERCISE_IMAGE };
+export { FALLBACK_EXERCISE_IMAGE, resolveExerciseMediaUrl };
