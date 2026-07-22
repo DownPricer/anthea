@@ -36,6 +36,24 @@ export function removePostFromFeedCaches(postId) {
   });
 }
 
+/** Met à jour un post dans tous les caches de fil (ex. état republication). */
+export function patchPostInFeedCaches(postId, patch) {
+  if (!postId || !patch) return;
+  ['following', 'global', 'trending'].forEach((scope) => {
+    const cached = feedCache[scope];
+    if (!cached?.posts?.length) return;
+    let changed = false;
+    const posts = cached.posts.map((p) => {
+      if (p?.id !== postId) return p;
+      changed = true;
+      return { ...p, ...patch };
+    });
+    if (changed) {
+      feedCache[scope] = { ...cached, posts };
+    }
+  });
+}
+
 /** Réinsère un post en tête des caches où il était présent (rollback). */
 export function restorePostInFeedCaches(post, scopes = ['following', 'global', 'trending']) {
   if (!post?.id) return;

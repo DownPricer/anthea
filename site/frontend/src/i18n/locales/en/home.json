@@ -27,7 +27,7 @@
   "skipDayActive": "Skip day (streak broken)",
   "feed": {
     "title": "Feed",
-    "following": "Following & friends",
+    "following": "Following and friends",
     "world": "World",
     "emptyFollowing": "No posts yet",
     "emptyFollowingHint": "Follow people or duos to see their posts here.",
@@ -43,6 +43,8 @@
   "comments": {
     "viewComments": "View comments",
     "viewCommentsCount": "View comments ({{count}})",
-    "addPlaceholder": "Add a comment..."
+    "addPlaceholder": "Add a comment...",
+    "repost": "Repost",
+    "reposted": "Reposted"
   }
 }

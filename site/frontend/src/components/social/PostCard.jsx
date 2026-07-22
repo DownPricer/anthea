@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
@@ -26,11 +26,18 @@ import { formatDuration, getPublicHandle } from '../../lib/userProfile';
 import { getPostActorDisplay, canDeletePost } from '../../lib/postActor';
 import { DuoAvatarStack } from '../duo/DuoAvatar';
 import { postsApi, formatApiError } from '../../lib/api';
+import { patchPostInFeedCaches } from '../../lib/feedCache';
 import { toast } from 'sonner';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 import { getBadgeName } from '../../i18n/badgeLabels';
 
 const BADGE_ICONS = { trophy: Trophy, flame: Flame, heart: Heart, zap: Zap };
+
+function broadcastPostPatch(postId, patch) {
+  if (!postId || !patch) return;
+  patchPostInFeedCaches(postId, patch);
+  window.dispatchEvent(new CustomEvent('feed:post-patch', { detail: { postId, patch } }));
+}
 
 export function PostCard({
   post,
@@ -54,7 +61,28 @@ export function PostCard({
   const [likeLoading, setLikeLoading] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
   const [repostLoading, setRepostLoading] = useState(false);
+  const [reposted, setReposted] = useState(!!post?.viewer_has_reposted);
+  const [repostId, setRepostId] = useState(post?.viewer_repost_id || null);
+  const [repostsCount, setRepostsCount] = useState(post?.reposts_count || 0);
   const [commentLikes, setCommentLikes] = useState({});
+
+  useEffect(() => {
+    setReposted(!!post?.viewer_has_reposted);
+    setRepostId(post?.viewer_repost_id || null);
+    setRepostsCount(post?.reposts_count || 0);
+  }, [post?.id, post?.viewer_has_reposted, post?.viewer_repost_id, post?.reposts_count]);
+
+  useEffect(() => {
+    const onPatch = (event) => {
+      const { postId, patch } = event.detail || {};
+      if (!postId || postId !== post?.id || !patch) return;
+      if (typeof patch.viewer_has_reposted === 'boolean') setReposted(patch.viewer_has_reposted);
+      if ('viewer_repost_id' in patch) setRepostId(patch.viewer_repost_id || null);
+      if (typeof patch.reposts_count === 'number') setRepostsCount(Math.max(0, patch.reposts_count));
+    };
+    window.addEventListener('feed:post-patch', onPatch);
+    return () => window.removeEventListener('feed:post-patch', onPatch);
+  }, [post?.id]);
 
   const isOwn = canDeletePost(post, viewer);
   const actorDisplay = getPostActorDisplay(post);
@@ -119,8 +147,49 @@ export function PostCard({
     }
   };
 
-  const handleRepost = async () => {
+  const handleRepostToggle = async () => {
+    if (repostLoading || !post?.id) return;
+
+    const prevReposted = reposted;
+    const prevRepostId = repostId;
+    const prevCount = repostsCount;
+
+    if (reposted && repostId && repostId !== 'pending') {
+      const nextCount = Math.max(0, prevCount - 1);
+      setRepostLoading(true);
+      setReposted(false);
+      setRepostId(null);
+      setRepostsCount(nextCount);
+      const patch = { viewer_has_reposted: false, viewer_repost_id: null, reposts_count: nextCount };
+      broadcastPostPatch(post.id, patch);
+      try {
+        await postsApi.deleteRepost(prevRepostId);
+        onUpdate?.({ ...post, ...patch });
+      } catch (error) {
+        setReposted(prevReposted);
+        setRepostId(prevRepostId);
+        setRepostsCount(prevCount);
+        broadcastPostPatch(post.id, {
+          viewer_has_reposted: prevReposted,
+          viewer_repost_id: prevRepostId,
+          reposts_count: prevCount,
+        });
+        toast.error(formatApiError(error));
+      } finally {
+        setRepostLoading(false);
+      }
+      return;
+    }
+
+    const nextCount = prevCount + 1;
     setRepostLoading(true);
+    setReposted(true);
+    setRepostsCount(nextCount);
+    broadcastPostPatch(post.id, {
+      viewer_has_reposted: true,
+      viewer_repost_id: 'pending',
+      reposts_count: nextCount,
+    });
     try {
       const payload = post.workout_session_id
         ? {
@@ -128,10 +197,30 @@ export function PostCard({
             partner_session_id: post.partner_session_id || undefined,
           }
         : { post_id: post.id };
-      await postsApi.repost(payload);
-      toast.success('Republication ajoutée à ton profil');
-      onUpdate?.();
+      const { data } = await postsApi.repost(payload);
+      const newId = data?.id || null;
+      const already = !!data?.already_exists;
+      setRepostId(newId);
+      if (already) {
+        setRepostsCount(prevCount > 0 ? prevCount : 1);
+      }
+      const patch = {
+        viewer_has_reposted: true,
+        viewer_repost_id: newId,
+        reposts_count: already ? (prevCount > 0 ? prevCount : 1) : nextCount,
+      };
+      setRepostsCount(patch.reposts_count);
+      broadcastPostPatch(post.id, patch);
+      onUpdate?.({ ...post, ...patch });
     } catch (error) {
+      setReposted(prevReposted);
+      setRepostId(prevRepostId);
+      setRepostsCount(prevCount);
+      broadcastPostPatch(post.id, {
+        viewer_has_reposted: prevReposted,
+        viewer_repost_id: prevRepostId,
+        reposts_count: prevCount,
+      });
       toast.error(formatApiError(error));
     } finally {
       setRepostLoading(false);
@@ -395,12 +484,21 @@ export function PostCard({
             {showRepostAction && !isOwn && (
               <button
                 type="button"
-                onClick={handleRepost}
+                onClick={handleRepostToggle}
                 disabled={repostLoading}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 text-zinc-400 hover:bg-white/10 transition-colors"
+                data-testid="repost-button"
+                aria-pressed={reposted}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${
+                  reposted
+                    ? 'bg-[var(--theme-surface-active)] text-[var(--theme-primary)]'
+                    : 'bg-white/5 text-zinc-400 hover:bg-white/10'
+                }`}
               >
                 <Repeat2 size={16} />
-                <span className="text-sm hidden sm:inline">Republier</span>
+                <span className="text-sm tabular-nums">{repostsCount}</span>
+                <span className="text-sm hidden sm:inline">
+                  {reposted ? t('home:comments.reposted') : t('home:comments.repost')}
+                </span>
               </button>
             )}
           </>

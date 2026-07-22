@@ -27,7 +27,7 @@
   "skipDayActive": "Día omitido (racha rota)",
   "feed": {
     "title": "Feed",
-    "following": "Seguidos y amigos",
+    "following": "Siguiendo y amigos",
     "world": "Mundo",
     "emptyFollowing": "Ninguna publicación por ahora",
     "emptyFollowingHint": "Sigue a personas o dúos para ver sus publicaciones aquí.",
@@ -43,6 +43,8 @@
   "comments": {
     "viewComments": "Ver comentarios",
     "viewCommentsCount": "Ver comentarios ({{count}})",
-    "addPlaceholder": "Añadir un comentario..."
+    "addPlaceholder": "Añadir un comentario...",
+    "repost": "Republicar",
+    "reposted": "Republicado"
   }
 }

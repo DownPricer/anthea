@@ -22,16 +22,18 @@ export function CommonSessionCard({
   const [duoWallLoading, setDuoWallLoading] = useState(false);
 
   const handleRepost = async () => {
-    if (!mySession?.id) return;
+    if (repostLoading || !mySession?.id) return;
+    const prevId = repostId;
     setRepostLoading(true);
+    setRepostId('pending');
     try {
       const { data } = await postsApi.repost({
         workout_session_id: mySession.id,
         partner_session_id: partnerSession?.id,
       });
       setRepostId(data?.id || null);
-      toast.success(data?.already_exists ? 'Déjà republié sur ton profil' : 'Séance republiée sur ton profil');
     } catch (error) {
+      setRepostId(prevId);
       toast.error(formatApiError(error));
     } finally {
       setRepostLoading(false);
@@ -39,13 +41,14 @@ export function CommonSessionCard({
   };
 
   const handleUnrepost = async () => {
-    if (!repostId) return;
+    if (!repostId || repostId === 'pending' || repostLoading) return;
+    const prevId = repostId;
     setRepostLoading(true);
+    setRepostId(null);
     try {
-      await postsApi.deleteRepost(repostId);
-      setRepostId(null);
-      toast.success('Republication retirée de ton profil');
+      await postsApi.deleteRepost(prevId);
     } catch (error) {
+      setRepostId(prevId);
       toast.error(formatApiError(error));
     } finally {
       setRepostLoading(false);

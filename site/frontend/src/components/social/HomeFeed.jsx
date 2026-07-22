@@ -22,6 +22,7 @@ import {
   markFeedSeenNow,
   markPostSeen,
 } from '../../lib/feedCache';
+import { resolveHomeFeedScope } from '../../lib/homeFeedScope';
 
 function FeedSkeleton() {
   return (
@@ -134,7 +135,9 @@ export function HomeFeed() {
   const { user } = useAuth();
   const { theme } = useTheme();
   const [searchParams, setSearchParams] = useSearchParams();
-  const scope = searchParams.get('scope') === 'global' ? 'global' : 'following';
+  // Nouvelle arrivée sans paramètre → Monde (global). Choix session conservé via ?scope=
+  const scopeParam = searchParams.get('scope');
+  const scope = resolveHomeFeedScope(scopeParam);
 
   const [followingPosts, setFollowingPosts] = useState(() => getFeedCache('following')?.posts || []);
   const [followingCursor, setFollowingCursor] = useState(() => getFeedCache('following')?.cursor || null);
@@ -216,11 +219,55 @@ export function HomeFeed() {
   }, [loadFollowing, loadTrending, loadGlobal]);
 
   useEffect(() => {
-    refreshScope(scope);
+    // Ne recharger que si le cache de l'onglet est vide (évite double fetch à chaque clic)
+    if (scope === 'following') {
+      const cached = getFeedCache('following')?.posts;
+      if (!cached?.length) refreshScope('following');
+      return;
+    }
+    const cachedGlobal = getFeedCache('global')?.posts;
+    const cachedTrending = getFeedCache('trending')?.posts;
+    if (!cachedGlobal?.length && !cachedTrending?.length) {
+      refreshScope('global');
+    }
   }, [scope, refreshScope]);
 
   useEffect(() => {
+    // Première arrivée sans ?scope= → fixer Monde dans l'URL
+    if (!scopeParam) {
+      const nextParams = new URLSearchParams(searchParams);
+      nextParams.set('scope', 'global');
+      setSearchParams(nextParams, { replace: true });
+    }
+  }, [scopeParam, searchParams, setSearchParams]);
+
+  useEffect(() => {
     return () => markFeedSeenNow();
+  }, []);
+
+  useEffect(() => {
+    const onPatch = (event) => {
+      const { postId, patch } = event.detail || {};
+      if (!postId || !patch) return;
+      const apply = (prev) => prev.map((p) => (p?.id === postId ? { ...p, ...patch } : p));
+      setFollowingPosts((prev) => {
+        const next = apply(prev);
+        setFeedCache('following', { posts: next });
+        return next;
+      });
+      setGlobalPosts((prev) => {
+        const next = apply(prev);
+        setFeedCache('global', { posts: next });
+        return next;
+      });
+      setTrendingPosts((prev) => {
+        const next = apply(prev);
+        setFeedCache('trending', { posts: next });
+        return next;
+      });
+    };
+    window.addEventListener('feed:post-patch', onPatch);
+    return () => window.removeEventListener('feed:post-patch', onPatch);
   }, []);
 
   const handleTabChange = (value) => {
@@ -230,7 +277,22 @@ export function HomeFeed() {
     setSearchParams(nextParams, { replace: true });
   };
 
-  const handlePostUpdate = () => refreshScope(scope);
+  const handlePostUpdate = (updatedPost) => {
+    if (updatedPost?.id) {
+      const patch = {
+        viewer_has_reposted: updatedPost.viewer_has_reposted,
+        viewer_repost_id: updatedPost.viewer_repost_id,
+        reposts_count: updatedPost.reposts_count,
+        is_liked: updatedPost.is_liked,
+        likes_count: updatedPost.likes_count,
+      };
+      window.dispatchEvent(
+        new CustomEvent('feed:post-patch', { detail: { postId: updatedPost.id, patch } })
+      );
+      return;
+    }
+    refreshScope(scope);
+  };
 
   const handlePostDelete = useCallback((postId) => {
     if (!postId) return;
@@ -261,18 +323,18 @@ export function HomeFeed() {
       <Tabs value={scope} onValueChange={handleTabChange}>
         <TabsList className="grid w-full grid-cols-2 h-11 rounded-2xl bg-[#141414] border border-white/10 p-1">
           <TabsTrigger
-            value="following"
-            data-testid="feed-tab-following"
-            className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 text-xs sm:text-sm"
-          >
-            {t('home:feed.following')}
-          </TabsTrigger>
-          <TabsTrigger
             value="global"
             data-testid="feed-tab-global"
             className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 text-xs sm:text-sm"
           >
             {t('home:feed.world')}
+          </TabsTrigger>
+          <TabsTrigger
+            value="following"
+            data-testid="feed-tab-following"
+            className="rounded-full data-[state=active]:bg-white/10 data-[state=active]:text-white text-zinc-500 text-xs sm:text-sm"
+          >
+            {t('home:feed.following')}
           </TabsTrigger>
         </TabsList>
 

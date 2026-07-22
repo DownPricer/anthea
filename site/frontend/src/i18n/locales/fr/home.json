@@ -43,6 +43,8 @@
   "comments": {
     "viewComments": "Voir les commentaires",
     "viewCommentsCount": "Voir les commentaires ({{count}})",
-    "addPlaceholder": "Ajouter un commentaire..."
+    "addPlaceholder": "Ajouter un commentaire...",
+    "repost": "Republier",
+    "reposted": "Republié"
   }
 }
