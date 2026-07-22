@@ -1,4 +1,4 @@
-import { FALLBACK_EXERCISE_IMAGE, handleExerciseImageError } from './exerciseMedia';
+import { FALLBACK_EXERCISE_IMAGE, handleExerciseImageError } from '../../lib/exerciseMedia';
 
 /**
  * GIF / média exercice avec lazy-load et respects prefers-reduced-motion.
