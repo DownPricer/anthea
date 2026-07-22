@@ -175,14 +175,14 @@ def upsert_docs(db, docs: List[Dict[str, Any]], *, refresh_existing: bool, dry_r
     return new_count, updated_count
 
 
-def get_sync_db():
+def get_sync_db(server_selection_timeout_ms: int = 5000):
     from pymongo import MongoClient
 
     mongo_url = os.environ.get("MONGO_URL")
     db_name = os.environ.get("DB_NAME")
     if not mongo_url or not db_name:
         raise RuntimeError("MONGO_URL and DB_NAME are required for --apply/--report against DB")
-    client = MongoClient(mongo_url)
+    client = MongoClient(mongo_url, serverSelectionTimeoutMS=server_selection_timeout_ms)
     return client, client[db_name]
 
 
@@ -232,11 +232,16 @@ def main(argv: Optional[List[str]] = None) -> int:
     parser.add_argument("--apply", action="store_true", help="Upsert into MongoDB")
     parser.add_argument("--refresh-existing", action="store_true", help="Update existing catalog rows")
     parser.add_argument("--report", action="store_true", help="Print coverage from DB or last file")
+    parser.add_argument(
+        "--coverage",
+        action="store_true",
+        help="Fetch+normalize and write coverage_report.json (no Mongo required, no media download)",
+    )
     parser.add_argument("--provider", default=None, help="exercisedb | free_exercise_db")
     parser.add_argument("--fixture", default=None, help="Optional local JSON fixture")
     args = parser.parse_args(argv)
 
-    if not args.dry_run and not args.apply and not args.report:
+    if not args.dry_run and not args.apply and not args.report and not args.coverage:
         args.dry_run = True
 
     # Report-only from DB/file
@@ -263,7 +268,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         provider_kwargs["fixture_path"] = args.fixture
     provider = get_provider(args.provider, **provider_kwargs)
     report = build_report_skeleton(provider.name)
-    report["dry_run"] = bool(args.dry_run and not args.apply)
+    report["dry_run"] = bool(args.dry_run and not args.apply and not args.coverage)
 
     docs = collect_normalized(provider, report)
     coverage_preview = coverage_from_docs(docs)
@@ -294,6 +299,11 @@ def main(argv: Optional[List[str]] = None) -> int:
             coverage = write_coverage(docs, report, dry_run=False)
         finally:
             client.close()
+    elif args.coverage:
+        report["new"] = report["valid"]
+        report["updated"] = 0
+        report["dry_run"] = False
+        coverage = write_coverage(docs, report, dry_run=False)
     else:
         # dry-run : estimer new/updated sans écrire
         report["new"] = report["valid"]
