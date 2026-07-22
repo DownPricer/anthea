@@ -1,5 +1,6 @@
 import axios from 'axios';
 import { invalidateFeedCache, removePostFromFeedCaches } from './feedCache';
+import { formatApiErrorDetail } from './formatApiErrorDetail';
 import i18n from '../i18n';
 
 const API_URL = process.env.REACT_APP_BACKEND_URL;
@@ -24,19 +25,11 @@ api.interceptors.response.use(
   }
 );
 
-// Helper to format API errors
+// Helper to format API errors (codes structurés → i18n, message backend en fallback)
 export function formatApiError(error) {
-  const detail = error.response?.data?.detail;
-  if (detail == null) return i18n.t('errors:generic');
-  if (typeof detail === 'string') return detail;
-  if (Array.isArray(detail)) {
-    return detail
-      .map((e) => (e && typeof e.msg === 'string' ? e.msg : JSON.stringify(e)))
-      .filter(Boolean)
-      .join(' ');
-  }
-  if (detail && typeof detail.msg === 'string') return detail.msg;
-  return String(detail);
+  return formatApiErrorDetail(error.response?.data?.detail, (key, opts) =>
+    i18n.t(key, opts)
+  );
 }
 
 // Auth API
@@ -87,6 +80,8 @@ export const partnerApi = {
 export const liveWorkoutApi = {
   getMessages: () => api.get('/live-workout/messages'),
   sendMessage: (data) => api.post('/live-workout/messages', data),
+  getReactions: (params = {}) => api.get('/live-workout/reactions', { params }),
+  sendReaction: (data) => api.post('/live-workout/reactions', data),
 };
 
 // Exercises API

@@ -53,10 +53,16 @@ PUSH_TYPE_PAYLOADS = {
         "tag": "duo-follow-accepted",
     },
     "duo_partner_request": {
-        "title": "Demande Duo",
-        "body": "{actor} souhaite devenir votre partenaire Duo.",
-        "url": "/notifications?filter=duo",
+        "title": "Demande de Duo reçue",
+        "body": "{actor} souhaite former un Duo avec vous.",
+        "url": "/settings?section=partner-duo&panel=requests",
         "tag": "duo-partner-request",
+    },
+    "duo_request_received": {
+        "title": "Demande de Duo reçue",
+        "body": "{actor} souhaite former un Duo avec vous.",
+        "url": "/settings?section=partner-duo&panel=requests",
+        "tag": "duo-request-received",
     },
     "duo_partner_accepted": {
         "title": "Duo accepté",
@@ -119,8 +125,8 @@ PUSH_TYPE_PAYLOADS = {
         "tag": "partner-activity",
     },
     "partner_workout_started": {
-        "title": "Séance en cours",
-        "body": "{actor} a commencé une séance.",
+        "title": "Séance commencée",
+        "body": "{actor} vient de commencer une séance.",
         "url": "/duo",
         "tag": "partner-workout-started",
     },
@@ -196,6 +202,7 @@ NOTIF_TYPE_TO_PREF: Dict[str, str] = {
     "follow_accepted": "follow_accepted",
     "follow_back": "follow_accepted",
     "duo_partner_request": "duo_request",
+    "duo_request_received": "duo_request",
     "duo_partner_accepted": "duo_activity",
     "duo_partner_rejected": "duo_activity",
     "duo_follow_request": "duo_request",

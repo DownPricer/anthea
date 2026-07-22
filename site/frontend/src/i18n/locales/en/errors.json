@@ -5,5 +5,10 @@
   "notFound": "Content not found",
   "validation": "Invalid data",
   "saveFailed": "Save failed",
-  "deleteFailed": "Delete failed"
+  "deleteFailed": "Delete failed",
+  "ALREADY_FOLLOWING": "You already follow this user.",
+  "CANNOT_FOLLOW_SELF": "You cannot follow yourself.",
+  "FOLLOW_REQUEST_ALREADY_SENT": "Follow request already sent.",
+  "USER_NOT_FOUND": "User not found.",
+  "FOLLOW_NOT_ALLOWED": "Follow not allowed."
 }

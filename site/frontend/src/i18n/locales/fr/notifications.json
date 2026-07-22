@@ -8,7 +8,7 @@
   },
   "empty": "Aucune notification pour l'instant.",
   "emptyDuo": "Aucune notification duo pour l'instant.",
-  "types": {
+    "types": {
     "new_follower": "a commencé à te suivre",
     "follow_request": "demande à te suivre",
     "follow_accepted": "a accepté ta demande de suivi",
@@ -17,10 +17,31 @@
     "comment": "a commenté ta publication",
     "duo_follow_request": "demande à suivre votre duo",
     "duo_follow_accepted": "a accepté votre demande de suivi duo",
+    "duo_partner_request": "souhaite former un Duo avec vous",
+    "duo_request_received": "souhaite former un Duo avec vous",
+    "duo_partner_accepted": "a accepté votre demande Duo",
+    "duo_partner_rejected": "a refusé votre demande Duo",
+    "partner_workout_started": "vient de commencer une séance",
+    "partner_workout_completed": "a terminé une séance",
     "badge_unlocked": "Vous avez débloqué « {{badge}} ».",
     "duo_badge_unlocked": "Votre Duo a obtenu « {{badge}} ».",
     "default": "nouvelle activité",
     "aBadge": "un badge"
+  },
+  "duoRequestReceived": {
+    "title": "Demande de Duo reçue",
+    "body": "{{actorName}} souhaite former un Duo avec vous.",
+    "cta": "Voir la demande"
+  },
+  "partnerWorkoutStarted": {
+    "title": "Séance commencée",
+    "body": "{{partnerName}} vient de commencer une séance.",
+    "cta": "Suivre la séance"
+  },
+  "partnerWorkoutCompleted": {
+    "title": "Séance terminée",
+    "body": "{{partnerName}} a terminé une séance.",
+    "cta": "Voir l'activité Duo"
   },
   "badgeUnlocked": {
     "title": "Badge obtenu",

@@ -5,5 +5,10 @@
   "notFound": "Contenido no encontrado",
   "validation": "Datos no válidos",
   "saveFailed": "Error al guardar",
-  "deleteFailed": "Error al eliminar"
+  "deleteFailed": "Error al eliminar",
+  "ALREADY_FOLLOWING": "Ya sigues a este usuario.",
+  "CANNOT_FOLLOW_SELF": "No puedes seguirte a ti mismo.",
+  "FOLLOW_REQUEST_ALREADY_SENT": "Solicitud de seguimiento ya enviada.",
+  "USER_NOT_FOUND": "Usuario no encontrado.",
+  "FOLLOW_NOT_ALLOWED": "Seguimiento no permitido."
 }

@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { badgesApi, partnerApi, uploadsApi } from '../lib/api';
@@ -179,8 +179,11 @@ export function SettingsPage() {
   const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
   const { theme, setTheme } = useTheme();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [openSection, setOpenSection] = useState(SECTION_IDS.profile);
+  const [partnerPanel, setPartnerPanel] = useState(null);
+  const [highlightRequestId, setHighlightRequestId] = useState(null);
   const [ttsEnabled, setTtsEnabled] = useState(user?.tts_enabled !== false);
   const [musicMode, setMusicMode] = useState(!!user?.music_mode);
   const [accentColor, setAccentColor] = useState(user?.accent_color || '');
@@ -251,12 +254,24 @@ export function SettingsPage() {
   }, [accountVisibility, statsVisibility, activityVisibility]);
 
   useEffect(() => {
-    if (window.location.hash === '#partner-settings') {
+    const section = searchParams.get('section');
+    const panel = searchParams.get('panel');
+    const requestId = searchParams.get('request');
+    const hashPartner = window.location.hash === '#partner-settings';
+    const openPartner =
+      hashPartner ||
+      section === 'partner-duo' ||
+      section === 'partner' ||
+      section === SECTION_IDS.partner;
+
+    if (openPartner) {
       setOpenSection(SECTION_IDS.partner);
+      if (panel) setPartnerPanel(panel);
+      if (requestId) setHighlightRequestId(requestId);
       const el = document.getElementById('partner-settings');
       el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     if (openSection === SECTION_IDS.agenda) {
@@ -507,7 +522,11 @@ export function SettingsPage() {
             </span>
           </AccordionTrigger>
           <AccordionContent className="px-4 pb-4">
-            <PartnerSettingsSection embedded />
+            <PartnerSettingsSection
+              embedded
+              panel={partnerPanel}
+              highlightRequestId={highlightRequestId}
+            />
           </AccordionContent>
         </AccordionItem>
 

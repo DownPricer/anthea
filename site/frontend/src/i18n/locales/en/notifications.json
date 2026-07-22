@@ -17,10 +17,31 @@
     "comment": "commented on your post",
     "duo_follow_request": "wants to follow your duo",
     "duo_follow_accepted": "accepted your duo follow request",
+    "duo_partner_request": "wants to form a Duo with you",
+    "duo_request_received": "wants to form a Duo with you",
+    "duo_partner_accepted": "accepted your Duo request",
+    "duo_partner_rejected": "declined your Duo request",
+    "partner_workout_started": "has just started a workout",
+    "partner_workout_completed": "finished a workout",
     "badge_unlocked": "You unlocked “{{badge}}”.",
     "duo_badge_unlocked": "Your Duo unlocked “{{badge}}”.",
     "default": "new activity",
     "aBadge": "a badge"
+  },
+  "duoRequestReceived": {
+    "title": "Duo request received",
+    "body": "{{actorName}} wants to form a Duo with you.",
+    "cta": "View request"
+  },
+  "partnerWorkoutStarted": {
+    "title": "Workout started",
+    "body": "{{partnerName}} has just started a workout.",
+    "cta": "Follow workout"
+  },
+  "partnerWorkoutCompleted": {
+    "title": "Workout completed",
+    "body": "{{partnerName}} finished a workout.",
+    "cta": "View Duo activity"
   },
   "badgeUnlocked": {
     "title": "Badge unlocked",

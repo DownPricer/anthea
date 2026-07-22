@@ -17,10 +17,31 @@
     "comment": "ha comentado tu publicación",
     "duo_follow_request": "quiere seguir vuestro dúo",
     "duo_follow_accepted": "ha aceptado tu solicitud de seguimiento del dúo",
+    "duo_partner_request": "quiere formar un Dúo contigo",
+    "duo_request_received": "quiere formar un Dúo contigo",
+    "duo_partner_accepted": "ha aceptado tu solicitud de Dúo",
+    "duo_partner_rejected": "ha rechazado tu solicitud de Dúo",
+    "partner_workout_started": "acaba de comenzar una sesión",
+    "partner_workout_completed": "ha terminado una sesión",
     "badge_unlocked": "Has desbloqueado « {{badge}} ».",
     "duo_badge_unlocked": "Vuestro Dúo ha desbloqueado « {{badge}} ».",
     "default": "nueva actividad",
     "aBadge": "una insignia"
+  },
+  "duoRequestReceived": {
+    "title": "Solicitud de Dúo recibida",
+    "body": "{{actorName}} quiere formar un Dúo contigo.",
+    "cta": "Ver solicitud"
+  },
+  "partnerWorkoutStarted": {
+    "title": "Sesión iniciada",
+    "body": "{{partnerName}} acaba de comenzar una sesión.",
+    "cta": "Seguir sesión"
+  },
+  "partnerWorkoutCompleted": {
+    "title": "Sesión terminada",
+    "body": "{{partnerName}} ha terminado una sesión.",
+    "cta": "Ver actividad Dúo"
   },
   "badgeUnlocked": {
     "title": "Insignia desbloqueada",

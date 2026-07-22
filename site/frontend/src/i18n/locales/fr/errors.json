@@ -5,5 +5,10 @@
   "notFound": "Contenu introuvable",
   "validation": "Données invalides",
   "saveFailed": "Échec de la sauvegarde",
-  "deleteFailed": "Échec de la suppression"
+  "deleteFailed": "Échec de la suppression",
+  "ALREADY_FOLLOWING": "Vous suivez déjà cet utilisateur.",
+  "CANNOT_FOLLOW_SELF": "Impossible de se suivre soi-même.",
+  "FOLLOW_REQUEST_ALREADY_SENT": "Demande de suivi déjà envoyée.",
+  "USER_NOT_FOUND": "Utilisateur introuvable.",
+  "FOLLOW_NOT_ALLOWED": "Suivi non autorisé."
 }

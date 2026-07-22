@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Bell, ChevronLeft, Loader2, UserPlus, Heart, Trophy } from 'lucide-react';
+import { Bell, ChevronLeft, Loader2, UserPlus, Heart, Trophy, Users } from 'lucide-react';
 import { parseISO } from 'date-fns';
 import { notificationsApi, usersApi, duoProfilesApi } from '../lib/api';
 import { duoProfilePath } from '../lib/duoProfile';
@@ -23,14 +23,27 @@ function isBadgeNotif(type) {
   return isBadgeUnlockNotification(type);
 }
 
+function isDuoRequestNotif(type) {
+  return type === 'duo_request_received' || type === 'duo_partner_request';
+}
+
 function NotificationIcon({ type }) {
   if (isBadgeNotif(type)) {
     return <Trophy size={16} className="text-[var(--theme-primary)]" />;
+  }
+  if (isDuoRequestNotif(type)) {
+    return <Users size={16} className="text-[var(--theme-primary)]" />;
   }
   if (type === 'follow_back') {
     return <Heart size={16} className="text-[var(--theme-primary)]" />;
   }
   return <UserPlus size={16} className="text-[var(--theme-primary)]" />;
+}
+
+function duoRequestDeepLink(notif) {
+  const req = notif?.request_id;
+  const base = '/settings?section=partner-duo&panel=requests';
+  return req ? `${base}&request=${encodeURIComponent(req)}` : base;
 }
 
 function badgeDeepLink(notif) {
@@ -83,6 +96,11 @@ export function NotificationsPage() {
           return t('notifications:types.badge_unlocked', { badge: resolveBadgeName(notif) });
         case 'duo_badge_unlocked':
           return t('notifications:types.duo_badge_unlocked', { badge: resolveBadgeName(notif) });
+        case 'duo_request_received':
+        case 'duo_partner_request':
+          return t('notifications:duoRequestReceived.body', {
+            actorName: notif.actor_display_name || notif.actor_username || '',
+          });
         default:
           if (hasTypeKey) {
             return t(typeKey, {
@@ -110,7 +128,12 @@ export function NotificationsPage() {
 
   const displayedNotifications = useMemo(() => {
     if (!filterDuo) return notifications;
-    return notifications.filter((n) => n.type?.startsWith('duo_'));
+    return notifications.filter(
+      (n) =>
+        n.type?.startsWith('duo_') ||
+        n.type === 'partner_workout_started' ||
+        n.type === 'partner_workout_completed'
+    );
   }, [notifications, filterDuo]);
 
   useEffect(() => {
@@ -258,8 +281,14 @@ export function NotificationsPage() {
             };
             const dateLabel = notif.created_at ? formatDateTime(parseISO(notif.created_at)) : '';
             const badgeNotif = isBadgeNotif(notif.type);
+            const duoRequest = isDuoRequestNotif(notif.type);
             const copy = badgeNotif ? badgeCopy(notif) : null;
-            const deepLink = badgeNotif ? badgeDeepLink(notif) : null;
+            const deepLink = badgeNotif
+              ? badgeDeepLink(notif)
+              : duoRequest
+                ? duoRequestDeepLink(notif)
+                : null;
+            const actorName = notif.actor_display_name || notif.actor_username || '';
 
             return (
               <div
@@ -267,7 +296,13 @@ export function NotificationsPage() {
                 className={`card p-4 flex items-start gap-3 ${
                   !notif.read ? 'border-[var(--theme-primary)]/20 bg-[var(--theme-surface-active)]/30' : ''
                 }`}
-                data-testid={badgeNotif ? 'notification-badge-unlock' : undefined}
+                data-testid={
+                  badgeNotif
+                    ? 'notification-badge-unlock'
+                    : duoRequest
+                      ? 'notification-duo-request'
+                      : undefined
+                }
               >
                 {badgeNotif ? (
                   <div className="shrink-0 w-11 h-11 rounded-full bg-[var(--theme-primary)]/15 border border-[var(--theme-primary)]/25 flex items-center justify-center overflow-hidden">
@@ -296,6 +331,18 @@ export function NotificationsPage() {
                         <p className="text-sm text-zinc-300 leading-relaxed mt-0.5">{copy.body}</p>
                       </div>
                     </div>
+                  ) : duoRequest ? (
+                    <div className="flex items-start gap-2">
+                      <NotificationIcon type={notif.type} />
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-white leading-snug">
+                          {t('notifications:duoRequestReceived.title')}
+                        </p>
+                        <p className="text-sm text-zinc-300 leading-relaxed mt-0.5">
+                          {t('notifications:duoRequestReceived.body', { actorName })}
+                        </p>
+                      </div>
+                    </div>
                   ) : (
                     <div className="flex items-start gap-2">
                       <NotificationIcon type={notif.type} />
@@ -311,6 +358,16 @@ export function NotificationsPage() {
                     </div>
                   )}
                   <p className="text-zinc-600 text-xs mt-1.5">{dateLabel}</p>
+                  {duoRequest ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 h-8 rounded-lg border-white/15 text-zinc-300 text-xs"
+                    >
+                      <Link to={deepLink}>{t('notifications:duoRequestReceived.cta')}</Link>
+                    </Button>
+                  ) : null}
                   {notif.type === 'duo_follow_request' && notif.request_id ? (
                     <div className="mt-3 flex gap-2 flex-wrap">
                       <Button

@@ -292,9 +292,14 @@ _PUSH_RAW = {
         "Solicitud Duo aceptada", "Vuestra solicitud para seguir un Duo fue aceptada.",
     ),
     "duo_partner_request": _push_entry(
-        "Demande Duo", "{actor} souhaite devenir votre partenaire Duo.",
-        "Duo request", "{actor} wants to become your Duo partner.",
-        "Solicitud Duo", "{actor} quiere ser tu pareja Duo.",
+        "Demande de Duo reçue", "{actor} souhaite former un Duo avec vous.",
+        "Duo request received", "{actor} wants to form a Duo with you.",
+        "Solicitud de Dúo recibida", "{actor} quiere formar un Dúo contigo.",
+    ),
+    "duo_request_received": _push_entry(
+        "Demande de Duo reçue", "{actor} souhaite former un Duo avec vous.",
+        "Duo request received", "{actor} wants to form a Duo with you.",
+        "Solicitud de Dúo recibida", "{actor} quiere formar un Dúo contigo.",
     ),
     "duo_partner_accepted": _push_entry(
         "Duo accepté", "{actor} a accepté votre demande Duo.",
@@ -347,9 +352,9 @@ _PUSH_RAW = {
         "Actividad de la pareja", "{actor} entrenó.",
     ),
     "partner_workout_started": _push_entry(
-        "Séance en cours", "{actor} a commencé une séance.",
-        "Workout in progress", "{actor} started a workout.",
-        "Sesión en curso", "{actor} empezó una sesión.",
+        "Séance commencée", "{actor} vient de commencer une séance.",
+        "Workout started", "{actor} has just started a workout.",
+        "Sesión iniciada", "{actor} acaba de comenzar una sesión.",
     ),
     "partner_workout_completed": _push_entry(
         "Séance terminée", "{actor} a terminé une séance.",

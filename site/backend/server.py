@@ -322,11 +322,16 @@ class WorkoutProgressSave(BaseModel):
     time_elapsed: int
     pause_time: int
     exercises_completed: int
+    exercises_total: Optional[int] = None
     workout_title: Optional[str] = None
     phase: Optional[str] = None
 
 class LiveWorkoutMessageCreate(BaseModel):
     message: str
+
+class LiveWorkoutReactionCreate(BaseModel):
+    emoji: str
+    session_id: Optional[str] = None
 
 class ScheduledWorkoutResponse(BaseModel):
     id: str
@@ -541,6 +546,9 @@ def estimate_calories(total_time_seconds: int, difficulty: Optional[int] = None)
     return round(minutes * rate)
 
 LIVE_SESSION_MAX_AGE_SECONDS = 120
+LIVE_SESSION_DEGRADED_SECONDS = 90
+LIVE_REACTION_ALLOWED = frozenset({"🔥", "❤️", "👏", "💪"})
+LIVE_REACTION_TTL_SECONDS = 8
 LIVE_ACTIVE_PHASES = ("countdown", "exercise", "rest")
 
 def serialize_user(user: dict) -> dict:
@@ -944,6 +952,9 @@ async def create_notification(
         url = push_url or "/notifications"
         if not push_url and notif_type and str(notif_type).startswith("duo_"):
             url = "/notifications?filter=duo"
+        if not push_url and notif_type in ("duo_request_received", "duo_partner_request"):
+            req = request_id or ""
+            url = f"/settings?section=partner-duo&panel=requests{f'&request={req}' if req else ''}"
         if not push_url and notif_type == "partner_workout_started":
             url = "/duo"
         resolved_title = push_title
@@ -1389,6 +1400,9 @@ async def serialize_post(
         "likes_count": len(likes),
         "comments_count": len(comments),
         "is_liked": viewer_id in likes,
+        "viewer_has_reposted": False,
+        "viewer_repost_id": None,
+        "reposts_count": 0,
         "can_delete": await can_delete_post(viewer_id, post, duo_doc),
         "preview_comment": serialized_comments[-1] if serialized_comments else None,
         "comments": serialized_comments if include_all_comments else (
@@ -1454,6 +1468,24 @@ async def serialize_post(
                     "mood": partner_session.get("mood"),
                     "notes": partner_session.get("notes"),
                 }
+
+    post_id_str = str(post["_id"])
+    session_ref = post.get("workout_session_id") or post.get("duo_session_id")
+    repost_query_parts = [{"post_id": post_id_str}]
+    if session_ref:
+        repost_query_parts.append({"workout_session_id": session_ref})
+    if viewer_id:
+        viewer_repost = await db.reposts.find_one({
+            "user_id": viewer_id,
+            "$or": repost_query_parts,
+        })
+        if viewer_repost:
+            result["viewer_has_reposted"] = True
+            result["viewer_repost_id"] = str(viewer_repost["_id"])
+    try:
+        result["reposts_count"] = await db.reposts.count_documents({"$or": repost_query_parts})
+    except Exception:
+        result["reposts_count"] = 0
 
     return result
 
@@ -2179,18 +2211,27 @@ async def get_user_profile(handle: str, user: dict = Depends(get_current_user)):
 async def follow_user(handle: str, user: dict = Depends(get_current_user)):
     target = await find_user_by_handle(handle)
     if not target:
-        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+        raise HTTPException(
+            status_code=404,
+            detail={"code": "USER_NOT_FOUND", "message": "Utilisateur introuvable"},
+        )
 
     target_id = str(target["_id"])
     if target_id == user["id"]:
-        raise HTTPException(status_code=400, detail="Impossible de se suivre soi-même")
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "CANNOT_FOLLOW_SELF", "message": "Impossible de se suivre soi-même"},
+        )
 
     existing = await db.follows.find_one({
         "follower_id": user["id"],
         "following_id": target_id,
     })
     if existing:
-        raise HTTPException(status_code=400, detail="Vous suivez déjà cet utilisateur")
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "ALREADY_FOLLOWING", "message": "Vous suivez déjà cet utilisateur"},
+        )
 
     pending = await db.follow_requests.find_one({
         "requester_id": user["id"],
@@ -2198,7 +2239,10 @@ async def follow_user(handle: str, user: dict = Depends(get_current_user)):
         "status": "pending",
     })
     if pending:
-        raise HTTPException(status_code=400, detail="Demande de suivi déjà envoyée")
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "FOLLOW_REQUEST_ALREADY_SENT", "message": "Demande de suivi déjà envoyée"},
+        )
 
     now = datetime.now(timezone.utc).isoformat()
     is_private = target.get("account_visibility", "private") == "private"
@@ -2804,10 +2848,12 @@ async def send_partner_request(data: PartnerRequest, user: dict = Depends(get_cu
     request_doc.pop("_id", None)
     await create_notification(
         str(target["_id"]),
-        "duo_partner_request",
+        "duo_request_received",
         user,
         request_id=request_doc["id"],
         skip_if_exists=True,
+        push_url=f"/settings?section=partner-duo&panel=requests&request={request_doc['id']}",
+        push_tag=f"duo-request-received-{request_doc['id']}",
     )
     return request_doc
 
@@ -3462,14 +3508,37 @@ async def _get_live_session_for_user(user_id: str) -> Optional[dict]:
         workout = await db.scheduled_workouts.find_one({"_id": ObjectId(progress["workout_id"])})
         workout_title = workout.get("title") if workout else None
 
+    completed = int(progress.get("exercises_completed") or 0)
+    total = int(progress.get("exercises_total") or 0)
+    if total <= 0 and progress.get("workout_id"):
+        try:
+            workout = await db.scheduled_workouts.find_one({"_id": ObjectId(progress["workout_id"])})
+            if workout:
+                total = sum(len(b.get("exercises") or []) for b in (workout.get("blocks") or []))
+        except Exception:
+            total = 0
+    progress_percent = 0
+    if total > 0:
+        progress_percent = max(0, min(100, int(round((completed / total) * 100))))
+    elif phase in LIVE_ACTIVE_PHASES and completed > 0:
+        progress_percent = None  # unknown — avoid fake zero
+
+    connection_status = "degraded" if age > LIVE_SESSION_DEGRADED_SECONDS else "connected"
+
     return {
         "active": True,
         "user_id": user_id,
         "workout_id": progress.get("workout_id"),
+        "live_session_id": progress.get("workout_id"),
         "workout_title": workout_title,
         "elapsed_seconds": progress.get("time_elapsed", 0),
         "phase": progress.get("phase"),
         "saved_at": progress.get("saved_at"),
+        "exercises_completed": completed,
+        "exercises_total": total,
+        "progress_percent": progress_percent,
+        "connection_status": connection_status,
+        "last_seen_at": progress.get("saved_at"),
     }
 
 @api_router.get("/partner/live-session")
@@ -3491,6 +3560,10 @@ async def get_partner_live_session(user: dict = Depends(get_current_user)):
         "username": partner.get("username"),
         "display_name": partner.get("display_name"),
         "duo_live": my_live is not None,
+        "my_progress_percent": my_live.get("progress_percent") if my_live else None,
+        "my_exercises_completed": my_live.get("exercises_completed") if my_live else None,
+        "my_exercises_total": my_live.get("exercises_total") if my_live else None,
+        "my_connection_status": my_live.get("connection_status") if my_live else None,
     }
 
 @api_router.get("/live-workout/messages")
@@ -3536,6 +3609,85 @@ async def post_live_workout_message(body: LiveWorkoutMessageCreate, user: dict =
     }
     result = await db.live_workout_messages.insert_one(doc)
     return {"id": str(result.inserted_id), **doc, "is_mine": True}
+
+
+@api_router.get("/live-workout/reactions")
+async def get_live_workout_reactions(
+    since: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    """Réactions éphémères duo — pas d'historique permanent."""
+    if not user.get("partner_id"):
+        return []
+
+    pair_key = duo_pair_key(user["id"], user["partner_id"])
+    cutoff = (datetime.now(timezone.utc) - timedelta(seconds=LIVE_REACTION_TTL_SECONDS)).isoformat()
+    query = {
+        "pair_key": pair_key,
+        "created_at": {"$gte": max(since or "", cutoff)},
+    }
+    reactions = await db.live_workout_reactions.find(query).sort("created_at", 1).to_list(50)
+    # Purge légère des anciennes
+    await db.live_workout_reactions.delete_many({
+        "pair_key": pair_key,
+        "created_at": {"$lt": cutoff},
+    })
+    return [
+        {
+            "id": str(r["_id"]),
+            "type": "duo_reaction",
+            "session_id": r.get("session_id"),
+            "emoji": r.get("emoji"),
+            "sender_user_id": r.get("sender_user_id"),
+            "created_at": r.get("created_at"),
+            "is_mine": r.get("sender_user_id") == user["id"],
+        }
+        for r in reactions
+        if r.get("sender_user_id") != user["id"]
+    ]
+
+
+@api_router.post("/live-workout/reactions")
+async def post_live_workout_reaction(body: LiveWorkoutReactionCreate, user: dict = Depends(get_current_user)):
+    if not user.get("partner_id"):
+        raise HTTPException(status_code=400, detail="No partner linked")
+
+    emoji = (body.emoji or "").strip()
+    if emoji not in LIVE_REACTION_ALLOWED:
+        raise HTTPException(status_code=400, detail="Invalid reaction")
+
+    pair_key = duo_pair_key(user["id"], user["partner_id"])
+    # Anti-spam : max 1 réaction / 300ms côté serveur (dernière du user)
+    last = await db.live_workout_reactions.find_one(
+        {"pair_key": pair_key, "sender_user_id": user["id"]},
+        sort=[("created_at", -1)],
+    )
+    if last and last.get("created_at"):
+        try:
+            last_at = datetime.fromisoformat(last["created_at"].replace("Z", "+00:00"))
+            if (datetime.now(timezone.utc) - last_at).total_seconds() < 0.3:
+                raise HTTPException(status_code=429, detail="Too many reactions")
+        except ValueError:
+            pass
+
+    now = datetime.now(timezone.utc).isoformat()
+    doc = {
+        "type": "duo_reaction",
+        "pair_key": pair_key,
+        "session_id": body.session_id,
+        "emoji": emoji,
+        "sender_user_id": user["id"],
+        "created_at": now,
+    }
+    result = await db.live_workout_reactions.insert_one(doc)
+    return {
+        "id": str(result.inserted_id),
+        "type": "duo_reaction",
+        "session_id": body.session_id,
+        "emoji": emoji,
+        "sender_user_id": user["id"],
+        "created_at": now,
+    }
 
 # ============ EXERCISE ROUTES ============
 
@@ -3936,6 +4088,7 @@ async def save_workout_progress(workout_id: str, data: WorkoutProgressSave, user
         "time_elapsed": data.time_elapsed,
         "pause_time": data.pause_time,
         "exercises_completed": data.exercises_completed,
+        "exercises_total": data.exercises_total,
         "workout_title": data.workout_title or workout.get("title"),
         "phase": data.phase,
         "saved_at": datetime.now(timezone.utc).isoformat(),
@@ -4134,6 +4287,16 @@ async def create_session(data: WorkoutSessionCreate, user: dict = Depends(get_cu
             schedule_badge_evaluation(
                 trigger_duo_evaluation(db, pair_key, notify_user_ids=[user["id"], user["partner_id"]])
             )
+            try:
+                await create_notification(
+                    user["partner_id"],
+                    "partner_workout_completed",
+                    user,
+                    push_url="/duo",
+                    push_tag=f"partner-workout-completed-{session_doc['id']}",
+                )
+            except Exception:
+                pass
 
     return session_doc
 

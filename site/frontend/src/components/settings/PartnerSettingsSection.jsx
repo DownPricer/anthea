@@ -44,12 +44,13 @@ import {
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
-export function PartnerSettingsSection({ embedded = false }) {
+export function PartnerSettingsSection({ embedded = false, panel = null, highlightRequestId = null }) {
   const { t } = useTranslation(['settings', 'common', 'notifications']);
   const { user, refreshUser } = useAuth();
   const [partner, setPartner] = useState(null);
   const [partnerRequests, setPartnerRequests] = useState([]);
   const [sentRequests, setSentRequests] = useState([]);
+  const [resolvedHighlightStatus, setResolvedHighlightStatus] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [searching, setSearching] = useState(false);
@@ -65,16 +66,31 @@ export function PartnerSettingsSection({ embedded = false }) {
         partnerApi.getSentRequests(),
       ]);
       setPartner(partnerRes.data);
-      setPartnerRequests(requestsRes.data || []);
+      const received = requestsRes.data || [];
+      setPartnerRequests(received);
       setSentRequests(sentRes.data || []);
+      if (highlightRequestId) {
+        const found = received.find((r) => String(r.id) === String(highlightRequestId));
+        setResolvedHighlightStatus(found ? 'pending' : 'processed');
+      } else {
+        setResolvedHighlightStatus(null);
+      }
     } catch {
       setPartner(null);
+      if (highlightRequestId) setResolvedHighlightStatus('processed');
     }
-  }, []);
+  }, [highlightRequestId]);
 
   useEffect(() => {
     loadPartnerData();
   }, [loadPartnerData, user?.partner_id]);
+
+  useEffect(() => {
+    if (panel === 'requests' || highlightRequestId) {
+      const el = document.getElementById('partner-requests-received');
+      el?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  }, [panel, highlightRequestId, partnerRequests]);
 
   const handleSearch = async (query) => {
     setSearchQuery(query);
@@ -254,36 +270,56 @@ export function PartnerSettingsSection({ embedded = false }) {
         <p className="text-zinc-500 text-sm">{t('settings:partnerSection.noPartner')}</p>
       )}
 
-      {partnerRequests.length > 0 && (
-        <div className="pt-4 border-t border-white/10">
+      {(partnerRequests.length > 0 || highlightRequestId) && (
+        <div id="partner-requests-received" className="pt-4 border-t border-white/10">
           <p className="text-zinc-400 text-sm mb-3">{t('settings:partnerSection.receivedRequests')}</p>
-          {partnerRequests.map((request) => (
-            <div key={request.id} className="flex items-center gap-3 p-3 bg-white/5 rounded-xl mb-2">
-              <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)] flex items-center justify-center">
-                <span className="text-white text-sm font-medium">
-                  {request.from_username?.[0]?.toUpperCase()}
-                </span>
-              </div>
-              <div className="flex-1">
-                <p className="text-white font-medium">{request.from_username}</p>
-                <p className="text-zinc-500 text-xs capitalize">{request.relation_type}</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => handleAcceptRequest(request.id)}
-                className="p-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30"
+          {highlightRequestId && resolvedHighlightStatus === 'processed' ? (
+            <p className="text-zinc-500 text-sm mb-3" data-testid="partner-request-processed">
+              {t('settings:partnerSection.requestProcessed', {
+                defaultValue: 'Cette demande a déjà été traitée ou a expiré.',
+              })}
+            </p>
+          ) : null}
+          {partnerRequests.map((request) => {
+            const isHighlighted = highlightRequestId && String(request.id) === String(highlightRequestId);
+            return (
+              <div
+                key={request.id}
+                data-testid={isHighlighted ? 'partner-request-highlight' : undefined}
+                className={`flex items-center gap-3 p-3 rounded-xl mb-2 ${
+                  isHighlighted
+                    ? 'bg-[var(--theme-surface-active)] border border-[var(--theme-primary)]/40 ring-1 ring-[var(--theme-primary)]/30'
+                    : 'bg-white/5'
+                }`}
               >
-                <Check size={18} />
-              </button>
-              <button
-                type="button"
-                onClick={() => handleRejectRequest(request.id)}
-                className="p-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30"
-              >
-                <X size={18} />
-              </button>
-            </div>
-          ))}
+                <div className="w-10 h-10 rounded-full bg-[var(--theme-primary)] flex items-center justify-center">
+                  <span className="text-white text-sm font-medium">
+                    {request.from_username?.[0]?.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-white font-medium">{request.from_username}</p>
+                  <p className="text-zinc-500 text-xs capitalize">{request.relation_type}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => handleAcceptRequest(request.id)}
+                  className="p-2 bg-green-500/20 text-green-500 rounded-lg hover:bg-green-500/30"
+                  aria-label={t('notifications:actions.accept')}
+                >
+                  <Check size={18} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleRejectRequest(request.id)}
+                  className="p-2 bg-red-500/20 text-red-500 rounded-lg hover:bg-red-500/30"
+                  aria-label={t('notifications:actions.reject')}
+                >
+                  <X size={18} />
+                </button>
+              </div>
+            );
+          })}
         </div>
       )}
 
