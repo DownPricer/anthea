@@ -110,7 +110,7 @@
   },
   "session": {
     "defaultTitle": "Sesión",
-    "common": "Sesión común",
+    "common": "Sesión compartida",
     "status": {
       "completed": "Completada",
       "abandoned": "Abandonada",
@@ -170,6 +170,7 @@
     "commonStats": "Estadísticas comunes"
   },
   "commonSession": {
+    "label": "Sesión compartida",
     "seeDetails": "Ver detalles",
     "undoProfileRepost": "Cancelar republicación del perfil",
     "repostToProfile": "Republicar en mi perfil",

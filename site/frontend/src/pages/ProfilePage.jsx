@@ -20,7 +20,6 @@ import {
   LayoutGrid,
   Repeat2,
   BarChart3,
-  Trophy,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { PageHeader } from '../components/layout/PageHeader';
@@ -317,18 +316,6 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
           followRequestPending={!!profileUser.follow_request_pending}
           isLimited={isLimited}
         />
-
-        {isOwn && badges.length > 0 ? (
-          <div className="flex justify-center sm:justify-start">
-            <Link
-              to="/badges"
-              className="inline-flex items-center gap-1.5 text-sm text-[var(--theme-primary)] hover:underline"
-            >
-              <Trophy size={14} />
-              {t('profile:seeAllBadges')}
-            </Link>
-          </div>
-        ) : null}
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
           <TabsList className="grid w-full grid-cols-3 h-12 rounded-2xl bg-[#141414] border border-white/10 p-1">

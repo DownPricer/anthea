@@ -34,6 +34,21 @@
   "published": "Badge publié",
   "locked": "Verrouillé",
   "progress": "Progression",
+  "actions": {
+    "viewAll": "Voir tous les badges"
+  },
+  "preview": {
+    "title": "Mes badges",
+    "duoTitle": "Badges Duo",
+    "globalProgress": "progression globale",
+    "noneUnlocked": "Aucun badge débloqué pour le moment."
+  },
+  "sharing": {
+    "defaultMessage": "J’ai débloqué un nouveau succès !",
+    "defaultMessageWithName": "J’ai débloqué le badge « {{badgeName}} » !",
+    "duoDefaultMessage": "Notre Duo vient de débloquer un nouveau succès !",
+    "duoDefaultMessageWithName": "Notre Duo a débloqué le badge « {{badgeName}} » !"
+  },
   "solo_first_workout": {
     "name": "Premier pas",
     "description": "Terminez votre première séance."

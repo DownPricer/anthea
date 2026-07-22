@@ -208,5 +208,8 @@
       "draftDeleted": "This draft was deleted. Reload the page to create a new workout.",
       "sessionTitleRequired": "Give your workout a title"
     }
+  },
+  "labels": {
+    "sharedWorkout": "Shared workout"
   }
 }

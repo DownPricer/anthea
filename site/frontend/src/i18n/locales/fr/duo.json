@@ -170,6 +170,7 @@
     "commonStats": "Statistiques communes"
   },
   "commonSession": {
+    "label": "Séance commune",
     "seeDetails": "Voir les détails",
     "undoProfileRepost": "Annuler republication profil",
     "repostToProfile": "Republier sur mon profil",

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { BadgesGridShared } from './BadgeCard';
 import { useBadgeDetail } from './BadgeDetailSheet';
@@ -45,15 +45,30 @@ export function BadgesCatalogView({
   pairKey = null,
   onShared,
   previewLimit = null,
+  initialBadgeId = null,
 }) {
   const { t } = useTranslation('badges');
   const [rarityFilter, setRarityFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
-  const { handleBadgeClick, dialog } = useBadgeDetail(scope, {
+  const { handleBadgeClick, dialog, setSelected } = useBadgeDetail(scope, {
     canPublish,
     pairKey,
     onShared,
   });
+
+  useEffect(() => {
+    if (!initialBadgeId || !badges?.length) return;
+    const match = badges.find((b) => String(b.id) === String(initialBadgeId));
+    if (!match) return;
+    setSelected(match);
+    // Scroller vers la carte si présente
+    const timer = window.setTimeout(() => {
+      const safeId = String(initialBadgeId).replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+      const el = document.querySelector(`[data-badge-id="${safeId}"]`);
+      el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [initialBadgeId, badges, setSelected]);
 
   const filtered = useMemo(() => {
     let list = badges.filter((b) => b.enabled !== false);
@@ -148,6 +163,7 @@ export function BadgesPreview({
   onShared,
   limit = 6,
 }) {
+  const { t } = useTranslation('badges');
   const unlocked = useMemo(
     () =>
       sortBadges(badges.filter((b) => b.unlocked)).slice(0, limit),
@@ -158,18 +174,18 @@ export function BadgesPreview({
     pairKey,
     onShared,
   });
-  const u = summary?.unlocked ?? badges.filter((b) => b.unlocked).length;
-  const t = summary?.total ?? badges.length;
+  const unlockedCount = summary?.unlocked ?? badges.filter((b) => b.unlocked).length;
+  const totalCount = summary?.total ?? badges.length;
 
   return (
     <div className="space-y-3" data-testid="badges-preview">
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
-            {scope === 'duo' ? 'Badges Duo' : 'Mes badges'}
+            {scope === 'duo' ? t('preview.duoTitle') : t('preview.title')}
           </h3>
           <p className="text-zinc-500 text-xs mt-0.5">
-            {u}/{t} · progression globale
+            {unlockedCount}/{totalCount} · {t('preview.globalProgress')}
           </p>
         </div>
         {onSeeAll ? (
@@ -179,14 +195,16 @@ export function BadgesPreview({
             className="text-xs text-[var(--theme-primary)] hover:underline"
             data-testid="badges-see-all"
           >
-            Voir tous les badges
+            {t('actions.viewAll')}
           </button>
         ) : null}
       </div>
       <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
         <div
           className="h-full bg-[var(--theme-primary)] rounded-full transition-all"
-          style={{ width: `${t ? Math.min(100, Math.round((u / t) * 100)) : 0}%` }}
+          style={{
+            width: `${totalCount ? Math.min(100, Math.round((unlockedCount / totalCount) * 100)) : 0}%`,
+          }}
         />
       </div>
       {unlocked.length > 0 ? (
@@ -198,7 +216,7 @@ export function BadgesPreview({
         />
       ) : (
         <p className="text-zinc-600 text-xs text-center py-4">
-          Aucun badge débloqué pour le moment.
+          {t('preview.noneUnlocked')}
         </p>
       )}
       {dialog}

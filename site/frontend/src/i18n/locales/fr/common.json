@@ -22,7 +22,8 @@
     "logout": "Se déconnecter",
     "follow": "Suivre",
     "unfollow": "Ne plus suivre",
-    "followBack": "Suivre en retour"
+    "followBack": "Suivre en retour",
+    "viewDetails": "Voir les détails"
   },
   "confirmDeletePost": "Supprimer cette publication ?",
   "states": {

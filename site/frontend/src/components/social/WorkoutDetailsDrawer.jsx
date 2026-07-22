@@ -6,6 +6,7 @@ import {
   DrawerDescription,
 } from '../ui/drawer';
 import { formatDuration } from '../../lib/userProfile';
+import { useTranslation } from 'react-i18next';
 
 const STATUS_LABELS = {
   completed: 'Terminé',
@@ -88,6 +89,7 @@ export function WorkoutDetailsDrawer({
   canViewPartner = false,
   isCommonSession = false,
 }) {
+  const { t } = useTranslation(['workouts', 'common', 'duo']);
   if (!canView && !canViewPartner) return null;
 
   return (
@@ -95,10 +97,12 @@ export function WorkoutDetailsDrawer({
       <DrawerContent className="bg-[#141414] border-white/10 text-white max-h-[85vh]">
         <DrawerHeader>
           <DrawerTitle className="text-white font-['Outfit']">
-            {isCommonSession ? 'Séance commune — détails' : snapshot?.workout_title || 'Détails de la séance'}
+            {isCommonSession
+              ? `${t('workouts:labels.sharedWorkout')} — ${t('common:actions.viewDetails')}`
+              : snapshot?.workout_title || t('common:actions.viewDetails')}
           </DrawerTitle>
           <DrawerDescription className="text-zinc-400">
-            {isCommonSession ? 'Les deux séances du duo' : 'Exercices réalisés et ressenti'}
+            {isCommonSession ? t('duo:commonSession.partnerSession') : t('common:actions.viewDetails')}
           </DrawerDescription>
         </DrawerHeader>
 

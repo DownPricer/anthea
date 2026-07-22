@@ -40,7 +40,7 @@ export function PostCard({
   showRepostAction = true,
   isRepost = false,
 }) {
-  const { t } = useTranslation(['common', 'badges']);
+  const { t } = useTranslation(['common', 'badges', 'home', 'workouts', 'duo']);
   const { formatDateTime, formatDayMonthTime } = useLocaleFormat();
   const [liked, setLiked] = useState(!!post?.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
@@ -288,16 +288,16 @@ export function PostCard({
       {isCommonSession ? (
         <div className="flex items-center gap-2 text-amber-300/90 text-xs uppercase tracking-wide">
           <Users size={14} />
-          Séance commune
+          {t('workouts:labels.sharedWorkout')}
         </div>
       ) : null}
 
       {snapshot && (
         <div className={`rounded-xl bg-white/5 border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-white/10'}`}>
           {isCommonSession ? (
-            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">Ma séance</p>
+            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">{t('duo:commonSession.mySession')}</p>
           ) : post.type === 'duo' && post.partner_session_snapshot ? (
-            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">Séance commune</p>
+            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">{t('workouts:labels.sharedWorkout')}</p>
           ) : null}
           <button
             type="button"
@@ -333,7 +333,7 @@ export function PostCard({
               onClick={() => setDetailsOpen(true)}
               className="text-[var(--theme-primary)] hover:text-[var(--theme-primary)] p-0 h-auto"
             >
-              Voir détails <ChevronDown size={14} className="ml-1" />
+              {t('common:actions.viewDetails')} <ChevronDown size={14} className="ml-1" />
             </Button>
           )}
         </div>
@@ -463,7 +463,7 @@ export function PostCard({
               onClick={loadAllComments}
               className="text-[var(--theme-primary)] text-sm hover:underline"
             >
-              Voir tous les commentaires ({commentsCount})
+              {t('home:comments.viewCommentsCount', { count: commentsCount })}
             </button>
           )}
 
@@ -472,7 +472,7 @@ export function PostCard({
               <Input
                 value={commentText}
                 onChange={(e) => setCommentText(e.target.value)}
-                placeholder="Ajouter un commentaire..."
+                placeholder={t('home:comments.addPlaceholder')}
                 className="flex-1 h-10 rounded-xl bg-[#0A0A0A] border-white/10 text-white text-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter') handleComment();

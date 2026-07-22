@@ -16,11 +16,13 @@ import { UserAvatar } from '../components/UserAvatar';
 import { canViewDuoSection, isDuoLimited } from '../lib/duoProfile';
 import { getDisplayName, formatDuration } from '../lib/userProfile';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
+import { useTranslation } from 'react-i18next';
 
 /**
  * Page profil duo consultable — réutilisable pour profil public ou membre.
  */
 export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = null }) {
+  const { t } = useTranslation(['duo', 'workouts']);
   const { user } = useAuth();
   const { theme } = useTheme();
   const { formatDate } = useLocaleFormat();
@@ -298,7 +300,7 @@ function DuoActivityList({ activity, loading, canView, members }) {
               key={`common-${item.date}-${idx}`}
               className="card min-w-0 overflow-visible border border-amber-500/20 p-4"
             >
-              <p className="text-amber-300 text-xs uppercase tracking-wide mb-2">Séance commune</p>
+              <p className="text-amber-300 text-xs uppercase tracking-wide mb-2">{t('workouts:labels.sharedWorkout')}</p>
               <p className="text-zinc-500 text-xs mb-3">
                 {item.date && formatDate(parseISO(item.date))}
               </p>

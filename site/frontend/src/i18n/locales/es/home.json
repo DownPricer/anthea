@@ -39,5 +39,10 @@
     "emptyLatest": "Ninguna publicación pública reciente.",
     "new": "Nuevo",
     "topRank": "Top {{rank}}"
+  },
+  "comments": {
+    "viewComments": "Ver comentarios",
+    "viewCommentsCount": "Ver comentarios ({{count}})",
+    "addPlaceholder": "Añadir un comentario..."
   }
 }

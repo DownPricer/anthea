@@ -231,7 +231,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
           <p className="text-amber-200 font-semibold text-sm uppercase tracking-wide">
 
-            Séance commune
+            {t('commonSession.label')}
 
           </p>
 

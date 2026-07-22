@@ -22,7 +22,8 @@
     "logout": "Log out",
     "follow": "Follow",
     "unfollow": "Unfollow",
-    "followBack": "Follow back"
+    "followBack": "Follow back",
+    "viewDetails": "View details"
   },
   "confirmDeletePost": "Delete this post?",
   "states": {

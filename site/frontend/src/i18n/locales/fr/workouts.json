@@ -208,5 +208,8 @@
       "draftDeleted": "Ce brouillon a été supprimé. Rechargez la page pour créer une nouvelle séance.",
       "sessionTitleRequired": "Donne un titre à ta séance"
     }
+  },
+  "labels": {
+    "sharedWorkout": "Séance commune"
   }
 }

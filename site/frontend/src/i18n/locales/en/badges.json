@@ -34,6 +34,21 @@
   "published": "Badge published",
   "locked": "Locked",
   "progress": "Progress",
+  "actions": {
+    "viewAll": "See all badges"
+  },
+  "preview": {
+    "title": "My badges",
+    "duoTitle": "Duo badges",
+    "globalProgress": "overall progress",
+    "noneUnlocked": "No badges unlocked yet."
+  },
+  "sharing": {
+    "defaultMessage": "I unlocked a new achievement!",
+    "defaultMessageWithName": "I unlocked the “{{badgeName}}” badge!",
+    "duoDefaultMessage": "Our Duo just unlocked a new achievement!",
+    "duoDefaultMessageWithName": "Our Duo unlocked the “{{badgeName}}” badge!"
+  },
   "solo_first_workout": {
     "name": "First step",
     "description": "Complete your first workout."

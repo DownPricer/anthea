@@ -34,6 +34,21 @@
   "published": "Insignia publicada",
   "locked": "Bloqueada",
   "progress": "Progreso",
+  "actions": {
+    "viewAll": "Ver todas las insignias"
+  },
+  "preview": {
+    "title": "Mis insignias",
+    "duoTitle": "Insignias Dúo",
+    "globalProgress": "progreso global",
+    "noneUnlocked": "Todavía no has desbloqueado ninguna insignia."
+  },
+  "sharing": {
+    "defaultMessage": "¡He desbloqueado un nuevo logro!",
+    "defaultMessageWithName": "¡He desbloqueado la insignia «{{badgeName}}»!",
+    "duoDefaultMessage": "¡Nuestro Dúo acaba de desbloquear un nuevo logro!",
+    "duoDefaultMessageWithName": "¡Nuestro Dúo ha desbloqueado la insignia «{{badgeName}}»!"
+  },
   "solo_first_workout": {
     "name": "Primer paso",
     "description": "Completa tu primera sesión."

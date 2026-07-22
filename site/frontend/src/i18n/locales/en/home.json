@@ -39,5 +39,10 @@
     "emptyLatest": "No recent public posts.",
     "new": "New",
     "topRank": "Top {{rank}}"
+  },
+  "comments": {
+    "viewComments": "View comments",
+    "viewCommentsCount": "View comments ({{count}})",
+    "addPlaceholder": "Add a comment..."
   }
 }

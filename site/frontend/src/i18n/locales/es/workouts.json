@@ -208,5 +208,8 @@
       "draftDeleted": "Este borrador fue eliminado. Recarga la página para crear una nueva sesión.",
       "sessionTitleRequired": "Pon un título a tu sesión"
     }
+  },
+  "labels": {
+    "sharedWorkout": "Sesión compartida"
   }
 }

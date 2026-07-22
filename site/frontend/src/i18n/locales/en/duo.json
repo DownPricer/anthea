@@ -170,7 +170,8 @@
     "commonStats": "Shared statistics"
   },
   "commonSession": {
-    "seeDetails": "See details",
+    "label": "Shared workout",
+    "seeDetails": "View details",
     "undoProfileRepost": "Undo profile repost",
     "repostToProfile": "Repost to my profile",
     "removeFromDuoWall": "Remove from duo wall",
