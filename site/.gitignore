@@ -78,6 +78,17 @@ agenthub/agents/youtube/db
 
 memory/test_credentials.md
 
+# Exercise catalog media / import artifacts (never commit GIFs or caches)
+exercise-media/
+exercise-cache/
+exercise-import-temp/
+*.exercise-import.log
+site/backend/exercise-media/
+site/backend/exercise-cache/
+site/backend/exercise-import-temp/
+logo ebauche.psd
+*.psd
+
 # Mobile development
 android-sdk/frontend/node_modules/.cache/default-development/0.pack
 frontend/node_modules/.cache/default-development/2.pack

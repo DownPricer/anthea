@@ -1,0 +1,35 @@
+[
+  {
+    "exerciseId": "EIeI8Vf",
+    "name": "barbell bench press",
+    "gifUrl": "https://static.exercisedb.dev/media/EIeI8Vf.gif",
+    "bodyParts": ["chest"],
+    "equipments": ["barbell"],
+    "targetMuscles": ["pectorals"],
+    "secondaryMuscles": ["triceps", "shoulders"],
+    "instructions": [
+      "Step:1 Lie flat on a bench with your feet flat on the ground.",
+      "Step:2 Grasp the barbell with an overhand grip."
+    ]
+  },
+  {
+    "exerciseId": "dumbbell_curl_demo",
+    "name": "dumbbell biceps curl",
+    "gifUrl": "https://static.exercisedb.dev/media/dumbbell_curl_demo.gif",
+    "bodyParts": ["upper arms"],
+    "equipments": ["dumbbell"],
+    "targetMuscles": ["biceps"],
+    "secondaryMuscles": ["forearms"],
+    "instructions": ["Step:1 Stand upright holding a dumbbell in each hand."]
+  },
+  {
+    "exerciseId": "plank_hold_demo",
+    "name": "plank",
+    "gifUrl": "https://static.exercisedb.dev/media/plank_hold_demo.gif",
+    "bodyParts": ["waist"],
+    "equipments": ["body weight"],
+    "targetMuscles": ["abs"],
+    "secondaryMuscles": ["shoulders"],
+    "instructions": ["Step:1 Hold a straight body position on forearms and toes."]
+  }
+]
