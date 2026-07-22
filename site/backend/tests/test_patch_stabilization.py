@@ -49,6 +49,25 @@ def test_estimate_calories_by_difficulty():
     assert estimate_calories(600, None) == 50
 
 
+def normalize_appearance(value):
+    if not value:
+        return None
+    raw = str(value).strip().lower()
+    if raw in ("dark", "light"):
+        return raw
+    return None
+
+
+def test_normalize_appearance():
+    assert normalize_appearance("dark") == "dark"
+    assert normalize_appearance("light") == "light"
+    assert normalize_appearance("DARK") == "dark"
+    assert normalize_appearance("system") is None
+    assert normalize_appearance("default") is None
+    assert normalize_appearance("") is None
+    assert normalize_appearance(None) is None
+
+
 def test_normalize_accent_color():
     assert normalize_accent_color("#06B6D4") == "#06B6D4"
     assert normalize_accent_color("06B6D4") == "#06B6D4"
@@ -783,6 +802,7 @@ def test_duo_routes_do_not_shadow_posts():
 if __name__ == "__main__":
     test_estimate_calories_by_difficulty()
     test_normalize_accent_color()
+    test_normalize_appearance()
     test_live_phase_gate()
     test_normalize_handle()
     print("OK: all stabilization tests passed")
