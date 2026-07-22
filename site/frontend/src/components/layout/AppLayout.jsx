@@ -11,7 +11,7 @@ export function AppLayout() {
       <div className="min-h-[100dvh] flex">
         <DesktopNav />
         <div className="flex-1 min-w-0 md:ml-64">
-          <div className="min-h-[100dvh] pb-24 md:pb-0">
+          <div className="min-h-[100dvh] pb-[5.5rem] md:pb-0">
             <Outlet />
           </div>
           <BottomNav />

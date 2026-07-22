@@ -44,6 +44,8 @@
     "viewComments": "Ver comentarios",
     "viewCommentsCount": "Ver comentarios ({{count}})",
     "addPlaceholder": "Añadir un comentario...",
+    "like": "Me gusta el comentario",
+    "unlike": "Quitar el me gusta",
     "repost": "Republicar",
     "reposted": "Republicado"
   }

@@ -375,18 +375,21 @@ export function PostCard({
       )}
 
       {isCommonSession ? (
-        <div className="flex items-center gap-2 text-amber-300/90 text-xs uppercase tracking-wide">
-          <Users size={14} />
+        <div className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2.5 py-1 text-xs font-semibold text-amber-950">
+          <Users size={14} className="shrink-0" strokeWidth={2.25} />
           {t('workouts:labels.sharedWorkout')}
         </div>
       ) : null}
 
       {snapshot && (
-        <div className={`rounded-xl bg-hover border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/20' : 'border-border'}`}>
+        <div className={`rounded-xl bg-hover border p-3 space-y-2 ${isCommonSession ? 'border-amber-500/35' : 'border-border'}`}>
           {isCommonSession ? (
-            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">{t('duo:commonSession.mySession')}</p>
+            <p className="text-amber-600 text-xs font-semibold uppercase tracking-wide mb-1">{t('duo:commonSession.mySession')}</p>
           ) : post.type === 'duo' && post.partner_session_snapshot ? (
-            <p className="text-amber-400/80 text-xs uppercase tracking-wide mb-1">{t('workouts:labels.sharedWorkout')}</p>
+            <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2 py-0.5 text-[11px] font-semibold text-amber-950 mb-1 w-fit">
+              <Users size={12} className="shrink-0" strokeWidth={2.25} />
+              {t('workouts:labels.sharedWorkout')}
+            </p>
           ) : null}
           <button
             type="button"
@@ -541,12 +544,26 @@ export function PostCard({
                     <button
                       type="button"
                       onClick={() => handleCommentLike(comment)}
-                      className={`flex items-center gap-1 text-[10px] transition-colors ${
-                        likeState.is_liked ? 'text-red-400' : 'text-subtle hover:text-muted'
+                      aria-label={
+                        likeState.is_liked
+                          ? t('home:comments.unlike')
+                          : t('home:comments.like')
+                      }
+                      aria-pressed={likeState.is_liked}
+                      className={`inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
+                        likeState.is_liked
+                          ? 'text-[var(--theme-primary)]'
+                          : 'text-muted hover:bg-hover hover:text-foreground'
                       }`}
                     >
-                      <Heart size={10} fill={likeState.is_liked ? 'currentColor' : 'none'} />
-                      {likeState.likes_count > 0 ? likeState.likes_count : null}
+                      <Heart
+                        size={15}
+                        strokeWidth={2}
+                        fill={likeState.is_liked ? 'currentColor' : 'none'}
+                      />
+                      {likeState.likes_count > 0 ? (
+                        <span className="tabular-nums">{likeState.likes_count}</span>
+                      ) : null}
                     </button>
                   ) : null}
                 </div>

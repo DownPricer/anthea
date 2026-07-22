@@ -221,15 +221,15 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
       <div className="flex items-start gap-3">
 
-        <div className="w-10 h-10 rounded-full bg-amber-500/20 flex items-center justify-center shrink-0">
+        <div className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-amber-700/30 bg-amber-400 shrink-0">
 
-          <Users className="text-amber-400" size={18} />
+          <Users className="text-amber-950" size={18} strokeWidth={2.25} />
 
         </div>
 
         <div className="flex-1 min-w-0">
 
-          <p className="text-amber-200 font-semibold text-sm uppercase tracking-wide">
+          <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2.5 py-1 text-xs font-semibold text-amber-950">
 
             {t('commonSession.label')}
 

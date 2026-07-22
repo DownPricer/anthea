@@ -35,7 +35,7 @@ describe('theme semantic coverage (source)', () => {
 
   test('layouts and shared chrome use semantic surfaces', () => {
     expect(read('components/layout/AppLayout.jsx')).toContain('bg-background');
-    expect(read('components/layout/BottomNav.jsx')).toMatch(/bg-background|bg-nav/);
+    expect(read('components/layout/BottomNav.jsx')).toMatch(/bg-background|bg-nav|bg-\[var\(--nav-bg\)\]/);
     expect(read('components/layout/DesktopNav.jsx')).toContain('bg-background');
     expect(read('components/ui/dialog.jsx')).toContain('bg-surface-elevated');
     expect(read('components/ui/drawer.jsx')).toContain('bg-surface-elevated');

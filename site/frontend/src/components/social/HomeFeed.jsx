@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, Newspaper, Flame } from 'lucide-react';
+import { Loader2, Newspaper, Flame, Trophy } from 'lucide-react';
 import { feedApi, formatApiError } from '../../lib/api';
 import { PostCard } from './PostCard';
 import { ProfileEmptyState } from '../profile/ProfileEmptyState';
@@ -47,8 +47,11 @@ function TrendingBadge({ rank }) {
   const { t } = useTranslation('home');
   if (!rank) return null;
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] uppercase tracking-wide border bg-orange-500/15 text-orange-300 border-orange-500/30">
-      <Flame size={10} />
+    <span
+      data-testid={`trending-rank-${rank}`}
+      className="inline-flex items-center gap-1 rounded-full border border-amber-600/40 bg-amber-400 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-amber-950 shadow-sm"
+    >
+      <Trophy size={12} strokeWidth={2.25} className="shrink-0" />
       {t('feed.topRank', { rank })}
     </span>
   );

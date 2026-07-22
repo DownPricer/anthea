@@ -44,6 +44,8 @@
     "viewComments": "View comments",
     "viewCommentsCount": "View comments ({{count}})",
     "addPlaceholder": "Add a comment...",
+    "like": "Like comment",
+    "unlike": "Unlike comment",
     "repost": "Repost",
     "reposted": "Reposted"
   }

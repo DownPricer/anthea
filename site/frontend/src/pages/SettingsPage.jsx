@@ -962,9 +962,9 @@ export function SettingsPage() {
               onClick={handleLogout}
               variant="outline"
               data-testid="settings-logout-btn"
-              className="w-full h-12 rounded-xl bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
+              className="w-full h-12 rounded-xl border border-red-500/40 bg-red-500/10 text-red-600 hover:bg-red-500/15 hover:text-red-700 hover:border-red-500/55 focus-visible:ring-red-500/40"
             >
-              <LogOut size={18} className="mr-2" /> {t('account.logout')}
+              <LogOut size={18} className="mr-2 text-red-600" /> {t('account.logout')}
             </Button>
           </AccordionContent>
         </AccordionItem>

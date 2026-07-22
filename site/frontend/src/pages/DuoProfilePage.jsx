@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { parseISO } from 'date-fns';
-import { Loader2, LayoutGrid, BarChart3, Activity, Clock } from 'lucide-react';
+import { Loader2, LayoutGrid, BarChart3, Activity, Clock, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { duoProfilesApi, duoApi, formatApiError } from '../lib/api';
@@ -300,7 +300,10 @@ function DuoActivityList({ activity, loading, canView, members }) {
               key={`common-${item.date}-${idx}`}
               className="card min-w-0 overflow-visible border border-amber-500/20 p-4"
             >
-              <p className="text-amber-300 text-xs uppercase tracking-wide mb-2">{t('workouts:labels.sharedWorkout')}</p>
+              <p className="inline-flex items-center gap-1.5 rounded-full border border-amber-700/30 bg-amber-400 px-2.5 py-1 text-xs font-semibold text-amber-950 mb-2 w-fit">
+                <Users size={12} strokeWidth={2.25} />
+                {t('workouts:labels.sharedWorkout')}
+              </p>
               <p className="text-subtle text-xs mb-3">
                 {item.date && formatDate(parseISO(item.date))}
               </p>

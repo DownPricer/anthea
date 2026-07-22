@@ -1240,7 +1240,7 @@ export function WorkoutPlayerPage() {
                     type="button"
                     onClick={phase === 'rest' ? skipRest : skipCurrentExercise}
                     data-testid={phase === 'rest' ? 'skip-rest-btn' : 'skip-exercise-btn'}
-                    className="h-12 rounded-full border border-border bg-hover px-4 text-sm font-medium text-muted transition-colors hover:bg-active hover:text-foreground"
+                    className="h-12 rounded-full border border-border-strong bg-surface-subtle px-4 text-sm font-semibold text-foreground transition-colors hover:bg-active hover:border-[var(--theme-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50 disabled:pointer-events-none"
                   >
                     {phase === 'rest' ? t('player:skipRest') : t('player:skipExercise')}
                   </button>

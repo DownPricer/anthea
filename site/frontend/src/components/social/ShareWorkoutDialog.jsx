@@ -44,6 +44,8 @@ import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/im
 
 import { toast } from 'sonner';
 
+import { useTranslation } from 'react-i18next';
+
 
 
 export function ShareWorkoutDialog({
@@ -59,6 +61,8 @@ export function ShareWorkoutDialog({
   onSkip,
 
 }) {
+
+  const { t } = useTranslation(['player']);
 
   const [title, setTitle] = useState(session?.workout_title || '');
 
@@ -386,11 +390,11 @@ export function ShareWorkoutDialog({
 
               disabled={saving}
 
-              className="w-full h-11 rounded-xl bg-hover border-border text-muted"
+              className="w-full h-11 rounded-xl border-border-strong bg-surface-subtle text-foreground font-semibold hover:bg-active hover:text-foreground disabled:opacity-50"
 
             >
 
-              Passer
+              {t('player:skipExercise')}
 
             </Button>
 
