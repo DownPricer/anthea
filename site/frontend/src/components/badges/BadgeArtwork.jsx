@@ -195,8 +195,8 @@ export function BadgeArtwork({
       </svg>
 
       {locked && (
-        <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-black/70 border border-white/10">
-          <Lock size={8} className="text-zinc-400" />
+        <span className="absolute bottom-0 right-0 flex h-4 w-4 items-center justify-center rounded-full bg-overlay border border-border">
+          <Lock size={8} className="text-muted" />
         </span>
       )}
 

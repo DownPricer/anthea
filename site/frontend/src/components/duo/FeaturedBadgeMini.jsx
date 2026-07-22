@@ -21,7 +21,7 @@ export function FeaturedBadgeMini({ badge }) {
         size={40}
         className="size-10 shrink-0"
       />
-      <p className="mt-1 w-20 min-w-0 line-clamp-2 break-words text-center text-[10px] leading-tight text-zinc-300">
+      <p className="mt-1 w-20 min-w-0 line-clamp-2 break-words text-center text-[10px] leading-tight text-muted">
         {name}
       </p>
     </div>

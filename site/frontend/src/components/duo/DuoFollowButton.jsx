@@ -50,7 +50,7 @@ export function DuoFollowButton({ duoProfile, onUpdate, className = '' }) {
         variant="outline"
         disabled={loading}
         onClick={handleUnfollow}
-        className={`rounded-xl border-white/15 text-zinc-300 ${className}`}
+        className={`rounded-xl border-border text-muted ${className}`}
       >
         {loading ? <Loader2 size={14} className="animate-spin" /> : <UserMinus size={14} className="mr-1" />}
         Ne plus suivre
@@ -60,7 +60,7 @@ export function DuoFollowButton({ duoProfile, onUpdate, className = '' }) {
 
   if (duoProfile.duo_follow_pending) {
     return (
-      <Button type="button" size="sm" disabled className={`rounded-xl bg-white/5 text-zinc-500 ${className}`}>
+      <Button type="button" size="sm" disabled className={`rounded-xl bg-hover text-subtle ${className}`}>
         Demande envoyée
       </Button>
     );
@@ -72,7 +72,7 @@ export function DuoFollowButton({ duoProfile, onUpdate, className = '' }) {
       size="sm"
       disabled={loading}
       onClick={handleFollow}
-      className={`rounded-xl btn-primary text-white ${className}`}
+      className={`rounded-xl btn-primary text-foreground ${className}`}
     >
       {loading ? (
         <Loader2 size={14} className="animate-spin" />

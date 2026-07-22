@@ -32,21 +32,21 @@ function MiniSession({ user, session }) {
 
   return (
 
-    <div className="rounded-xl bg-black/20 p-3 border border-white/5">
+    <div className="rounded-xl bg-hover p-3 border border-border">
 
       <div className="flex items-center gap-2 mb-2">
 
         <UserAvatar user={user} className="w-7 h-7 text-xs" />
 
-        <span className="text-white text-xs font-medium truncate">{getDisplayName(user)}</span>
+        <span className="text-foreground text-xs font-medium truncate">{getDisplayName(user)}</span>
 
         {session.status === 'completed' ? <Trophy size={12} className="text-green-500 shrink-0" /> : null}
 
       </div>
 
-      <p className="text-zinc-400 text-xs truncate">{session.workout_title || 'Séance'}</p>
+      <p className="text-muted text-xs truncate">{session.workout_title || 'Séance'}</p>
 
-      <div className="flex gap-2 text-[10px] text-zinc-500 mt-1">
+      <div className="flex gap-2 text-[10px] text-subtle mt-1">
 
         <span className="flex items-center gap-0.5">
 
@@ -76,13 +76,13 @@ function SessionDetailBlock({ label, user, session }) {
 
   return (
 
-    <div className="rounded-xl bg-black/15 p-3">
+    <div className="rounded-xl bg-hover p-3">
 
-      <p className="text-zinc-500 text-xs uppercase mb-2">{label} — {getDisplayName(user)}</p>
+      <p className="text-subtle text-xs uppercase mb-2">{label} — {getDisplayName(user)}</p>
 
-      <p className="text-white text-sm font-medium">{session.workout_title || 'Séance'}</p>
+      <p className="text-foreground text-sm font-medium">{session.workout_title || 'Séance'}</p>
 
-      <div className="flex flex-wrap gap-3 text-xs text-zinc-400 mt-2">
+      <div className="flex flex-wrap gap-3 text-xs text-muted mt-2">
 
         <span>{formatDurationShort(session.total_time)}</span>
 
@@ -235,7 +235,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
           </p>
 
-          <p className="text-white font-medium mt-0.5">
+          <p className="text-foreground font-medium mt-0.5">
 
             {getDisplayName(user)} & {getDisplayName(partner)}
 
@@ -243,7 +243,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
           {isRepost ? (
 
-            <p className="text-zinc-500 text-xs mt-0.5 flex items-center gap-1">
+            <p className="text-subtle text-xs mt-0.5 flex items-center gap-1">
 
               <Repeat2 size={12} /> Republication
 
@@ -255,7 +255,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
         {dateLabel ? (
 
-          <span className="text-zinc-500 text-xs shrink-0">{dateLabel}</span>
+          <span className="text-subtle text-xs shrink-0">{dateLabel}</span>
 
         ) : null}
 
@@ -285,7 +285,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
           onClick={() => setDetailsOpen((v) => !v)}
 
-          className="rounded-xl border-white/15 text-white"
+          className="rounded-xl border-border text-foreground"
 
         >
 
@@ -313,7 +313,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
               reposted
 
-                ? 'bg-white/10 text-zinc-300 border-white/15 hover:bg-white/15'
+                ? 'bg-active text-muted border-border hover:bg-active'
 
                 : 'bg-amber-500/20 text-amber-200 hover:bg-amber-500/30 border-amber-500/30'
 
@@ -361,7 +361,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
               duoWallPosted
 
-                ? 'bg-white/10 text-zinc-300 border-white/15 hover:bg-white/15'
+                ? 'bg-active text-muted border-border hover:bg-active'
 
                 : 'bg-violet-500/20 text-violet-200 hover:bg-violet-500/30 border-violet-500/30'
 
@@ -397,7 +397,7 @@ const [detailsOpen, setDetailsOpen] = useState(false);
 
       {detailsOpen ? (
 
-        <div className="space-y-3 pt-2 border-t border-white/10">
+        <div className="space-y-3 pt-2 border-t border-border">
 
           <SessionDetailBlock label={t('commonSession.mySession')} user={user} session={mySession} />
 

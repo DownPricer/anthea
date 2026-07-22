@@ -3,7 +3,7 @@ export const BADGE_RARITY_STYLES = {
     label: 'Commun',
     border: 'border-zinc-500/40',
     bg: 'bg-zinc-500/10',
-    text: 'text-zinc-300',
+    text: 'text-muted',
     glow: '',
   },
   Rare: {
@@ -38,7 +38,7 @@ export const BADGE_RARITY_STYLES = {
     label: 'Commun',
     border: 'border-zinc-500/40',
     bg: 'bg-zinc-500/10',
-    text: 'text-zinc-300',
+    text: 'text-muted',
     glow: '',
   },
   rare: {

@@ -115,9 +115,10 @@ export function AnnualHeatmap({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     ctx.scale(2, 2);
-    ctx.fillStyle = '#0A0A0A';
+    const rootStyles = getComputedStyle(document.documentElement);
+    ctx.fillStyle = rootStyles.getPropertyValue('--background').trim() || '#0A0A0A';
     ctx.fillRect(0, 0, w, h);
-    ctx.fillStyle = '#ffffff';
+    ctx.fillStyle = rootStyles.getPropertyValue('--foreground').trim() || '#ffffff';
     ctx.font = 'bold 14px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText(`${title} — ${safeYear}`, w / 2, 16);
@@ -165,15 +166,15 @@ export function AnnualHeatmap({
     <div className="space-y-4" data-testid="annual-heatmap">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h3 className="text-white font-semibold font-['Outfit']">{title} — {safeYear}</h3>
-          <p className="text-zinc-500 text-xs mt-0.5">{t('settings:agenda.completedOnly')}</p>
+          <h3 className="text-foreground font-semibold font-['Outfit']">{title} — {safeYear}</h3>
+          <p className="text-subtle text-xs mt-0.5">{t('settings:agenda.completedOnly')}</p>
         </div>
         <Button
           type="button"
           size="sm"
           variant="outline"
           onClick={handleExport}
-          className="rounded-xl border-white/15 text-white shrink-0"
+          className="rounded-xl border-border text-foreground shrink-0"
         >
           <Download size={14} className="mr-1.5" />
           PNG
@@ -181,23 +182,23 @@ export function AnnualHeatmap({
       </div>
 
       {error ? (
-        <p className="text-zinc-500 text-sm text-center py-2" data-testid="annual-heatmap-error">
+        <p className="text-subtle text-sm text-center py-2" data-testid="annual-heatmap-error">
           {t('settings:agenda.loadError', { defaultValue: 'Impossible de charger l’agenda.' })}
         </p>
       ) : null}
 
       {!error && !hasActivity ? (
-        <p className="text-zinc-500 text-sm text-center py-1" data-testid="annual-heatmap-empty">
+        <p className="text-subtle text-sm text-center py-1" data-testid="annual-heatmap-empty">
           {t('settings:agenda.noActivity', { defaultValue: 'Aucune activité enregistrée cette année.' })}
         </p>
       ) : null}
 
-      <div ref={gridRef} className="rounded-2xl border border-white/10 bg-[#0A0A0A] p-4 space-y-4">
-        <p className="text-zinc-500 text-xs text-center">{safeYear}</p>
+      <div ref={gridRef} className="rounded-2xl border border-border bg-background p-4 space-y-4">
+        <p className="text-subtle text-xs text-center">{safeYear}</p>
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
           {weeksByMonth.map((monthDays, monthIdx) => (
             <div key={monthIdx} className="space-y-1.5">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-wide text-center">
+              <p className="text-[10px] text-subtle uppercase tracking-wide text-center">
                 {MONTH_LABELS[monthIdx]}
               </p>
               <div className="flex flex-wrap gap-0.5 justify-center">
@@ -215,8 +216,8 @@ export function AnnualHeatmap({
                       aria-label={heatmapDayTitle(info, dateLabel)}
                       onClick={() => setSelectedDay(date)}
                       className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm transition-transform ${
-                        isSelected ? 'ring-1 ring-white scale-125' : 'hover:scale-110'
-                      } ${style.kind === 'empty' ? 'bg-white/[0.04]' : ''}`}
+                        isSelected ? 'ring-1 ring-foreground scale-125' : 'hover:scale-110'
+                      } ${style.kind === 'empty' ? 'bg-hover' : ''}`}
                       style={
                         style.kind !== 'empty'
                           ? style.gradient
@@ -236,7 +237,7 @@ export function AnnualHeatmap({
       </div>
 
       {selectedDay ? (
-        <p className="text-zinc-400 text-sm text-center">
+        <p className="text-muted text-sm text-center">
           {heatmapDayTitle(
             selectedInfo,
             formatWeekdayDate(selectedDay)

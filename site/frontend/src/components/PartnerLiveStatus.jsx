@@ -40,15 +40,15 @@ export function PartnerLiveStatus({ liveSession, compact = false, className }) {
       </div>
       <div className="flex-1 min-w-0">
         <p className="text-green-400 text-xs font-medium uppercase tracking-wide">En direct</p>
-        <p className="text-white text-sm font-medium truncate">
+        <p className="text-foreground text-sm font-medium truncate">
           {name} est en séance
         </p>
         {liveSession.workout_title && (
-          <p className="text-zinc-500 text-xs truncate">{liveSession.workout_title}</p>
+          <p className="text-subtle text-xs truncate">{liveSession.workout_title}</p>
         )}
       </div>
       {liveSession.elapsed_seconds != null && (
-        <p className="text-zinc-400 text-xs font-mono tabular-nums shrink-0">
+        <p className="text-muted text-xs font-mono tabular-nums shrink-0">
           {formatElapsed(liveSession.elapsed_seconds)}
         </p>
       )}

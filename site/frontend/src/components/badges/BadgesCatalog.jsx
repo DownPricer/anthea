@@ -93,7 +93,7 @@ export function BadgesCatalogView({
   return (
     <div className="space-y-4" data-testid="badges-catalog">
       <div className="flex items-center justify-between">
-        <p className="text-zinc-400 text-sm">
+        <p className="text-muted text-sm">
           {t('unlockedOf', { unlocked, total })}
         </p>
       </div>
@@ -108,8 +108,8 @@ export function BadgesCatalogView({
                 onClick={() => setRarityFilter(id)}
                 className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
                   rarityFilter === id
-                    ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
-                    : 'border-white/10 text-zinc-500 hover:text-white'
+                    ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
+                    : 'border-border text-subtle hover:text-foreground'
                 }`}
               >
                 {t(`filters.${id}`)}
@@ -124,8 +124,8 @@ export function BadgesCatalogView({
                 onClick={() => setStatusFilter(id)}
                 className={`px-2.5 py-1 rounded-lg text-xs border transition-colors ${
                   statusFilter === id
-                    ? 'bg-white/10 border-white/20 text-white'
-                    : 'border-white/10 text-zinc-500 hover:text-white'
+                    ? 'bg-active border-border-strong text-foreground'
+                    : 'border-border text-subtle hover:text-foreground'
                 }`}
               >
                 {t(`filters.${id}`)}
@@ -136,7 +136,7 @@ export function BadgesCatalogView({
       )}
 
       {filtered.length === 0 ? (
-        <p className="text-center text-zinc-500 text-sm py-10">{t('emptyFilter')}</p>
+        <p className="text-center text-subtle text-sm py-10">{t('emptyFilter')}</p>
       ) : (
         <BadgesGridShared
           badges={filtered}
@@ -181,10 +181,10 @@ export function BadgesPreview({
     <div className="space-y-3" data-testid="badges-preview">
       <div className="flex items-center justify-between">
         <div>
-          <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">
+          <h3 className="text-sm font-medium text-muted uppercase tracking-wider">
             {scope === 'duo' ? t('preview.duoTitle') : t('preview.title')}
           </h3>
-          <p className="text-zinc-500 text-xs mt-0.5">
+          <p className="text-subtle text-xs mt-0.5">
             {unlockedCount}/{totalCount} · {t('preview.globalProgress')}
           </p>
         </div>
@@ -199,7 +199,7 @@ export function BadgesPreview({
           </button>
         ) : null}
       </div>
-      <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-hover rounded-full overflow-hidden">
         <div
           className="h-full bg-[var(--theme-primary)] rounded-full transition-all"
           style={{
@@ -215,7 +215,7 @@ export function BadgesPreview({
           compact
         />
       ) : (
-        <p className="text-zinc-600 text-xs text-center py-4">
+        <p className="text-subtle text-xs text-center py-4">
           {t('preview.noneUnlocked')}
         </p>
       )}

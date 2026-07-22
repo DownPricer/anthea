@@ -98,24 +98,24 @@ function resolveMemberRole(profile, member) {
 
 function PrivacyRow({ icon: Icon, label, locked, lockedLabel, value, onChange, options }) {
   return (
-    <div className="flex items-center justify-between rounded-xl bg-white/5 p-3 gap-3">
+    <div className="flex items-center justify-between rounded-xl bg-hover p-3 gap-3">
       <div className="flex items-center gap-2 min-w-0">
-        <Icon size={16} className="text-zinc-500 shrink-0" />
-        <span className="text-sm text-zinc-300">{label}</span>
+        <Icon size={16} className="text-subtle shrink-0" />
+        <span className="text-sm text-muted">{label}</span>
       </div>
       {locked ? (
-        <span className="text-xs text-zinc-500 flex items-center gap-1 shrink-0">
+        <span className="text-xs text-subtle flex items-center gap-1 shrink-0">
           <Lock size={12} />
           {lockedLabel}
         </span>
       ) : (
         <Select value={value} onValueChange={onChange}>
-          <SelectTrigger className="w-40 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs shrink-0">
+          <SelectTrigger className="w-40 h-9 rounded-lg bg-background border-border text-foreground text-xs shrink-0">
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="bg-[#141414] border-white/10">
+          <SelectContent className="bg-surface-elevated border-border">
             {options.map((opt) => (
-              <SelectItem key={opt.value} value={opt.value} className="text-white">
+              <SelectItem key={opt.value} value={opt.value} className="text-foreground">
                 {opt.label}
               </SelectItem>
             ))}
@@ -431,34 +431,34 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
       {/* Identité */}
       <section className="space-y-3">
-        <h3 className="text-xs uppercase tracking-wider text-zinc-500 flex items-center gap-2">
+        <h3 className="text-xs uppercase tracking-wider text-subtle flex items-center gap-2">
           <Users size={12} /> Identité
         </h3>
         <div>
-          <Label className="text-zinc-400">Nom du duo</Label>
+          <Label className="text-muted">Nom du duo</Label>
           <Input
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             maxLength={32}
-            className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+            className="mt-2 h-11 rounded-xl bg-background border-border text-foreground"
             placeholder="Les Guerriers"
           />
           {duoProfile?.tag ? (
-            <p className="text-zinc-600 text-xs mt-1 font-mono">Identifiant : {duoProfile.tag}</p>
+            <p className="text-subtle text-xs mt-1 font-mono">Identifiant : {duoProfile.tag}</p>
           ) : null}
         </div>
         <div>
-          <Label className="text-zinc-400">Type de relation</Label>
+          <Label className="text-muted">Type de relation</Label>
           <Select
             value={form.relation_type}
             onValueChange={(v) => setForm((f) => ({ ...f, relation_type: v }))}
           >
-            <SelectTrigger className="mt-2 h-11 rounded-xl bg-[#0A0A0A] border-white/10 text-white">
+            <SelectTrigger className="mt-2 h-11 rounded-xl bg-background border-border text-foreground">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-[#141414] border-white/10">
+            <SelectContent className="bg-surface-elevated border-border">
               {DUO_RELATION_OPTIONS.map((opt) => (
-                <SelectItem key={opt.value} value={opt.value} className="text-white">
+                <SelectItem key={opt.value} value={opt.value} className="text-foreground">
                   {opt.label}
                 </SelectItem>
               ))}
@@ -469,19 +469,19 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
       {/* Apparence */}
       <section className="space-y-3">
-        <h3 className="text-xs uppercase tracking-wider text-zinc-500 flex items-center gap-2">
+        <h3 className="text-xs uppercase tracking-wider text-subtle flex items-center gap-2">
           <Palette size={12} /> Apparence
         </h3>
         <div
-          className="h-24 rounded-xl border border-white/10 overflow-hidden relative"
+          className="h-24 rounded-xl border border-border overflow-hidden relative"
           style={
             bannerDisplay
               ? { backgroundImage: `url(${bannerDisplay})`, backgroundSize: 'cover', backgroundPosition: 'center' }
-              : { background: 'linear-gradient(135deg, #1a1a2e, #0A0A0A)' }
+              : { background: 'linear-gradient(135deg, var(--theme-primary), var(--background))' }
           }
         >
           {!bannerDisplay ? (
-            <p className="absolute inset-0 flex items-center justify-center text-zinc-600 text-xs">
+            <p className="absolute inset-0 flex items-center justify-center text-subtle text-xs">
               Aucune bannière
             </p>
           ) : null}
@@ -500,13 +500,13 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
             variant="outline"
             disabled={uploadingBanner}
             onClick={() => bannerInputRef.current?.click()}
-            className="rounded-xl border-white/15 text-white"
+            className="rounded-xl border-border text-foreground"
           >
             {uploadingBanner ? <Loader2 size={14} className="animate-spin" /> : <ImagePlus size={14} className="mr-1" />}
             Importer
           </Button>
           {(form.banner_url || baseline.banner_url) && !bannerRemoved ? (
-            <Button type="button" size="sm" variant="ghost" onClick={handleRemoveBanner} className="text-zinc-400">
+            <Button type="button" size="sm" variant="ghost" onClick={handleRemoveBanner} className="text-muted">
               {t('duo:edit.removeBanner')}
             </Button>
           ) : null}
@@ -514,29 +514,29 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       </section>
 
       {/* Confidentialité */}
-      <section className="rounded-xl border border-white/10 p-4 space-y-3" data-testid="duo-privacy-settings">
+      <section className="rounded-xl border border-border p-4 space-y-3" data-testid="duo-privacy-settings">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Shield size={16} className="text-[var(--theme-primary)]" />
-            <span className="text-white text-sm font-medium">Confidentialité</span>
+            <span className="text-foreground text-sm font-medium">Confidentialité</span>
           </div>
           <Select
             value={form.account_visibility}
             onValueChange={(v) => setForm((f) => ({ ...f, account_visibility: v }))}
           >
-            <SelectTrigger className="w-36 h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs">
+            <SelectTrigger className="w-36 h-9 rounded-lg bg-background border-border text-foreground text-xs">
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="bg-[#141414] border-white/10">
-              <SelectItem value="public" className="text-white">Profil public</SelectItem>
-              <SelectItem value="private" className="text-white">Profil privé</SelectItem>
+            <SelectContent className="bg-surface-elevated border-border">
+              <SelectItem value="public" className="text-foreground">Profil public</SelectItem>
+              <SelectItem value="private" className="text-foreground">Profil privé</SelectItem>
             </SelectContent>
           </Select>
         </div>
         <button
           type="button"
           onClick={() => setPrivacyOpen((v) => !v)}
-          className="flex w-full items-center justify-between text-left text-zinc-400 text-xs"
+          className="flex w-full items-center justify-between text-left text-muted text-xs"
         >
           <span>Détails de visibilité</span>
           <ChevronDown size={14} className={`transition-transform ${privacyOpen ? 'rotate-180' : ''}`} />
@@ -572,20 +572,20 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
       {/* Membres et rôles */}
       <section className="space-y-3" data-testid="duo-members-roles">
-        <h3 className="text-xs uppercase tracking-wider text-zinc-500 flex items-center gap-2">
+        <h3 className="text-xs uppercase tracking-wider text-subtle flex items-center gap-2">
           <Users size={12} /> Membres et rôles
         </h3>
         {members.map((member) => (
           <div
             key={member.id}
-            className="flex items-center gap-3 rounded-xl bg-white/5 p-3"
+            className="flex items-center gap-3 rounded-xl bg-hover p-3"
           >
             <UserAvatar user={member} className="w-10 h-10 shrink-0" />
             <div className="flex-1 min-w-0">
-              <p className="text-white text-sm font-medium truncate">
+              <p className="text-foreground text-sm font-medium truncate">
                 {member.display_name || member.username}
               </p>
-              <p className="text-zinc-500 text-xs truncate">
+              <p className="text-subtle text-xs truncate">
                 @{member.handle || member.username}
               </p>
             </div>
@@ -593,12 +593,12 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
               value={form.member_roles?.[member.id] || 'member'}
               onValueChange={(v) => setMemberRole(member.id, v)}
             >
-              <SelectTrigger className="w-[160px] h-9 rounded-lg bg-[#0A0A0A] border-white/10 text-white text-xs shrink-0">
+              <SelectTrigger className="w-[160px] h-9 rounded-lg bg-background border-border text-foreground text-xs shrink-0">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="bg-[#141414] border-white/10">
+              <SelectContent className="bg-surface-elevated border-border">
                 {DUO_ROLE_OPTIONS.map((opt) => (
-                  <SelectItem key={opt.value} value={opt.value} className="text-white">
+                  <SelectItem key={opt.value} value={opt.value} className="text-foreground">
                     {opt.label}
                   </SelectItem>
                 ))}
@@ -606,28 +606,28 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
             </Select>
           </div>
         ))}
-        <p className="text-zinc-600 text-[11px]">
+        <p className="text-subtle text-[11px]">
           Coach et Responsable du Duo — les permissions existantes sont conservées.
         </p>
       </section>
 
       {/* Badges mis en avant */}
       <section className="space-y-3" data-testid="duo-featured-badges-settings">
-        <h3 className="text-xs uppercase tracking-wider text-zinc-500 flex items-center gap-2">
+        <h3 className="text-xs uppercase tracking-wider text-subtle flex items-center gap-2">
           <Star size={12} /> Badges mis en avant
         </h3>
-        <p className="text-zinc-500 text-xs">
+        <p className="text-subtle text-xs">
           Choisissez jusqu&apos;à 3 badges débloqués à afficher sur le profil.
         </p>
-        <p className="text-sm font-medium text-white">
+        <p className="text-sm font-medium text-foreground">
           {selectedBadgeIds.length} badge{selectedBadgeIds.length > 1 ? 's' : ''} sélectionné{selectedBadgeIds.length > 1 ? 's' : ''} sur 3
         </p>
         {badgesLoading ? (
           <div className="flex justify-center py-4">
-            <Loader2 className="animate-spin text-zinc-500" size={18} />
+            <Loader2 className="animate-spin text-subtle" size={18} />
           </div>
         ) : unlockedBadges.length === 0 ? (
-          <p className="text-zinc-600 text-xs">Aucun badge Duo débloqué pour le moment.</p>
+          <p className="text-subtle text-xs">Aucun badge Duo débloqué pour le moment.</p>
         ) : (
           <div className="grid grid-cols-3 gap-2">
             {unlockedBadges.map((badge) => {
@@ -643,14 +643,14 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
                   className={`relative min-w-0 overflow-hidden rounded-xl border p-2 text-center transition-colors ${
                     selected
                       ? 'border-[var(--theme-primary)] bg-[var(--theme-surface-active)] ring-1 ring-[var(--theme-primary)]/40'
-                      : 'border-white/10 bg-white/5 hover:border-white/20'
+                      : 'border-border bg-hover hover:border-border-strong'
                   }`}
                 >
                   <span
                     className={`absolute left-1.5 top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold ${
                       selected
-                        ? 'bg-[var(--theme-primary)] text-white'
-                        : 'bg-black/40 text-zinc-500'
+                        ? 'bg-[var(--theme-primary)] text-foreground'
+                        : 'bg-overlay text-subtle'
                     }`}
                   >
                     {selected ? (
@@ -667,7 +667,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
                     size={40}
                     className="mx-auto shrink-0 size-10"
                   />
-                  <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[10px] text-zinc-300">
+                  <p className="mt-1 min-w-0 line-clamp-2 break-words text-center text-[10px] text-muted">
                     {badgeName}
                   </p>
                   {selected ? (
@@ -689,7 +689,7 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       type="button"
       onClick={handleSave}
       disabled={saving || !isDirty || uploadingBanner}
-      className="w-full btn-primary text-white rounded-xl h-11"
+      className="w-full btn-primary text-foreground rounded-xl h-11"
       data-testid="duo-settings-save"
     >
       {saving ? <Loader2 className="animate-spin" size={18} /> : t('common:actions.save')}
@@ -698,19 +698,19 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
 
   const discardDialog = (
     <AlertDialog open={discardOpen} onOpenChange={setDiscardOpen}>
-      <AlertDialogContent className="bg-[#141414] border-white/10 text-white">
+      <AlertDialogContent className="bg-surface-elevated border-border text-foreground">
         <AlertDialogHeader>
           <AlertDialogTitle>Quitter sans enregistrer ?</AlertDialogTitle>
-          <AlertDialogDescription className="text-zinc-400">
+          <AlertDialogDescription className="text-muted">
             Vos modifications seront perdues.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel className="rounded-xl border-white/15 bg-transparent text-white">
+          <AlertDialogCancel className="rounded-xl border-border bg-transparent text-foreground">
             {t('profile:edit.discardContinue')}
           </AlertDialogCancel>
           <AlertDialogAction
-            className="rounded-xl bg-red-600 hover:bg-red-500 text-white"
+            className="rounded-xl bg-red-600 hover:bg-red-500 text-foreground"
             onClick={confirmDiscard}
           >
             {t('profile:edit.discardLeave')}
@@ -724,17 +724,17 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
     return (
       <>
         <Drawer open={open} onOpenChange={requestClose}>
-          <DrawerContent className="bg-[#141414] border-white/10 text-white max-h-[92vh] flex flex-col">
+          <DrawerContent className="bg-surface-elevated border-border text-foreground max-h-[92vh] flex flex-col">
             <DrawerHeader className="text-left shrink-0">
-              <DrawerTitle className="font-['Outfit'] text-white">Modifier le Duo</DrawerTitle>
-              <DrawerDescription className="text-zinc-500">
+              <DrawerTitle className="font-['Outfit'] text-foreground">Modifier le Duo</DrawerTitle>
+              <DrawerDescription className="text-subtle">
                 Identité, confidentialité, membres et apparence
               </DrawerDescription>
             </DrawerHeader>
             <div className="flex-1 overflow-y-auto px-4">
               {formBody}
             </div>
-            <DrawerFooter className="shrink-0 border-t border-white/10">
+            <DrawerFooter className="shrink-0 border-t border-border">
               {saveButton}
             </DrawerFooter>
           </DrawerContent>
@@ -749,18 +749,18 @@ export function DuoProfileEditDialog({ open, onOpenChange, duoProfile, onSaved }
       <Sheet open={open} onOpenChange={requestClose}>
         <SheetContent
           side="right"
-          className="bg-[#141414] border-white/10 text-white w-full sm:max-w-[480px] flex flex-col p-0"
+          className="bg-surface-elevated border-border text-foreground w-full sm:max-w-[480px] flex flex-col p-0"
         >
-          <SheetHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-white/10">
-            <SheetTitle className="font-['Outfit'] text-white text-left">Modifier le Duo</SheetTitle>
-            <SheetDescription className="text-zinc-500 text-left">
+          <SheetHeader className="px-6 pt-6 pb-3 shrink-0 border-b border-border">
+            <SheetTitle className="font-['Outfit'] text-foreground text-left">Modifier le Duo</SheetTitle>
+            <SheetDescription className="text-subtle text-left">
               Identité, confidentialité, membres et apparence
             </SheetDescription>
           </SheetHeader>
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {formBody}
           </div>
-          <div className="shrink-0 border-t border-white/10 px-6 py-4">
+          <div className="shrink-0 border-t border-border px-6 py-4">
             {saveButton}
           </div>
         </SheetContent>

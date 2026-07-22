@@ -38,7 +38,7 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
       className={`relative min-w-0 overflow-hidden rounded-2xl p-2.5 text-center border transition-all w-[5.25rem] sm:w-[5.5rem] group ${
         unlocked
           ? `${rarityStyle.bg} ${rarityStyle.border} cursor-pointer hover:scale-[1.02]`
-          : 'bg-[#0A0A0A]/80 border-white/5 opacity-80 cursor-pointer hover:opacity-100'
+          : 'bg-background/80 border-border opacity-80 cursor-pointer hover:opacity-100'
       }`}
     >
       <BadgeArtwork
@@ -50,13 +50,13 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
       />
       <p
         className={`mt-1.5 min-w-0 line-clamp-2 break-words text-center text-[10px] leading-tight font-medium ${
-          unlocked ? 'text-white' : 'text-zinc-500'
+          unlocked ? 'text-foreground' : 'text-subtle'
         }`}
       >
         {name}
       </p>
       {!unlocked && (typeof target === 'number' ? target > 1 : true) && typeof progress === 'number' && (
-        <div className="mt-1.5 h-1 bg-white/5 rounded-full overflow-hidden">
+        <div className="mt-1.5 h-1 bg-hover rounded-full overflow-hidden">
           <div
             className="h-full rounded-full bg-zinc-500"
             style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
@@ -64,7 +64,7 @@ export function BadgeCard({ badge, scope = 'solo', onClick, compact = false }) {
         </div>
       )}
       {progressLabel() ? (
-        <p className="text-[9px] text-zinc-600 mt-0.5 truncate">{progressLabel()}</p>
+        <p className="text-[9px] text-subtle mt-0.5 truncate">{progressLabel()}</p>
       ) : null}
       {unlocked && (
         <span className={`absolute top-1 right-1 text-[8px] ${rarityStyle.text}`}>✓</span>

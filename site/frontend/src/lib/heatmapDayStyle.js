@@ -1,12 +1,21 @@
-const EMPTY_COLOR = '#1a1a1a';
+function readCssVar(name, fallback) {
+  if (typeof document === 'undefined') return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
+function getEmptyHeatmapColor() {
+  return readCssVar('--surface-subtle', '#202025');
+}
 
 /** Style d'une cellule heatmap basé uniquement sur les séances terminées. */
 export function getHeatmapDayStyle(info, { accentColor, partnerColor } = {}) {
   const accent = accentColor || '#06b6d4';
   const partner = partnerColor || '#f97316';
+  const empty = getEmptyHeatmapColor();
 
   if (!info || info.is_future) {
-    return { fill: EMPTY_COLOR, kind: 'empty', label: 'Jour futur' };
+    return { fill: empty, kind: 'empty', label: 'Jour futur' };
   }
 
   const my = !!info.my_completed;
@@ -14,7 +23,7 @@ export function getHeatmapDayStyle(info, { accentColor, partnerColor } = {}) {
   const both = !!info.both_completed || (my && partnerDone);
 
   if (!my && !partnerDone) {
-    return { fill: EMPTY_COLOR, kind: 'empty', label: 'Aucune séance' };
+    return { fill: empty, kind: 'empty', label: 'Aucune séance' };
   }
 
   if (both) {
@@ -58,6 +67,7 @@ export function heatmapDayTitle(info, dateLabel) {
 }
 
 export function paintHeatmapCell(ctx, x, y, size, style) {
+  const empty = getEmptyHeatmapColor();
   if (style.gradient) {
     const grad = ctx.createLinearGradient(x, y, x + size, y + size);
     grad.addColorStop(0, style.gradient[0]);
@@ -66,7 +76,7 @@ export function paintHeatmapCell(ctx, x, y, size, style) {
     grad.addColorStop(1, style.gradient[1]);
     ctx.fillStyle = grad;
   } else {
-    ctx.fillStyle = style.fill || EMPTY_COLOR;
+    ctx.fillStyle = style.fill || empty;
   }
   ctx.fillRect(x, y, size, size);
 }

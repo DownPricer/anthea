@@ -43,8 +43,8 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
               !bothDone && myDone && 'agenda-mod-mine border-transparent',
               !bothDone && partnerDone && !myDone && 'agenda-mod-partner border-transparent',
               rest && inStreak && 'agenda-mod-rest-streak border-transparent',
-              rest && !inStreak && 'agenda-mod-rest border-white/5',
-              !myDone && !partnerDone && !bothDone && !rest && 'bg-[#141414] border-white/5'
+              rest && !inStreak && 'agenda-mod-rest border-border',
+              !myDone && !partnerDone && !bothDone && !rest && 'bg-surface-elevated border-border'
             )}
           >
             {inStreak && (
@@ -54,10 +54,10 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
                 fill="currentColor"
               />
             )}
-            <span className="text-[10px] text-zinc-500 uppercase">
+            <span className="text-[10px] text-subtle uppercase">
               {format(day, 'EEE', { locale: dateFnsLocale })}
             </span>
-            <span className={cn('block text-sm font-medium text-white mt-0.5', inStreak && 'mt-1')}>
+            <span className={cn('block text-sm font-medium text-foreground mt-0.5', inStreak && 'mt-1')}>
               {day.getDate()}
             </span>
             <span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5 z-[2]">
@@ -71,7 +71,7 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
             </span>
             {partnerMissed && (
               <span
-                className="absolute top-0.5 right-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#0A0A0A]/90 ring-1 ring-red-500/40"
+                className="absolute top-0.5 right-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background/90 ring-1 ring-red-500/40"
                 title="Séance partenaire non faite"
               >
                 <X size={8} className="text-red-400 stroke-[3]" />
@@ -79,7 +79,7 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
             )}
             {myMissed && !partnerMissed && (
               <span
-                className="absolute top-0.5 left-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#0A0A0A]/90 ring-1 ring-red-500/40"
+                className="absolute top-0.5 left-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background/90 ring-1 ring-red-500/40"
                 title="Ma séance non faite"
               >
                 <X size={8} className="text-red-400 stroke-[3]" />

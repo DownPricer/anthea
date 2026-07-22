@@ -207,7 +207,7 @@ export function WorkoutsPage() {
       case 'abandoned':
         return 'bg-red-500/20 text-red-500';
       default:
-        return 'bg-white/5 text-zinc-400';
+        return 'bg-hover text-muted';
     }
   };
 
@@ -240,7 +240,7 @@ export function WorkoutsPage() {
           {selectedWorkouts.includes(workout.id) ? (
             <CheckSquare className="text-[var(--theme-primary)]" size={22} />
           ) : (
-            <Square className="text-zinc-500" size={22} />
+            <Square className="text-subtle" size={22} />
           )}
         </button>
       )}
@@ -250,7 +250,7 @@ export function WorkoutsPage() {
       </div>
 
       <div className="flex-1 min-w-0">
-        <h4 className="text-white font-medium truncate flex items-center gap-2">
+        <h4 className="text-foreground font-medium truncate flex items-center gap-2">
           {workout.title}
           {workout.is_draft && (
             <span className="shrink-0 rounded-full bg-amber-500/20 px-2 py-0.5 text-[10px] text-amber-400">
@@ -258,7 +258,7 @@ export function WorkoutsPage() {
             </span>
           )}
         </h4>
-        <p className="text-zinc-500 text-sm">
+        <p className="text-subtle text-sm">
           {workout.scheduled_time || t('workouts:flexible')}
           {workout.for_user_id !== user?.id && (
             <span className="text-[var(--theme-primary)]"> • {t('workouts:forUser', { username: workout.for_username })}</span>
@@ -274,7 +274,7 @@ export function WorkoutsPage() {
             <Button
               size="sm"
               onClick={() => navigate(`/player/${workout.id}`)}
-              className="bg-[var(--theme-primary)] text-white rounded-full px-5"
+              className="bg-[var(--theme-primary)] text-foreground rounded-full px-5"
             >
               {workout.status === 'in_progress' ? (
                 <>
@@ -292,26 +292,26 @@ export function WorkoutsPage() {
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <button className="p-2 hover:bg-white/10 rounded-full transition-colors">
-                <MoreVertical size={18} className="text-zinc-400" />
+              <button className="p-2 hover:bg-active rounded-full transition-colors">
+                <MoreVertical size={18} className="text-muted" />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="bg-[#141414] border-white/10">
+            <DropdownMenuContent className="bg-surface-elevated border-border">
               <DropdownMenuItem
                 onClick={() => navigate(`/workouts/${workout.id}`)}
-                className="text-white hover:bg-white/10"
+                className="text-foreground hover:bg-active"
               >
                 <Edit size={16} className="mr-2" /> {t('workouts:edit')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleDuplicate([workout.id])}
-                className="text-white hover:bg-white/10"
+                className="text-foreground hover:bg-active"
               >
                 <Copy size={16} className="mr-2" /> {t('workouts:duplicatePlus7')}
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => handleDelete(workout.id)}
-                className="text-red-400 hover:bg-white/10"
+                className="text-red-400 hover:bg-active"
               >
                 <Trash2 size={16} className="mr-2" /> {t('workouts:delete')}
               </DropdownMenuItem>
@@ -339,7 +339,7 @@ export function WorkoutsPage() {
           <Button
             onClick={() => navigate('/create')}
             size="sm"
-            className="bg-[var(--theme-primary)] text-white rounded-full px-4"
+            className="bg-[var(--theme-primary)] text-foreground rounded-full px-4"
           >
             <Plus size={18} className="mr-1" /> {t('workouts:new')}
           </Button>
@@ -349,18 +349,18 @@ export function WorkoutsPage() {
       {liveSession && <PartnerLiveStatus liveSession={liveSession} className="mb-4" />}
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">
+        <TabsList className="w-full bg-surface-elevated p-1 rounded-2xl border border-border">
           <TabsTrigger
             value="today"
             data-testid="tab-today"
-            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-foreground"
           >
             {t('workouts:today')}
           </TabsTrigger>
           <TabsTrigger
             value="agenda"
             data-testid="tab-agenda"
-            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-foreground"
           >
             {t('workouts:agenda')}
           </TabsTrigger>
@@ -369,13 +369,13 @@ export function WorkoutsPage() {
         <TabsContent value="today" className="space-y-4">
           {publishedToday.length === 0 ? (
             <div className="card p-8 text-center">
-              <div className="w-16 h-16 mx-auto rounded-full bg-white/5 flex items-center justify-center mb-4">
-                <CalendarIcon className="text-zinc-500" size={28} />
+              <div className="w-16 h-16 mx-auto rounded-full bg-hover flex items-center justify-center mb-4">
+                <CalendarIcon className="text-subtle" size={28} />
               </div>
-              <p className="text-zinc-400 mb-4">{t('workouts:emptyToday')}</p>
+              <p className="text-muted mb-4">{t('workouts:emptyToday')}</p>
               <Button
                 onClick={() => navigate('/create')}
-                className="bg-[var(--theme-primary)] text-white"
+                className="bg-[var(--theme-primary)] text-foreground"
               >
                 {t('workouts:schedule')}
               </Button>
@@ -393,8 +393,8 @@ export function WorkoutsPage() {
               <div className="card p-4">
                 {agendaLoading ? (
                   <div className="space-y-4 py-6">
-                    <div className="h-5 w-40 rounded bg-white/5 animate-pulse mx-auto" />
-                    <div className="h-[320px] w-full rounded-xl bg-white/5 animate-pulse" />
+                    <div className="h-5 w-40 rounded bg-hover animate-pulse mx-auto" />
+                    <div className="h-[320px] w-full rounded-xl bg-hover animate-pulse" />
                   </div>
                 ) : (
                   <AgendaCalendar
@@ -421,8 +421,8 @@ export function WorkoutsPage() {
             <div className="space-y-4 lg:col-span-5">
               {/* Selection mode toolbar */}
               {selectMode && (
-                <div className="flex items-center gap-2 p-3 bg-[#141414] rounded-xl border border-white/10">
-                  <span className="text-sm text-zinc-400 flex-1">
+                <div className="flex items-center gap-2 p-3 bg-surface-elevated rounded-xl border border-border">
+                  <span className="text-sm text-muted flex-1">
                     {t('workouts:selected', { count: selectedWorkouts.length })}
                   </span>
                   <Button
@@ -430,7 +430,7 @@ export function WorkoutsPage() {
                     variant="outline"
                     onClick={() => handleDuplicate(selectedWorkouts, 7)}
                     disabled={selectedWorkouts.length === 0}
-                    className="text-white border-white/10"
+                    className="text-foreground border-border"
                   >
                     {t('workouts:plus7')}
                   </Button>
@@ -439,7 +439,7 @@ export function WorkoutsPage() {
                     variant="outline"
                     onClick={() => handleDuplicate(selectedWorkouts, 14)}
                     disabled={selectedWorkouts.length === 0}
-                    className="text-white border-white/10"
+                    className="text-foreground border-border"
                   >
                     {t('workouts:plus14')}
                   </Button>
@@ -448,16 +448,16 @@ export function WorkoutsPage() {
                       setSelectMode(false);
                       setSelectedWorkouts([]);
                     }}
-                    className="p-2 hover:bg-white/10 rounded-lg"
+                    className="p-2 hover:bg-active rounded-lg"
                   >
-                    <X size={18} className="text-zinc-400" />
+                    <X size={18} className="text-muted" />
                   </button>
                 </div>
               )}
 
               <div>
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-medium">
+                  <h3 className="text-foreground font-medium">
                     {formatWeekdayDate(selectedDate)}
                   </h3>
                   {selectedDateWorkouts.length > 0 && (
@@ -472,7 +472,7 @@ export function WorkoutsPage() {
 
                 {selectedDateWorkouts.length === 0 ? (
                   <div className="card p-6 text-center">
-                    <p className="text-zinc-500 text-sm">{t('workouts:emptyDay')}</p>
+                    <p className="text-subtle text-sm">{t('workouts:emptyDay')}</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
@@ -504,13 +504,13 @@ function SelectedDaySummary({ state, myAccent }) {
 
   return (
     <div
-      className="mb-3 flex flex-wrap gap-2 p-3 rounded-2xl border border-white/10 bg-[#141414]/80"
+      className="mb-3 flex flex-wrap gap-2 p-3 rounded-2xl border border-border bg-surface-elevated/80"
       style={{ borderLeftColor: state.both_completed ? '#fbbf24' : myAccent, borderLeftWidth: 3 }}
     >
       {labels.map((l) => (
         <span
           key={l}
-          className="text-[11px] px-2.5 py-1 rounded-full bg-white/5 text-zinc-300"
+          className="text-[11px] px-2.5 py-1 rounded-full bg-hover text-muted"
         >
           {l}
         </span>

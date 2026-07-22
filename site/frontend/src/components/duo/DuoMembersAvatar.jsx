@@ -31,13 +31,13 @@ export function DuoMembersAvatar({
     return (
       <div
         className={cn(
-          'rounded-full bg-white/10 border-2 border-[#0A0A0A] flex items-center justify-center shrink-0',
+          'rounded-full bg-active border-2 border-background flex items-center justify-center shrink-0',
           dims.avatar,
           className
         )}
         data-testid="duo-members-avatar-empty"
       >
-        <span className="text-zinc-500 text-xs">Duo</span>
+        <span className="text-subtle text-xs">Duo</span>
       </div>
     );
   }
@@ -53,7 +53,7 @@ export function DuoMembersAvatar({
           user={member}
           className={cn(
             dims.avatar,
-            'border-2 border-[#0A0A0A] shrink-0',
+            'border-2 border-background shrink-0',
             index > 0 ? dims.overlap : ''
           )}
         />

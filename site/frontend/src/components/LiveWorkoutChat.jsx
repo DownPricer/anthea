@@ -83,7 +83,7 @@ export function LiveWorkoutChat({ partnerName, open: controlledOpen, onOpenChang
             className="max-h-28 overflow-y-auto space-y-1.5 py-2"
           >
             {messages.length === 0 ? (
-              <p className="text-zinc-500 text-[11px] text-center py-2">
+              <p className="text-subtle text-[11px] text-center py-2">
                 Envoie un message rapide à ton partenaire
               </p>
             ) : (
@@ -93,10 +93,10 @@ export function LiveWorkoutChat({ partnerName, open: controlledOpen, onOpenChang
                   className={`text-[11px] px-2 py-1 rounded-lg max-w-[85%] ${
                     m.is_mine
                       ? 'ml-auto bg-amber-500/20 text-amber-100'
-                      : 'bg-white/5 text-zinc-300'
+                      : 'bg-hover text-muted'
                   }`}
                 >
-                  <span className="text-zinc-500 text-[9px] block mb-0.5">
+                  <span className="text-subtle text-[9px] block mb-0.5">
                     {m.is_mine ? 'Moi' : m.from_username}
                   </span>
                   {m.message}
@@ -112,7 +112,7 @@ export function LiveWorkoutChat({ partnerName, open: controlledOpen, onOpenChang
                 type="button"
                 onClick={() => sendMessage(`${q.emoji} ${q.text}`.trim())}
                 disabled={sending}
-                className="px-2 py-1 rounded-full text-[10px] bg-white/5 text-zinc-300 hover:bg-white/10"
+                className="px-2 py-1 rounded-full text-[10px] bg-hover text-muted hover:bg-active"
               >
                 {q.emoji} {q.text}
               </button>
@@ -131,13 +131,13 @@ export function LiveWorkoutChat({ partnerName, open: controlledOpen, onOpenChang
               onChange={(e) => setText(e.target.value)}
               placeholder="Message..."
               maxLength={120}
-              className="h-8 text-xs bg-[#0A0A0A] border-white/10 text-white"
+              className="h-8 text-xs bg-background border-border text-foreground"
             />
             <Button
               type="submit"
               size="icon"
               disabled={sending || !text.trim()}
-              className="h-8 w-8 shrink-0 bg-amber-500/80 hover:bg-amber-500 text-white"
+              className="h-8 w-8 shrink-0 bg-amber-500/80 hover:bg-amber-500 text-foreground"
             >
               <Send size={14} />
             </Button>

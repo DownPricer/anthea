@@ -129,25 +129,25 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="w-full bg-[#141414] p-1 rounded-2xl border border-white/10">
+        <TabsList className="w-full bg-surface-elevated p-1 rounded-2xl border border-border">
           <TabsTrigger
             value="overview"
             data-testid="tab-solo-overview"
-            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-foreground"
           >
             {t('duo:overview')}
           </TabsTrigger>
           <TabsTrigger
             value="history"
             data-testid="tab-solo-history"
-            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-foreground"
           >
             {t('duo:history')}
           </TabsTrigger>
           <TabsTrigger
             value="stats"
             data-testid="tab-solo-stats"
-            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-white"
+            className="flex-1 rounded-full data-[state=active]:bg-[var(--theme-primary)] data-[state=active]:text-foreground"
           >
             {t('duo:stats')}
           </TabsTrigger>
@@ -156,49 +156,49 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
         <TabsContent value="overview" className="space-y-6">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.completedWorkouts')}</p>
-              <p className="text-2xl font-bold text-white">{summary?.total_completed ?? 0}</p>
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.completedWorkouts')}</p>
+              <p className="text-2xl font-bold text-foreground">{summary?.total_completed ?? 0}</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.totalTime')}</p>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.totalTime')}</p>
+              <p className="text-2xl font-bold text-foreground">
                 {summary?.total_time != null ? formatDuration(summary.total_time) : '0 min'}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.estimatedCalories')}</p>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.estimatedCalories')}</p>
+              <p className="text-2xl font-bold text-foreground">
                 {formatCalories(summary?.total_calories ?? 0)}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.activeDays')}</p>
-              <p className="text-2xl font-bold text-white">{activeDays}</p>
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.activeDays')}</p>
+              <p className="text-2xl font-bold text-foreground">{activeDays}</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.currentStreak')}</p>
-              <p className="text-2xl font-bold text-white flex items-center gap-1">
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.currentStreak')}</p>
+              <p className="text-2xl font-bold text-foreground flex items-center gap-1">
                 <Flame size={18} className="text-orange-500" fill="currentColor" />
                 {duoStats?.streak ?? 0}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.bestStreak')}</p>
-              <p className="text-2xl font-bold text-white">{bestStreak ?? 0} j</p>
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.bestStreak')}</p>
+              <p className="text-2xl font-bold text-foreground">{bestStreak ?? 0} j</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.completionRate')}</p>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.completionRate')}</p>
+              <p className="text-2xl font-bold text-foreground">
                 {summary?.completion_rate != null ? `${summary.completion_rate}%` : '—'}
               </p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.challengesCompleted')}</p>
-              <p className="text-2xl font-bold text-white">{duoStats?.challenges_completed ?? 0}</p>
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.challengesCompleted')}</p>
+              <p className="text-2xl font-bold text-foreground">{duoStats?.challenges_completed ?? 0}</p>
             </div>
             <div className="card p-4">
-              <p className="text-zinc-500 text-xs uppercase tracking-wide mb-1">{t('duo:solo.badgesUnlocked')}</p>
-              <p className="text-2xl font-bold text-white">
+              <p className="text-subtle text-xs uppercase tracking-wide mb-1">{t('duo:solo.badgesUnlocked')}</p>
+              <p className="text-2xl font-bold text-foreground">
                 {soloBadges.filter((b) => b.unlocked).length}/{soloBadges.length}
               </p>
             </div>
@@ -208,18 +208,18 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             <div className="card p-4 border-[var(--theme-primary)]/30" data-testid="solo-challenge">
               <div className="flex items-center gap-3 mb-2">
                 <Zap className="text-[var(--theme-primary)]" size={18} />
-                <span className="text-white font-medium">{t('duo:weeklyChallenge')}</span>
+                <span className="text-foreground font-medium">{t('duo:weeklyChallenge')}</span>
               </div>
               {(() => {
                 const labels = resolveChallengeLabels(duoStats.current_challenge, t);
                 return (
                   <>
-                    <p className="text-zinc-400 text-sm mb-1">{labels.title}</p>
-                    <p className="text-zinc-500 text-xs mb-3">{labels.description}</p>
+                    <p className="text-muted text-sm mb-1">{labels.title}</p>
+                    <p className="text-subtle text-xs mb-3">{labels.description}</p>
                   </>
                 );
               })()}
-              <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+              <div className="h-2 bg-hover rounded-full overflow-hidden">
                 <div
                   className="h-full bg-[var(--theme-primary)] transition-all"
                   style={{
@@ -230,19 +230,19 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
                   }}
                 />
               </div>
-              <p className="text-zinc-500 text-xs mt-2">
+              <p className="text-subtle text-xs mt-2">
                 {t('challenges:ui.progress')}: {duoStats.current_challenge.current}/{duoStats.current_challenge.target}
               </p>
             </div>
           )}
 
           <div>
-            <h2 className="text-sm font-medium text-zinc-400 uppercase tracking-wider mb-4">
+            <h2 className="text-sm font-medium text-muted uppercase tracking-wider mb-4">
               {t('duo:recentActivity')}
             </h2>
             {recentSessions.length === 0 ? (
               <div className="card p-6 text-center">
-                <p className="text-zinc-500">{t('duo:emptyStates.noSessionYet')}</p>
+                <p className="text-subtle">{t('duo:emptyStates.noSessionYet')}</p>
               </div>
             ) : (
               <div className="space-y-2">
@@ -277,8 +277,8 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             </div>
           ) : historySessions.length === 0 ? (
             <div className="card p-8 text-center">
-              <History className="mx-auto text-zinc-500 mb-3" size={28} />
-              <p className="text-zinc-500">{t('duo:emptyStates.history')}</p>
+              <History className="mx-auto text-subtle mb-3" size={28} />
+              <p className="text-subtle">{t('duo:emptyStates.history')}</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
@@ -310,8 +310,8 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
           <div className="mt-6 card p-4 min-w-0 overflow-hidden">
             <div className="flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-white font-medium">{t('duo:solo.myBadges')}</p>
-                <p className="text-zinc-500 text-xs">
+                <p className="text-foreground font-medium">{t('duo:solo.myBadges')}</p>
+                <p className="text-subtle text-xs">
                   {t('duo:solo.badgesUnlockedCount', {
                     unlocked: soloBadges.filter((b) => b.unlocked).length,
                     total: soloBadges.length || 50,
@@ -322,7 +322,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
                 asChild
                 size="sm"
                 variant="outline"
-                className="rounded-full border-white/15 text-white shrink-0"
+                className="rounded-full border-border text-foreground shrink-0"
                 data-testid="solo-stats-open-badges"
               >
                 <Link to="/badges?scope=solo">{t('duo:solo.showBadges')}</Link>
@@ -341,7 +341,7 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
                       size={40}
                       className="mx-auto shrink-0 size-10"
                     />
-                    <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-zinc-400">
+                    <p className="mt-1 min-w-0 line-clamp-2 break-words text-[10px] text-muted">
                       {badgeName}
                     </p>
                   </div>
@@ -362,17 +362,17 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
         </TabsContent>
       </Tabs>
 
-      <div className="mt-8 card p-5 border border-white/5">
+      <div className="mt-8 card p-5 border border-border">
         <div className="flex items-start gap-4">
           <div className="w-12 h-12 rounded-full bg-[var(--theme-surface-active)] flex items-center justify-center shrink-0">
             <UserPlus className="text-[var(--theme-primary)]" size={22} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-white font-medium">{t('duo:solo.inviteTitle')}</p>
-            <p className="text-zinc-500 text-sm mt-1">
+            <p className="text-foreground font-medium">{t('duo:solo.inviteTitle')}</p>
+            <p className="text-subtle text-sm mt-1">
               {t('duo:solo.inviteHint')}
             </p>
-            <Button asChild variant="outline" className="mt-3 rounded-xl border-white/15 text-white">
+            <Button asChild variant="outline" className="mt-3 rounded-xl border-border text-foreground">
               <Link to="/profile">{t('duo:solo.inviteCta')}</Link>
             </Button>
           </div>

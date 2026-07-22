@@ -122,7 +122,7 @@ export function LiveWorkoutReactions({ sessionId, enabled = true }) {
 
       {open ? (
         <div
-          className="flex items-center gap-1.5 rounded-full border border-white/10 bg-zinc-900/90 p-1.5 shadow-lg backdrop-blur"
+          className="flex items-center gap-1.5 rounded-full border border-border bg-surface-elevated/90 p-1.5 shadow-lg backdrop-blur"
           role="dialog"
           aria-label={t('reactions.cheer')}
         >
@@ -132,7 +132,7 @@ export function LiveWorkoutReactions({ sessionId, enabled = true }) {
               type="button"
               onClick={() => sendReaction(emoji)}
               aria-label={t(labelKey)}
-              className="flex size-10 items-center justify-center rounded-full text-lg transition-colors hover:bg-white/10 active:scale-95"
+              className="flex size-10 items-center justify-center rounded-full text-lg transition-colors hover:bg-active active:scale-95"
             >
               {emoji}
             </button>
@@ -141,7 +141,7 @@ export function LiveWorkoutReactions({ sessionId, enabled = true }) {
             type="button"
             onClick={() => setOpen(false)}
             aria-label={t('reactions.close')}
-            className="flex size-9 items-center justify-center rounded-full border border-white/10 bg-white/5 text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+            className="flex size-9 items-center justify-center rounded-full border border-border bg-hover text-muted transition-colors hover:bg-active hover:text-foreground"
           >
             <X size={16} />
           </button>
@@ -152,7 +152,7 @@ export function LiveWorkoutReactions({ sessionId, enabled = true }) {
           onClick={() => setOpen(true)}
           aria-label={t('reactions.open')}
           data-testid="live-reactions-fab"
-          className="flex size-11 items-center justify-center rounded-full border border-white/10 bg-zinc-900/90 text-lg shadow-lg backdrop-blur transition-colors hover:bg-zinc-800/95"
+          className="flex size-11 items-center justify-center rounded-full border border-border bg-surface-elevated/90 text-lg shadow-lg backdrop-blur transition-colors hover:bg-surface-subtle/95"
         >
           🔥
         </button>

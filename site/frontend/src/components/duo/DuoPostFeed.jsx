@@ -188,7 +188,7 @@ export function DuoPostFeed({ duoProfile, viewer }) {
 
       {!canViewPublic && isMember ? (
 
-        <p className="text-zinc-500 text-xs text-center">
+        <p className="text-subtle text-xs text-center">
 
           Mur visible pour les membres — active « Afficher le mur duo » pour le rendre public.
 

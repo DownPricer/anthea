@@ -171,11 +171,11 @@ export function DuoProfileStatsTab({
 
           {stats.last_common_session ? (
 
-            <div className="card p-4 border-white/10">
+            <div className="card p-4 border-border">
 
-              <p className="text-zinc-500 text-xs uppercase tracking-wider mb-1">{t('duo:profileStats.lastCommonSession')}</p>
+              <p className="text-subtle text-xs uppercase tracking-wider mb-1">{t('duo:profileStats.lastCommonSession')}</p>
 
-              <p className="text-white text-sm font-medium">
+              <p className="text-foreground text-sm font-medium">
 
                 {stats.last_common_session.date
 
@@ -185,7 +185,7 @@ export function DuoProfileStatsTab({
 
               </p>
 
-              <p className="text-zinc-400 text-xs mt-1">
+              <p className="text-muted text-xs mt-1">
 
                 {stats.last_common_session.title_a} · {stats.last_common_session.title_b}
 
@@ -215,11 +215,11 @@ export function DuoProfileStatsTab({
 
         <div className="card p-4 border-[var(--theme-primary)]/20">
 
-          <p className="text-white font-medium mb-1">{t('duo:weeklyChallenge')}</p>
+          <p className="text-foreground font-medium mb-1">{t('duo:weeklyChallenge')}</p>
 
-          <p className="text-zinc-400 text-sm mb-3">{resolveChallengeLabels(stats.current_challenge, t).title}</p>
+          <p className="text-muted text-sm mb-3">{resolveChallengeLabels(stats.current_challenge, t).title}</p>
 
-          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+          <div className="h-2 bg-hover rounded-full overflow-hidden">
 
             <div
 
@@ -245,7 +245,7 @@ export function DuoProfileStatsTab({
 
           </div>
 
-          <p className="text-zinc-500 text-xs mt-2">
+          <p className="text-subtle text-xs mt-2">
 
             {stats.current_challenge.current}/{stats.current_challenge.target}
 
@@ -273,7 +273,7 @@ export function DuoProfileStatsTab({
 
             <div className="flex items-center justify-between mb-3">
 
-              <h3 className="text-sm font-medium text-zinc-400 uppercase tracking-wider">{t('duo:profileStats.allDuoBadges')}</h3>
+              <h3 className="text-sm font-medium text-muted uppercase tracking-wider">{t('duo:profileStats.allDuoBadges')}</h3>
 
               <button
 
@@ -375,9 +375,9 @@ function StatCard({ icon: Icon, label, value, isText = false }) {
 
       <Icon className="mx-auto text-[var(--theme-primary)] mb-2" size={18} />
 
-      <p className={`font-bold text-white ${isText ? 'text-base' : 'text-2xl'}`}>{value}</p>
+      <p className={`font-bold text-foreground ${isText ? 'text-base' : 'text-2xl'}`}>{value}</p>
 
-      <p className="text-zinc-500 text-[10px] uppercase tracking-wider mt-1">{label}</p>
+      <p className="text-subtle text-[10px] uppercase tracking-wider mt-1">{label}</p>
 
     </div>
 

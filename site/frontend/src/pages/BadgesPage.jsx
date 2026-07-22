@@ -65,7 +65,7 @@ export function BadgesPage() {
           <button
             type="button"
             onClick={() => navigate(-1)}
-            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/5 text-zinc-400 hover:text-white"
+            className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-hover text-muted hover:text-foreground"
             aria-label={t('common:aria.back')}
           >
             <ChevronLeft size={20} />
@@ -79,8 +79,8 @@ export function BadgesPage() {
           to="/badges?scope=solo"
           className={`px-3 py-1.5 rounded-lg text-xs border ${
             scope === 'solo'
-              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
-              : 'border-white/10 text-zinc-500'
+              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
+              : 'border-border text-subtle'
           }`}
         >
           {t('badges:scope.solo')}
@@ -90,8 +90,8 @@ export function BadgesPage() {
             to="/badges?scope=duo"
             className={`px-3 py-1.5 rounded-lg text-xs border ${
               scope === 'duo'
-                ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-white'
-                : 'border-white/10 text-zinc-500'
+                ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
+                : 'border-border text-subtle'
             }`}
           >
             {t('badges:scope.duo')}

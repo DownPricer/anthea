@@ -647,23 +647,23 @@ export function WorkoutPlayerPage() {
 
   const timeAdjustDialog = (
     <Dialog open={showTimeAdjust} onOpenChange={setShowTimeAdjust}>
-      <DialogContent className="bg-[#141414] border-white/10 max-w-sm">
+      <DialogContent className="bg-surface-elevated border-border max-w-sm">
         <DialogHeader>
-          <DialogTitle className="text-white">{t('player:timeAdjust.title')}</DialogTitle>
-          <DialogDescription className="text-zinc-500 text-sm">
+          <DialogTitle className="text-foreground">{t('player:timeAdjust.title')}</DialogTitle>
+          <DialogDescription className="text-subtle text-sm">
             {t('player:timeAdjust.description')}
           </DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div>
-            <p className="text-zinc-400 text-xs mb-2">{t('player:timeAdjust.totalTime')}</p>
+            <p className="text-muted text-xs mb-2">{t('player:timeAdjust.totalTime')}</p>
             <div className="flex gap-2">
               <Input
                 type="number"
                 min={0}
                 value={adjustTotalMin}
                 onChange={(e) => setAdjustTotalMin(e.target.value)}
-                className="bg-[#0A0A0A] border-white/10 text-white"
+                className="bg-background border-border text-foreground"
                 placeholder={t('player:timeAdjust.min')}
               />
               <Input
@@ -672,20 +672,20 @@ export function WorkoutPlayerPage() {
                 max={59}
                 value={adjustTotalSec}
                 onChange={(e) => setAdjustTotalSec(e.target.value)}
-                className="bg-[#0A0A0A] border-white/10 text-white"
+                className="bg-background border-border text-foreground"
                 placeholder={t('player:timeAdjust.sec')}
               />
             </div>
           </div>
           <div>
-            <p className="text-zinc-400 text-xs mb-2">{t('player:timeAdjust.pauseTime')}</p>
+            <p className="text-muted text-xs mb-2">{t('player:timeAdjust.pauseTime')}</p>
             <div className="flex gap-2">
               <Input
                 type="number"
                 min={0}
                 value={adjustPauseMin}
                 onChange={(e) => setAdjustPauseMin(e.target.value)}
-                className="bg-[#0A0A0A] border-white/10 text-white"
+                className="bg-background border-border text-foreground"
                 placeholder={t('player:timeAdjust.min')}
               />
               <Input
@@ -694,12 +694,12 @@ export function WorkoutPlayerPage() {
                 max={59}
                 value={adjustPauseSec}
                 onChange={(e) => setAdjustPauseSec(e.target.value)}
-                className="bg-[#0A0A0A] border-white/10 text-white"
+                className="bg-background border-border text-foreground"
                 placeholder={t('player:timeAdjust.sec')}
               />
             </div>
           </div>
-          <Button onClick={applyTimeAdjust} className="w-full btn-primary text-white">
+          <Button onClick={applyTimeAdjust} className="w-full btn-primary text-foreground">
             {t('player:timeAdjust.apply')}
           </Button>
         </div>
@@ -733,7 +733,7 @@ export function WorkoutPlayerPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0A0A0A]">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
       </div>
     );
@@ -742,49 +742,49 @@ export function WorkoutPlayerPage() {
   // Feedback screen
   if (showFeedback) {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] p-5 animate-fade-in">
+      <div className="min-h-screen bg-background p-5 animate-fade-in">
         <div className="max-w-md mx-auto space-y-6">
           {/* Summary */}
           <div className="text-center py-8">
             <div className="w-20 h-20 mx-auto rounded-full bg-[var(--theme-surface-active)] flex items-center justify-center mb-4">
               <Trophy className="text-[var(--theme-primary)]" size={36} />
             </div>
-            <h1 className="text-2xl font-bold text-white font-['Outfit']">
+            <h1 className="text-2xl font-bold text-foreground font-['Outfit']">
               {exercisesCompleted >= totalExercises ? t('player:feedback.congrats') : t('player:feedback.completed')}
             </h1>
-            <p className="text-zinc-500 mt-2">{workout?.title}</p>
+            <p className="text-subtle mt-2">{workout?.title}</p>
           </div>
 
           {/* Stats */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="card p-4 text-center" {...secretTimeProps}>
-              <p className="text-2xl font-bold text-white font-mono">{formatTime(totalTime)}</p>
-              <p className="text-zinc-500 text-xs mt-1">{t('player:totalTimeLabel')}</p>
+              <p className="text-2xl font-bold text-foreground font-mono">{formatTime(totalTime)}</p>
+              <p className="text-subtle text-xs mt-1">{t('player:totalTimeLabel')}</p>
             </div>
             <div className="card p-4 text-center">
-              <p className="text-2xl font-bold text-white">{completedCount}</p>
-              <p className="text-zinc-500 text-xs mt-1">
+              <p className="text-2xl font-bold text-foreground">{completedCount}</p>
+              <p className="text-subtle text-xs mt-1">
                 {skippedCount > 0
                   ? t('player:feedback.exercisesDoneWithSkipped', { skipped: skippedCount })
                   : t('player:feedback.exercisesDone')}
               </p>
             </div>
             <div className="card p-4 text-center">
-              <p className="text-2xl font-bold text-white font-mono">{formatTime(pauseTime)}</p>
-              <p className="text-zinc-500 text-xs mt-1">{t('player:pauses')}</p>
+              <p className="text-2xl font-bold text-foreground font-mono">{formatTime(pauseTime)}</p>
+              <p className="text-subtle text-xs mt-1">{t('player:pauses')}</p>
             </div>
             <div className="card p-4 text-center">
               <p className="text-2xl font-bold text-orange-400">
                 {formatCalories(estimateCalories(totalTime, difficultyFelt))}
               </p>
-              <p className="text-zinc-500 text-xs mt-1">{t('player:feedback.caloriesApprox')}</p>
+              <p className="text-subtle text-xs mt-1">{t('player:feedback.caloriesApprox')}</p>
             </div>
           </div>
 
           {/* Feedback form */}
           <div className="card p-5 space-y-6">
             <div>
-              <label className="text-zinc-400 text-sm block mb-3">
+              <label className="text-muted text-sm block mb-3">
                 {t('player:feedback.fatigueBefore', { value: fatigueBefore })}
               </label>
               <Slider
@@ -797,7 +797,7 @@ export function WorkoutPlayerPage() {
             </div>
 
             <div>
-              <label className="text-zinc-400 text-sm block mb-3">
+              <label className="text-muted text-sm block mb-3">
                 {t('player:feedback.fatigueAfter', { value: fatigueAfter })}
               </label>
               <Slider
@@ -810,7 +810,7 @@ export function WorkoutPlayerPage() {
             </div>
 
             <div>
-              <label className="text-zinc-400 text-sm block mb-3">
+              <label className="text-muted text-sm block mb-3">
                 {t('player:feedback.difficultyFelt', { value: difficultyFelt })}
               </label>
               <Slider
@@ -823,12 +823,12 @@ export function WorkoutPlayerPage() {
             </div>
 
             <div>
-              <label className="text-zinc-400 text-sm block mb-2">{t('player:feedback.notesOptional')}</label>
+              <label className="text-muted text-sm block mb-2">{t('player:feedback.notesOptional')}</label>
               <Textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder={t('player:feedback.notesPlaceholder')}
-                className="rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+                className="rounded-xl bg-background border-border text-foreground"
               />
             </div>
           </div>
@@ -839,7 +839,7 @@ export function WorkoutPlayerPage() {
               onClick={() => saveFeedback(exercisesCompleted >= totalExercises ? 'completed' : 'abandoned')}
               disabled={saving}
               data-testid="save-session-btn"
-              className="w-full h-14 rounded-xl font-bold text-white btn-primary"
+              className="w-full h-14 rounded-xl font-bold text-foreground btn-primary"
             >
               {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : t('player:save')}
             </Button>
@@ -850,7 +850,7 @@ export function WorkoutPlayerPage() {
                 navigate('/workouts');
               }}
               variant="outline"
-              className="w-full h-12 rounded-xl bg-white/5 border-white/10 text-white"
+              className="w-full h-12 rounded-xl bg-hover border-border text-foreground"
             >
               {t('player:feedback.exitWithoutSaving')}
             </Button>
@@ -874,10 +874,10 @@ export function WorkoutPlayerPage() {
   // Preparation screen with resume option
   if (phase === 'preparation') {
     return (
-      <div className="min-h-screen bg-[#0A0A0A] flex flex-col items-center justify-center p-5 animate-fade-in">
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-5 animate-fade-in">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-white font-['Outfit'] mb-2">{workout?.title}</h1>
-          <p className="text-zinc-500">{t('player:exerciseCount', { count: totalExercises })}</p>
+          <h1 className="text-2xl font-bold text-foreground font-['Outfit'] mb-2">{workout?.title}</h1>
+          <p className="text-subtle">{t('player:exerciseCount', { count: totalExercises })}</p>
         </div>
 
         {/* Resume from saved progress */}
@@ -885,22 +885,22 @@ export function WorkoutPlayerPage() {
           <div className="card p-5 w-full max-w-sm mb-6 border-[var(--theme-primary)]/30">
             <div className="flex items-center gap-3 mb-3">
               <RotateCcw className="text-[var(--theme-primary)]" size={20} />
-              <span className="text-white font-medium">{t('player:prep.savedProgress')}</span>
+              <span className="text-foreground font-medium">{t('player:prep.savedProgress')}</span>
             </div>
-            <p className="text-zinc-400 text-sm mb-4">
+            <p className="text-muted text-sm mb-4">
               {savedProgress.exercises_completed}/{totalExercises} exercices • {formatTime(savedProgress.time_elapsed)}
             </p>
             <div className="flex gap-3">
               <Button
                 onClick={resumeFromProgress}
-                className="flex-1 bg-[var(--theme-primary)] text-white"
+                className="flex-1 bg-[var(--theme-primary)] text-foreground"
               >
                 {t('player:resume')}
               </Button>
               <Button
                 onClick={startFresh}
                 variant="outline"
-                className="flex-1 border-white/10 text-white"
+                className="flex-1 border-border text-foreground"
               >
                 {t('player:restart')}
               </Button>
@@ -912,7 +912,7 @@ export function WorkoutPlayerPage() {
         {currentExercise && !savedProgress && (
           <div className="card p-6 w-full max-w-sm mb-8">
             {currentExercise.image_url && (
-              <div className="w-full h-32 rounded-xl overflow-hidden mb-4 bg-white/5">
+              <div className="w-full h-32 rounded-xl overflow-hidden mb-4 bg-hover">
                 <img 
                   src={currentExercise.image_url} 
                   alt={currentExercise.name}
@@ -921,15 +921,15 @@ export function WorkoutPlayerPage() {
                 />
               </div>
             )}
-            <p className="text-zinc-500 text-sm uppercase tracking-wider mb-2">{t('player:firstExercise')}</p>
-            <h2 className="text-xl font-bold text-white">{currentExercise.name}</h2>
+            <p className="text-subtle text-sm uppercase tracking-wider mb-2">{t('player:firstExercise')}</p>
+            <h2 className="text-xl font-bold text-foreground">{currentExercise.name}</h2>
             {currentExercise.description && (
-              <p className="text-zinc-400 text-sm mt-1">{currentExercise.description}</p>
+              <p className="text-muted text-sm mt-1">{currentExercise.description}</p>
             )}
             {currentExercise.exercise_type === 'duration' ? (
-              <p className="text-zinc-400 mt-2">{currentExercise.duration}s</p>
+              <p className="text-muted mt-2">{currentExercise.duration}s</p>
             ) : (
-              <p className="text-zinc-400 mt-2">{t('player:repsCount', { count: currentExercise.reps })}</p>
+              <p className="text-muted mt-2">{t('player:repsCount', { count: currentExercise.reps })}</p>
             )}
           </div>
         )}
@@ -938,7 +938,7 @@ export function WorkoutPlayerPage() {
           <Button
             onClick={startWorkout}
             data-testid="start-session-btn"
-            className="w-full max-w-sm h-16 rounded-xl font-bold text-xl text-white btn-primary"
+            className="w-full max-w-sm h-16 rounded-xl font-bold text-xl text-foreground btn-primary"
           >
             <Play size={24} className="mr-2" fill="currentColor" />
             {t('player:start')}
@@ -947,7 +947,7 @@ export function WorkoutPlayerPage() {
 
         <button
           onClick={() => navigate(-1)}
-          className="mt-6 text-zinc-500 hover:text-white transition-colors"
+          className="mt-6 text-subtle hover:text-foreground transition-colors"
         >
           {t('player:cancel')}
         </button>
@@ -980,8 +980,8 @@ export function WorkoutPlayerPage() {
     <div className="space-y-4">
       {nextExercise && (
         <div className="card p-4">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">{t('player:next')}</p>
-          <p className="text-white font-semibold">{nextExercise.name}</p>
+          <p className="text-subtle text-xs uppercase tracking-wider mb-2">{t('player:next')}</p>
+          <p className="text-foreground font-semibold">{nextExercise.name}</p>
         </div>
       )}
     </div>
@@ -990,15 +990,15 @@ export function WorkoutPlayerPage() {
   // Main player UI
   return (
     <div
-      className={`min-h-[100dvh] bg-[#0A0A0A] flex flex-col transition-shadow ${
+      className={`min-h-[100dvh] bg-background flex flex-col transition-shadow ${
         duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
       }`}
     >
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
-        <DialogContent className="bg-[#141414] border-white/10 max-w-sm mx-4">
+        <DialogContent className="bg-surface-elevated border-border max-w-sm mx-4">
           <DialogHeader>
-            <DialogTitle className="text-white text-center">{t('player:stopConfirm.title')}</DialogTitle>
-            <DialogDescription className="text-zinc-400 text-center pt-2">
+            <DialogTitle className="text-foreground text-center">{t('player:stopConfirm.title')}</DialogTitle>
+            <DialogDescription className="text-muted text-center pt-2">
               {skippedCount > 0
                 ? t('player:stopConfirm.descriptionWithSkipped', {
                     completed: completedCount,
@@ -1016,7 +1016,7 @@ export function WorkoutPlayerPage() {
           <div className="space-y-3 pt-4">
             <Button
               onClick={handleResumeLater}
-              className="w-full h-14 rounded-xl bg-[var(--theme-primary)] text-white font-medium"
+              className="w-full h-14 rounded-xl bg-[var(--theme-primary)] text-foreground font-medium"
             >
               <Save size={18} className="mr-2" />
               {t('player:resumeLater')}
@@ -1031,7 +1031,7 @@ export function WorkoutPlayerPage() {
             <Button
               onClick={handleCancelStop}
               variant="outline"
-              className="w-full h-12 rounded-xl bg-white/5 border-white/10 text-white"
+              className="w-full h-12 rounded-xl bg-hover border-border text-foreground"
             >
               {t('player:cancel')}
             </Button>
@@ -1039,7 +1039,7 @@ export function WorkoutPlayerPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="h-1 bg-[#141414] shrink-0" data-testid="partner-progress-bar">
+      <div className="h-1 bg-surface-elevated shrink-0" data-testid="partner-progress-bar">
         <div
           className={`h-full transition-[width] duration-300 ${topBarColor}`}
           style={{ width: `${topBarWidth}%` }}
@@ -1058,7 +1058,7 @@ export function WorkoutPlayerPage() {
       )}
 
       {duoLive && (
-        <div className="h-1 bg-[#141414] shrink-0" data-testid="my-progress-bar">
+        <div className="h-1 bg-surface-elevated shrink-0" data-testid="my-progress-bar">
           <div
             className="h-full bg-[var(--theme-primary)] transition-[width] duration-300"
             style={{ width: `${myBarWidth}%` }}
@@ -1066,20 +1066,20 @@ export function WorkoutPlayerPage() {
         </div>
       )}
 
-      <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-white/5 px-4">
+      <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-border px-4">
         <button
           type="button"
           onClick={handleStopClick}
           data-testid="stop-workout-btn"
-          className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg text-white transition-colors hover:bg-white/10"
+          className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-active"
           aria-label={t('player:aria.stopSession')}
         >
           <X size={22} />
         </button>
 
         <div className="min-w-0 max-w-[55%] text-center">
-          <p className="truncate text-sm text-zinc-400">{workout?.title}</p>
-          <p className="text-xs text-zinc-500 tabular-nums">
+          <p className="truncate text-sm text-muted">{workout?.title}</p>
+          <p className="text-xs text-subtle tabular-nums">
             {Math.min(currentExerciseIndex + 1, totalExercises)}/{totalExercises}
           </p>
         </div>
@@ -1088,23 +1088,23 @@ export function WorkoutPlayerPage() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="absolute right-4 flex h-10 items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-3 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+              className="absolute right-4 flex h-10 items-center gap-1.5 rounded-full border border-border bg-hover px-3 text-xs font-medium text-muted transition-colors hover:bg-active hover:text-foreground"
             >
               <MoreHorizontal size={16} />
               <span className="hidden sm:inline">{t('player:options')}</span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="bg-[#141414] border-white/10 w-52">
+          <DropdownMenuContent align="end" className="bg-surface-elevated border-border w-52">
             <DropdownMenuItem
               onClick={() => setMusicMode(!musicMode)}
-              className="text-white focus:bg-white/10 cursor-pointer"
+              className="text-foreground focus:bg-active cursor-pointer"
             >
               <Music size={16} className="mr-2" />
               {musicMode ? t('player:musicMode.disable') : t('player:musicMode.enable')}
             </DropdownMenuItem>
             <DropdownMenuItem
               onClick={() => setTtsEnabled(!ttsEnabled)}
-              className="text-white focus:bg-white/10 cursor-pointer"
+              className="text-foreground focus:bg-active cursor-pointer"
             >
               {ttsEnabled && !musicMode ? (
                 <Volume2 size={16} className="mr-2" />
@@ -1115,8 +1115,8 @@ export function WorkoutPlayerPage() {
             </DropdownMenuItem>
             {wakeLockSupported && (
               <>
-                <DropdownMenuSeparator className="bg-white/10" />
-                <DropdownMenuItem disabled className="text-zinc-500 text-xs">
+                <DropdownMenuSeparator className="bg-active" />
+                <DropdownMenuItem disabled className="text-subtle text-xs">
                   {wakeLockActive
                     ? t('player:wakeLock.active')
                     : wakeLockError && sessionIsActive
@@ -1133,7 +1133,7 @@ export function WorkoutPlayerPage() {
         <div className="flex flex-1 w-full items-center justify-center px-4 py-4 md:px-8 md:py-8">
           <div className="flex w-full max-w-2xl flex-col items-center gap-6 text-center">
               {currentExercise?.image_url && phase === 'exercise' && (
-                <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white/5 aspect-video">
+                <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-hover aspect-video">
                   <img
                     src={currentExercise.image_url}
                     alt={currentExercise.name}
@@ -1153,16 +1153,16 @@ export function WorkoutPlayerPage() {
                 )}
                 {phase === 'exercise' && currentExercise && (
                   <>
-                    <h1 className="text-3xl font-bold text-white font-['Outfit'] md:text-5xl">
+                    <h1 className="text-3xl font-bold text-foreground font-['Outfit'] md:text-5xl">
                       {currentExercise.name}
                     </h1>
                     {currentExercise.description && (
-                      <p className="text-zinc-400">{currentExercise.description}</p>
+                      <p className="text-muted">{currentExercise.description}</p>
                     )}
                   </>
                 )}
                 {phase === 'countdown' && currentExercise && (
-                  <h1 className="text-2xl font-bold text-white font-['Outfit'] md:text-3xl">
+                  <h1 className="text-2xl font-bold text-foreground font-['Outfit'] md:text-3xl">
                     {currentExercise.name}
                   </h1>
                 )}
@@ -1176,7 +1176,7 @@ export function WorkoutPlayerPage() {
                 )}
                 {phase === 'rest' && (
                   <div
-                    className="text-7xl font-mono font-bold leading-none tracking-tighter text-white sm:text-8xl md:text-9xl"
+                    className="text-7xl font-mono font-bold leading-none tracking-tighter text-foreground sm:text-8xl md:text-9xl"
                     style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
                   >
                     {formatTime(timeRemaining)}
@@ -1184,7 +1184,7 @@ export function WorkoutPlayerPage() {
                 )}
                 {phase === 'exercise' && currentExercise?.exercise_type === 'duration' && (
                   <div
-                    className="text-7xl font-mono font-bold leading-none tracking-tighter text-white sm:text-8xl md:text-9xl"
+                    className="text-7xl font-mono font-bold leading-none tracking-tighter text-foreground sm:text-8xl md:text-9xl"
                     style={{ textShadow: '0 0 30px var(--theme-primary-glow)' }}
                   >
                     {formatTime(timeRemaining)}
@@ -1193,12 +1193,12 @@ export function WorkoutPlayerPage() {
                 {phase === 'exercise' && currentExercise?.exercise_type !== 'duration' && (
                   <>
                     <div
-                      className="text-7xl font-bold leading-none text-white font-['Outfit'] sm:text-8xl md:text-9xl"
+                      className="text-7xl font-bold leading-none text-foreground font-['Outfit'] sm:text-8xl md:text-9xl"
                       style={{ textShadow: '0 0 28px var(--theme-primary-glow)' }}
                     >
                       {currentExercise?.reps ?? '—'}
                     </div>
-                    <p className="mt-3 text-lg text-zinc-400">{t('player:repsToDo')}</p>
+                    <p className="mt-3 text-lg text-muted">{t('player:repsToDo')}</p>
                   </>
                 )}
               </div>
@@ -1207,7 +1207,7 @@ export function WorkoutPlayerPage() {
                 <Button
                   type="button"
                   onClick={completeCurrentExercise}
-                  className="h-16 w-full max-w-md rounded-2xl text-lg font-bold text-white btn-primary"
+                  className="h-16 w-full max-w-md rounded-2xl text-lg font-bold text-foreground btn-primary"
                 >
                   {t('player:exerciseDone')}
                 </Button>
@@ -1218,7 +1218,7 @@ export function WorkoutPlayerPage() {
                   <button
                     type="button"
                     onClick={() => setIsPaused(!isPaused)}
-                    className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="h-12 rounded-full border border-border bg-hover px-4 text-sm font-medium text-muted transition-colors hover:bg-active hover:text-foreground"
                   >
                     {isPaused ? t('player:resume') : t('player:pause')}
                   </button>
@@ -1227,7 +1227,7 @@ export function WorkoutPlayerPage() {
                     type="button"
                     onClick={() => setIsPaused(!isPaused)}
                     data-testid="pause-btn"
-                    className="flex h-14 w-14 items-center justify-center rounded-full text-white animate-pulse-glow"
+                    className="flex h-14 w-14 items-center justify-center rounded-full text-foreground animate-pulse-glow"
                     style={{
                       background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
                     }}
@@ -1240,7 +1240,7 @@ export function WorkoutPlayerPage() {
                     type="button"
                     onClick={phase === 'rest' ? skipRest : skipCurrentExercise}
                     data-testid={phase === 'rest' ? 'skip-rest-btn' : 'skip-exercise-btn'}
-                    className="h-12 rounded-full border border-white/10 bg-white/5 px-4 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/10 hover:text-white"
+                    className="h-12 rounded-full border border-border bg-hover px-4 text-sm font-medium text-muted transition-colors hover:bg-active hover:text-foreground"
                   >
                     {phase === 'rest' ? t('player:skipRest') : t('player:skipExercise')}
                   </button>
@@ -1250,7 +1250,7 @@ export function WorkoutPlayerPage() {
                   <button
                     type="button"
                     onClick={() => addTime(15)}
-                    className="flex items-center gap-1.5 text-sm text-zinc-500 transition-colors hover:text-zinc-300"
+                    className="flex items-center gap-1.5 text-sm text-subtle transition-colors hover:text-muted"
                   >
                     <Plus size={14} />
                     {t('player:add15')}
@@ -1269,7 +1269,7 @@ export function WorkoutPlayerPage() {
                   <span className="text-sm font-medium">{t('player:stopSession')}</span>
                 </button>
 
-                <p className="text-sm text-zinc-500 tabular-nums" {...secretTimeProps}>
+                <p className="text-sm text-subtle tabular-nums" {...secretTimeProps}>
                   {t('player:totalTimeWithPause', {
                     total: formatTime(totalTime),
                     pause:

@@ -12,7 +12,7 @@ export function DuoAvatar({ duoProfile, members, className = 'w-14 h-14', textSi
       <img
         src={customUrl}
         alt=""
-        className={cn('rounded-full object-cover border-2 border-[#0A0A0A]', className)}
+        className={cn('rounded-full object-cover border-2 border-background', className)}
       />
     );
   }
@@ -23,14 +23,14 @@ export function DuoAvatar({ duoProfile, members, className = 'w-14 h-14', textSi
 
   if (!memberA && !memberB) {
     return (
-      <div className={cn('rounded-full bg-white/10 border-2 border-[#0A0A0A] flex items-center justify-center', className)}>
-        <span className="text-zinc-500 text-xs">Duo</span>
+      <div className={cn('rounded-full bg-active border-2 border-background flex items-center justify-center', className)}>
+        <span className="text-subtle text-xs">Duo</span>
       </div>
     );
   }
 
   return (
-    <div className={cn('relative rounded-full overflow-hidden border-2 border-[#0A0A0A] shrink-0', className)}>
+    <div className={cn('relative rounded-full overflow-hidden border-2 border-background shrink-0', className)}>
       <div className="absolute inset-0 flex">
         <DuoHalf user={memberA} textSize={textSize} side="left" />
         <DuoHalf user={memberB} textSize={textSize} side="right" />
@@ -54,7 +54,7 @@ function DuoHalf({ user, textSize, side }) {
         />
       ) : (
         <div
-          className={`w-full h-full flex items-center justify-center text-white font-bold ${textSize}`}
+          className={`w-full h-full flex items-center justify-center text-foreground font-bold ${textSize}`}
           style={fallbackStyle}
         >
           {initial}

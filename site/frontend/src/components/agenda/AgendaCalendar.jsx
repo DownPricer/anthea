@@ -67,7 +67,7 @@ export function AgendaCalendar({
       {streak > 0 && (
         <div className="flex items-center justify-center gap-0.5 mb-3 py-2 px-3 rounded-2xl bg-orange-500/8 border border-orange-500/15">
           <Flame size={14} className="text-orange-400/90" fill="currentColor" />
-          <span className="text-zinc-400 text-xs ml-1.5 tabular-nums">
+          <span className="text-muted text-xs ml-1.5 tabular-nums">
             Streak <strong className="text-orange-300/90 font-semibold">{streak}</strong> j.
           </span>
         </div>
@@ -86,26 +86,26 @@ export function AgendaCalendar({
         classNames={{
           months: 'flex flex-col w-full',
           month: 'space-y-3 w-full',
-          caption: 'flex justify-center pt-1 relative items-center text-white mb-1',
+          caption: 'flex justify-center pt-1 relative items-center text-foreground mb-1',
           caption_label: 'text-sm font-semibold font-[\'Outfit\'] capitalize',
           nav: 'flex items-center',
           nav_button:
-            'h-9 w-9 rounded-full border border-white/10 bg-white/5 text-zinc-300 hover:bg-white/10 hover:text-white inline-flex items-center justify-center transition-colors',
+            'h-9 w-9 rounded-full border border-border bg-hover text-muted hover:bg-active hover:text-foreground inline-flex items-center justify-center transition-colors',
           nav_button_previous: 'absolute left-0',
           nav_button_next: 'absolute right-0',
           table: 'w-full border-collapse',
           head_row: 'flex justify-around',
-          head_cell: 'text-zinc-500 w-11 font-medium text-[0.65rem] uppercase tracking-wide',
+          head_cell: 'text-subtle w-11 font-medium text-[0.65rem] uppercase tracking-wide',
           row: 'flex w-full justify-around mt-1.5',
           cell: 'relative p-0.5 text-center',
           day: cn(
-            'relative h-11 w-11 mx-auto rounded-xl p-0 font-medium text-white',
-            'hover:bg-white/10 transition-all hover:scale-105 active:scale-95'
+            'relative h-11 w-11 mx-auto rounded-xl p-0 font-medium text-foreground',
+            'hover:bg-active transition-all hover:scale-105 active:scale-95'
           ),
-          day_selected: '!ring-2 !ring-white/80 !scale-105 z-10',
+          day_selected: '!ring-2 !ring-foreground/80 !scale-105 z-10',
           day_today: '!ring-1 !ring-[var(--theme-primary)]',
-          day_outside: 'text-zinc-600 opacity-35',
-          day_disabled: 'text-zinc-700 opacity-30',
+          day_outside: 'text-subtle opacity-35',
+          day_disabled: 'text-subtle opacity-30',
         }}
         components={{
           DayContent: ({ date }) => (
@@ -151,7 +151,7 @@ function AgendaDayContent({ date, state }) {
       </span>
       {partnerMissed && (
         <span
-          className="absolute top-0.5 right-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#0A0A0A]/90 ring-1 ring-red-500/40"
+          className="absolute top-0.5 right-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background/90 ring-1 ring-red-500/40"
           title="Séance partenaire non faite"
         >
           <X size={8} className="text-red-400 stroke-[3]" />
@@ -159,7 +159,7 @@ function AgendaDayContent({ date, state }) {
       )}
       {myMissed && !partnerMissed && (
         <span
-          className="absolute top-0.5 left-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-[#0A0A0A]/90 ring-1 ring-red-500/40"
+          className="absolute top-0.5 left-0.5 z-[3] flex h-3.5 w-3.5 items-center justify-center rounded-full bg-background/90 ring-1 ring-red-500/40"
           title="Ma séance non faite"
         >
           <X size={8} className="text-red-400 stroke-[3]" />

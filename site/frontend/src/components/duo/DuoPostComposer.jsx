@@ -208,7 +208,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
     <form
 
-      className="card p-4 space-y-3 border border-white/10"
+      className="card p-4 space-y-3 border border-border"
 
       data-testid="duo-post-composer"
 
@@ -216,7 +216,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
     >
 
-      <p className="text-zinc-400 text-xs uppercase tracking-wider">Publier sur le mur du duo</p>
+      <p className="text-muted text-xs uppercase tracking-wider">Publier sur le mur du duo</p>
 
       {!pairKey ? (
 
@@ -232,7 +232,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
         placeholder="Partagez un moment, une victoire..."
 
-        className="flex min-h-[80px] w-full rounded-xl bg-[#0A0A0A] border border-white/10 px-3 py-2 text-white text-sm placeholder:text-zinc-500 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--theme-primary)] disabled:opacity-50"
+        className="flex min-h-[80px] w-full rounded-xl bg-background border border-border px-3 py-2 text-foreground text-sm placeholder:text-subtle focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[var(--theme-primary)] disabled:opacity-50"
 
         maxLength={500}
 
@@ -242,7 +242,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       {preview ? (
 
-        <div className="relative rounded-xl overflow-hidden border border-white/10">
+        <div className="relative rounded-xl overflow-hidden border border-border">
 
           <img src={preview} alt="" className="w-full max-h-48 object-cover" />
 
@@ -260,7 +260,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
             }}
 
-            className="absolute top-2 right-2 text-xs bg-black/60 text-white px-2 py-1 rounded-lg"
+            className="absolute top-2 right-2 text-xs bg-overlay text-foreground px-2 py-1 rounded-lg"
 
           >
 
@@ -274,7 +274,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       {process.env.NODE_ENV === 'development' ? (
 
-        <p className="text-[10px] text-zinc-600 font-mono">
+        <p className="text-[10px] text-subtle font-mono">
 
           debug: canSubmit={String(canSubmit)} len={content.trim().length} pairKey={pairKey || '—'}
 
@@ -298,7 +298,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
           onClick={() => fileRef.current?.click()}
 
-          className="rounded-xl border-white/15 text-white"
+          className="rounded-xl border-border text-foreground"
 
         >
 
@@ -316,7 +316,7 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
           disabled={!canSubmit || !pairKey}
 
-          className="rounded-xl btn-primary text-white ml-auto"
+          className="rounded-xl btn-primary text-foreground ml-auto"
 
         >
 

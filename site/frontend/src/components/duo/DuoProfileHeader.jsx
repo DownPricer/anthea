@@ -28,8 +28,8 @@ export function DuoProfileHeader({
   const { user } = useAuth();
   if (!duoProfile) {
     return (
-      <div className="card p-5 border border-white/10">
-        <p className="text-zinc-400 text-sm text-center">Profil duo en cours de configuration…</p>
+      <div className="card p-5 border border-border">
+        <p className="text-muted text-sm text-center">Profil duo en cours de configuration…</p>
       </div>
     );
   }
@@ -45,7 +45,7 @@ export function DuoProfileHeader({
   const featured = Array.isArray(featuredBadges) ? featuredBadges.slice(0, 3) : [];
 
   return (
-    <div className="card overflow-hidden border border-white/10" data-testid="duo-profile-header">
+    <div className="card overflow-hidden border border-border" data-testid="duo-profile-header">
       <div
         className="h-28 sm:h-36 relative"
         style={
@@ -56,11 +56,11 @@ export function DuoProfileHeader({
                 backgroundPosition: 'center',
               }
             : {
-                background: `linear-gradient(135deg, ${gradient.borderColor || '#1a1a2e'}44, #0A0A0A 70%)`,
+                background: `linear-gradient(135deg, ${gradient.borderColor || 'var(--theme-primary)'}44, var(--background) 70%)`,
               }
         }
       >
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0A] via-[#0A0A0A]/40 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
       </div>
 
       <div className="p-5 -mt-10 relative">
@@ -79,7 +79,7 @@ export function DuoProfileHeader({
                   size="sm"
                   variant="outline"
                   asChild
-                  className="rounded-xl border-white/15 text-white h-9 w-9 p-0"
+                  className="rounded-xl border-border text-foreground h-9 w-9 p-0"
                   aria-label="Gérer ou quitter le duo"
                 >
                   <Link to="/settings#partner-settings">
@@ -91,7 +91,7 @@ export function DuoProfileHeader({
                   size="sm"
                   variant="outline"
                   onClick={onEdit}
-                  className="rounded-xl border-white/15 text-white"
+                  className="rounded-xl border-border text-foreground"
                   aria-label="Modifier le duo"
                 >
                   <Settings size={14} className="mr-1.5" />
@@ -104,9 +104,9 @@ export function DuoProfileHeader({
           </div>
         </div>
 
-        <h1 className="text-2xl font-bold text-white font-['Outfit']">{displayName}</h1>
-        <p className="text-zinc-400 font-mono text-sm mt-1">{formatDuoTag(duoProfile) || '—'}</p>
-        <p className="text-zinc-500 text-sm mt-1">{relationLabel}</p>
+        <h1 className="text-2xl font-bold text-foreground font-['Outfit']">{displayName}</h1>
+        <p className="text-muted font-mono text-sm mt-1">{formatDuoTag(duoProfile) || '—'}</p>
+        <p className="text-subtle text-sm mt-1">{relationLabel}</p>
 
         {featured.length > 0 ? (
           <div
@@ -121,7 +121,7 @@ export function DuoProfileHeader({
           <button
             type="button"
             onClick={onEdit}
-            className="mt-3 text-left text-xs text-zinc-600 transition-colors hover:text-zinc-400"
+            className="mt-3 text-left text-xs text-subtle transition-colors hover:text-muted"
           >
             Choisir des badges mis en avant
           </button>
@@ -133,12 +133,12 @@ export function DuoProfileHeader({
               <Globe size={10} /> Public
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-zinc-500">
+            <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide text-subtle">
               <Lock size={10} /> Privé
             </span>
           )}
           {duoProfile.followers_count != null ? (
-            <span className="text-zinc-500 text-xs">{duoProfile.followers_count} abonné(s)</span>
+            <span className="text-subtle text-xs">{duoProfile.followers_count} abonné(s)</span>
           ) : null}
         </div>
 
@@ -150,14 +150,14 @@ export function DuoProfileHeader({
               return (
                 <div
                   key={member.id}
-                  className="rounded-xl bg-black/20 border border-white/5 p-3 flex items-center gap-3 min-w-0 overflow-hidden"
+                  className="rounded-xl bg-hover border border-border p-3 flex items-center gap-3 min-w-0 overflow-hidden"
                 >
                   <UserAvatar user={member} className="w-10 h-10 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="text-white font-medium text-sm truncate">
+                    <p className="text-foreground font-medium text-sm truncate">
                       {getDisplayName(member)}
                     </p>
-                    <p className="text-zinc-500 text-xs truncate">{formatHandle(member)}</p>
+                    <p className="text-subtle text-xs truncate">{formatHandle(member)}</p>
                     {member.duo_role && member.duo_role !== 'member' ? (
                       <p className="text-[10px] text-[var(--theme-primary)]/80 mt-0.5">
                         {getDuoRoleLabel(member.duo_role)}
@@ -165,7 +165,7 @@ export function DuoProfileHeader({
                     ) : null}
                   </div>
                   {!member.is_limited && profileHandle ? (
-                    <Button asChild size="sm" variant="ghost" className="text-zinc-400 shrink-0">
+                    <Button asChild size="sm" variant="ghost" className="text-muted shrink-0">
                       <Link to={`/profile/${profileHandle}`}>Voir</Link>
                     </Button>
                   ) : null}
@@ -174,7 +174,7 @@ export function DuoProfileHeader({
             })}
           </div>
         ) : limited ? (
-          <p className="text-zinc-500 text-sm mt-4">Ce profil duo est privé.</p>
+          <p className="text-subtle text-sm mt-4">Ce profil duo est privé.</p>
         ) : null}
       </div>
     </div>

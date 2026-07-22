@@ -100,12 +100,12 @@ export function BadgeDetailSheet({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
-        className="bg-[#141414] border-white/10 max-w-sm max-h-[90vh] overflow-y-auto"
+        className="bg-surface-elevated border-border max-w-sm max-h-[90vh] overflow-y-auto"
         data-testid="badge-detail-sheet"
       >
         <DialogHeader>
-          <DialogTitle className="text-white">{name}</DialogTitle>
-          <DialogDescription className="text-zinc-500">
+          <DialogTitle className="text-foreground">{name}</DialogTitle>
+          <DialogDescription className="text-subtle">
             {description || (unlocked ? t('unlocked') : t('keepGoing'))}
           </DialogDescription>
         </DialogHeader>
@@ -123,20 +123,20 @@ export function BadgeDetailSheet({
           </p>
           {!unlocked && (
             <div className="mt-3 space-y-2">
-              {progressText ? <p className="text-zinc-400 text-sm">{progressText}</p> : null}
-              <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+              {progressText ? <p className="text-muted text-sm">{progressText}</p> : null}
+              <div className="h-1.5 bg-hover rounded-full overflow-hidden">
                 <div
                   className="h-full bg-zinc-500 rounded-full"
                   style={{ width: `${Math.min(100, badge.progress || 0)}%` }}
                 />
               </div>
               {badge.description && !isSecret ? (
-                <p className="text-zinc-500 text-xs">{description}</p>
+                <p className="text-subtle text-xs">{description}</p>
               ) : null}
             </div>
           )}
           {unlocked && unlockedLabel ? (
-            <p className="text-zinc-500 text-xs mt-3">{t('obtainedOn', { date: unlockedLabel })}</p>
+            <p className="text-subtle text-xs mt-3">{t('obtainedOn', { date: unlockedLabel })}</p>
           ) : null}
         </div>
 
@@ -145,14 +145,14 @@ export function BadgeDetailSheet({
             <Textarea
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="rounded-xl bg-[#0A0A0A] border-white/10 text-white"
+              className="rounded-xl bg-background border-border text-foreground"
               placeholder={placeholderMessage}
               data-testid="badge-publish-message"
             />
             <Button
               onClick={handlePublish}
               disabled={saving}
-              className="w-full rounded-xl btn-primary text-white"
+              className="w-full rounded-xl btn-primary text-foreground"
               data-testid="badge-publish-btn"
             >
               {saving ? (
