@@ -112,7 +112,8 @@ describe('WorkoutPlayer legacy media (source)', () => {
   it('falls back to media_snapshot and uses object-contain', () => {
     expect(src).toContain('media_snapshot');
     expect(src).toContain('object-contain');
-    expect(src).toContain('exercise_name_snapshot');
+    expect(src).toContain('getLocalizedExerciseField');
+    expect(src).toContain('resolveExerciseMediaUrl');
   });
 });
 
