@@ -26,6 +26,8 @@
   "reconnecting": "Reconnecting…",
   "reactions": {
     "cheer": "Cheer on your partner",
+    "open": "Open reactions",
+    "close": "Close reactions",
     "fire": "Fire reaction",
     "heart": "Heart reaction",
     "clap": "Clap reaction",

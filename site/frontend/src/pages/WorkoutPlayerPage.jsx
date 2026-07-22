@@ -68,7 +68,6 @@ export function WorkoutPlayerPage() {
   const [duoLive, setDuoLive] = useState(false);
   const [partnerProgress, setPartnerProgress] = useState(null);
   const [partnerReconnecting, setPartnerReconnecting] = useState(false);
-  const [liveReady, setLiveReady] = useState(false);
   const lastKnownPartnerProgressRef = useRef(null);
   const [showFeedback, setShowFeedback] = useState(false);
   const [createdSession, setCreatedSession] = useState(null);
@@ -451,7 +450,6 @@ export function WorkoutPlayerPage() {
         setPartnerLive(null);
         setDuoLive(false);
         setPartnerReconnecting(false);
-        setLiveReady(false);
       }
       return undefined;
     }
@@ -469,16 +467,13 @@ export function WorkoutPlayerPage() {
           } else if (lastKnownPartnerProgressRef.current != null) {
             setPartnerProgress(lastKnownPartnerProgressRef.current);
           }
-          setLiveReady(true);
         } else {
           setPartnerLive(null);
           setDuoLive(false);
           setPartnerReconnecting(false);
-          setLiveReady(true);
         }
       } catch {
         setPartnerReconnecting(true);
-        setLiveReady(true);
       }
     };
 
@@ -961,74 +956,25 @@ export function WorkoutPlayerPage() {
   }
 
   const partnerName = partnerLive?.display_name || partnerLive?.username;
-  const myProgressPercent = totalExercises > 0
-    ? Math.max(0, Math.min(100, Math.round((exercisesCompleted / totalExercises) * 100)))
-    : null;
-  const partnerProgressPercent =
+  const clampProgress = (value) => {
+    if (typeof value !== 'number' || Number.isNaN(value)) return null;
+    return Math.max(0, Math.min(100, value));
+  };
+  const myProgressPercent = clampProgress(
+    totalExercises > 0 ? Math.round((exercisesCompleted / totalExercises) * 100) : null
+  );
+  const partnerProgressPercent = clampProgress(
     typeof partnerProgress === 'number'
       ? partnerProgress
       : typeof partnerLive?.progress_percent === 'number'
         ? partnerLive.progress_percent
-        : lastKnownPartnerProgressRef.current;
-
-  const liveProgressBlock = duoLive ? (
-    <div className="space-y-3" data-testid="duo-live-progress">
-      <p className="text-amber-300 text-xs font-medium flex items-center gap-1.5">
-        <Radio size={12} className={partnerReconnecting ? '' : 'animate-pulse'} />
-        {t('player:liveSessionWith', { name: partnerName })}
-      </p>
-      {!liveReady ? (
-        <div className="space-y-2 animate-pulse" data-testid="duo-live-progress-skeleton">
-          <div className="h-3 w-28 rounded bg-white/10" />
-          <div className="h-2 rounded-full bg-white/10" />
-          <div className="h-3 w-24 rounded bg-white/10" />
-          <div className="h-2 rounded-full bg-white/10" />
-        </div>
-      ) : (
-        <>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-amber-200/90 truncate min-w-0">{partnerName}</span>
-              <span className="text-amber-300 tabular-nums shrink-0">
-                {partnerReconnecting
-                  ? t('player:reconnecting')
-                  : partnerProgressPercent != null
-                    ? `${partnerProgressPercent} %`
-                    : '—'}
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-amber-400 transition-all duration-300"
-                style={{
-                  width: `${partnerProgressPercent != null ? partnerProgressPercent : 0}%`,
-                  opacity: partnerProgressPercent == null ? 0.35 : 1,
-                }}
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <div className="flex items-center justify-between gap-2 text-xs">
-              <span className="text-zinc-300">{t('player:myProgress')}</span>
-              <span className="text-[var(--theme-primary)] tabular-nums shrink-0">
-                {myProgressPercent != null ? `${myProgressPercent} %` : '—'}
-              </span>
-            </div>
-            <div className="h-2 w-full rounded-full bg-white/10 overflow-hidden">
-              <div
-                className="h-full rounded-full bg-[var(--theme-primary)] transition-all duration-300"
-                style={{ width: `${myProgressPercent != null ? myProgressPercent : 0}%` }}
-              />
-            </div>
-          </div>
-          <LiveWorkoutReactions
-            sessionId={partnerLive?.live_session_id || workoutId}
-            enabled={duoLive && phase !== 'finished'}
-          />
-        </>
-      )}
-    </div>
-  ) : null;
+        : lastKnownPartnerProgressRef.current
+  );
+  const topBarWidth = duoLive
+    ? (partnerProgressPercent != null ? partnerProgressPercent : 0)
+    : progress;
+  const topBarColor = duoLive ? 'bg-amber-400' : 'bg-[var(--theme-primary)]';
+  const myBarWidth = myProgressPercent != null ? myProgressPercent : progress;
 
   const playerSidebar = (
     <div className="space-y-4">
@@ -1036,12 +982,6 @@ export function WorkoutPlayerPage() {
         <div className="card p-4">
           <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">{t('player:next')}</p>
           <p className="text-white font-semibold">{nextExercise.name}</p>
-        </div>
-      )}
-      {duoLive && (
-        <div className="card p-4">
-          <p className="text-zinc-500 text-xs uppercase tracking-wider mb-2">{t('player:duo')}</p>
-          {liveProgressBlock}
         </div>
       )}
     </div>
@@ -1099,16 +1039,30 @@ export function WorkoutPlayerPage() {
         </DialogContent>
       </Dialog>
 
-      <div className="h-1 bg-[#141414] shrink-0">
+      <div className="h-1 bg-[#141414] shrink-0" data-testid="partner-progress-bar">
         <div
-          className={`h-full transition-all duration-300 ${duoLive ? 'bg-amber-400' : 'bg-[var(--theme-primary)]'}`}
-          style={{ width: `${progress}%` }}
+          className={`h-full transition-[width] duration-300 ${topBarColor}`}
+          style={{ width: `${topBarWidth}%` }}
         />
       </div>
 
       {duoLive && (
-        <div className="px-4 py-3 bg-amber-500/10 border-b border-amber-500/20 shrink-0 2xl:hidden">
-          {liveProgressBlock}
+        <div className="px-4 py-2 bg-amber-500/10 border-b border-amber-500/20 text-center shrink-0">
+          <p className="text-amber-300 text-xs font-medium flex items-center justify-center gap-1.5">
+            <Radio size={12} className={partnerReconnecting ? '' : 'animate-pulse'} />
+            {partnerReconnecting
+              ? t('player:reconnecting')
+              : t('player:liveSessionWith', { name: partnerName })}
+          </p>
+        </div>
+      )}
+
+      {duoLive && (
+        <div className="h-1 bg-[#141414] shrink-0" data-testid="my-progress-bar">
+          <div
+            className="h-full bg-[var(--theme-primary)] transition-[width] duration-300"
+            style={{ width: `${myBarWidth}%` }}
+          />
         </div>
       )}
 
@@ -1338,6 +1292,13 @@ export function WorkoutPlayerPage() {
           </div>
         </aside>
       </main>
+
+      {duoLive && phase !== 'finished' ? (
+        <LiveWorkoutReactions
+          sessionId={partnerLive?.live_session_id || workoutId}
+          enabled
+        />
+      ) : null}
 
       {timeAdjustDialog}
     </div>

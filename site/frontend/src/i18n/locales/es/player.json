@@ -26,6 +26,8 @@
   "reconnecting": "Reconectando…",
   "reactions": {
     "cheer": "Anima a tu compañero",
+    "open": "Abrir reacciones",
+    "close": "Cerrar reacciones",
     "fire": "Reacción fuego",
     "heart": "Reacción corazón",
     "clap": "Reacción aplausos",
