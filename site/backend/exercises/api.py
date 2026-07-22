@@ -74,7 +74,7 @@ async def list_exercises_handler(
     tracking_type: Optional[str] = None,
     has_media: Optional[str] = None,
     page: int = 1,
-    limit: int = 30,
+    limit: int = 10,
     locale: Optional[str] = None,
 ):
     locale = locale or "fr"
@@ -95,7 +95,7 @@ async def list_exercises_handler(
             ]
         total = len(items)
         page = max(1, int(page or 1))
-        limit = max(1, min(int(limit or 30), 40))
+        limit = max(1, min(int(limit or 10), 40))
         start = (page - 1) * limit
         slice_items = items[start : start + limit]
         return {
@@ -135,10 +135,15 @@ async def list_exercises_handler(
             continue
         custom_items.append(item)
 
-    if int(page or 1) == 1 and custom_items:
-        # Préfixer sans casser la pagination catalogue
-        result["items"] = custom_items + result["items"]
+    page_n = max(1, int(page or 1))
+    limit_n = max(1, min(int(limit or 10), 40))
+    if page_n == 1 and custom_items:
+        # Préfixer sans dépasser la taille du lot demandé
+        merged = custom_items + result["items"]
+        result["items"] = merged[:limit_n]
         result["total"] = result["total"] + len(custom_items)
+        result["has_more"] = result["has_more"] or len(merged) > limit_n
+        result["limit"] = limit_n
 
     result["catalog_ready"] = True
     result["custom_creation_enabled"] = custom_creation_enabled()

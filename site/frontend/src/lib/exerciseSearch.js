@@ -2,7 +2,7 @@
  * Recherche catalogue exercices (debounce + pagination + abort).
  */
 
-const DEFAULT_LIMIT = 30;
+const DEFAULT_LIMIT = 10;
 
 export function createExerciseSearchController({ api, limit = DEFAULT_LIMIT } = {}) {
   let timer = null;

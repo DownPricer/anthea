@@ -3739,7 +3739,7 @@ async def get_exercises(
     tracking_type: Optional[str] = None,
     has_media: Optional[str] = None,
     page: int = 1,
-    limit: int = 30,
+    limit: int = 10,
     locale: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):

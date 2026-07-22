@@ -9,6 +9,10 @@ import {
   EXERCISE_FILTER_PRESETS,
 } from '../lib/exerciseSearch';
 import {
+  collectRecentExercises,
+  mergeRecentWithCatalog,
+} from '../lib/recentExercises';
+import {
   ExerciseMediaThumb,
   exerciseSecondaryLabel,
 } from '../components/exercises/ExerciseMediaThumb';
@@ -277,11 +281,7 @@ export function CreateWorkoutPage() {
   const handleAbandonSaveDraft = async () => {
     setAbandonDialogOpen(false);
     await handleSave(true);
-    if (!isEditMode) {
-      navigate('/create');
-    } else {
-      navigate('/create');
-    }
+    navigate('/workouts');
   };
 
   const handleAbandonDelete = async () => {
@@ -297,7 +297,7 @@ export function CreateWorkoutPage() {
       }
     }
     await refreshDrafts();
-    navigate('/create');
+    navigate('/workouts');
   };
 
   const loadData = async () => {
@@ -357,14 +357,19 @@ export function CreateWorkoutPage() {
         equipment: equipmentFilter || undefined,
         muscle: muscleFilter || undefined,
         page,
-        limit: 30,
+        limit: 10,
         locale,
       };
       const data = await exerciseSearchRef.current.search(params, {
         debounceMs: 0,
       });
       if (!data) return;
-      const items = data.items || [];
+      let items = data.items || [];
+      // Ouverture sans recherche : prioriser les exercices récents déjà en mémoire.
+      if (!append && page === 1 && !debouncedQuery && !sportFilter && !equipmentFilter && !muscleFilter) {
+        const recent = collectRecentExercises({ blocks, templates, limit: 10 });
+        items = mergeRecentWithCatalog(recent, items, 10);
+      }
       setExercises((prev) => (append ? [...prev, ...items] : items));
       setExercisePage(data.page || page);
       setExerciseHasMore(Boolean(data.has_more));
@@ -1356,27 +1361,28 @@ export function CreateWorkoutPage() {
                   {block.exercises.map((exercise, exerciseIndex) => (
                     <div
                       key={exerciseIndex}
-                      className="p-3 bg-hover rounded-xl space-y-3"
+                      className="p-3 bg-hover rounded-xl space-y-3 w-full max-w-full min-w-0 overflow-hidden"
+                      data-testid="workout-exercise-card"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="flex flex-col gap-1">
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-3 w-full max-w-full min-w-0">
+                        <div className="flex flex-col gap-1 shrink-0">
                           <button
                             onClick={() => moveExercise(blockIndex, exerciseIndex, -1)}
                             disabled={exerciseIndex === 0}
-                            className="p-1 hover:bg-active rounded disabled:opacity-30"
+                            className="p-1 min-h-10 min-w-10 hover:bg-active rounded disabled:opacity-30 inline-flex items-center justify-center"
                           >
                             <ChevronUp size={14} className="text-muted" />
                           </button>
                           <button
                             onClick={() => moveExercise(blockIndex, exerciseIndex, 1)}
                             disabled={exerciseIndex === block.exercises.length - 1}
-                            className="p-1 hover:bg-active rounded disabled:opacity-30"
+                            className="p-1 min-h-10 min-w-10 hover:bg-active rounded disabled:opacity-30 inline-flex items-center justify-center"
                           >
                             <ChevronDown size={14} className="text-muted" />
                           </button>
                         </div>
                         {exercise.image_url && (
-                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-active flex-shrink-0">
+                          <div className="w-12 h-12 rounded-lg overflow-hidden bg-active shrink-0">
                             <img
                               src={resolveExerciseMediaUrl(exercise.image_url) || exercise.image_url}
                               alt=""
@@ -1388,15 +1394,19 @@ export function CreateWorkoutPage() {
                             />
                           </div>
                         )}
-                        <div className="flex-1">
-                          <p className="text-foreground font-medium">{exercise.name}</p>
+                        <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                          <p className="text-foreground font-medium truncate max-w-full">
+                            {exercise.name}
+                          </p>
                           {exercise.description && (
-                            <p className="text-subtle text-xs truncate">{exercise.description}</p>
+                            <p className="text-subtle text-xs line-clamp-2 break-words [overflow-wrap:anywhere]">
+                              {exercise.description}
+                            </p>
                           )}
                         </div>
                         <button
                           onClick={() => removeExercise(blockIndex, exerciseIndex)}
-                          className="p-2 hover:bg-active rounded-lg text-red-400"
+                          className="p-2 min-h-10 min-w-10 hover:bg-active rounded-lg text-red-400 shrink-0 inline-flex items-center justify-center"
                         >
                           <Trash2 size={16} />
                         </button>
@@ -1599,26 +1609,37 @@ export function CreateWorkoutPage() {
                             className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1"
                           >
                               {exerciseLibraryLoading && exercises.length === 0 ? (
-                                <div className="flex items-center justify-center py-10 text-subtle">
-                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                  {t('workouts:create.loadingExercises')}
+                                <div className="space-y-2" data-testid="exercise-library-skeletons">
+                                  {Array.from({ length: 10 }).map((_, i) => (
+                                    <div
+                                      key={i}
+                                      className="flex items-center gap-3 rounded-xl bg-hover p-3 animate-pulse"
+                                    >
+                                      <div className="w-16 h-16 rounded-lg bg-active shrink-0" />
+                                      <div className="flex-1 min-w-0 space-y-2">
+                                        <div className="h-4 w-2/3 rounded bg-active" />
+                                        <div className="h-3 w-full rounded bg-active" />
+                                      </div>
+                                    </div>
+                                  ))}
                                 </div>
                               ) : filteredExercises.map((exercise) => (
                                 <div
                                   key={exercise.id}
-                                  className="flex items-stretch gap-1 rounded-xl bg-hover hover:bg-active transition-colors"
+                                  className="flex flex-wrap sm:flex-nowrap items-stretch gap-1 rounded-xl bg-hover hover:bg-active transition-colors w-full max-w-full min-w-0 overflow-hidden"
+                                  data-testid="exercise-library-card"
                                 >
                                   <button
                                     type="button"
                                     onClick={() => addExerciseToBlock(exercise)}
-                                    className="flex-1 min-w-0 p-3 text-left flex items-center gap-3 rounded-xl"
+                                    className="flex-1 min-w-0 max-w-full p-3 text-left flex items-center gap-3 rounded-xl overflow-hidden"
                                   >
                                     <ExerciseMediaThumb
                                       src={exercise.image_url}
-                                      className="w-16 h-16"
+                                      className="w-16 h-16 shrink-0"
                                     />
-                                    <div className="flex-1 min-w-0">
-                                      <p className="text-foreground font-medium truncate">
+                                    <div className="flex-1 min-w-0 max-w-full overflow-hidden">
+                                      <p className="text-foreground font-medium truncate max-w-full">
                                         {getLocalizedExerciseField(exercise, 'name', i18n.language)}
                                         {exercise.source_kind === 'custom' || exercise.legacy_label ? (
                                           <span className="ml-2 text-[10px] uppercase tracking-wide text-subtle">
@@ -1627,11 +1648,11 @@ export function CreateWorkoutPage() {
                                         ) : null}
                                       </p>
                                       {getLocalizedExerciseField(exercise, 'description', i18n.language) ? (
-                                        <p className="text-subtle text-sm line-clamp-2">
+                                        <p className="text-subtle text-sm line-clamp-2 break-words [overflow-wrap:anywhere]">
                                           {getLocalizedExerciseField(exercise, 'description', i18n.language)}
                                         </p>
                                       ) : null}
-                                      <p className="text-subtle text-xs mt-0.5 truncate">
+                                      <p className="text-subtle text-xs mt-0.5 truncate max-w-full">
                                         {exerciseSecondaryLabel(exercise) || (
                                           <>
                                             <span className="capitalize">{exercise.category}</span>

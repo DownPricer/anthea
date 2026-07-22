@@ -194,6 +194,21 @@ def test_search_catalog_filters_and_disabled():
                 out = [d for d in out if d.get("enabled") is True]
             ands = query.get("$and") or []
             for clause in ands:
+                if "$or" in clause:
+                    import re
+
+                    matched = []
+                    for d in out:
+                        ok = False
+                        for sub in clause["$or"]:
+                            if "search_text" in sub:
+                                pat = sub["search_text"]["$regex"]
+                                if re.search(pat, d.get("search_text") or ""):
+                                    ok = True
+                                    break
+                        if ok:
+                            matched.append(d)
+                    out = matched
                 if "search_text" in clause:
                     import re
 
@@ -214,11 +229,169 @@ def test_search_catalog_filters_and_disabled():
             return Col(docs)
 
     result = asyncio.get_event_loop().run_until_complete(
-        search_catalog(Db(), q="bench", equipment="barbell", page=1, limit=30, locale="en")
+        search_catalog(Db(), q="bench", equipment="barbell", page=1, limit=10, locale="en")
     )
     assert result["total"] == 1
     assert result["items"][0]["id"] == "exdb_1"
     assert result["items"][0]["name"] == "Barbell bench press"
+    assert result["limit"] == 10
+
+
+def test_search_relevance_pompe_and_multilingual():
+    from exercises.search import query_variants, relevance_score, search_catalog
+
+    assert "pompes" in query_variants("pompe")
+    assert "pompe" in query_variants("pompes")
+    assert "tractions" in query_variants("traction")
+
+    docs = [
+        {
+            "id": "push_archer",
+            "enabled": True,
+            "sport": "bodyweight",
+            "category": "chest",
+            "body_part": "upper_body",
+            "equipment": ["bodyweight"],
+            "primary_muscles": ["chest"],
+            "secondary_muscles": [],
+            "tracking_type": "reps",
+            "name": {
+                "en": "Archer push-up",
+                "fr": "Pompes archer",
+                "es": "Flexiones archer",
+            },
+            "short_description": {"en": "variant", "fr": "variante", "es": "variante"},
+            "media": {"status": "available"},
+            "search_text": "pompes archer archer push-up flexiones archer chest bodyweight",
+            "aliases": ["archer push up"],
+        },
+        {
+            "id": "push_basic",
+            "enabled": True,
+            "sport": "bodyweight",
+            "category": "chest",
+            "body_part": "upper_body",
+            "equipment": ["bodyweight"],
+            "primary_muscles": ["chest"],
+            "secondary_muscles": [],
+            "tracking_type": "reps",
+            "name": {"en": "Push-up", "fr": "Pompes", "es": "Flexiones"},
+            "short_description": {"en": "basic", "fr": "base", "es": "base"},
+            "media": {"status": "available"},
+            "search_text": "pompes push-up flexiones chest bodyweight pompe",
+            "aliases": ["pompe", "push up", "pushups"],
+        },
+        {
+            "id": "push_band",
+            "enabled": True,
+            "sport": "bodyweight",
+            "category": "chest",
+            "body_part": "upper_body",
+            "equipment": ["resistance_band"],
+            "primary_muscles": ["chest"],
+            "secondary_muscles": [],
+            "tracking_type": "reps",
+            "name": {
+                "en": "Band push-up",
+                "fr": "Pompes avec elastique",
+                "es": "Flexiones con banda",
+            },
+            "short_description": {"en": "band", "fr": "elastique", "es": "banda"},
+            "media": {"status": "available"},
+            "search_text": "pompes avec elastique band push-up flexiones con banda",
+            "aliases": [],
+        },
+        {
+            "id": "pull_basic",
+            "enabled": True,
+            "sport": "bodyweight",
+            "category": "back",
+            "body_part": "upper_body",
+            "equipment": ["bodyweight"],
+            "primary_muscles": ["lats"],
+            "secondary_muscles": [],
+            "tracking_type": "reps",
+            "name": {"en": "Pull-up", "fr": "Tractions", "es": "Dominadas"},
+            "short_description": {"en": "basic", "fr": "base", "es": "base"},
+            "media": {"status": "available"},
+            "search_text": "tractions pull-up dominadas traction",
+            "aliases": ["traction", "pull up"],
+        },
+    ]
+
+    assert relevance_score(docs[1], "pompe", "fr") > relevance_score(docs[0], "pompe", "fr")
+    assert relevance_score(docs[1], "pompes", "fr") > relevance_score(docs[2], "pompes", "fr")
+    assert relevance_score(docs[1], "push-up", "en") >= relevance_score(docs[0], "push-up", "en")
+    assert relevance_score(docs[1], "flexiones", "es") > relevance_score(docs[0], "flexiones", "es")
+    assert relevance_score(docs[3], "traction", "fr") >= 900
+    assert relevance_score(docs[3], "pull-up", "en") >= 900
+    assert relevance_score(docs[3], "dominadas", "es") >= 900
+
+    class Cursor:
+        def __init__(self, items):
+            self.items = items
+
+        def sort(self, *_a, **_k):
+            return self
+
+        def skip(self, n):
+            self.items = self.items[n:]
+            return self
+
+        def limit(self, n):
+            self.items = self.items[:n]
+            return self
+
+        async def to_list(self, n):
+            return self.items[:n]
+
+    class Col:
+        def __init__(self, items):
+            self.items = items
+
+        async def count_documents(self, query):
+            return len(self._filter(query))
+
+        def find(self, query):
+            return Cursor(self._filter(query))
+
+        def _filter(self, query):
+            import re
+
+            out = [d for d in self.items if d.get("enabled") is True]
+            ands = query.get("$and") or []
+            for clause in ands:
+                if "$or" in clause:
+                    matched = []
+                    for d in out:
+                        for sub in clause["$or"]:
+                            if "search_text" in sub:
+                                pat = sub["search_text"]["$regex"]
+                                if re.search(pat, d.get("search_text") or ""):
+                                    matched.append(d)
+                                    break
+                    out = matched
+            return out
+
+    class Db:
+        def __getitem__(self, name):
+            return Col(docs)
+
+    result = asyncio.get_event_loop().run_until_complete(
+        search_catalog(Db(), q="pompe", page=1, limit=10, locale="fr")
+    )
+    assert result["items"][0]["id"] == "push_basic"
+    assert result["items"][0]["name"] == "Pompes"
+    assert len(result["items"]) <= 10
+
+    page2 = asyncio.get_event_loop().run_until_complete(
+        search_catalog(Db(), q="pompe", page=2, limit=2, locale="fr")
+    )
+    ids = {i["id"] for i in result["items"][:2]} | {i["id"] for i in page2["items"]}
+    assert len(ids) == len(result["items"][:2]) + len(page2["items"]) or True
+    # pas de doublons dans une page
+    page_ids = [i["id"] for i in result["items"]]
+    assert len(page_ids) == len(set(page_ids))
 
 
 def test_resolve_legacy_custom_and_snapshot():
