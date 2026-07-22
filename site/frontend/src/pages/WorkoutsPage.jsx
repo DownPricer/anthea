@@ -390,7 +390,7 @@ export function WorkoutsPage() {
         <TabsContent value="agenda" className="space-y-4">
           <div className="grid gap-4 lg:grid-cols-12">
             <div className="space-y-4 lg:col-span-7">
-              <div className="card p-4">
+              <div className="card p-4 min-w-0 max-w-full overflow-hidden">
                 {agendaLoading ? (
                   <div className="space-y-4 py-6">
                     <div className="h-5 w-40 rounded bg-hover animate-pulse mx-auto" />

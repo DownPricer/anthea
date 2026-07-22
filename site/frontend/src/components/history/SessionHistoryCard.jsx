@@ -31,8 +31,10 @@ export function SessionHistoryCard({ session, canAdjustTime, onAdjustTime }) {
         onClick={() => setOpen(!open)}
       >
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-foreground font-medium truncate">{session.workout_title}</p>
+          <div className="flex items-center gap-2 min-w-0 max-w-full">
+            <p className="min-w-0 max-w-full flex-1 text-foreground font-medium truncate overflow-hidden whitespace-nowrap">
+              {session.workout_title}
+            </p>
             <span className={cn('shrink-0 px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase', st.className)}>
               {st.label}
             </span>

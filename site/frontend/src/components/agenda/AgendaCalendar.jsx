@@ -58,16 +58,17 @@ export function AgendaCalendar({
 
   return (
     <div
-      className="agenda-calendar-root"
+      className="agenda-calendar-root w-full max-w-full min-w-0 overflow-hidden"
+      data-testid="agenda-calendar"
       style={{
         '--agenda-mine': myAccent,
         '--agenda-partner': partnerAccent,
       }}
     >
       {streak > 0 && (
-        <div className="flex items-center justify-center gap-0.5 mb-3 py-2 px-3 rounded-2xl bg-orange-500/8 border border-orange-500/15">
-          <Flame size={14} className="text-orange-400/90" fill="currentColor" />
-          <span className="text-muted text-xs ml-1.5 tabular-nums">
+        <div className="flex items-center justify-center gap-0.5 mb-3 py-2 px-3 rounded-2xl bg-orange-500/8 border border-orange-500/15 min-w-0">
+          <Flame size={14} className="text-orange-400/90 shrink-0" fill="currentColor" />
+          <span className="text-muted text-xs ml-1.5 tabular-nums truncate">
             Streak <strong className="text-orange-300/90 font-semibold">{streak}</strong> j.
           </span>
         </div>
@@ -84,22 +85,23 @@ export function AgendaCalendar({
         modifiers={modifiers}
         modifiersClassNames={modifiersClassNames}
         classNames={{
-          months: 'flex flex-col w-full',
-          month: 'space-y-3 w-full',
-          caption: 'flex justify-center pt-1 relative items-center text-foreground mb-1',
-          caption_label: 'text-sm font-semibold font-[\'Outfit\'] capitalize',
-          nav: 'flex items-center',
+          months: 'flex flex-col w-full max-w-full min-w-0',
+          month: 'space-y-3 w-full max-w-full min-w-0',
+          caption: 'flex items-center justify-between gap-2 pt-1 relative text-foreground mb-1 min-w-0',
+          caption_label: 'flex-1 min-w-0 truncate text-center text-sm font-semibold font-[\'Outfit\'] capitalize',
+          nav: 'flex items-center gap-1 shrink-0',
           nav_button:
-            'h-9 w-9 rounded-full border border-border bg-hover text-muted hover:bg-active hover:text-foreground inline-flex items-center justify-center transition-colors',
+            'h-9 w-9 shrink-0 rounded-full border border-border bg-hover text-muted hover:bg-active hover:text-foreground inline-flex items-center justify-center transition-colors',
           nav_button_previous: 'absolute left-0',
           nav_button_next: 'absolute right-0',
-          table: 'w-full border-collapse',
-          head_row: 'flex justify-around',
-          head_cell: 'text-subtle w-11 font-medium text-[0.65rem] uppercase tracking-wide',
-          row: 'flex w-full justify-around mt-1.5',
-          cell: 'relative p-0.5 text-center',
+          table: 'w-full max-w-full min-w-0 border-collapse',
+          head_row: 'agenda-day-grid w-full',
+          head_cell:
+            'text-subtle min-w-0 max-w-full overflow-hidden font-medium text-[0.65rem] uppercase tracking-wide text-center',
+          row: 'agenda-day-grid w-full mt-1.5',
+          cell: 'relative p-0.5 text-center min-w-0 max-w-full overflow-hidden',
           day: cn(
-            'relative h-11 w-11 mx-auto rounded-xl p-0 font-medium text-foreground',
+            'relative mx-auto flex aspect-square w-full max-w-full min-w-0 items-center justify-center overflow-hidden rounded-xl p-0 font-medium text-foreground',
             'hover:bg-active transition-all hover:scale-105 active:scale-95'
           ),
           day_selected: '!ring-2 !ring-foreground/80 !scale-105 z-10',
@@ -126,10 +128,22 @@ function AgendaDayContent({ date, state }) {
     partner_missed: partnerMissed,
     my_missed: myMissed,
     rest,
+    my_session_titles: myTitles = [],
+    partner_session_titles: partnerTitles = [],
   } = state;
 
+  const sessionTitles = [...(myTitles || []), ...(partnerTitles || [])].filter(Boolean);
+  const sessionCount =
+    (state.my_session_count || 0) + (state.partner_session_count || 0) || sessionTitles.length;
+  const cellLabel =
+    sessionCount > 1
+      ? String(sessionCount)
+      : sessionTitles[0]
+        ? sessionTitles[0]
+        : null;
+
   return (
-    <span className="relative flex flex-col items-center justify-center w-full h-full min-h-[2rem]">
+    <span className="relative flex flex-col items-center justify-center w-full h-full min-h-[2rem] min-w-0 max-w-full overflow-hidden px-0.5">
       {inStreak && (
         <Flame
           size={8}
@@ -140,7 +154,16 @@ function AgendaDayContent({ date, state }) {
       <span className={cn('text-sm leading-none z-[2]', inStreak ? 'mt-1' : '')}>
         {date.getDate()}
       </span>
-      <span className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5 z-[2]">
+      {cellLabel ? (
+        <span
+          className="block max-w-full truncate overflow-hidden whitespace-nowrap text-[8px] leading-tight text-subtle z-[2] mt-0.5"
+          data-testid="agenda-day-title"
+          title={sessionTitles.join(' · ') || undefined}
+        >
+          {sessionCount > 1 ? sessionCount : cellLabel}
+        </span>
+      ) : null}
+      <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 flex gap-0.5 z-[2]">
         {myDone && !bothDone && (
           <span className="w-1.5 h-1.5 rounded-full bg-[var(--agenda-mine)]" />
         )}

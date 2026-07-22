@@ -13,7 +13,7 @@ import { useTheme } from '../../context/ThemeContext';
 import { duoApi, sessionsApi, streakApi } from '../../lib/api';
 import { ProfileStatsTab } from '../profile/ProfileStatsTab';
 import { SessionHistoryCard } from '../history/SessionHistoryCard';
-import { AnnualHeatmap } from '../agenda/AnnualHeatmap';
+import { CollapsibleAnnualAgenda } from '../agenda/CollapsibleAnnualAgenda';
 import { getAccentForUser } from '../../lib/userAccent';
 import { computeBestStreak } from '../../lib/streakUtils';
 import { Button } from '../ui/button';
@@ -259,29 +259,29 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             )}
           </div>
 
-          <div className="card p-4">
-            <AnnualHeatmap
-              year={heatmapYear}
-              userId={user?.id}
-              title={t('duo:solo.annualAgenda')}
-              accentColor={accentColor}
-              initialDays={calendarDays.length ? calendarDays : null}
-            />
-          </div>
+          <CollapsibleAnnualAgenda
+            year={heatmapYear}
+            userId={user?.id}
+            title={t('duo:solo.annualAgenda')}
+            accentColor={accentColor}
+            initialDays={calendarDays.length ? calendarDays : null}
+            defaultOpen={false}
+            className="card p-4"
+          />
         </TabsContent>
 
-        <TabsContent value="history">
+        <TabsContent value="history" className="space-y-4" data-testid="solo-history-tab">
           {historyLoading ? (
-            <div className="flex justify-center py-12">
+            <div className="flex justify-center py-12" data-testid="solo-history-list">
               <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
             </div>
           ) : historySessions.length === 0 ? (
-            <div className="card p-8 text-center">
+            <div className="card p-8 text-center" data-testid="solo-history-list">
               <History className="mx-auto text-subtle mb-3" size={28} />
               <p className="text-subtle">{t('duo:emptyStates.history')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2" data-testid="solo-history-list">
               {historySessions.map((session) => (
                 <SessionHistoryCard
                   key={session.id}
@@ -293,6 +293,14 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
               ))}
             </div>
           )}
+          <CollapsibleAnnualAgenda
+            year={heatmapYear}
+            userId={user?.id}
+            title={t('duo:solo.annualAgenda')}
+            accentColor={accentColor}
+            initialDays={calendarDays.length ? calendarDays : null}
+            defaultOpen={false}
+          />
         </TabsContent>
 
         <TabsContent value="stats">
@@ -350,15 +358,15 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
             ) : null}
           </div>
 
-          <div className="mt-6 card p-4">
-            <AnnualHeatmap
-              year={heatmapYear}
-              userId={user?.id}
-              title={t('duo:solo.annualAgenda')}
-              accentColor={accentColor}
-              initialDays={calendarDays.length ? calendarDays : null}
-            />
-          </div>
+          <CollapsibleAnnualAgenda
+            year={heatmapYear}
+            userId={user?.id}
+            title={t('duo:solo.annualAgenda')}
+            accentColor={accentColor}
+            initialDays={calendarDays.length ? calendarDays : null}
+            defaultOpen={false}
+            className="mt-6 card p-4"
+          />
         </TabsContent>
       </Tabs>
 

@@ -7,7 +7,7 @@ import {
   getMonth,
   isSameDay,
 } from 'date-fns';
-import { Loader2, Download } from 'lucide-react';
+import { Loader2, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { streakApi } from '../../lib/api';
 import { calendarDaysToMap } from '../../lib/agendaDayMap';
@@ -34,6 +34,7 @@ export function AnnualHeatmap({
   partnerColor = null,
   /** Jours déjà chargés (évite un 2e fetch calendar) */
   initialDays = null,
+  onYearChange = null,
 }) {
   const { t } = useTranslation(['settings']);
   const { formatDate, formatWeekdayDate } = useLocaleFormat();
@@ -44,6 +45,7 @@ export function AnnualHeatmap({
   const gridRef = useRef(null);
 
   const safeYear = Number.isFinite(Number(year)) ? Number(year) : new Date().getFullYear();
+  const canNavigateYear = typeof onYearChange === 'function';
 
   const colorOpts = useMemo(
     () => ({ accentColor: accentColor || undefined, partnerColor: partnerColor || undefined }),
@@ -157,17 +159,52 @@ export function AnnualHeatmap({
 
   const selectedKey = selectedDay ? format(selectedDay, 'yyyy-MM-dd') : null;
   const selectedInfo = selectedKey && dayMap ? dayMap[selectedKey] : null;
+  const selectedTitles = [
+    ...(selectedInfo?.my_session_titles || []),
+    ...(selectedInfo?.partner_session_titles || []),
+  ].filter(Boolean);
   const hasActivity = dayMap && Object.keys(dayMap).some((k) => {
     const info = dayMap[k];
     return info && (info.completed > 0 || info.has_activity || info.sessions?.length);
   });
 
   return (
-    <div className="space-y-4" data-testid="annual-heatmap">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h3 className="text-foreground font-semibold font-['Outfit']">{title} — {safeYear}</h3>
-          <p className="text-subtle text-xs mt-0.5">{t('settings:agenda.completedOnly')}</p>
+    <div
+      className="space-y-4 w-full max-w-full min-w-0 overflow-hidden"
+      data-testid="annual-heatmap"
+    >
+      <div className="flex items-center justify-between gap-3 min-w-0">
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-1 min-w-0">
+            {canNavigateYear ? (
+              <button
+                type="button"
+                data-testid="annual-heatmap-prev-year"
+                aria-label={t('settings:agenda.prevYear', { defaultValue: 'Année précédente' })}
+                onClick={() => onYearChange(safeYear - 1)}
+                className="h-8 w-8 shrink-0 rounded-full border border-border bg-hover text-muted hover:bg-active hover:text-foreground inline-flex items-center justify-center"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            ) : null}
+            <div className="min-w-0 flex-1 text-center">
+              <h3 className="text-foreground font-semibold font-['Outfit'] truncate">
+                {title} — {safeYear}
+              </h3>
+              <p className="text-subtle text-xs mt-0.5 truncate">{t('settings:agenda.completedOnly')}</p>
+            </div>
+            {canNavigateYear ? (
+              <button
+                type="button"
+                data-testid="annual-heatmap-next-year"
+                aria-label={t('settings:agenda.nextYear', { defaultValue: 'Année suivante' })}
+                onClick={() => onYearChange(safeYear + 1)}
+                className="h-8 w-8 shrink-0 rounded-full border border-border bg-hover text-muted hover:bg-active hover:text-foreground inline-flex items-center justify-center"
+              >
+                <ChevronRight size={16} />
+              </button>
+            ) : null}
+          </div>
         </div>
         <Button
           type="button"
@@ -193,21 +230,30 @@ export function AnnualHeatmap({
         </p>
       ) : null}
 
-      <div ref={gridRef} className="rounded-2xl border border-border bg-background p-4 space-y-4">
+      <div
+        ref={gridRef}
+        className="rounded-2xl border border-border bg-background p-3 sm:p-4 space-y-4 w-full max-w-full min-w-0 overflow-hidden"
+      >
         <p className="text-subtle text-xs text-center">{safeYear}</p>
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-2 sm:gap-3 min-w-0">
           {weeksByMonth.map((monthDays, monthIdx) => (
-            <div key={monthIdx} className="space-y-1.5">
-              <p className="text-[10px] text-subtle uppercase tracking-wide text-center">
+            <div key={monthIdx} className="space-y-1.5 min-w-0 max-w-full overflow-hidden">
+              <p className="text-[10px] text-subtle uppercase tracking-wide text-center truncate">
                 {MONTH_LABELS[monthIdx]}
               </p>
-              <div className="flex flex-wrap gap-0.5 justify-center">
+              <div className="flex flex-wrap gap-0.5 justify-center min-w-0">
                 {(monthDays || []).map((date) => {
                   const key = format(date, 'yyyy-MM-dd');
                   const info = (dayMap && dayMap[key]) || {};
                   const style = getCellStyle(info);
                   const isSelected = selectedDay && isSameDay(selectedDay, date);
                   const dateLabel = formatDate(date);
+                  const titles = [
+                    ...(info.my_session_titles || []),
+                    ...(info.partner_session_titles || []),
+                  ].filter(Boolean);
+                  const count =
+                    (info.my_session_count || 0) + (info.partner_session_count || 0) || titles.length;
                   return (
                     <button
                       key={key}
@@ -215,7 +261,7 @@ export function AnnualHeatmap({
                       title={heatmapDayTitle(info, dateLabel)}
                       aria-label={heatmapDayTitle(info, dateLabel)}
                       onClick={() => setSelectedDay(date)}
-                      className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-sm transition-transform ${
+                      className={`relative w-2 h-2 sm:w-2.5 sm:h-2.5 shrink-0 rounded-sm transition-transform min-w-0 max-w-full overflow-hidden ${
                         isSelected ? 'ring-1 ring-foreground scale-125' : 'hover:scale-110'
                       } ${style.kind === 'empty' ? 'bg-hover' : ''}`}
                       style={
@@ -227,7 +273,11 @@ export function AnnualHeatmap({
                             : { backgroundColor: style.fill }
                           : undefined
                       }
-                    />
+                    >
+                      {count > 1 ? (
+                        <span className="sr-only">{count} séances</span>
+                      ) : null}
+                    </button>
                   );
                 })}
               </div>
@@ -237,12 +287,27 @@ export function AnnualHeatmap({
       </div>
 
       {selectedDay ? (
-        <p className="text-muted text-sm text-center">
-          {heatmapDayTitle(
-            selectedInfo,
-            formatWeekdayDate(selectedDay)
-          )}
-        </p>
+        <div
+          className="min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-surface-elevated/60 px-3 py-2"
+          data-testid="annual-heatmap-day-detail"
+        >
+          <p className="text-muted text-sm text-center min-w-0 break-words [overflow-wrap:anywhere] line-clamp-3">
+            {heatmapDayTitle(selectedInfo, formatWeekdayDate(selectedDay))}
+          </p>
+          {selectedTitles.length > 0 ? (
+            <ul className="mt-1.5 space-y-0.5 min-w-0">
+              {selectedTitles.map((titleText, idx) => (
+                <li
+                  key={`${titleText}-${idx}`}
+                  className="block min-w-0 max-w-full text-xs text-foreground text-center break-words [overflow-wrap:anywhere] line-clamp-2"
+                  data-testid="annual-heatmap-session-title"
+                >
+                  {titleText}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+        </div>
       ) : null}
     </div>
   );

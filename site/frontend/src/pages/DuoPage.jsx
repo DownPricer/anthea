@@ -12,7 +12,7 @@ import { NotificationBell } from '../components/NotificationBell';
 import { BadgeArtwork } from '../components/badges/BadgeArtwork';
 import { getBadgeDisplayName } from '../lib/featuredBadges';
 import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
-import { AnnualHeatmap } from '../components/agenda/AnnualHeatmap';
+import { CollapsibleAnnualAgenda } from '../components/agenda/CollapsibleAnnualAgenda';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import {
   DuoHeaderSkeleton,
@@ -1093,14 +1093,12 @@ export function DuoPage() {
           </div>
         </TabsContent>
 
-        {/* History Tab */}
-        <TabsContent value="history" className="space-y-4">
-          <AnnualHeatmap
-            year={new Date().getFullYear()}
-            userId={historyTarget === 'me' ? viewerUserId : partnerUserId}
-            title={t('settings:agenda.annualTitle', { defaultValue: 'Agenda annuel' })}
-          />
-          <div className="flex gap-2 flex-wrap items-center">
+        {/* History Tab — historique d'abord, agenda annuel replié */}
+        <TabsContent value="history" className="space-y-4" data-testid="duo-history-tab">
+          <h2 className="text-sm font-medium text-muted uppercase tracking-wider">
+            {t('duo:history')}
+          </h2>
+          <div className="flex gap-2 flex-wrap items-center min-w-0">
             <Select value={historyTarget} onValueChange={setHistoryTarget}>
               <SelectTrigger className="w-[130px] h-9 rounded-full bg-surface-elevated border-border text-foreground text-sm">
                 <SelectValue />
@@ -1128,7 +1126,7 @@ export function DuoPage() {
             ))}
           </div>
           {(user?.relation_type === 'coach' || canModerateStreak) && (
-            <div className="flex flex-wrap gap-2 items-center p-3 rounded-2xl bg-surface-elevated border border-border">
+            <div className="flex flex-wrap gap-2 items-center p-3 rounded-2xl bg-surface-elevated border border-border min-w-0">
               <Select value={exportPeriod} onValueChange={setExportPeriod}>
                 <SelectTrigger className="h-9 w-[140px] rounded-full bg-background border-border text-foreground text-sm">
                   <SelectValue />
@@ -1178,16 +1176,16 @@ export function DuoPage() {
             </div>
           )}
           {historyLoading ? (
-            <div className="flex justify-center py-12">
+            <div className="flex justify-center py-12" data-testid="duo-history-list">
               <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
             </div>
           ) : historySessions.length === 0 ? (
-            <div className="card p-8 text-center">
+            <div className="card p-8 text-center" data-testid="duo-history-list">
               <History className="mx-auto text-subtle mb-3" size={28} />
               <p className="text-subtle">{t('duo:emptyStates.history')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 md:grid-cols-2" data-testid="duo-history-list">
               {historySessions
                 .filter((s) => {
                   if (historyTarget === 'me') return String(s.user_id) === String(viewerUserId);
@@ -1207,6 +1205,12 @@ export function DuoPage() {
                 ))}
             </div>
           )}
+          <CollapsibleAnnualAgenda
+            year={new Date().getFullYear()}
+            userId={historyTarget === 'me' ? viewerUserId : partnerUserId}
+            title={t('duo:annualAgenda', { defaultValue: 'Agenda annuel' })}
+            defaultOpen={false}
+          />
         </TabsContent>
 
         {/* Stats Tab */}

@@ -71,6 +71,8 @@
     "loadHint": "Open this section to load the agenda.",
     "completedOnly": "Completed workouts only",
     "annualTitle": "Yearly agenda",
+    "prevYear": "Previous year",
+    "nextYear": "Next year",
     "loadError": "Unable to load the agenda.",
     "noActivity": "No activity recorded this year."
   },

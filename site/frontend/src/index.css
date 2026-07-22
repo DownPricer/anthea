@@ -236,6 +236,17 @@ h1, h2, h3, h4, h5, h6 {
 .agenda-calendar-root .rdp {
   --rdp-accent-color: var(--agenda-mine) !important;
   --rdp-background-color: color-mix(in srgb, var(--agenda-mine) 12%, transparent) !important;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.agenda-calendar-root .agenda-day-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .agenda-calendar-root .rdp-day_selected {

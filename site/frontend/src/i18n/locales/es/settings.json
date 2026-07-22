@@ -71,6 +71,8 @@
     "loadHint": "Abre esta sección para cargar la agenda.",
     "completedOnly": "Solo sesiones completadas",
     "annualTitle": "Agenda anual",
+    "prevYear": "Año anterior",
+    "nextYear": "Año siguiente",
     "loadError": "No se pudo cargar la agenda.",
     "noActivity": "Ninguna actividad registrada este año."
   },
