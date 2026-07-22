@@ -3,6 +3,14 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
 import { sanitizeExerciseForApi, handleExerciseImageError } from '../lib/exerciseMedia';
+import {
+  createExerciseSearchController,
+  EXERCISE_FILTER_PRESETS,
+} from '../lib/exerciseSearch';
+import {
+  ExerciseMediaThumb,
+  exerciseSecondaryLabel,
+} from '../components/exercises/ExerciseMediaThumb';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
@@ -76,7 +84,7 @@ const DEFAULT_NEW_EXERCISE = {
 const MAX_GIF_FILE_BYTES = 2 * 1024 * 1024;
 
 export function CreateWorkoutPage() {
-  const { t } = useTranslation(['workouts', 'common']);
+  const { t, i18n } = useTranslation(['workouts', 'common']);
   const { dateFnsLocale, formatShortDate, formatDate } = useLocaleFormat();
   const blockTypes = useMemo(
     () =>
@@ -159,11 +167,21 @@ export function CreateWorkoutPage() {
   const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [exerciseLibraryLoading, setExerciseLibraryLoading] = useState(false);
   const [exerciseLibraryLoaded, setExerciseLibraryLoaded] = useState(false);
+  const [exercisePage, setExercisePage] = useState(1);
+  const [exerciseHasMore, setExerciseHasMore] = useState(false);
+  const [exerciseTotal, setExerciseTotal] = useState(0);
+  const [exerciseLoadingMore, setExerciseLoadingMore] = useState(false);
+  const [sportFilter, setSportFilter] = useState('');
+  const [equipmentFilter, setEquipmentFilter] = useState('');
+  const [muscleFilter, setMuscleFilter] = useState('');
+  const [customCreationEnabled, setCustomCreationEnabled] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
   const [currentBlockIndex, setCurrentBlockIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const [showSchedulePreview, setShowSchedulePreview] = useState(false);
   const [exerciseTab, setExerciseTab] = useState('library');
   const [creatingExercise, setCreatingExercise] = useState(false);
@@ -171,6 +189,12 @@ export function CreateWorkoutPage() {
   const [newExercise, setNewExercise] = useState(DEFAULT_NEW_EXERCISE);
   const newExerciseGifInputRef = useRef(null);
   const templateCacheRef = useRef(new Map());
+  const exerciseSearchRef = useRef(null);
+  const exerciseListRef = useRef(null);
+
+  if (!exerciseSearchRef.current) {
+    exerciseSearchRef.current = createExerciseSearchController({ api: exercisesApi, limit: 30 });
+  }
 
   useEffect(() => {
     draftDeletedRef.current = false;
@@ -313,17 +337,43 @@ export function CreateWorkoutPage() {
     }
   };
 
-  const loadExerciseLibrary = async () => {
-    if (exerciseLibraryLoaded || exerciseLibraryLoading) return;
-    setExerciseLibraryLoading(true);
+  const loadExerciseLibrary = async ({ page = 1, append = false } = {}) => {
+    if (append) {
+      if (exerciseLoadingMore || !exerciseHasMore) return;
+      setExerciseLoadingMore(true);
+    } else {
+      setExerciseLibraryLoading(true);
+    }
     try {
-      const { data } = await exercisesApi.getAll();
-      setExercises(data || []);
+      const locale = (i18n?.language || 'fr').split('-')[0];
+      const params = {
+        q: debouncedQuery || undefined,
+        sport: sportFilter || undefined,
+        equipment: equipmentFilter || undefined,
+        muscle: muscleFilter || undefined,
+        page,
+        limit: 30,
+        locale,
+      };
+      const data = await exerciseSearchRef.current.search(params, {
+        debounceMs: 0,
+      });
+      if (!data) return;
+      const items = data.items || [];
+      setExercises((prev) => (append ? [...prev, ...items] : items));
+      setExercisePage(data.page || page);
+      setExerciseHasMore(Boolean(data.has_more));
+      setExerciseTotal(data.total || items.length);
+      setCustomCreationEnabled(Boolean(data.custom_creation_enabled));
       setExerciseLibraryLoaded(true);
+      if (!data.custom_creation_enabled) {
+        setExerciseTab('library');
+      }
     } catch (error) {
       toast.error(t('workouts:create.toast.libraryLoadError'));
     } finally {
       setExerciseLibraryLoading(false);
+      setExerciseLoadingMore(false);
     }
   };
 
@@ -341,6 +391,9 @@ export function CreateWorkoutPage() {
       order: blocks[currentBlockIndex].exercises.length,
       tts_enabled: true,
       image_url: exercise.image_url,
+      exercise_name_snapshot: exercise.name,
+      media_snapshot: exercise.image_url || null,
+      tracking_type_snapshot: exercise.tracking_type || exercise.exercise_type || 'reps',
     };
 
     setBlocks((prev) => {
@@ -349,9 +402,13 @@ export function CreateWorkoutPage() {
       return updated;
     });
 
+    if (exerciseListRef.current) {
+      exerciseSearchRef.current.saveScroll(exerciseListRef.current.scrollTop);
+    }
     setExerciseDialogOpen(false);
     setCurrentBlockIndex(null);
     setSearchQuery('');
+    setDebouncedQuery('');
     setExerciseTab('library');
   };
 
@@ -392,10 +449,15 @@ export function CreateWorkoutPage() {
   const resetExerciseDialogState = () => {
     setCurrentBlockIndex(null);
     setSearchQuery('');
+    setDebouncedQuery('');
     setExerciseTab('library');
     setCreatingExercise(false);
     setEditingExerciseId(null);
     setNewExercise(DEFAULT_NEW_EXERCISE);
+    setSportFilter('');
+    setEquipmentFilter('');
+    setMuscleFilter('');
+    setFiltersOpen(false);
   };
 
   const libraryExerciseToForm = (exercise) => ({
@@ -443,6 +505,10 @@ export function CreateWorkoutPage() {
 
   const handleCreateExercise = async (event) => {
     event.preventDefault();
+    if (!customCreationEnabled && !editingExerciseId) {
+      toast.error(t('workouts:create.toast.customCreationDisabled'));
+      return;
+    }
 
     if (!newExercise.name.trim()) {
       toast.error(t('workouts:create.toast.exerciseNameRequired'));
@@ -801,11 +867,31 @@ export function CreateWorkoutPage() {
     }
   };
 
-  const filteredExercises = exercises.filter(
-    (e) =>
-      e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      e.category?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredExercises = exercises;
+
+  useEffect(() => {
+    const handle = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 250);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!exerciseDialogOpen) return;
+    exerciseSearchRef.current.clearCache();
+    loadExerciseLibrary({ page: 1, append: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exerciseDialogOpen, debouncedQuery, sportFilter, equipmentFilter, muscleFilter, i18n.language]);
+
+  useEffect(() => {
+    return () => exerciseSearchRef.current?.cancel();
+  }, []);
+
+  const onExerciseListScroll = (event) => {
+    const el = event.currentTarget;
+    if (!exerciseHasMore || exerciseLoadingMore || exerciseLibraryLoading) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 80) {
+      loadExerciseLibrary({ page: exercisePage + 1, append: true });
+    }
+  };
 
   const getTotalDuration = () => {
     let total = 0;
@@ -1367,7 +1453,6 @@ export function CreateWorkoutPage() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          loadExerciseLibrary();
                           setCurrentBlockIndex(blockIndex);
                           setExerciseDialogOpen(true);
                         }}
@@ -1387,40 +1472,39 @@ export function CreateWorkoutPage() {
                               : t('workouts:create.dialog.chooseExercise')}
                           </DialogTitle>
                         </DialogHeader>
-                        <div className="grid grid-cols-2 gap-2 rounded-xl bg-background p-1">
-                          <button
-                            type="button"
-                            onClick={() => {
-                              loadExerciseLibrary();
-                              setExerciseTab('library');
-                            }}
-                            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                              exerciseTab === 'library'
-                                ? 'bg-[var(--theme-primary)] text-foreground'
-                                : 'text-muted hover:bg-hover'
-                            }`}
-                          >
-                            {t('workouts:create.dialog.library')}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setEditingExerciseId(null);
-                              setNewExercise(DEFAULT_NEW_EXERCISE);
-                              setExerciseTab('create');
-                            }}
-                            className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                              exerciseTab === 'create'
-                                ? 'bg-[var(--theme-primary)] text-foreground'
-                                : 'text-muted hover:bg-hover'
-                            }`}
-                          >
-                            {t('workouts:create.dialog.newExercise')}
-                          </button>
-                        </div>
+                        {customCreationEnabled ? (
+                          <div className="grid grid-cols-2 gap-2 rounded-xl bg-background p-1">
+                            <button
+                              type="button"
+                              onClick={() => setExerciseTab('library')}
+                              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                exerciseTab === 'library'
+                                  ? 'bg-[var(--theme-primary)] text-foreground'
+                                  : 'text-muted hover:bg-hover'
+                              }`}
+                            >
+                              {t('workouts:create.dialog.library')}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingExerciseId(null);
+                                setNewExercise(DEFAULT_NEW_EXERCISE);
+                                setExerciseTab('create');
+                              }}
+                              className={`rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                                exerciseTab === 'create'
+                                  ? 'bg-[var(--theme-primary)] text-foreground'
+                                  : 'text-muted hover:bg-hover'
+                              }`}
+                            >
+                              {t('workouts:create.dialog.newExercise')}
+                            </button>
+                          </div>
+                        ) : null}
                       </div>
 
-                      {exerciseTab === 'library' ? (
+                      {exerciseTab === 'library' || !customCreationEnabled ? (
                         <div className="flex min-h-0 flex-1 flex-col gap-3 px-5 py-4">
                           <div className="relative shrink-0">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-subtle" size={18} />
@@ -1431,8 +1515,68 @@ export function CreateWorkoutPage() {
                               className="pl-10 h-12 rounded-xl bg-background border-border text-foreground"
                             />
                           </div>
-                          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1">
-                              {exerciseLibraryLoading ? (
+                          <div className="flex shrink-0 items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => setFiltersOpen((v) => !v)}
+                              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:bg-hover"
+                            >
+                              {t('workouts:create.filters.toggle')}
+                            </button>
+                            {exerciseTotal > 0 ? (
+                              <span className="text-xs text-subtle">
+                                {t('workouts:create.exerciseCount', { count: exerciseTotal })}
+                              </span>
+                            ) : null}
+                          </div>
+                          {filtersOpen ? (
+                            <div className="shrink-0 space-y-2 rounded-xl border border-border bg-background p-3">
+                              <div className="flex flex-wrap gap-1.5">
+                                {EXERCISE_FILTER_PRESETS.sports.map((opt) => (
+                                  <button
+                                    key={`sport-${opt.value || 'all'}`}
+                                    type="button"
+                                    onClick={() => setSportFilter(opt.value)}
+                                    className={`rounded-lg px-2.5 py-1 text-xs ${
+                                      sportFilter === opt.value
+                                        ? 'bg-[var(--theme-primary)] text-foreground'
+                                        : 'bg-hover text-muted'
+                                    }`}
+                                  >
+                                    {t(opt.labelKey)}
+                                  </button>
+                                ))}
+                              </div>
+                              <div className="flex flex-wrap gap-1.5">
+                                {EXERCISE_FILTER_PRESETS.equipment.map((opt) => (
+                                  <button
+                                    key={`eq-${opt.value || 'all'}`}
+                                    type="button"
+                                    onClick={() => setEquipmentFilter(opt.value)}
+                                    className={`rounded-lg px-2.5 py-1 text-xs ${
+                                      equipmentFilter === opt.value
+                                        ? 'bg-[var(--theme-primary)] text-foreground'
+                                        : 'bg-hover text-muted'
+                                    }`}
+                                  >
+                                    {t(opt.labelKey)}
+                                  </button>
+                                ))}
+                              </div>
+                              <Input
+                                value={muscleFilter}
+                                onChange={(e) => setMuscleFilter(e.target.value)}
+                                placeholder={t('workouts:create.filters.musclePlaceholder')}
+                                className="h-9 rounded-lg bg-surface-elevated border-border text-foreground text-sm"
+                              />
+                            </div>
+                          ) : null}
+                          <div
+                            ref={exerciseListRef}
+                            onScroll={onExerciseListScroll}
+                            className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1"
+                          >
+                              {exerciseLibraryLoading && exercises.length === 0 ? (
                                 <div className="flex items-center justify-center py-10 text-subtle">
                                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                   {t('workouts:create.loadingExercises')}
@@ -1447,38 +1591,35 @@ export function CreateWorkoutPage() {
                                     onClick={() => addExerciseToBlock(exercise)}
                                     className="flex-1 min-w-0 p-3 text-left flex items-center gap-3 rounded-xl"
                                   >
-                                    {exercise.image_url ? (
-                                      <div className="w-12 h-12 rounded-lg overflow-hidden bg-active flex-shrink-0">
-                                        <img
-                                          src={exercise.image_url}
-                                          alt=""
-                                          className="w-full h-full object-cover"
-                                          onError={handleExerciseImageError}
-                                        />
-                                      </div>
-                                    ) : (
-                                      <div className="w-12 h-12 rounded-lg bg-active flex items-center justify-center flex-shrink-0">
-                                        <ImageIcon size={20} className="text-subtle" />
-                                      </div>
-                                    )}
+                                    <ExerciseMediaThumb
+                                      src={exercise.image_url}
+                                      className="w-16 h-16"
+                                    />
                                     <div className="flex-1 min-w-0">
-                                      <p className="text-foreground font-medium">{exercise.name}</p>
-                                      <p className="text-subtle text-sm flex items-center gap-2">
-                                        <span className="capitalize">{exercise.category}</span>
-                                        <span>•</span>
-                                        {exercise.exercise_type === 'duration' ? (
-                                          <span className="flex items-center gap-1">
-                                            <Clock size={12} /> {exercise.default_duration}s
-                                          </span>
-                                        ) : (
-                                          <span className="flex items-center gap-1">
-                                            <Hash size={12} /> {exercise.default_reps} {t('workouts:create.repsShort')}
-                                          </span>
+                                      <p className="text-foreground font-medium truncate">{exercise.name}</p>
+                                      {exercise.description ? (
+                                        <p className="text-subtle text-sm line-clamp-2">{exercise.description}</p>
+                                      ) : null}
+                                      <p className="text-subtle text-xs mt-0.5 truncate">
+                                        {exerciseSecondaryLabel(exercise) || (
+                                          <>
+                                            <span className="capitalize">{exercise.category}</span>
+                                            <span> · </span>
+                                            {exercise.exercise_type === 'duration' ? (
+                                              <span className="inline-flex items-center gap-1">
+                                                <Clock size={12} /> {exercise.default_duration}s
+                                              </span>
+                                            ) : (
+                                              <span className="inline-flex items-center gap-1">
+                                                <Hash size={12} /> {exercise.default_reps} {t('workouts:create.repsShort')}
+                                              </span>
+                                            )}
+                                          </>
                                         )}
                                       </p>
                                     </div>
                                   </button>
-                                  {!exercise.is_system && (
+                                  {!exercise.is_system && customCreationEnabled ? (
                                     <Button
                                       type="button"
                                       variant="ghost"
@@ -1489,9 +1630,15 @@ export function CreateWorkoutPage() {
                                     >
                                       <Pencil size={18} />
                                     </Button>
-                                  )}
+                                  ) : null}
                                 </div>
                               ))}
+                              {exerciseLoadingMore ? (
+                                <div className="flex justify-center py-3 text-subtle text-sm">
+                                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                  {t('workouts:create.loadingMore')}
+                                </div>
+                              ) : null}
                               {!exerciseLibraryLoading && filteredExercises.length === 0 && (
                                 <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-subtle">
                                   {t('workouts:create.noExercisesFound')}

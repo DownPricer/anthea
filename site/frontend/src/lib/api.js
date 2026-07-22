@@ -86,7 +86,9 @@ export const liveWorkoutApi = {
 
 // Exercises API
 export const exercisesApi = {
-  getAll: (params) => api.get('/exercises', { params }),
+  getAll: (params, config) => api.get('/exercises', { params, ...(config || {}) }),
+  getOne: (id, params) => api.get(`/exercises/${id}`, { params }),
+  getFacets: () => api.get('/exercises/facets'),
   create: (data) => api.post('/exercises', data),
   update: (id, data) => api.put(`/exercises/${id}`, data),
   delete: (id) => api.delete(`/exercises/${id}`),

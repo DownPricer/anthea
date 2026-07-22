@@ -911,18 +911,18 @@ export function WorkoutPlayerPage() {
         {/* First exercise preview */}
         {currentExercise && !savedProgress && (
           <div className="card p-6 w-full max-w-sm mb-8">
-            {currentExercise.image_url && (
+            {(currentExercise.image_url || currentExercise.media_snapshot) && (
               <div className="w-full h-32 rounded-xl overflow-hidden mb-4 bg-hover">
                 <img 
-                  src={currentExercise.image_url} 
-                  alt={currentExercise.name}
-                  className="w-full h-full object-cover"
-                  onError={(e) => e.target.style.display = 'none'}
+                  src={currentExercise.image_url || currentExercise.media_snapshot} 
+                  alt={currentExercise.name || currentExercise.exercise_name_snapshot || ''}
+                  className="w-full h-full object-contain"
+                  onError={(e) => { e.target.style.display = 'none'; }}
                 />
               </div>
             )}
             <p className="text-subtle text-sm uppercase tracking-wider mb-2">{t('player:firstExercise')}</p>
-            <h2 className="text-xl font-bold text-foreground">{currentExercise.name}</h2>
+            <h2 className="text-xl font-bold text-foreground">{currentExercise.name || currentExercise.exercise_name_snapshot}</h2>
             {currentExercise.description && (
               <p className="text-muted text-sm mt-1">{currentExercise.description}</p>
             )}
@@ -1132,12 +1132,12 @@ export function WorkoutPlayerPage() {
       <main className="relative flex flex-1 flex-col w-full min-h-0">
         <div className="flex flex-1 w-full items-center justify-center px-4 py-4 md:px-8 md:py-8">
           <div className="flex w-full max-w-2xl flex-col items-center gap-6 text-center">
-              {currentExercise?.image_url && phase === 'exercise' && (
+              {(currentExercise?.image_url || currentExercise?.media_snapshot) && phase === 'exercise' && (
                 <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-hover aspect-video">
                   <img
-                    src={currentExercise.image_url}
-                    alt={currentExercise.name}
-                    className="h-full w-full object-cover"
+                    src={currentExercise.image_url || currentExercise.media_snapshot}
+                    alt={currentExercise.name || currentExercise.exercise_name_snapshot || ''}
+                    className="h-full w-full object-contain"
                     onError={(e) => {
                       e.target.parentElement.style.display = 'none';
                     }}

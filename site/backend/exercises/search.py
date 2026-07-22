@@ -59,7 +59,35 @@ async def search_catalog(
             }
         )
     if equipment:
-        and_clauses.append({"equipment": equipment})
+        if equipment in ("selectorized_machine", "plate_loaded_machine", "machine"):
+            and_clauses.append(
+                {
+                    "equipment": {
+                        "$in": [
+                            "selectorized_machine",
+                            "plate_loaded_machine",
+                            "leg_press_machine",
+                            "hack_squat_machine",
+                            "chest_press_machine",
+                            "shoulder_press_machine",
+                            "lat_pulldown_machine",
+                            "seated_row_machine",
+                            "leg_extension_machine",
+                            "leg_curl_machine",
+                            "adductor_machine",
+                            "abductor_machine",
+                            "calf_raise_machine",
+                            "pec_deck_machine",
+                            "reverse_fly_machine",
+                            "assisted_dip_machine",
+                            "assisted_pullup_machine",
+                            "smith_machine",
+                        ]
+                    }
+                }
+            )
+        else:
+            and_clauses.append({"equipment": equipment})
     if tracking_type:
         and_clauses.append({"tracking_type": tracking_type})
     if has_media is True:

@@ -69,6 +69,19 @@ from duo_social import (
     session_completions_for_range,
     sync_duo_member_ids,
 )
+from exercises.api import (
+    admin_set_enabled,
+    bootstrap_exercise_catalog,
+    create_exercise_handler,
+    custom_creation_enabled,
+    delete_exercise_handler,
+    facets_handler,
+    get_exercise_handler,
+    list_exercises_handler,
+    media_handler,
+    update_exercise_handler,
+)
+from exercises.resolve import resolve_exercise_reference
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -269,6 +282,10 @@ class WorkoutExercise(BaseModel):
     order: int = 0
     tts_enabled: bool = True
     image_url: Optional[str] = None
+    # Snapshots de compatibilité catalogue (optionnels, non destructifs)
+    exercise_name_snapshot: Optional[str] = None
+    media_snapshot: Optional[str] = None
+    tracking_type_snapshot: Optional[str] = None
 
 class WorkoutBlock(BaseModel):
     block_type: str
@@ -1871,6 +1888,7 @@ async def lifespan(app: FastAPI):
     await db.duo_follows.create_index([("follower_id", 1), ("status", 1)])
     await db.duo_follows.create_index([("duo_id", 1), ("status", 1)])
     await db.duo_follows.create_index("status")
+    await bootstrap_exercise_catalog(db)
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -3711,52 +3729,87 @@ async def post_live_workout_reaction(body: LiveWorkoutReactionCreate, user: dict
 # ============ EXERCISE ROUTES ============
 
 @api_router.get("/exercises")
-async def get_exercises(user: dict = Depends(get_current_user)):
-    exercises = await db.exercises.find({
-        "$or": [
-            {"is_system": True},
-            {"user_id": user["id"]}
-        ]
-    }).to_list(1000)
-    
-    return [{"id": str(e["_id"]), **{k: v for k, v in e.items() if k != "_id"}} for e in exercises]
+async def get_exercises(
+    q: Optional[str] = None,
+    sport: Optional[str] = None,
+    category: Optional[str] = None,
+    body_part: Optional[str] = None,
+    muscle: Optional[str] = None,
+    equipment: Optional[str] = None,
+    tracking_type: Optional[str] = None,
+    has_media: Optional[str] = None,
+    page: int = 1,
+    limit: int = 30,
+    locale: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    return await list_exercises_handler(
+        db,
+        user,
+        q=q,
+        sport=sport,
+        category=category,
+        body_part=body_part,
+        muscle=muscle,
+        equipment=equipment,
+        tracking_type=tracking_type,
+        has_media=has_media,
+        page=page,
+        limit=limit,
+        locale=locale,
+    )
+
+
+@api_router.get("/exercises/facets")
+async def get_exercise_facets(user: dict = Depends(get_current_user)):
+    return await facets_handler(db, user)
+
+
+@api_router.get("/exercises/{exercise_id}/media")
+async def get_exercise_media(exercise_id: str, user: dict = Depends(get_current_user)):
+    return await media_handler(db, exercise_id, user)
+
+
+@api_router.get("/exercises/{exercise_id}")
+async def get_exercise(
+    exercise_id: str,
+    locale: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    return await get_exercise_handler(db, exercise_id, user, locale=locale)
+
 
 @api_router.post("/exercises")
 async def create_exercise(data: ExerciseCreate, user: dict = Depends(get_current_user)):
-    exercise_doc = {
-        **data.model_dump(),
-        "user_id": user["id"],
-        "is_system": False,
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    result = await db.exercises.insert_one(exercise_doc)
-    exercise_doc["id"] = str(result.inserted_id)
-    exercise_doc.pop("_id", None)  # Remove ObjectId before returning
-    return exercise_doc
+    return await create_exercise_handler(db, data.model_dump(), user)
+
 
 @api_router.put("/exercises/{exercise_id}")
 async def update_exercise(exercise_id: str, data: ExerciseCreate, user: dict = Depends(get_current_user)):
-    exercise = await db.exercises.find_one({"_id": ObjectId(exercise_id), "user_id": user["id"]})
-    if not exercise:
-        raise HTTPException(status_code=404, detail="Exercise not found")
-    
-    update_data = data.model_dump()
-    update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
-    
-    await db.exercises.update_one({"_id": ObjectId(exercise_id)}, {"$set": update_data})
-    
-    updated = await db.exercises.find_one({"_id": ObjectId(exercise_id)})
-    return {"id": str(updated["_id"]), **{k: v for k, v in updated.items() if k != "_id"}}
+    return await update_exercise_handler(db, exercise_id, data.model_dump(), user)
+
 
 @api_router.delete("/exercises/{exercise_id}")
 async def delete_exercise(exercise_id: str, user: dict = Depends(get_current_user)):
-    exercise = await db.exercises.find_one({"_id": ObjectId(exercise_id), "user_id": user["id"], "is_system": False})
-    if not exercise:
-        raise HTTPException(status_code=404, detail="Exercise not found or is a system exercise")
-    
-    await db.exercises.delete_one({"_id": ObjectId(exercise_id)})
-    return {"message": "Exercise deleted"}
+    return await delete_exercise_handler(db, exercise_id, user)
+
+
+@api_router.post("/exercises/{exercise_id}/admin/enabled")
+async def set_exercise_enabled(
+    exercise_id: str,
+    enabled: bool = True,
+    user: dict = Depends(get_current_user),
+):
+    return await admin_set_enabled(db, exercise_id, enabled, user)
+
+
+@api_router.get("/exercises-resolve/{exercise_id}")
+async def resolve_exercise(
+    exercise_id: str,
+    locale: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    return await resolve_exercise_reference(db, exercise_id, locale=locale or "fr")
 
 # ============ WORKOUT TEMPLATE ROUTES ============
 
