@@ -5,8 +5,9 @@ import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
-import { Loader2, Dumbbell, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
+import { AntheaLogo } from '../components/branding/AntheaLogo';
 
 export function LoginPage() {
   const { t } = useTranslation(['auth', 'common']);
@@ -44,15 +45,7 @@ export function LoginPage() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-10">
-          <div
-            className="w-16 h-16 rounded-2xl flex items-center justify-center mb-4"
-            style={{
-              background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
-              boxShadow: '0 8px 30px var(--theme-primary-glow)',
-            }}
-          >
-            <Dumbbell className="w-8 h-8 text-[var(--theme-primary-foreground)]" strokeWidth={2} />
-          </div>
+          <AntheaLogo className="h-14 w-14 mb-4" />
           <h1 className="text-3xl font-black text-foreground tracking-tight font-['Outfit']">
             {t('common:app.brand')}
           </h1>

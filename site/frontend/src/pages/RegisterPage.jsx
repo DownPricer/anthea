@@ -12,8 +12,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../components/ui/select';
-import { Loader2, Dumbbell, Eye, EyeOff, ChevronRight, ChevronLeft } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ChevronRight, ChevronLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { AntheaLogo } from '../components/branding/AntheaLogo';
 
 const FITNESS_LEVEL_KEYS = ['beginner', 'intermediate', 'advanced', 'expert'];
 const GOAL_KEYS = ['lose_weight', 'gain_muscle', 'stay_fit', 'improve_endurance', 'flexibility'];
@@ -87,15 +88,7 @@ export function RegisterPage() {
     <div className="min-h-screen bg-background flex flex-col items-center justify-center p-6">
       <div className="w-full max-w-sm animate-fade-in">
         <div className="flex flex-col items-center mb-8">
-          <div
-            className="w-14 h-14 rounded-xl flex items-center justify-center mb-3"
-            style={{
-              background: 'linear-gradient(135deg, var(--theme-primary), var(--theme-secondary))',
-              boxShadow: '0 8px 30px var(--theme-primary-glow)',
-            }}
-          >
-            <Dumbbell className="w-7 h-7 text-[var(--theme-primary-foreground)]" strokeWidth={2} />
-          </div>
+          <AntheaLogo className="h-12 w-12 mb-3" />
           <h1 className="text-2xl font-black text-foreground tracking-tight font-['Outfit']">
             {t('register.title')}
           </h1>

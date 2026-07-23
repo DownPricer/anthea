@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
 import { useDuoUnreadCount } from '../../hooks/useDuoUnreadCount';
 import { useTranslation } from 'react-i18next';
+import { AntheaLogo } from '../branding/AntheaLogo';
 
 export function DesktopNav() {
   const { t } = useTranslation('navigation');
@@ -35,10 +36,15 @@ export function DesktopNav() {
     <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-border bg-background">
       <div className="flex h-full flex-col p-4">
         <div className="px-2 py-3">
-          <div className="text-foreground font-black tracking-tight font-['Outfit'] text-lg">
-            Anthea
+          <div className="flex items-center gap-2.5 min-w-0">
+            <AntheaLogo className="h-8 w-8" />
+            <div className="min-w-0">
+              <div className="text-foreground font-black tracking-tight font-['Outfit'] text-lg leading-tight">
+                Anthea
+              </div>
+              <div className="text-subtle text-xs mt-0.5">{t('tagline')}</div>
+            </div>
           </div>
-          <div className="text-subtle text-xs mt-0.5">{t('tagline')}</div>
         </div>
 
         <nav className="mt-4 flex-1 space-y-1 overflow-y-auto min-h-0">
