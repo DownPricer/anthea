@@ -3,7 +3,7 @@ import path from 'path';
 
 describe('AntheaLogo branding', () => {
   const root = path.join(__dirname, '../..');
-  const logoAsset = path.join(root, 'assets/branding/logo-v1.svg');
+  const logoAsset = path.join(root, 'assets/branding/logo-v1.png');
   const componentSrc = fs.readFileSync(
     path.join(__dirname, 'AntheaLogo.jsx'),
     'utf8'
@@ -25,11 +25,13 @@ describe('AntheaLogo branding', () => {
     'utf8'
   );
 
-  it('ships logo V1 at the stable branding path', () => {
+  it('ships logo V1 PNG at the stable branding path', () => {
     expect(fs.existsSync(logoAsset)).toBe(true);
-    const svg = fs.readFileSync(logoAsset, 'utf8');
-    expect(svg).toMatch(/<svg[\s\S]*viewBox=/i);
-    expect(svg).toMatch(/path/i);
+    const buf = fs.readFileSync(logoAsset);
+    expect(buf[0]).toBe(0x89);
+    expect(buf[1]).toBe(0x50);
+    expect(buf[2]).toBe(0x4e);
+    expect(buf[3]).toBe(0x47);
   });
 
   it('exposes AntheaLogo with className, alt Anthea, and contain constraints', () => {
@@ -38,8 +40,8 @@ describe('AntheaLogo branding', () => {
     expect(componentSrc).toContain('object-contain');
     expect(componentSrc).toContain('shrink-0');
     expect(componentSrc).toContain('max-w-full');
-    expect(componentSrc).toContain('logo-v1.svg');
-    expect(componentSrc).toContain('invert');
+    expect(componentSrc).toContain('logo-v1.png');
+    expect(componentSrc).not.toContain('logo-v1.svg');
   });
 
   it('replaces legacy brand marks on login, register and desktop nav', () => {
@@ -50,9 +52,10 @@ describe('AntheaLogo branding', () => {
     expect(desktopNavSrc).toContain('AntheaLogo');
   });
 
-  it('links an SVG favicon without inventing low-quality PWA PNGs', () => {
-    expect(indexHtml).toMatch(/rel="icon"[^>]*favicon\.svg|favicon\.svg[^>]*rel="icon"/);
-    expect(fs.existsSync(path.join(root, '../public/favicon.svg'))).toBe(true);
+  it('links a PNG favicon without inventing low-quality PWA icons', () => {
+    expect(indexHtml).toMatch(/favicon\.png/);
+    expect(fs.existsSync(path.join(root, '../public/favicon.png'))).toBe(true);
+    expect(fs.existsSync(path.join(root, '../public/favicon.svg'))).toBe(false);
     const manifest = fs.readFileSync(
       path.join(root, '../public/manifest.json'),
       'utf8'
