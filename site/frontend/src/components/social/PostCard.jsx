@@ -60,17 +60,21 @@ export function PostCard({
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [likeLoading, setLikeLoading] = useState(false);
   const [commentLoading, setCommentLoading] = useState(false);
-  const [repostLoading, setRepostLoading] = useState(false);
+  const [repostPending, setRepostPending] = useState(false);
   const [reposted, setReposted] = useState(!!post?.viewer_has_reposted);
   const [repostId, setRepostId] = useState(post?.viewer_repost_id || null);
   const [repostsCount, setRepostsCount] = useState(post?.reposts_count || 0);
   const [commentLikes, setCommentLikes] = useState({});
+  const [canRepost, setCanRepost] = useState(
+    post?.can_repost !== false || !!post?.viewer_has_reposted
+  );
 
   useEffect(() => {
     setReposted(!!post?.viewer_has_reposted);
     setRepostId(post?.viewer_repost_id || null);
     setRepostsCount(post?.reposts_count || 0);
-  }, [post?.id, post?.viewer_has_reposted, post?.viewer_repost_id, post?.reposts_count]);
+    setCanRepost(post?.can_repost !== false || !!post?.viewer_has_reposted);
+  }, [post?.id, post?.viewer_has_reposted, post?.viewer_repost_id, post?.reposts_count, post?.can_repost]);
 
   useEffect(() => {
     const onPatch = (event) => {
@@ -79,6 +83,7 @@ export function PostCard({
       if (typeof patch.viewer_has_reposted === 'boolean') setReposted(patch.viewer_has_reposted);
       if ('viewer_repost_id' in patch) setRepostId(patch.viewer_repost_id || null);
       if (typeof patch.reposts_count === 'number') setRepostsCount(Math.max(0, patch.reposts_count));
+      if (typeof patch.can_repost === 'boolean') setCanRepost(patch.can_repost);
     };
     window.addEventListener('feed:post-patch', onPatch);
     return () => window.removeEventListener('feed:post-patch', onPatch);
@@ -147,8 +152,27 @@ export function PostCard({
     }
   };
 
+  const resolveRepostErrorMessage = (error) => {
+    const detail = error?.response?.data?.detail;
+    const reason = typeof detail === 'object' && detail ? detail.reason : null;
+    if (reason === 'private_post' || reason === 'friends_only' || reason === 'limited_visibility') {
+      return t('home:comments.repostPrivacyBlocked');
+    }
+    if (reason === 'own_post' || reason === 'not_allowed') {
+      return t('home:comments.repostForbidden');
+    }
+    if (typeof detail === 'object' && detail?.message) {
+      return detail.message;
+    }
+    if (error?.response?.status === 403) {
+      return t('home:comments.repostForbidden');
+    }
+    return formatApiError(error) || t('home:comments.repostUnavailable');
+  };
+
   const handleRepostToggle = async () => {
-    if (repostLoading || !post?.id) return;
+    if (repostPending || !post?.id) return;
+    if (!reposted && post?.can_repost === false) return;
 
     const prevReposted = reposted;
     const prevRepostId = repostId;
@@ -156,7 +180,7 @@ export function PostCard({
 
     if (reposted && repostId && repostId !== 'pending') {
       const nextCount = Math.max(0, prevCount - 1);
-      setRepostLoading(true);
+      setRepostPending(true);
       setReposted(false);
       setRepostId(null);
       setRepostsCount(nextCount);
@@ -174,15 +198,20 @@ export function PostCard({
           viewer_repost_id: prevRepostId,
           reposts_count: prevCount,
         });
-        toast.error(formatApiError(error));
+        toast.error(resolveRepostErrorMessage(error));
       } finally {
-        setRepostLoading(false);
+        setRepostPending(false);
       }
       return;
     }
 
+    if (post?.can_repost === false) {
+      toast.error(t('home:comments.repostForbidden'));
+      return;
+    }
+
     const nextCount = prevCount + 1;
-    setRepostLoading(true);
+    setRepostPending(true);
     setReposted(true);
     setRepostsCount(nextCount);
     broadcastPostPatch(post.id, {
@@ -191,13 +220,9 @@ export function PostCard({
       reposts_count: nextCount,
     });
     try {
-      const payload = post.workout_session_id
-        ? {
-            workout_session_id: post.workout_session_id,
-            partner_session_id: post.partner_session_id || undefined,
-          }
-        : { post_id: post.id };
-      const { data } = await postsApi.repost(payload);
+      // Toujours republier via post_id pour les publications du feed
+      // (évite le chemin séance réservé propriétaire/partenaire).
+      const { data } = await postsApi.repost({ post_id: post.id });
       const newId = data?.id || null;
       const already = !!data?.already_exists;
       setRepostId(newId);
@@ -208,6 +233,7 @@ export function PostCard({
         viewer_has_reposted: true,
         viewer_repost_id: newId,
         reposts_count: already ? (prevCount > 0 ? prevCount : 1) : nextCount,
+        can_repost: true,
       };
       setRepostsCount(patch.reposts_count);
       broadcastPostPatch(post.id, patch);
@@ -216,14 +242,27 @@ export function PostCard({
       setReposted(prevReposted);
       setRepostId(prevRepostId);
       setRepostsCount(prevCount);
-      broadcastPostPatch(post.id, {
-        viewer_has_reposted: prevReposted,
-        viewer_repost_id: prevRepostId,
-        reposts_count: prevCount,
-      });
-      toast.error(formatApiError(error));
+      const detail = error?.response?.data?.detail;
+      const reason = typeof detail === 'object' && detail ? detail.reason : null;
+      if (error?.response?.status === 403) {
+        setCanRepost(false);
+        broadcastPostPatch(post.id, {
+          viewer_has_reposted: prevReposted,
+          viewer_repost_id: prevRepostId,
+          reposts_count: prevCount,
+          can_repost: false,
+          repost_block_reason: reason || 'not_allowed',
+        });
+      } else {
+        broadcastPostPatch(post.id, {
+          viewer_has_reposted: prevReposted,
+          viewer_repost_id: prevRepostId,
+          reposts_count: prevCount,
+        });
+      }
+      toast.error(resolveRepostErrorMessage(error));
     } finally {
-      setRepostLoading(false);
+      setRepostPending(false);
     }
   };
 
@@ -484,11 +523,11 @@ export function PostCard({
               <span className="text-sm">{commentsCount}</span>
             </button>
 
-            {showRepostAction && !isOwn && (
+            {showRepostAction && !isOwn && (reposted || canRepost) && (
               <button
                 type="button"
                 onClick={handleRepostToggle}
-                disabled={repostLoading}
+                disabled={repostPending || (!reposted && !canRepost)}
                 data-testid="repost-button"
                 aria-pressed={reposted}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full transition-colors ${

@@ -10,5 +10,6 @@
   "CANNOT_FOLLOW_SELF": "No puedes seguirte a ti mismo.",
   "FOLLOW_REQUEST_ALREADY_SENT": "Solicitud de seguimiento ya enviada.",
   "USER_NOT_FOUND": "Usuario no encontrado.",
-  "FOLLOW_NOT_ALLOWED": "Seguimiento no permitido."
+  "FOLLOW_NOT_ALLOWED": "Seguimiento no permitido.",
+  "REPOST_NOT_ALLOWED": "Esta publicación no se puede republicar."
 }

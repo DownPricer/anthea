@@ -10,5 +10,6 @@
   "CANNOT_FOLLOW_SELF": "Impossible de se suivre soi-même.",
   "FOLLOW_REQUEST_ALREADY_SENT": "Demande de suivi déjà envoyée.",
   "USER_NOT_FOUND": "Utilisateur introuvable.",
-  "FOLLOW_NOT_ALLOWED": "Suivi non autorisé."
+  "FOLLOW_NOT_ALLOWED": "Suivi non autorisé.",
+  "REPOST_NOT_ALLOWED": "Cette publication ne peut pas être republiée."
 }

@@ -1305,6 +1305,98 @@ async def can_view_post(viewer_id: str, post: dict, author: dict) -> bool:
     return True
 
 
+async def can_user_repost_post(
+    viewer_id: str,
+    post: dict,
+    author: Optional[dict] = None,
+    *,
+    duo_doc: Optional[dict] = None,
+) -> tuple:
+    """
+    Autorise une republication seulement si le contenu est effectivement public.
+    Ne doit jamais élargir l'audience d'un post restreint.
+    Retourne (can_repost: bool, block_reason: Optional[str]).
+    """
+    if not post or not viewer_id:
+        return False, "not_allowed"
+
+    if is_duo_wall_post(post):
+        if duo_doc is None:
+            duo_doc = await find_duo_doc_for_post(post)
+        if not duo_doc:
+            return False, "not_allowed"
+        if await can_delete_post(viewer_id, post, duo_doc):
+            return False, "own_post"
+        if not await can_view_duo_post(viewer_id, post, duo_doc):
+            return False, "not_allowed"
+
+        visibility = (post.get("visibility") or "public").lower()
+        if visibility == "private":
+            return False, "private_post"
+        if visibility == "friends":
+            return False, "friends_only"
+        if visibility != "public":
+            return False, "limited_visibility"
+
+        duo_doc = apply_duo_defaults(duo_doc)
+        if duo_doc.get("account_visibility") != "public":
+            return False, "limited_visibility"
+        if not duo_doc.get("show_posts", False):
+            return False, "limited_visibility"
+        return True, None
+
+    if author is None:
+        author = await get_user_doc_by_id(post.get("author_id"))
+    if not author:
+        return False, "not_allowed"
+
+    author_id = str(author.get("_id") or author.get("id"))
+    if viewer_id == author_id:
+        return False, "own_post"
+
+    if not await can_view_post(viewer_id, post, author):
+        visibility = (post.get("visibility") or "public").lower()
+        if visibility == "private":
+            return False, "private_post"
+        if visibility == "friends":
+            return False, "friends_only"
+        return False, "not_allowed"
+
+    visibility = (post.get("visibility") or "public").lower()
+    if visibility == "private":
+        return False, "private_post"
+    if visibility == "friends":
+        return False, "friends_only"
+    if visibility != "public":
+        return False, "limited_visibility"
+
+    if author.get("account_visibility") != "public":
+        return False, "limited_visibility"
+
+    posts_vis = resolve_visibility_value(author, "posts_visibility", "show_posts", default_public=False)
+    if posts_vis != "public":
+        return False, "limited_visibility"
+
+    return True, None
+
+
+def repost_forbidden_detail(block_reason: Optional[str]) -> dict:
+    """Réponse 403 structurée pour la republication."""
+    reason = block_reason or "not_allowed"
+    messages = {
+        "private_post": "La confidentialité de cette publication empêche sa republication.",
+        "friends_only": "La confidentialité de cette publication empêche sa republication.",
+        "limited_visibility": "La confidentialité de cette publication empêche sa republication.",
+        "own_post": "Cette publication ne peut pas être republiée.",
+        "not_allowed": "Cette publication ne peut pas être republiée.",
+    }
+    return {
+        "code": "REPOST_NOT_ALLOWED",
+        "reason": reason,
+        "message": messages.get(reason, "Republication impossible pour le moment."),
+    }
+
+
 async def can_view_session_in_post(viewer_id: str, author: dict, session: dict) -> bool:
     if viewer_id == str(session.get("user_id")):
         return True
@@ -1431,6 +1523,8 @@ async def serialize_post(
         "viewer_has_reposted": False,
         "viewer_repost_id": None,
         "reposts_count": 0,
+        "can_repost": False,
+        "repost_block_reason": "not_allowed",
         "can_delete": await can_delete_post(viewer_id, post, duo_doc),
         "preview_comment": serialized_comments[-1] if serialized_comments else None,
         "comments": serialized_comments if include_all_comments else (
@@ -1514,6 +1608,12 @@ async def serialize_post(
         result["reposts_count"] = await db.reposts.count_documents({"$or": repost_query_parts})
     except Exception:
         result["reposts_count"] = 0
+
+    can_repost, block_reason = await can_user_repost_post(
+        viewer_id, post, author, duo_doc=duo_doc
+    )
+    result["can_repost"] = bool(can_repost)
+    result["repost_block_reason"] = None if can_repost else block_reason
 
     return result
 
@@ -5373,9 +5473,17 @@ async def create_repost(data: RepostCreate, user: dict = Depends(get_current_use
             post = None
         if not post:
             raise HTTPException(status_code=404, detail="Publication introuvable")
+
         author = await get_user_doc_by_id(post.get("author_id"))
-        if not await can_view_post_doc(user["id"], post):
-            raise HTTPException(status_code=403, detail="Publication non accessible")
+        duo_doc = await find_duo_doc_for_post(post) if is_duo_wall_post(post) else None
+        can_repost, block_reason = await can_user_repost_post(
+            user["id"], post, author, duo_doc=duo_doc
+        )
+        if not can_repost:
+            raise HTTPException(
+                status_code=403,
+                detail=repost_forbidden_detail(block_reason),
+            )
 
         existing = await db.reposts.find_one({
             "user_id": user["id"],
@@ -5409,9 +5517,12 @@ async def create_repost(data: RepostCreate, user: dict = Depends(get_current_use
         raise HTTPException(status_code=404, detail="Séance introuvable")
 
     session_owner_id = session.get("user_id")
-    can_repost = session_owner_id == user["id"] or session_owner_id == user.get("partner_id")
-    if not can_repost:
-        raise HTTPException(status_code=403, detail="Séance non republiable")
+    can_repost_session = session_owner_id == user["id"] or session_owner_id == user.get("partner_id")
+    if not can_repost_session:
+        raise HTTPException(
+            status_code=403,
+            detail=repost_forbidden_detail("not_allowed"),
+        )
 
     partner_session_id = data.partner_session_id
     if not partner_session_id and user.get("partner_id"):

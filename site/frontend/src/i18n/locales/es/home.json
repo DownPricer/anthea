@@ -47,6 +47,9 @@
     "like": "Me gusta el comentario",
     "unlike": "Quitar el me gusta",
     "repost": "Republicar",
-    "reposted": "Republicado"
+    "reposted": "Republicado",
+    "repostForbidden": "Esta publicación no se puede republicar.",
+    "repostPrivacyBlocked": "La privacidad de esta publicación impide republicarla.",
+    "repostUnavailable": "No se puede republicar en este momento."
   }
 }

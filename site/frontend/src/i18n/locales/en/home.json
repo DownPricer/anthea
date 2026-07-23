@@ -47,6 +47,9 @@
     "like": "Like comment",
     "unlike": "Unlike comment",
     "repost": "Repost",
-    "reposted": "Reposted"
+    "reposted": "Reposted",
+    "repostForbidden": "This post cannot be reposted.",
+    "repostPrivacyBlocked": "This post’s privacy settings prevent reposting.",
+    "repostUnavailable": "Unable to repost right now."
   }
 }

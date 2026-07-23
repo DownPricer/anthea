@@ -10,5 +10,6 @@
   "CANNOT_FOLLOW_SELF": "You cannot follow yourself.",
   "FOLLOW_REQUEST_ALREADY_SENT": "Follow request already sent.",
   "USER_NOT_FOUND": "User not found.",
-  "FOLLOW_NOT_ALLOWED": "Follow not allowed."
+  "FOLLOW_NOT_ALLOWED": "Follow not allowed.",
+  "REPOST_NOT_ALLOWED": "This post cannot be reposted."
 }
