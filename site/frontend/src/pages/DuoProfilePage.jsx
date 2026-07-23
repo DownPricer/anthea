@@ -31,7 +31,6 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
   const { t } = useTranslation(['duo', 'workouts']);
   const { user } = useAuth();
   const { theme } = useTheme();
-  const { formatDate } = useLocaleFormat();
   const [duoProfile, setDuoProfile] = useState(viewedDuo);
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
@@ -294,6 +293,29 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
 }
 
 function DuoActivityList({ activity, loading, canView, members }) {
+  const { t } = useTranslation(['duo', 'workouts']);
+  const { formatDate } = useLocaleFormat();
+
+  const safeFormatDate = (value) => {
+    if (value == null || value === '') return '';
+    try {
+      let parsed = value;
+      if (typeof value === 'string') {
+        parsed = parseISO(value);
+      } else if (value && typeof value === 'object' && value.$date) {
+        parsed = typeof value.$date === 'string' ? parseISO(value.$date) : new Date(value.$date);
+      } else if (!(value instanceof Date)) {
+        parsed = new Date(value);
+      }
+      if (!(parsed instanceof Date) || Number.isNaN(parsed.getTime())) {
+        return '—';
+      }
+      return formatDate(parsed) || '—';
+    } catch {
+      return '—';
+    }
+  };
+
   if (!canView) {
     return (
       <ProfileEmptyState
@@ -326,6 +348,7 @@ function DuoActivityList({ activity, loading, canView, members }) {
     <div className="space-y-3" data-testid="duo-activity-list">
       {activity.map((item, idx) => {
         if (item.type === 'common_session') {
+          const dateLabel = safeFormatDate(item.date);
           return (
             <div
               key={`common-${item.date}-${idx}`}
@@ -335,9 +358,9 @@ function DuoActivityList({ activity, loading, canView, members }) {
                 <Users size={14} />
                 {t('workouts:labels.sharedWorkout')}
               </p>
-              <p className="text-subtle text-xs mb-3">
-                {item.date && formatDate(parseISO(item.date))}
-              </p>
+              {dateLabel ? (
+                <p className="text-subtle text-xs mb-3">{dateLabel}</p>
+              ) : null}
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 <ActivityMini session={item.session_a} member={memberMap[item.session_a?.user_id]} />
                 <ActivityMini session={item.session_b} member={memberMap[item.session_b?.user_id]} />
@@ -347,6 +370,7 @@ function DuoActivityList({ activity, loading, canView, members }) {
         }
         const session = item.session;
         const member = memberMap[session?.user_id];
+        const createdLabel = safeFormatDate(session?.created_at);
         return (
           <div
             key={session?.id || idx}
@@ -361,11 +385,7 @@ function DuoActivityList({ activity, loading, canView, members }) {
                 <Clock size={12} />
                 {formatDuration(session?.total_time || 0)}
                 {session?.status ? <span>· {session.status}</span> : null}
-                {session?.created_at ? (
-                  <span>
-                    · {formatDate(parseISO(session.created_at))}
-                  </span>
-                ) : null}
+                {createdLabel ? <span>· {createdLabel}</span> : null}
               </p>
             </div>
           </div>
