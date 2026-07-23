@@ -52,9 +52,12 @@ describe('AntheaLogo branding', () => {
     expect(desktopNavSrc).toContain('AntheaLogo');
   });
 
-  it('links a PNG favicon without inventing low-quality PWA icons', () => {
+  it('links favicon.ico and PNG for the browser tab', () => {
+    expect(indexHtml).toMatch(/favicon\.ico/);
     expect(indexHtml).toMatch(/favicon\.png/);
+    expect(indexHtml).not.toMatch(/rel="icon"[^>]*icons\/icon-192/);
     expect(fs.existsSync(path.join(root, '../public/favicon.png'))).toBe(true);
+    expect(fs.existsSync(path.join(root, '../public/favicon.ico'))).toBe(true);
     expect(fs.existsSync(path.join(root, '../public/favicon.svg'))).toBe(false);
     const manifest = fs.readFileSync(
       path.join(root, '../public/manifest.json'),
