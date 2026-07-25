@@ -128,6 +128,8 @@ def build_canonical_document(
         "secondary_muscles": secondary_muscles,
         "aliases": aliases or [],
         "tracking_type": tracking_type,
+        "activity_tracking_mode": "standard",
+        "activity_kind": "other",
         "media": {
             "type": "gif" if media_url and str(media_url).lower().endswith(".gif") else ("image" if media_url else None),
             "url": media_url,

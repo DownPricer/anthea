@@ -23,6 +23,8 @@ async def ensure_catalog_indexes(db) -> None:
     await col.create_index("search_text")
     await col.create_index([("enabled", 1), ("search_text", 1)])
     await col.create_index([("enabled", 1), ("sport", 1), ("category", 1)])
+    await col.create_index("activity_tracking_mode")
+    await col.create_index("activity_kind")
 
 
 def build_search_text(doc: Dict[str, Any]) -> str:
@@ -122,6 +124,8 @@ def catalog_to_legacy_response(doc: Dict[str, Any], locale: str = "fr") -> Dict[
         "category": doc.get("category") or "general",
         "exercise_type": exercise_type,
         "tracking_type": tracking,
+        "activity_tracking_mode": doc.get("activity_tracking_mode") or "standard",
+        "activity_kind": doc.get("activity_kind") or "other",
         "default_duration": 30 if exercise_type == "duration" else None,
         "default_reps": 10 if exercise_type == "reps" else None,
         "default_rest": 30,

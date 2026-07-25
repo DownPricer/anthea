@@ -312,7 +312,7 @@ def repair_media_in_db(db, *, dry_run: bool = True) -> Dict[str, Any]:
 
 
 def main(argv: Optional[List[str]] = None) -> int:
-    parser = argparse.ArgumentParser(description="Import Anthea exercise catalog")
+    parser = argparse.ArgumentParser(description="Import FitMatch exercise catalog")
     parser.add_argument("--dry-run", action="store_true", help="No DB / disk / media writes")
     parser.add_argument("--apply", action="store_true", help="Upsert into MongoDB")
     parser.add_argument("--refresh-existing", action="store_true", help="Update existing catalog rows")
@@ -337,9 +337,47 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Print translation coverage report",
     )
+    parser.add_argument(
+        "--activity-modes",
+        action="store_true",
+        help="Classify activity_tracking_mode / activity_kind on catalog",
+    )
+    parser.add_argument(
+        "--activity-modes-report",
+        action="store_true",
+        help="Print activity modes classification report",
+    )
     parser.add_argument("--provider", default=None, help="exercisedb | free_exercise_db")
     parser.add_argument("--fixture", default=None, help="Optional local JSON fixture")
     args = parser.parse_args(argv)
+
+    if args.activity_modes or args.activity_modes_report:
+        from activities.classification import apply_activity_modes, classify_catalog_documents
+        from exercises.catalog import CATALOG_COLLECTION
+
+        dry = bool(args.dry_run) or not args.apply
+        if args.activity_modes_report and not args.activity_modes:
+            dry = True
+        if not args.dry_run and not args.apply and not args.activity_modes_report:
+            dry = True
+        client, db = get_sync_db()
+        try:
+            if args.activity_modes_report and not args.apply:
+                docs = list(db[CATALOG_COLLECTION].find({}))
+                report = classify_catalog_documents(docs)
+                report["dry_run"] = True
+                report["changes"] = report.get("changes", 0)
+                print(json.dumps(report, indent=2, ensure_ascii=False, default=str))
+                return 0 if not report.get("errors") else 1
+            report = apply_activity_modes(db, dry_run=dry)
+            # Rapport compact (sans liste updates complète en stdout sauf dry-run court)
+            out = {k: v for k, v in report.items() if k != "updates"}
+            if dry:
+                out["sample_updates"] = (report.get("updates") or [])[:20]
+            print(json.dumps(out, indent=2, ensure_ascii=False, default=str))
+            return 0 if not report.get("errors") else 1
+        finally:
+            client.close()
 
     if args.translations_report and not args.translations_only:
         if TRANSLATION_COVERAGE_PATH.exists():

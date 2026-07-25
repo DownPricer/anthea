@@ -1,0 +1,180 @@
+{
+  "by_id": {},
+  "by_name_fold": {
+    "pompes": { "activity_tracking_mode": "standard", "activity_kind": "other" },
+    "push-ups": { "activity_tracking_mode": "standard", "activity_kind": "other" },
+    "push ups": { "activity_tracking_mode": "standard", "activity_kind": "other" },
+    "squat": { "activity_tracking_mode": "standard", "activity_kind": "other" },
+    "squats": { "activity_tracking_mode": "standard", "activity_kind": "other" },
+    "planche": { "activity_tracking_mode": "timer", "activity_kind": "other" },
+    "plank": { "activity_tracking_mode": "timer", "activity_kind": "other" },
+    "course exterieure": { "activity_tracking_mode": "gps", "activity_kind": "running" },
+    "outdoor running": { "activity_tracking_mode": "gps", "activity_kind": "running" },
+    "outdoor run": { "activity_tracking_mode": "gps", "activity_kind": "running" },
+    "marche exterieure": { "activity_tracking_mode": "gps", "activity_kind": "walking" },
+    "outdoor walking": { "activity_tracking_mode": "gps", "activity_kind": "walking" },
+    "randonnee": { "activity_tracking_mode": "gps", "activity_kind": "hiking" },
+    "hiking": { "activity_tracking_mode": "gps", "activity_kind": "hiking" },
+    "velo exterieur": { "activity_tracking_mode": "gps", "activity_kind": "cycling" },
+    "outdoor cycling": { "activity_tracking_mode": "gps", "activity_kind": "cycling" },
+    "road cycling": { "activity_tracking_mode": "gps", "activity_kind": "cycling" },
+    "roller": { "activity_tracking_mode": "gps", "activity_kind": "roller" },
+    "inline skating": { "activity_tracking_mode": "gps", "activity_kind": "roller" },
+    "course sur tapis": { "activity_tracking_mode": "manual_distance", "activity_kind": "running" },
+    "treadmill": { "activity_tracking_mode": "manual_distance", "activity_kind": "running" },
+    "treadmill running": { "activity_tracking_mode": "manual_distance", "activity_kind": "running" },
+    "velo d appartement": { "activity_tracking_mode": "manual_distance", "activity_kind": "cycling" },
+    "stationary bike": { "activity_tracking_mode": "manual_distance", "activity_kind": "cycling" },
+    "exercise bike": { "activity_tracking_mode": "manual_distance", "activity_kind": "cycling" },
+    "rameur": { "activity_tracking_mode": "manual_distance", "activity_kind": "rowing" },
+    "rowing machine": { "activity_tracking_mode": "manual_distance", "activity_kind": "rowing" },
+    "rower": { "activity_tracking_mode": "manual_distance", "activity_kind": "rowing" },
+    "elliptique": { "activity_tracking_mode": "manual_distance", "activity_kind": "elliptical" },
+    "elliptical": { "activity_tracking_mode": "manual_distance", "activity_kind": "elliptical" },
+    "escalier": { "activity_tracking_mode": "manual_distance", "activity_kind": "stair_climber" },
+    "stair climber": { "activity_tracking_mode": "manual_distance", "activity_kind": "stair_climber" },
+    "stairclimber": { "activity_tracking_mode": "manual_distance", "activity_kind": "stair_climber" },
+    "natation en piscine": { "activity_tracking_mode": "laps", "activity_kind": "swimming" },
+    "pool swimming": { "activity_tracking_mode": "laps", "activity_kind": "swimming" },
+    "swimming pool": { "activity_tracking_mode": "laps", "activity_kind": "swimming" },
+    "tours de piste": { "activity_tracking_mode": "laps", "activity_kind": "track" },
+    "track laps": { "activity_tracking_mode": "laps", "activity_kind": "track" },
+    "course navette": { "activity_tracking_mode": "laps", "activity_kind": "shuttle" },
+    "shuttle run": { "activity_tracking_mode": "laps", "activity_kind": "shuttle" },
+    "yoga": { "activity_tracking_mode": "timer", "activity_kind": "yoga" },
+    "etirements": { "activity_tracking_mode": "timer", "activity_kind": "stretching" },
+    "stretching": { "activity_tracking_mode": "timer", "activity_kind": "stretching" },
+    "mobilite": { "activity_tracking_mode": "timer", "activity_kind": "mobility" },
+    "mobility": { "activity_tracking_mode": "timer", "activity_kind": "mobility" },
+    "tabata": { "activity_tracking_mode": "intervals", "activity_kind": "hiit" },
+    "fractionne": { "activity_tracking_mode": "intervals", "activity_kind": "running" },
+    "interval training": { "activity_tracking_mode": "intervals", "activity_kind": "hiit" },
+    "hiit": { "activity_tracking_mode": "intervals", "activity_kind": "hiit" },
+    "jump rope": { "activity_tracking_mode": "timer", "activity_kind": "jump_rope" },
+    "corde a sauter": { "activity_tracking_mode": "timer", "activity_kind": "jump_rope" }
+  },
+  "rules": [
+    {
+      "id": "outdoor_gps",
+      "priority": 10,
+      "require_any_name": ["outdoor", "exterieur", "exterieure", "trail", "road run"],
+      "exclude_any_name": ["treadmill", "tapis", "indoor", "appartement", "stationn"],
+      "require_any_sport": ["running", "cycling", "cardio"],
+      "activity_tracking_mode": "gps",
+      "activity_kind_from_sport": true
+    },
+    {
+      "id": "hiking_gps",
+      "priority": 10,
+      "require_any_name": ["hike", "hiking", "randonn", "trek"],
+      "activity_tracking_mode": "gps",
+      "activity_kind": "hiking"
+    },
+    {
+      "id": "roller_gps",
+      "priority": 10,
+      "require_any_name": ["roller", "inline skat", "skate outdoor"],
+      "exclude_any_name": ["foam roller", "ab wheel"],
+      "activity_tracking_mode": "gps",
+      "activity_kind": "roller"
+    },
+    {
+      "id": "ski_gps",
+      "priority": 10,
+      "require_any_name": ["ski", "snowboarding"],
+      "exclude_any_name": ["skierg", "ski erg"],
+      "activity_tracking_mode": "gps",
+      "activity_kind": "skiing"
+    },
+    {
+      "id": "kayak_gps",
+      "priority": 10,
+      "require_any_name": ["kayak", "canoe"],
+      "activity_tracking_mode": "gps",
+      "activity_kind": "kayaking"
+    },
+    {
+      "id": "indoor_machines",
+      "priority": 20,
+      "require_any_equipment": ["treadmill", "stationary_bike", "elliptical", "rowing_machine", "stair_climber"],
+      "activity_tracking_mode": "manual_distance",
+      "activity_kind_from_equipment": true
+    },
+    {
+      "id": "indoor_name_machines",
+      "priority": 20,
+      "require_any_name": ["treadmill", "tapis", "stationary bike", "velo d appartement", "elliptical", "elliptique", "rower", "rameur", "stair climber", "escalier"],
+      "activity_tracking_mode": "manual_distance",
+      "activity_kind_from_name": true
+    },
+    {
+      "id": "pool_laps",
+      "priority": 15,
+      "require_any_name": ["pool", "piscine", "lap swim", "longueur"],
+      "require_any_sport": ["swimming"],
+      "activity_tracking_mode": "laps",
+      "activity_kind": "swimming"
+    },
+    {
+      "id": "track_laps",
+      "priority": 15,
+      "require_any_name": ["track lap", "tours de piste", "400m track", "lap run"],
+      "activity_tracking_mode": "laps",
+      "activity_kind": "track"
+    },
+    {
+      "id": "shuttle_laps",
+      "priority": 15,
+      "require_any_name": ["shuttle", "navette", "beep test"],
+      "activity_tracking_mode": "laps",
+      "activity_kind": "shuttle"
+    },
+    {
+      "id": "intervals",
+      "priority": 25,
+      "require_any_name": ["tabata", "interval", "fractionn", "hiit", "fartlek"],
+      "activity_tracking_mode": "intervals",
+      "activity_kind_from_sport": true
+    },
+    {
+      "id": "timer_mind_body",
+      "priority": 30,
+      "require_any_sport": ["yoga", "stretching", "mobility", "pilates"],
+      "activity_tracking_mode": "timer",
+      "activity_kind_from_sport": true
+    },
+    {
+      "id": "timer_holds",
+      "priority": 35,
+      "require_any_name": ["plank", "planche", "wall sit", "hold", "isometric", "jump rope", "corde a sauter"],
+      "activity_tracking_mode": "timer",
+      "activity_kind_from_name": true
+    },
+    {
+      "id": "swim_technique_standard",
+      "priority": 5,
+      "require_any_sport": ["swimming"],
+      "require_any_name": ["kick", "drill", "technique", "pull buoy", "board"],
+      "exclude_any_name": ["pool swim", "laps", "piscine"],
+      "activity_tracking_mode": "standard",
+      "activity_kind": "swimming"
+    }
+  ],
+  "equipment_kind_map": {
+    "treadmill": "running",
+    "stationary_bike": "cycling",
+    "elliptical": "elliptical",
+    "rowing_machine": "rowing",
+    "stair_climber": "stair_climber"
+  },
+  "sport_kind_map": {
+    "running": "running",
+    "cycling": "cycling",
+    "swimming": "swimming",
+    "yoga": "yoga",
+    "stretching": "stretching",
+    "mobility": "mobility",
+    "cardio": "other",
+    "pilates": "mobility"
+  }
+}
