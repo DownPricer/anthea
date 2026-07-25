@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, lazy, Suspense } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { format, parseISO } from 'date-fns';
@@ -30,6 +30,8 @@ import { patchPostInFeedCaches } from '../../lib/feedCache';
 import { toast } from 'sonner';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 import { getBadgeName } from '../../i18n/badgeLabels';
+
+const ActivityPostBody = lazy(() => import('../activities/ActivityPostBody').then(m => ({ default: m.ActivityPostBody })));
 
 const BADGE_ICONS = { trophy: Trophy, flame: Flame, heart: Heart, zap: Zap };
 
@@ -391,11 +393,17 @@ export function PostCard({
         </div>
       )}
 
-      {post.type !== 'badge' && post.type !== 'duo_badge' && post.title && (
+      {post.type === 'activity' && (
+        <Suspense fallback={<div className="animate-pulse bg-hover rounded-xl h-32" />}>
+          <ActivityPostBody activity={post} />
+        </Suspense>
+      )}
+
+      {post.type !== 'badge' && post.type !== 'duo_badge' && post.type !== 'activity' && post.title && (
         <h3 className="text-foreground font-semibold font-['Outfit']">{post.title}</h3>
       )}
 
-      {post.description && post.type !== 'badge' && post.type !== 'duo_badge' && (
+      {post.description && post.type !== 'badge' && post.type !== 'duo_badge' && post.type !== 'activity' && (
         <p className="text-muted text-sm whitespace-pre-wrap">{post.description}</p>
       )}
 
