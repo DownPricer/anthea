@@ -1,0 +1,152 @@
+{
+  "start": {
+    "title": "Start Activity",
+    "configure": "Configuration",
+    "activityName": "Activity name",
+    "poolLength": "Pool length",
+    "workDuration": "Work duration (seconds)",
+    "restDuration": "Rest duration (seconds)",
+    "rounds": "Number of rounds",
+    "begin": "Start"
+  },
+  "live": {
+    "pause": "Pause",
+    "resume": "Resume",
+    "complete": "Complete",
+    "discard": "Discard",
+    "confirmDiscard": "Are you sure you want to discard this activity?",
+    "discarded": "Activity discarded",
+    "lapAdded": "{{count}} lap(s) added",
+    "lapUndone": "Lap undone",
+    "undo": "Undo",
+    "currentPhase": "Current phase",
+    "round": "Round {{current}} / {{total}}",
+    "offline": "Offline"
+  },
+  "summary": {
+    "route": "Route",
+    "saveAndPublish": "Save and publish",
+    "saved": "Activity saved",
+    "published": "Activity published!",
+    "editDistance": "Edit distance",
+    "distanceUpdated": "Distance updated",
+    "deleteRoute": "Delete route",
+    "deleteRouteConfirm": "Do you really want to delete the GPS route? Metrics will be kept.",
+    "routeDeleted": "Route deleted",
+    "deleteActivity": "Delete activity",
+    "confirmDelete": "Are you sure you want to delete this activity?",
+    "deleted": "Activity deleted",
+    "defaultPrivate": "By default, your activity is private."
+  },
+  "recovery": {
+    "title": "Activity in progress",
+    "message": "You have an activity in progress: {{name}}",
+    "unnamed": "Activity",
+    "resume": "Resume",
+    "complete": "Complete",
+    "discard": "Discard",
+    "confirmDiscard": "Are you sure you want to discard this activity?"
+  },
+  "share": {
+    "title": "Share activity",
+    "description": "Choose who can see your activity and the level of route detail.",
+    "visibility": "Visibility",
+    "visibilityOptions": {
+      "public": "Public",
+      "publicDesc": "Everyone can see your activity",
+      "friends": "Friends",
+      "friendsDesc": "Only your friends can see",
+      "private": "Private",
+      "privateDesc": "Nobody can see (visible only to you)"
+    },
+    "routeOptions": "Route options",
+    "routeOptionLabels": {
+      "summaryOnly": "Summary only",
+      "summaryOnlyDesc": "Metrics only, no map",
+      "trimmed": "Trimmed route",
+      "trimmedDesc": "Start and end hidden (200m from each side)",
+      "full": "Full route",
+      "fullDesc": "Complete GPS route visible"
+    },
+    "fullRouteWarning": "Warning: full route may reveal your home or other sensitive locations.",
+    "fullRouteConfirm": "I understand and accept to share the full route",
+    "cancel": "Cancel",
+    "publish": "Publish",
+    "publishing": "Publishing...",
+    "saveWithoutPublish": "Save without publishing"
+  },
+  "metrics": {
+    "distance": "Distance",
+    "duration": "Duration",
+    "pace": "Pace",
+    "speed": "Speed",
+    "accuracy": "Accuracy",
+    "laps": "Laps",
+    "lapsUnit": "laps"
+  },
+  "modes": {
+    "timer": "Timer",
+    "manual_distance": "Manual distance",
+    "laps": "By laps",
+    "intervals": "Intervals",
+    "gps": "GPS"
+  },
+  "status": {
+    "pending": "Pending",
+    "active": "Active",
+    "paused": "Paused",
+    "completed": "Completed",
+    "discarded": "Discarded"
+  },
+  "gps": {
+    "webWarningTitle": "Web GPS Mode",
+    "webWarning": "Web GPS tracking works while FitMatch remains open. Tracking may stop if your phone puts the browser to sleep.",
+    "permissionDenied": "Location permission denied",
+    "status": "GPS Status",
+    "states": {
+      "idle": "Idle",
+      "requesting": "Requesting...",
+      "granted": "Granted",
+      "denied": "Denied",
+      "tracking": "Tracking",
+      "error": "Error"
+    }
+  },
+  "quickStart": {
+    "outdoorRun": "Outdoor run",
+    "walk": "Walk",
+    "hike": "Hike",
+    "outdoorBike": "Outdoor bike",
+    "treadmill": "Treadmill",
+    "indoorBike": "Indoor bike",
+    "rowing": "Rowing",
+    "swim": "Swimming",
+    "yoga": "Yoga",
+    "stretching": "Stretching",
+    "hiit": "HIIT",
+    "other": "Other"
+  },
+  "kinds": {
+    "running": "Running",
+    "walking": "Walking",
+    "hiking": "Hiking",
+    "cycling": "Cycling",
+    "rowing": "Rowing",
+    "swimming": "Swimming",
+    "yoga": "Yoga",
+    "stretching": "Stretching",
+    "hiit": "HIIT",
+    "other": "Other"
+  },
+  "intervals": {
+    "work": "Work",
+    "rest": "Rest"
+  },
+  "privacy": {
+    "trimmedRoute": "Route trimmed for your privacy"
+  },
+  "errors": {
+    "notFound": "Activity not found",
+    "alreadyActive": "An activity is already in progress"
+  }
+}

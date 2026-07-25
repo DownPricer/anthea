@@ -339,13 +339,23 @@ export function WorkoutsPage() {
         title={t('workouts:title')}
         subtitle={t('workouts:subtitle')}
         actions={
-          <Button
-            onClick={() => navigate('/create')}
-            size="sm"
-            className="bg-[var(--theme-primary)] text-foreground rounded-full px-4"
-          >
-            <Plus size={18} className="mr-1" /> {t('workouts:new')}
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              onClick={() => navigate('/activity/start')}
+              size="sm"
+              variant="outline"
+              className="border-border text-foreground rounded-full px-4"
+            >
+              {t('activity:start.title', 'Démarrer une activité')}
+            </Button>
+            <Button
+              onClick={() => navigate('/create')}
+              size="sm"
+              className="bg-[var(--theme-primary)] text-foreground rounded-full px-4"
+            >
+              <Plus size={18} className="mr-1" /> {t('workouts:new')}
+            </Button>
+          </div>
         }
       />
 

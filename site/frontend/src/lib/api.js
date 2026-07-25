@@ -257,4 +257,22 @@ export const streakApi = {
   coachExemptDay: (date, userId) => api.post('/streak/coach/exempt-day', { date, user_id: userId }),
 };
 
+// Activities API (FitMatch activity tracking)
+export const activitiesApi = {
+  start: (data) => api.post('/activities/start', data),
+  getCurrent: () => api.get('/activities/current'),
+  list: (params) => api.get('/activities', { params }),
+  getOne: (id, params) => api.get(`/activities/${id}`, { params }),
+  pause: (id) => api.post(`/activities/${id}/pause`),
+  resume: (id) => api.post(`/activities/${id}/resume`),
+  addPoints: (id, data) => api.post(`/activities/${id}/points`, data),
+  addLaps: (id, data) => api.post(`/activities/${id}/laps`, data),
+  updateMetrics: (id, data) => api.patch(`/activities/${id}/metrics`, data),
+  complete: (id, data) => api.post(`/activities/${id}/complete`, data),
+  publish: (id, data) => api.post(`/activities/${id}/publish`, data),
+  deleteRoute: (id) => api.delete(`/activities/${id}/route`),
+  delete: (id) => api.delete(`/activities/${id}`),
+  discard: (id) => api.post(`/activities/${id}/discard`),
+};
+
 export default api;

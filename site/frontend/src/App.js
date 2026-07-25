@@ -17,6 +17,9 @@ import { SearchPage } from './pages/SearchPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { SettingsPage } from './pages/SettingsPage';
 import { BadgesPage } from './pages/BadgesPage';
+import { StartActivityPage } from './pages/StartActivityPage';
+import { ActivityLivePage } from './pages/ActivityLivePage';
+import { ActivitySummaryPage } from './pages/ActivitySummaryPage';
 import './index.css';
 
 function App() {
@@ -58,6 +61,32 @@ function App() {
               element={
                 <ProtectedRoute>
                   <WorkoutPlayerPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* Activity routes (outside main layout for fullscreen) */}
+            <Route
+              path="/activity/start"
+              element={
+                <ProtectedRoute>
+                  <StartActivityPage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/activity/:activityId/live"
+              element={
+                <ProtectedRoute>
+                  <ActivityLivePage />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/activity/:activityId/summary"
+              element={
+                <ProtectedRoute>
+                  <ActivitySummaryPage />
                 </ProtectedRoute>
               }
             />

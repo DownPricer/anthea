@@ -17,6 +17,7 @@ const PRELOADED_NAMESPACES = [
   "notifications",
   "challenges",
   "errors",
+  "activity",
 ];
 
 function loadJson(locale, ns) {
@@ -36,6 +37,7 @@ function loadJson(locale, ns) {
       if (ns === "notifications") return import("./locales/fr/notifications.json");
       if (ns === "challenges") return import("./locales/fr/challenges.json");
       if (ns === "errors") return import("./locales/fr/errors.json");
+      if (ns === "activity") return import("./locales/fr/activity.json");
       break;
     case "en-US":
       if (ns === "common") return import("./locales/en/common.json");
@@ -51,6 +53,7 @@ function loadJson(locale, ns) {
       if (ns === "notifications") return import("./locales/en/notifications.json");
       if (ns === "challenges") return import("./locales/en/challenges.json");
       if (ns === "errors") return import("./locales/en/errors.json");
+      if (ns === "activity") return import("./locales/en/activity.json");
       break;
     case "es-ES":
       if (ns === "common") return import("./locales/es/common.json");
@@ -66,6 +69,7 @@ function loadJson(locale, ns) {
       if (ns === "notifications") return import("./locales/es/notifications.json");
       if (ns === "challenges") return import("./locales/es/challenges.json");
       if (ns === "errors") return import("./locales/es/errors.json");
+      if (ns === "activity") return import("./locales/es/activity.json");
       break;
     default:
       break;
@@ -135,6 +139,7 @@ i18n
         notifications: require("./locales/fr/notifications.json"),
         challenges: require("./locales/fr/challenges.json"),
         errors: require("./locales/fr/errors.json"),
+        activity: require("./locales/fr/activity.json"),
       },
     },
     interpolation: { escapeValue: false },

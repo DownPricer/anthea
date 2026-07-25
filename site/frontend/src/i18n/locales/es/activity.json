@@ -1,0 +1,152 @@
+{
+  "start": {
+    "title": "Iniciar actividad",
+    "configure": "Configuración",
+    "activityName": "Nombre de la actividad",
+    "poolLength": "Longitud de la piscina",
+    "workDuration": "Duración del esfuerzo (segundos)",
+    "restDuration": "Duración del descanso (segundos)",
+    "rounds": "Número de rondas",
+    "begin": "Comenzar"
+  },
+  "live": {
+    "pause": "Pausa",
+    "resume": "Reanudar",
+    "complete": "Completar",
+    "discard": "Descartar",
+    "confirmDiscard": "¿Estás seguro de que quieres descartar esta actividad?",
+    "discarded": "Actividad descartada",
+    "lapAdded": "{{count}} vuelta(s) añadida(s)",
+    "lapUndone": "Vuelta cancelada",
+    "undo": "Deshacer",
+    "currentPhase": "Fase actual",
+    "round": "Ronda {{current}} / {{total}}",
+    "offline": "Sin conexión"
+  },
+  "summary": {
+    "route": "Ruta",
+    "saveAndPublish": "Guardar y publicar",
+    "saved": "Actividad guardada",
+    "published": "¡Actividad publicada!",
+    "editDistance": "Editar distancia",
+    "distanceUpdated": "Distancia actualizada",
+    "deleteRoute": "Eliminar ruta",
+    "deleteRouteConfirm": "¿Realmente quieres eliminar la ruta GPS? Las métricas se conservarán.",
+    "routeDeleted": "Ruta eliminada",
+    "deleteActivity": "Eliminar actividad",
+    "confirmDelete": "¿Estás seguro de que quieres eliminar esta actividad?",
+    "deleted": "Actividad eliminada",
+    "defaultPrivate": "Por defecto, tu actividad es privada."
+  },
+  "recovery": {
+    "title": "Actividad en curso",
+    "message": "Tienes una actividad en curso: {{name}}",
+    "unnamed": "Actividad",
+    "resume": "Reanudar",
+    "complete": "Completar",
+    "discard": "Descartar",
+    "confirmDiscard": "¿Estás seguro de que quieres descartar esta actividad?"
+  },
+  "share": {
+    "title": "Compartir actividad",
+    "description": "Elige quién puede ver tu actividad y el nivel de detalle de la ruta.",
+    "visibility": "Visibilidad",
+    "visibilityOptions": {
+      "public": "Público",
+      "publicDesc": "Todos pueden ver tu actividad",
+      "friends": "Amigos",
+      "friendsDesc": "Solo tus amigos pueden ver",
+      "private": "Privado",
+      "privateDesc": "Nadie puede ver (visible solo para ti)"
+    },
+    "routeOptions": "Opciones de ruta",
+    "routeOptionLabels": {
+      "summaryOnly": "Solo resumen",
+      "summaryOnlyDesc": "Solo métricas, sin mapa",
+      "trimmed": "Ruta recortada",
+      "trimmedDesc": "Inicio y final ocultos (200m de cada lado)",
+      "full": "Ruta completa",
+      "fullDesc": "Ruta GPS completa visible"
+    },
+    "fullRouteWarning": "Advertencia: la ruta completa puede revelar tu hogar u otros lugares sensibles.",
+    "fullRouteConfirm": "Entiendo y acepto compartir la ruta completa",
+    "cancel": "Cancelar",
+    "publish": "Publicar",
+    "publishing": "Publicando...",
+    "saveWithoutPublish": "Guardar sin publicar"
+  },
+  "metrics": {
+    "distance": "Distancia",
+    "duration": "Duración",
+    "pace": "Ritmo",
+    "speed": "Velocidad",
+    "accuracy": "Precisión",
+    "laps": "Vueltas",
+    "lapsUnit": "vueltas"
+  },
+  "modes": {
+    "timer": "Cronómetro",
+    "manual_distance": "Distancia manual",
+    "laps": "Por vueltas",
+    "intervals": "Intervalos",
+    "gps": "GPS"
+  },
+  "status": {
+    "pending": "Pendiente",
+    "active": "Activa",
+    "paused": "En pausa",
+    "completed": "Completada",
+    "discarded": "Descartada"
+  },
+  "gps": {
+    "webWarningTitle": "Modo GPS Web",
+    "webWarning": "El seguimiento GPS web funciona mientras FitMatch permanece abierto. El seguimiento puede detenerse si el teléfono suspende el navegador.",
+    "permissionDenied": "Permiso de ubicación denegado",
+    "status": "Estado GPS",
+    "states": {
+      "idle": "Inactivo",
+      "requesting": "Solicitando...",
+      "granted": "Concedido",
+      "denied": "Denegado",
+      "tracking": "Rastreando",
+      "error": "Error"
+    }
+  },
+  "quickStart": {
+    "outdoorRun": "Carrera al aire libre",
+    "walk": "Caminata",
+    "hike": "Senderismo",
+    "outdoorBike": "Bicicleta al aire libre",
+    "treadmill": "Cinta de correr",
+    "indoorBike": "Bicicleta interior",
+    "rowing": "Remo",
+    "swim": "Natación",
+    "yoga": "Yoga",
+    "stretching": "Estiramientos",
+    "hiit": "HIIT",
+    "other": "Otro"
+  },
+  "kinds": {
+    "running": "Carrera",
+    "walking": "Caminata",
+    "hiking": "Senderismo",
+    "cycling": "Ciclismo",
+    "rowing": "Remo",
+    "swimming": "Natación",
+    "yoga": "Yoga",
+    "stretching": "Estiramientos",
+    "hiit": "HIIT",
+    "other": "Otro"
+  },
+  "intervals": {
+    "work": "Esfuerzo",
+    "rest": "Descanso"
+  },
+  "privacy": {
+    "trimmedRoute": "Ruta recortada por tu privacidad"
+  },
+  "errors": {
+    "notFound": "Actividad no encontrada",
+    "alreadyActive": "Ya hay una actividad en curso"
+  }
+}
