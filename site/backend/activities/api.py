@@ -163,3 +163,37 @@ async def delete_route_handler(db, user: dict, activity_id: str) -> Dict[str, An
         return serialize_activity_detail(doc, viewer_is_owner=True)
     except Exception as exc:
         raise _http_from_service(exc) from exc
+
+
+async def presets_handler(db, user: dict, locale: str = "fr") -> Dict[str, Any]:
+    from .presets import list_activity_presets, localized_preset
+
+    presets = [localized_preset(p, locale) for p in list_activity_presets()]
+    return {"presets": presets}
+
+
+async def compatible_exercises_handler(
+    db,
+    user: dict,
+    *,
+    locale: str = "fr",
+    limit: int = 24,
+) -> Dict[str, Any]:
+    from exercises.catalog import CATALOG_COLLECTION, catalog_to_legacy_response
+    from .classification import classification_fields, is_reliable_catalog_activity
+
+    col = db[CATALOG_COLLECTION]
+    cursor = col.find({"enabled": {"$ne": False}}).limit(800)
+    exercises = []
+    async for doc in cursor:
+        if not is_reliable_catalog_activity(doc):
+            continue
+        fields = classification_fields(doc)
+        item = catalog_to_legacy_response(doc, locale)
+        item["activity_tracking_mode"] = fields["activity_tracking_mode"]
+        item["activity_kind"] = fields["activity_kind"]
+        item["activity_classification_confidence"] = fields["activity_classification_confidence"]
+        exercises.append(item)
+        if len(exercises) >= limit:
+            break
+    return {"exercises": exercises}

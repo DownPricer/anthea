@@ -1,25 +1,29 @@
 /**
  * Page de démarrage d'activité
- * Sélecteur de type rapide → configuration → POST /activities/start → navigate live
+ * Section Activités (presets canoniques) + exercices compatibles catalogue
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Play, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { ActivityRecoveryBanner } from '../components/activities/ActivityRecoveryBanner';
-import { QUICK_START_TYPES, TRACKING_MODES } from '../lib/activities/constants';
+import { TRACKING_MODES } from '../lib/activities/constants';
+import {
+  getLocalizedStartPagePresets,
+  filterReliableCompatibleExercises,
+} from '../lib/activities/activityPresets';
 import { activitiesApi, formatApiError } from '../lib/api';
 import { getActiveActivity, clearActiveActivity } from '../lib/activities/activityStore';
 import { toast } from 'sonner';
 
 export function StartActivityPage() {
-  const { t } = useTranslation(['activity', 'common']);
+  const { t, i18n } = useTranslation(['activity', 'common']);
   const navigate = useNavigate();
 
-  const [step, setStep] = useState('select'); // 'select', 'configure'
+  const [step, setStep] = useState('select');
   const [selectedType, setSelectedType] = useState(null);
   const [activityName, setActivityName] = useState('');
   const [poolLength, setPoolLength] = useState(25);
@@ -27,14 +31,40 @@ export function StartActivityPage() {
   const [loading, setLoading] = useState(false);
   const [existingActivity, setExistingActivity] = useState(null);
   const [checkingExisting, setCheckingExisting] = useState(true);
+  const [compatibleExercises, setCompatibleExercises] = useState([]);
+
+  const activityPresets = useMemo(
+    () => getLocalizedStartPagePresets(i18n.language),
+    [i18n.language],
+  );
 
   useEffect(() => {
     checkExistingActivity();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    const loadCompatible = async () => {
+      try {
+        const { data } = await activitiesApi.getCompatibleExercises({
+          locale: i18n.language,
+          limit: 24,
+        });
+        if (!cancelled) {
+          setCompatibleExercises(filterReliableCompatibleExercises(data?.exercises || []));
+        }
+      } catch {
+        if (!cancelled) setCompatibleExercises([]);
+      }
+    };
+    loadCompatible();
+    return () => {
+      cancelled = true;
+    };
+  }, [i18n.language]);
+
   const checkExistingActivity = async () => {
     try {
-      // Vérifie activité locale
       const local = await getActiveActivity();
       if (local) {
         setExistingActivity(local);
@@ -42,12 +72,11 @@ export function StartActivityPage() {
         return;
       }
 
-      // Vérifie activité serveur
       const { data } = await activitiesApi.getCurrent();
       if (data?.activity) {
         setExistingActivity(data.activity);
       }
-    } catch (error) {
+    } catch {
       // Pas d'activité en cours
     } finally {
       setCheckingExisting(false);
@@ -56,10 +85,13 @@ export function StartActivityPage() {
 
   const handleTypeSelect = (type) => {
     setSelectedType(type);
-    setActivityName(t(type.labelKey, { defaultValue: type.label }));
-    
-    // Passe directement au live pour les modes simples
-    if (type.mode === TRACKING_MODES.TIMER || type.mode === TRACKING_MODES.MANUAL_DISTANCE || type.mode === TRACKING_MODES.GPS) {
+    setActivityName(type.label || t(type.labelKey, { defaultValue: type.label }));
+
+    if (
+      type.mode === TRACKING_MODES.TIMER ||
+      type.mode === TRACKING_MODES.MANUAL_DISTANCE ||
+      type.mode === TRACKING_MODES.GPS
+    ) {
       handleStartActivity(type, {});
     } else {
       setStep('configure');
@@ -73,18 +105,16 @@ export function StartActivityPage() {
       const payload = {
         tracking_mode: type.mode,
         activity_kind: type.kind,
-        exercise_name_snapshot: activityName || t(type.labelKey, { defaultValue: type.label }),
+        exercise_id: type.exerciseId || undefined,
+        exercise_name_snapshot: activityName || type.label || t(type.labelKey, { defaultValue: type.label }),
         pool_length_meters: config.pool_length_meters,
         interval_config: config.interval_config,
       };
 
       const { data } = await activitiesApi.start(payload);
-      
-      // Navigue vers la page live
       navigate(`/activity/${data.id}/live`);
     } catch (error) {
       if (error.response?.status === 409) {
-        // Conflit : activité déjà en cours
         toast.error(t('activity:errors.alreadyActive'));
         await checkExistingActivity();
       } else {
@@ -93,6 +123,19 @@ export function StartActivityPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCompatibleExerciseSelect = (exercise) => {
+    handleTypeSelect({
+      id: exercise.id,
+      exerciseId: exercise.id,
+      kind: exercise.activity_kind || 'other',
+      mode: exercise.activity_tracking_mode,
+      label: exercise.name,
+      labelKey: null,
+      icon: '💪',
+      source: 'catalog',
+    });
   };
 
   const handleConfigure = () => {
@@ -151,12 +194,11 @@ export function StartActivityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto p-5 pb-20">
-        {/* Header */}
+    <div className="min-h-screen bg-background overflow-x-hidden">
+      <div className="max-w-2xl mx-auto p-5 pb-20 w-full min-w-0">
         <div className="flex items-center gap-3 mb-6">
           <button
-            onClick={() => step === 'configure' ? setStep('select') : navigate(-1)}
+            onClick={() => (step === 'configure' ? setStep('select') : navigate(-1))}
             className="p-2 hover:bg-active rounded-full transition-colors"
           >
             <ArrowLeft className="text-foreground" size={24} />
@@ -166,7 +208,6 @@ export function StartActivityPage() {
           </h1>
         </div>
 
-        {/* Bannière de récupération */}
         {existingActivity && (
           <ActivityRecoveryBanner
             activityName={existingActivity.exercise_name_snapshot || existingActivity.name}
@@ -177,14 +218,13 @@ export function StartActivityPage() {
           />
         )}
 
-        {/* Avertissement GPS Web */}
         {step === 'select' && (
           <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/30">
             <div className="flex items-start gap-3">
               <AlertCircle className="text-blue-400 shrink-0 mt-0.5" size={20} />
-              <div className="flex-1 text-sm text-blue-400">
+              <div className="flex-1 text-sm text-blue-400 min-w-0">
                 <p className="font-medium mb-1">{t('activity:gps.webWarningTitle')}</p>
-                <p className="text-blue-400/80">
+                <p className="text-blue-400/80 break-words">
                   {t('activity:gps.webWarning', { productName: 'FitMatch' })}
                 </p>
               </div>
@@ -192,29 +232,63 @@ export function StartActivityPage() {
           </div>
         )}
 
-        {/* Étape 1 : Sélection du type */}
         {step === 'select' && (
-          <div className="grid grid-cols-2 gap-3">
-            {QUICK_START_TYPES.map((type) => (
-              <button
-                key={type.id}
-                onClick={() => handleTypeSelect(type)}
-                disabled={loading}
-                className="p-4 rounded-xl border border-border bg-surface hover:bg-hover transition-colors text-left"
-              >
-                <div className="text-3xl mb-2">{type.icon}</div>
-                <p className="text-foreground font-medium text-sm">
-                  {t(type.labelKey, { defaultValue: type.label })}
-                </p>
-                <p className="text-subtle text-xs mt-1">
-                  {t(`activity:modes.${type.mode}`, { defaultValue: type.mode })}
-                </p>
-              </button>
-            ))}
+          <div className="space-y-8">
+            <section>
+              <h2 className="text-lg font-semibold text-foreground mb-3">
+                {t('activity:start.activitiesSection')}
+              </h2>
+              <div className="grid grid-cols-2 gap-3">
+                {activityPresets.map((type) => (
+                  <button
+                    key={type.id}
+                    type="button"
+                    onClick={() => handleTypeSelect(type)}
+                    disabled={loading}
+                    className="p-4 rounded-xl border border-border bg-surface hover:bg-hover transition-colors text-left min-w-0"
+                  >
+                    <div className="text-3xl mb-2">{type.icon}</div>
+                    <p className="text-foreground font-medium text-sm break-words">
+                      {type.label}
+                    </p>
+                    <p className="text-subtle text-xs mt-1 break-words">
+                      {t(`activity:modes.${type.mode}`, { defaultValue: type.mode })}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </section>
+
+            {compatibleExercises.length > 0 && (
+              <section>
+                <h2 className="text-lg font-semibold text-foreground mb-3">
+                  {t('activity:start.compatibleSection')}
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {compatibleExercises.map((exercise) => (
+                    <button
+                      key={exercise.id}
+                      type="button"
+                      onClick={() => handleCompatibleExerciseSelect(exercise)}
+                      disabled={loading}
+                      className="p-3 rounded-lg border border-border bg-surface hover:bg-hover transition-colors text-left min-w-0"
+                    >
+                      <p className="text-foreground font-medium text-sm break-words truncate">
+                        {exercise.name}
+                      </p>
+                      <p className="text-subtle text-xs mt-1">
+                        {t(`activity:modes.${exercise.activity_tracking_mode}`, {
+                          defaultValue: exercise.activity_tracking_mode,
+                        })}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
           </div>
         )}
 
-        {/* Étape 2 : Configuration */}
         {step === 'configure' && selectedType && (
           <div className="space-y-6">
             <div>
@@ -224,7 +298,7 @@ export function StartActivityPage() {
               <Input
                 value={activityName}
                 onChange={(e) => setActivityName(e.target.value)}
-                placeholder={t(selectedType.labelKey, { defaultValue: selectedType.label })}
+                placeholder={selectedType.label || t(selectedType.labelKey, { defaultValue: selectedType.label })}
                 className="w-full"
               />
             </div>
@@ -238,6 +312,7 @@ export function StartActivityPage() {
                   {[25, 50].map((length) => (
                     <button
                       key={length}
+                      type="button"
                       onClick={() => setPoolLength(length)}
                       className={`flex-1 p-3 rounded-lg border transition-colors ${
                         poolLength === length
@@ -261,7 +336,9 @@ export function StartActivityPage() {
                   <Input
                     type="number"
                     value={intervalsConfig.work}
-                    onChange={(e) => setIntervalsConfig({ ...intervalsConfig, work: parseInt(e.target.value) || 30 })}
+                    onChange={(e) =>
+                      setIntervalsConfig({ ...intervalsConfig, work: parseInt(e.target.value, 10) || 30 })
+                    }
                     min="10"
                     max="300"
                     className="w-full"
@@ -274,7 +351,9 @@ export function StartActivityPage() {
                   <Input
                     type="number"
                     value={intervalsConfig.rest}
-                    onChange={(e) => setIntervalsConfig({ ...intervalsConfig, rest: parseInt(e.target.value) || 15 })}
+                    onChange={(e) =>
+                      setIntervalsConfig({ ...intervalsConfig, rest: parseInt(e.target.value, 10) || 15 })
+                    }
                     min="5"
                     max="300"
                     className="w-full"
@@ -287,7 +366,9 @@ export function StartActivityPage() {
                   <Input
                     type="number"
                     value={intervalsConfig.rounds}
-                    onChange={(e) => setIntervalsConfig({ ...intervalsConfig, rounds: parseInt(e.target.value) || 8 })}
+                    onChange={(e) =>
+                      setIntervalsConfig({ ...intervalsConfig, rounds: parseInt(e.target.value, 10) || 8 })
+                    }
                     min="1"
                     max="50"
                     className="w-full"

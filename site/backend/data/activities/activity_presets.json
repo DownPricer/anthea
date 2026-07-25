@@ -1,0 +1,277 @@
+{
+  "version": 1,
+  "presets": [
+    {
+      "id": "outdoor_running",
+      "activity_kind": "running",
+      "activity_tracking_mode": "gps",
+      "icon": "🏃",
+      "name": {
+        "fr": "Course extérieure",
+        "en": "Outdoor running",
+        "es": "Carrera al aire libre"
+      },
+      "description": {
+        "fr": "Course avec suivi GPS FitMatch",
+        "en": "Running with FitMatch GPS tracking",
+        "es": "Carrera con seguimiento GPS FitMatch"
+      }
+    },
+    {
+      "id": "outdoor_walking",
+      "activity_kind": "walking",
+      "activity_tracking_mode": "gps",
+      "icon": "🚶",
+      "name": {
+        "fr": "Marche",
+        "en": "Walking",
+        "es": "Caminata"
+      },
+      "description": {
+        "fr": "Marche avec suivi GPS FitMatch",
+        "en": "Walking with FitMatch GPS tracking",
+        "es": "Caminata con seguimiento GPS FitMatch"
+      }
+    },
+    {
+      "id": "hiking",
+      "activity_kind": "hiking",
+      "activity_tracking_mode": "gps",
+      "icon": "⛰️",
+      "name": {
+        "fr": "Randonnée",
+        "en": "Hiking",
+        "es": "Senderismo"
+      },
+      "description": {
+        "fr": "Randonnée avec suivi GPS FitMatch",
+        "en": "Hiking with FitMatch GPS tracking",
+        "es": "Senderismo con seguimiento GPS FitMatch"
+      }
+    },
+    {
+      "id": "outdoor_cycling",
+      "activity_kind": "cycling",
+      "activity_tracking_mode": "gps",
+      "icon": "🚴",
+      "name": {
+        "fr": "Vélo extérieur",
+        "en": "Outdoor cycling",
+        "es": "Ciclismo al aire libre"
+      },
+      "description": {
+        "fr": "Vélo avec suivi GPS FitMatch",
+        "en": "Cycling with FitMatch GPS tracking",
+        "es": "Ciclismo con seguimiento GPS FitMatch"
+      }
+    },
+    {
+      "id": "outdoor_roller",
+      "activity_kind": "roller",
+      "activity_tracking_mode": "gps",
+      "icon": "🛼",
+      "name": {
+        "fr": "Roller",
+        "en": "Inline skating",
+        "es": "Patinaje en línea"
+      },
+      "description": {
+        "fr": "Roller avec suivi GPS FitMatch",
+        "en": "Inline skating with FitMatch GPS tracking",
+        "es": "Patinaje con seguimiento GPS FitMatch"
+      }
+    },
+    {
+      "id": "pool_swimming",
+      "activity_kind": "swimming",
+      "activity_tracking_mode": "laps",
+      "icon": "🏊",
+      "name": {
+        "fr": "Natation",
+        "en": "Swimming",
+        "es": "Natación"
+      },
+      "description": {
+        "fr": "Natation en piscine avec compteur de longueurs",
+        "en": "Pool swimming with lap counter",
+        "es": "Natación en piscina con contador de vueltas"
+      }
+    },
+    {
+      "id": "track_laps",
+      "activity_kind": "track",
+      "activity_tracking_mode": "laps",
+      "icon": "🏟️",
+      "name": {
+        "fr": "Tours de piste",
+        "en": "Track laps",
+        "es": "Vueltas de pista"
+      },
+      "description": {
+        "fr": "Tours de piste avec compteur",
+        "en": "Track laps with counter",
+        "es": "Vueltas de pista con contador"
+      }
+    },
+    {
+      "id": "shuttle_run",
+      "activity_kind": "shuttle",
+      "activity_tracking_mode": "laps",
+      "icon": "↔️",
+      "name": {
+        "fr": "Course navette",
+        "en": "Shuttle run",
+        "es": "Carrera de ida y vuelta"
+      },
+      "description": {
+        "fr": "Navettes avec compteur de tours",
+        "en": "Shuttle runs with lap counter",
+        "es": "Navetas con contador de vueltas"
+      }
+    },
+    {
+      "id": "interval_running",
+      "activity_kind": "running",
+      "activity_tracking_mode": "intervals",
+      "icon": "⚡",
+      "name": {
+        "fr": "Fractionné",
+        "en": "Interval running",
+        "es": "Entrenamiento por intervalos"
+      },
+      "description": {
+        "fr": "Fractionné course avec chronomètre d'intervalles",
+        "en": "Interval running with FitMatch timer",
+        "es": "Carrera por intervalos con cronómetro FitMatch"
+      }
+    },
+    {
+      "id": "tabata",
+      "activity_kind": "hiit",
+      "activity_tracking_mode": "intervals",
+      "icon": "🔥",
+      "name": {
+        "fr": "Tabata",
+        "en": "Tabata",
+        "es": "Tabata"
+      },
+      "description": {
+        "fr": "Tabata HIIT avec chronomètre d'intervalles",
+        "en": "Tabata HIIT with interval timer",
+        "es": "Tabata HIIT con cronómetro de intervalos"
+      }
+    },
+    {
+      "id": "free_intervals",
+      "activity_kind": "other",
+      "activity_tracking_mode": "intervals",
+      "icon": "⏱️",
+      "name": {
+        "fr": "Intervalles libres",
+        "en": "Free intervals",
+        "es": "Intervalos libres"
+      },
+      "description": {
+        "fr": "Intervalles personnalisables",
+        "en": "Customizable intervals",
+        "es": "Intervalos personalizables"
+      }
+    },
+    {
+      "id": "treadmill_running",
+      "activity_kind": "running",
+      "activity_tracking_mode": "manual_distance",
+      "icon": "🏃‍♂️",
+      "name": {
+        "fr": "Course sur tapis",
+        "en": "Treadmill running",
+        "es": "Cinta de correr"
+      },
+      "description": {
+        "fr": "Tapis de course avec distance manuelle",
+        "en": "Treadmill with manual distance",
+        "es": "Cinta con distancia manual"
+      }
+    },
+    {
+      "id": "indoor_cycling",
+      "activity_kind": "cycling",
+      "activity_tracking_mode": "manual_distance",
+      "icon": "🚴‍♀️",
+      "name": {
+        "fr": "Vélo intérieur",
+        "en": "Indoor cycling",
+        "es": "Ciclismo indoor"
+      },
+      "description": {
+        "fr": "Vélo d'appartement avec distance manuelle",
+        "en": "Stationary bike with manual distance",
+        "es": "Bici estática con distancia manual"
+      }
+    },
+    {
+      "id": "indoor_rowing",
+      "activity_kind": "rowing",
+      "activity_tracking_mode": "manual_distance",
+      "icon": "🚣",
+      "name": {
+        "fr": "Rameur",
+        "en": "Indoor rowing",
+        "es": "Remo indoor"
+      },
+      "description": {
+        "fr": "Rameur avec distance manuelle",
+        "en": "Rowing machine with manual distance",
+        "es": "Máquina de remo con distancia manual"
+      }
+    },
+    {
+      "id": "elliptical",
+      "activity_kind": "elliptical",
+      "activity_tracking_mode": "manual_distance",
+      "icon": "🔄",
+      "name": {
+        "fr": "Elliptique",
+        "en": "Elliptical",
+        "es": "Elíptica"
+      },
+      "description": {
+        "fr": "Elliptique avec distance manuelle",
+        "en": "Elliptical trainer with manual distance",
+        "es": "Elíptica con distancia manual"
+      }
+    },
+    {
+      "id": "yoga_session",
+      "activity_kind": "yoga",
+      "activity_tracking_mode": "timer",
+      "icon": "🧘",
+      "name": {
+        "fr": "Yoga",
+        "en": "Yoga",
+        "es": "Yoga"
+      },
+      "description": {
+        "fr": "Séance de yoga chronométrée",
+        "en": "Timed yoga session",
+        "es": "Sesión de yoga cronometrada"
+      }
+    },
+    {
+      "id": "stretching_session",
+      "activity_kind": "stretching",
+      "activity_tracking_mode": "timer",
+      "icon": "🤸",
+      "name": {
+        "fr": "Étirements",
+        "en": "Stretching",
+        "es": "Estiramientos"
+      },
+      "description": {
+        "fr": "Séance d'étirements chronométrée",
+        "en": "Timed stretching session",
+        "es": "Sesión de estiramientos cronometrada"
+      }
+    }
+  ]
+}

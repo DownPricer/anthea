@@ -2,6 +2,8 @@
   "start": {
     "title": "Iniciar actividad",
     "configure": "Configuración",
+    "activitiesSection": "Actividades",
+    "compatibleSection": "Ejercicios compatibles",
     "activityName": "Nombre de la actividad",
     "poolLength": "Longitud de la piscina",
     "workDuration": "Duración del esfuerzo (segundos)",

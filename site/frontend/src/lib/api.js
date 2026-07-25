@@ -260,6 +260,8 @@ export const streakApi = {
 // Activities API (FitMatch activity tracking)
 export const activitiesApi = {
   start: (data) => api.post('/activities/start', data),
+  getPresets: (params) => api.get('/activities/presets', { params }),
+  getCompatibleExercises: (params) => api.get('/activities/compatible-exercises', { params }),
   getCurrent: () => api.get('/activities/current'),
   list: (params) => api.get('/activities', { params }),
   getOne: (id, params) => api.get(`/activities/${id}`, { params }),

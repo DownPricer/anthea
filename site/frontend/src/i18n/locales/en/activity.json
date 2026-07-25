@@ -2,6 +2,8 @@
   "start": {
     "title": "Start Activity",
     "configure": "Configuration",
+    "activitiesSection": "Activities",
+    "compatibleSection": "Compatible exercises",
     "activityName": "Activity name",
     "poolLength": "Pool length",
     "workDuration": "Work duration (seconds)",

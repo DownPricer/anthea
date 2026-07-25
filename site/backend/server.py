@@ -97,6 +97,8 @@ from activities.api import (
     publish_handler as activity_publish_handler,
     resume_handler as activity_resume_handler,
     start_handler as activity_start_handler,
+    presets_handler as activity_presets_handler,
+    compatible_exercises_handler as activity_compatible_exercises_handler,
 )
 from activities.service import ensure_activity_indexes, activity_stats_from_docs
 from activities.constants import SESSIONS_COLLECTION as ACTIVITY_SESSIONS_COLLECTION
@@ -6766,6 +6768,23 @@ async def streak_coach_status(user: dict = Depends(get_current_user)):
 
 
 # ============ ACTIVITIES ============
+
+@api_router.get("/activities/presets")
+async def activities_presets(
+    locale: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    return await activity_presets_handler(db, user, locale=locale or "fr")
+
+
+@api_router.get("/activities/compatible-exercises")
+async def activities_compatible_exercises(
+    locale: Optional[str] = None,
+    limit: int = 24,
+    user: dict = Depends(get_current_user),
+):
+    return await activity_compatible_exercises_handler(db, user, locale=locale or "fr", limit=limit)
+
 
 @api_router.post("/activities/start")
 async def activities_start(data: ActivityStartBody, user: dict = Depends(get_current_user)):
