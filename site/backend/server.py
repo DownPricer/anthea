@@ -102,6 +102,7 @@ from activities.api import (
 )
 from activities.service import ensure_activity_indexes, activity_stats_from_docs
 from activities.constants import SESSIONS_COLLECTION as ACTIVITY_SESSIONS_COLLECTION
+from activities.workout_exercises import validate_workout_blocks
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -291,6 +292,13 @@ class ExerciseResponse(BaseModel):
     user_id: Optional[str] = None
     created_at: str
 
+class ActivityExerciseConfig(BaseModel):
+    target_duration_seconds: Optional[int] = None
+    target_distance_meters: Optional[float] = None
+    pool_length_meters: Optional[float] = None
+    interval_config: Optional[dict] = None
+
+
 class WorkoutExercise(BaseModel):
     exercise_id: str
     name: str
@@ -304,8 +312,16 @@ class WorkoutExercise(BaseModel):
     image_url: Optional[str] = None
     # Snapshots de compatibilité catalogue (optionnels, non destructifs)
     exercise_name_snapshot: Optional[str] = None
+    exercise_name_i18n_snapshot: Optional[dict] = None
     media_snapshot: Optional[str] = None
     tracking_type_snapshot: Optional[str] = None
+    # Presets d'activité FitMatch (hors exercise_catalog)
+    source: Optional[str] = None
+    preset_id: Optional[str] = None
+    activity_kind: Optional[str] = None
+    activity_tracking_mode: Optional[str] = None
+    activity_config: Optional[ActivityExerciseConfig] = None
+    icon: Optional[str] = None
 
 class WorkoutBlock(BaseModel):
     block_type: str
@@ -465,6 +481,10 @@ class ActivityStartBody(BaseModel):
     force_discard_current: bool = False
     resume_existing: bool = False
     client_activity_id: Optional[str] = None
+    # Lien vers une séance Player (activité démarrée depuis un exercice)
+    workout_session_id: Optional[str] = None
+    workout_exercise_index: Optional[int] = None
+    scheduled_workout_id: Optional[str] = None
 
 
 class ActivityPointsBody(BaseModel):
@@ -4037,9 +4057,10 @@ async def get_template(template_id: str, user: dict = Depends(get_current_user))
 
 @api_router.post("/templates")
 async def create_template(data: WorkoutTemplateCreate, user: dict = Depends(get_current_user)):
+    blocks = validate_workout_blocks(data.blocks)
     template_doc = {
         **data.model_dump(),
-        "blocks": [b.model_dump() for b in data.blocks],
+        "blocks": blocks,
         "user_id": user["id"],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
@@ -4062,7 +4083,7 @@ async def update_template(template_id: str, data: WorkoutTemplateCreate, user: d
         raise HTTPException(status_code=404, detail="Template not found")
     
     update_data = data.model_dump()
-    update_data["blocks"] = [b.model_dump() for b in data.blocks]
+    update_data["blocks"] = validate_workout_blocks(data.blocks)
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     await db.workout_templates.update_one({"_id": ObjectId(template_id)}, {"$set": update_data})
@@ -4209,7 +4230,7 @@ async def create_workout(data: ScheduledWorkoutCreate, user: dict = Depends(get_
     
     workout_doc = {
         **data.model_dump(),
-        "blocks": [b.model_dump() for b in data.blocks],
+        "blocks": validate_workout_blocks(data.blocks),
         "creator_id": user["id"],
         "creator_username": user["username"],
         "for_user_id": for_user_id,
@@ -4234,7 +4255,7 @@ async def update_workout(workout_id: str, data: ScheduledWorkoutCreate, user: di
         raise HTTPException(status_code=403, detail="Not authorized")
     
     update_data = data.model_dump()
-    update_data["blocks"] = [b.model_dump() for b in data.blocks]
+    update_data["blocks"] = validate_workout_blocks(data.blocks)
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
     await db.scheduled_workouts.update_one({"_id": ObjectId(workout_id)}, {"$set": update_data})
@@ -4316,7 +4337,7 @@ async def create_multi_schedule(data: MultiScheduleCreate, user: dict = Depends(
             "scheduled_date": date,
             "scheduled_time": data.scheduled_time,
             "difficulty": data.difficulty,
-            "blocks": [b.model_dump() for b in data.blocks],
+            "blocks": validate_workout_blocks(data.blocks),
             "creator_id": user["id"],
             "creator_username": user["username"],
             "status": "pending",

@@ -83,6 +83,19 @@
       "exercisesSection": "Exercises",
       "fitmatchActivity": "FitMatch activity"
     },
+    "activityMode": {
+      "gps": "GPS",
+      "timer": "Timed",
+      "manual_distance": "Distance",
+      "laps": "Laps",
+      "intervals": "Intervals"
+    },
+    "configureActivity": "Configure",
+    "targetDuration": "Target (s)",
+    "targetDistance": "Distance (m)",
+    "poolLength": "Pool (m)",
+    "workSeconds": "Work (s)",
+    "intervalRounds": "Rounds",
     "exerciseCount_one": "{{count}} exercise",
     "exerciseCount_other": "{{count}} exercises",
     "blockTypes": {

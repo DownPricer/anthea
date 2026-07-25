@@ -130,9 +130,11 @@ describe('CreateWorkoutPage activity discovery wiring (source)', () => {
     expect(src).toContain('handleActivityPresetSelect');
   });
 
-  test('activity click navigates to start preset not addExerciseToBlock', () => {
-    expect(src).toContain('/activity/start?preset=');
-    expect(src).toMatch(/handleActivityPresetSelect[\s\S]*navigate\(`\/activity\/start\?preset=/);
+  test('activity click adds preset to workout block not navigate', () => {
+    expect(src).not.toMatch(/handleActivityPresetSelect[\s\S]*navigate\(`\/activity\/start\?preset=/);
+    expect(src).toContain('buildActivityExerciseFromPreset');
+    expect(src).toContain('handleActivityPresetSelect');
+    expect(src).toMatch(/handleActivityPresetSelect[\s\S]*exercises\.push\(newExercise\)/);
   });
 
   test('preserves exercise search debounce and limit 10', () => {

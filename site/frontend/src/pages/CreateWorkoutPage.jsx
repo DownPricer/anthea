@@ -6,6 +6,11 @@ import {
   getActivityPresetsForDiscovery,
   loadCachedActivityPresets,
 } from '../lib/activities/activityPresetSearch';
+import {
+  buildActivityExerciseFromPreset,
+  isTrackedActivityExercise,
+  getActivityTrackingMode,
+} from '../lib/activities/workoutActivityExercise';
 import { ActivityPresetSearchCard } from '../components/activities/ActivityPresetSearchCard';
 import { sanitizeExerciseForApi, handleExerciseImageError } from '../lib/exerciseMedia';
 import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
@@ -481,9 +486,27 @@ export function CreateWorkoutPage() {
   };
 
   const handleActivityPresetSelect = (preset) => {
+    if (currentBlockIndex === null) return;
+    const locale = (i18n?.language || 'fr').split('-')[0];
+    const newExercise = buildActivityExerciseFromPreset(preset, {
+      locale,
+      order: blocks[currentBlockIndex].exercises.length,
+    });
+
+    setBlocks((prev) => {
+      const updated = [...prev];
+      updated[currentBlockIndex].exercises.push(newExercise);
+      return updated;
+    });
+
+    if (exerciseListRef.current) {
+      exerciseSearchRef.current.saveScroll(exerciseListRef.current.scrollTop);
+    }
     setExerciseDialogOpen(false);
-    resetExerciseDialogState();
-    navigate(`/activity/start?preset=${encodeURIComponent(preset.id)}`);
+    setCurrentBlockIndex(null);
+    setSearchQuery('');
+    setDebouncedQuery('');
+    setExerciseTab('library');
   };
 
   const libraryExerciseToForm = (exercise) => ({
@@ -1436,7 +1459,17 @@ export function CreateWorkoutPage() {
                         )}
                         <div className="flex-1 min-w-0 max-w-full overflow-hidden">
                           <p className="text-foreground font-medium truncate max-w-full">
+                            {exercise.icon ? (
+                              <span className="mr-1.5" aria-hidden>{exercise.icon}</span>
+                            ) : null}
                             {exercise.name}
+                            {isTrackedActivityExercise(exercise) ? (
+                              <span className="ml-2 text-[10px] uppercase tracking-wide text-subtle">
+                                {t(`workouts:create.activityMode.${getActivityTrackingMode(exercise)}`, {
+                                  defaultValue: getActivityTrackingMode(exercise),
+                                })}
+                              </span>
+                            ) : null}
                           </p>
                           {exercise.description && (
                             <p className="text-subtle text-xs line-clamp-2 break-words [overflow-wrap:anywhere]">
@@ -1452,6 +1485,136 @@ export function CreateWorkoutPage() {
                         </button>
                       </div>
 
+                      {isTrackedActivityExercise(exercise) ? (
+                        <div className="space-y-2" data-testid="activity-exercise-config">
+                          <details className="group">
+                            <summary className="cursor-pointer text-xs text-subtle hover:text-muted list-none flex items-center gap-1">
+                              {t('workouts:create.configureActivity', { defaultValue: 'Configurer' })}
+                            </summary>
+                            <div className="mt-2 grid grid-cols-2 gap-2">
+                              {(getActivityTrackingMode(exercise) === 'gps' ||
+                                getActivityTrackingMode(exercise) === 'manual_distance' ||
+                                getActivityTrackingMode(exercise) === 'timer') && (
+                                <>
+                                  <div>
+                                    <Label className="text-[10px] text-subtle uppercase">
+                                      {t('workouts:create.targetDuration', { defaultValue: 'Objectif (s)' })}
+                                    </Label>
+                                    <Input
+                                      type="number"
+                                      value={exercise.activity_config?.target_duration_seconds ?? ''}
+                                      onChange={(e) => {
+                                        const val = e.target.value === '' ? null : parseInt(e.target.value, 10) || null;
+                                        updateExercise(blockIndex, exerciseIndex, 'activity_config', {
+                                          ...(exercise.activity_config || {}),
+                                          target_duration_seconds: val,
+                                        });
+                                      }}
+                                      className="h-10 mt-1 rounded-lg bg-surface-elevated border-border text-foreground text-center"
+                                      placeholder="—"
+                                    />
+                                  </div>
+                                  {(getActivityTrackingMode(exercise) === 'gps' ||
+                                    getActivityTrackingMode(exercise) === 'manual_distance') && (
+                                    <div>
+                                      <Label className="text-[10px] text-subtle uppercase">
+                                        {t('workouts:create.targetDistance', { defaultValue: 'Distance (m)' })}
+                                      </Label>
+                                      <Input
+                                        type="number"
+                                        value={exercise.activity_config?.target_distance_meters ?? ''}
+                                        onChange={(e) => {
+                                          const val = e.target.value === '' ? null : parseFloat(e.target.value) || null;
+                                          updateExercise(blockIndex, exerciseIndex, 'activity_config', {
+                                            ...(exercise.activity_config || {}),
+                                            target_distance_meters: val,
+                                          });
+                                        }}
+                                        className="h-10 mt-1 rounded-lg bg-surface-elevated border-border text-foreground text-center"
+                                        placeholder="—"
+                                      />
+                                    </div>
+                                  )}
+                                </>
+                              )}
+                              {getActivityTrackingMode(exercise) === 'laps' && (
+                                <div>
+                                  <Label className="text-[10px] text-subtle uppercase">
+                                    {t('workouts:create.poolLength', { defaultValue: 'Bassin (m)' })}
+                                  </Label>
+                                  <Input
+                                    type="number"
+                                    value={exercise.activity_config?.pool_length_meters ?? 25}
+                                    onChange={(e) => {
+                                      updateExercise(blockIndex, exerciseIndex, 'activity_config', {
+                                        ...(exercise.activity_config || {}),
+                                        pool_length_meters: parseFloat(e.target.value) || 25,
+                                      });
+                                    }}
+                                    className="h-10 mt-1 rounded-lg bg-surface-elevated border-border text-foreground text-center"
+                                  />
+                                </div>
+                              )}
+                              {getActivityTrackingMode(exercise) === 'intervals' && (
+                                <>
+                                  <div>
+                                    <Label className="text-[10px] text-subtle uppercase">
+                                      {t('workouts:create.workSeconds', { defaultValue: 'Effort (s)' })}
+                                    </Label>
+                                    <Input
+                                      type="number"
+                                      value={exercise.activity_config?.interval_config?.work_seconds ?? 30}
+                                      onChange={(e) => {
+                                        updateExercise(blockIndex, exerciseIndex, 'activity_config', {
+                                          ...(exercise.activity_config || {}),
+                                          interval_config: {
+                                            ...(exercise.activity_config?.interval_config || {}),
+                                            work_seconds: parseInt(e.target.value, 10) || 30,
+                                          },
+                                        });
+                                      }}
+                                      className="h-10 mt-1 rounded-lg bg-surface-elevated border-border text-foreground text-center"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label className="text-[10px] text-subtle uppercase">
+                                      {t('workouts:create.intervalRounds', { defaultValue: 'Répétitions' })}
+                                    </Label>
+                                    <Input
+                                      type="number"
+                                      value={exercise.activity_config?.interval_config?.rounds ?? 8}
+                                      onChange={(e) => {
+                                        updateExercise(blockIndex, exerciseIndex, 'activity_config', {
+                                          ...(exercise.activity_config || {}),
+                                          interval_config: {
+                                            ...(exercise.activity_config?.interval_config || {}),
+                                            rounds: parseInt(e.target.value, 10) || 8,
+                                          },
+                                        });
+                                      }}
+                                      className="h-10 mt-1 rounded-lg bg-surface-elevated border-border text-foreground text-center"
+                                    />
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </details>
+                          <div className="flex items-end">
+                            <button
+                              onClick={() =>
+                                updateExercise(blockIndex, exerciseIndex, 'tts_enabled', !exercise.tts_enabled)
+                              }
+                              className={`w-full h-10 rounded-lg text-sm transition-colors ${
+                                exercise.tts_enabled
+                                  ? 'bg-[var(--theme-primary)] text-foreground'
+                                  : 'bg-hover text-subtle'
+                              }`}
+                            >
+                              🔊
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
                       <div className="grid grid-cols-3 gap-2">
                         {exercise.exercise_type === 'duration' ? (
                           <div>
@@ -1504,6 +1667,7 @@ export function CreateWorkoutPage() {
                           </button>
                         </div>
                       </div>
+                      )}
                     </div>
                   ))}
 
