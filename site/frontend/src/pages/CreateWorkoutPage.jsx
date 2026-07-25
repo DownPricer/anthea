@@ -1697,6 +1697,11 @@ export function CreateWorkoutPage() {
                                 : t('workouts:create.dialog.createExercise')
                               : t('workouts:create.dialog.chooseExercise')}
                           </DialogTitle>
+                          <DialogDescription className="sr-only">
+                            {t('workouts:create.dialog.chooseExerciseDescription', {
+                              defaultValue: 'Recherchez et ajoutez un exercice à votre séance.',
+                            })}
+                          </DialogDescription>
                         </DialogHeader>
                         {customCreationEnabled || editingExerciseId ? (
                           <div className="grid grid-cols-2 gap-2 rounded-xl bg-background p-1">

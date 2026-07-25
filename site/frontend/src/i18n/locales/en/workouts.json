@@ -147,6 +147,7 @@
       "editExercise": "Edit exercise",
       "createExercise": "Create exercise",
       "chooseExercise": "Choose an exercise",
+      "chooseExerciseDescription": "Search and add an exercise to your workout.",
       "library": "Library",
       "newExercise": "New exercise"
     },

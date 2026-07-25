@@ -147,6 +147,7 @@
       "editExercise": "Modifier l’exercice",
       "createExercise": "Créer un exercice",
       "chooseExercise": "Choisir un exercice",
+      "chooseExerciseDescription": "Recherchez et ajoutez un exercice à votre séance.",
       "library": "Bibliothèque",
       "newExercise": "Nouvel exercice"
     },
