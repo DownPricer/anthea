@@ -1,8 +1,9 @@
-"""Classification activity_tracking_mode / activity_kind (idempotente)."""
+"""Classification activity_tracking_mode / activity_kind — version 2 (stricte)."""
 
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -10,15 +11,103 @@ from exercises.taxonomy import fold_text
 
 from .constants import ACTIVITY_KINDS, ACTIVITY_TRACKING_MODES
 
+CLASSIFICATION_VERSION = 2
+
 OVERRIDES_PATH = (
     Path(__file__).resolve().parent.parent / "data" / "exercises" / "activity_tracking_overrides.json"
 )
+
+# IDs produits en faux positifs GPS — forcés standard (confiance élevée)
+KNOWN_FALSE_POSITIVE_IDS = frozenset(
+    {
+        "exdb_0971",
+        "exdb_0103",
+        "exdb_0796",
+        "exdb_2203",
+        "exdb_0083",
+        "exdb_0084",
+        "exdb_0100",
+        "exdb_3304",
+        "exdb_2464",
+        "exdb_0859",
+    }
+)
+
+SAMPLE_REPORT_IDS = list(KNOWN_FALSE_POSITIVE_IDS)
+
+MACHINE_EQUIPMENT = frozenset(
+    {"treadmill", "stationary_bike", "elliptical", "rowing_machine", "stair_climber"}
+)
+
+# Phrases machine cardio (correspondance phrase entière tokenisée)
+MACHINE_NAME_PHRASES: List[Tuple[str, str, str]] = [
+    ("treadmill", "manual_distance", "running"),
+    ("treadmill running", "manual_distance", "running"),
+    ("stationary bike", "manual_distance", "cycling"),
+    ("exercise bike", "manual_distance", "cycling"),
+    ("indoor cycling", "manual_distance", "cycling"),
+    ("elliptical trainer", "manual_distance", "elliptical"),
+    ("elliptical machine", "manual_distance", "elliptical"),
+    ("rowing machine", "manual_distance", "rowing"),
+    ("indoor rower", "manual_distance", "rowing"),
+    ("rower machine", "manual_distance", "rowing"),
+    ("stair climber", "manual_distance", "stair_climber"),
+    ("stepmill", "manual_distance", "stair_climber"),
+    ("ski erg", "manual_distance", "rowing"),
+    ("skierg", "manual_distance", "rowing"),
+]
+
+TIMER_SPORT_MAP = {
+    "yoga": "yoga",
+    "stretching": "stretching",
+    "mobility": "mobility",
+    "pilates": "mobility",
+}
+
+INTERVAL_PHRASES = [
+    "tabata",
+    "hiit",
+    "fartlek",
+    "interval training",
+    "fractionne",
+    "fractionne",
+]
+
+# Maintiens isométriques / chronométrés autorisés (phrase entière)
+TIMER_HOLD_PHRASES = [
+    "wall sit",
+    "plank hold",
+    "static plank",
+    "front plank",
+    "side plank hold",
+    "isometric hold",
+    "static stretch",
+    "jump rope",
+    "corde a sauter",
+]
+
+# Exercices dynamiques contenant plank/stretch → standard
+TIMER_DYNAMIC_EXCLUSIONS = [
+    "plank tap",
+    "plank rotation",
+    "plank leg lift",
+    "plank shoulder",
+    "side plank rear fly",
+    "side plank rotation",
+    "stretching exercise",
+    "dynamic stretch",
+    "walking lunge",
+    "walking high knees",
+    "running man",
+    "bridge march",
+    "march sit",
+]
 
 
 def load_overrides(path: Optional[Path] = None) -> Dict[str, Any]:
     p = path or OVERRIDES_PATH
     if not p.exists():
-        return {"by_id": {}, "by_name_fold": {}, "rules": []}
+        return {"by_id": {}, "global_exclusions": [], "rules": []}
     return json.loads(p.read_text(encoding="utf-8"))
 
 
@@ -36,148 +125,193 @@ def _name_haystack(doc: Dict[str, Any]) -> str:
     return fold_text(" ".join(parts))
 
 
-def _match_any(hay: str, needles: Optional[List[str]]) -> bool:
-    if not needles:
-        return True
-    return any(fold_text(n) in hay for n in needles if n)
+def _tokenize(text: str) -> List[str]:
+    folded = fold_text(text)
+    return re.findall(r"[a-z0-9]+", folded)
 
 
-def _match_none(hay: str, needles: Optional[List[str]]) -> bool:
-    if not needles:
-        return True
-    return not any(fold_text(n) in hay for n in needles if n)
+def _phrase_in_haystack(hay: str, phrase: str) -> bool:
+    """Correspondance phrase entière sur tokens (limites de mots)."""
+    hay_tokens = _tokenize(hay)
+    phrase_tokens = _tokenize(phrase)
+    if not phrase_tokens:
+        return False
+    n = len(phrase_tokens)
+    if n > len(hay_tokens):
+        return False
+    for i in range(len(hay_tokens) - n + 1):
+        if hay_tokens[i : i + n] == phrase_tokens:
+            return True
+    return False
 
 
-def _kind_from_equipment(equipment: List[str], mapping: Dict[str, str]) -> Optional[str]:
-    for eq in equipment or []:
-        if eq in mapping:
-            return mapping[eq]
+def _any_phrase(hay: str, phrases: List[str]) -> bool:
+    return any(_phrase_in_haystack(hay, p) for p in phrases if p)
+
+
+def _matches_global_exclusion(hay: str, exclusions: List[str]) -> bool:
+    for ex in exclusions:
+        fk = fold_text(ex)
+        if not fk:
+            continue
+        if _phrase_in_haystack(hay, fk):
+            return True
+        # Phrases multi-mots sans tokenisation stricte pour termes composés
+        if " " in fk and fk in hay:
+            return True
+    return False
+
+
+def _is_dynamic_timer_excluded(hay: str) -> bool:
+    return _any_phrase(hay, TIMER_DYNAMIC_EXCLUSIONS)
+
+
+def _classify_machine(doc: Dict[str, Any], hay: str) -> Optional[Tuple[str, str, str, str]]:
+    equipment = set(doc.get("equipment") or [])
+    has_machine_eq = bool(equipment & MACHINE_EQUIPMENT)
+
+    for phrase, mode, kind in MACHINE_NAME_PHRASES:
+        if _phrase_in_haystack(hay, phrase):
+            # Exclure les faux positifs row/kayak/march
+            if any(
+                _phrase_in_haystack(hay, bad)
+                for bad in (
+                    "barbell row",
+                    "cable row",
+                    "kayak row",
+                    "bent over row",
+                    "walking",
+                    "lunge",
+                    "march",
+                )
+            ):
+                continue
+            return mode, kind, "strict_machine_rule", "high"
+
+    if has_machine_eq:
+        # Équipement machine seul : exiger nom cohérent, pas un exercice de musculation
+        strength_markers = (
+            "barbell",
+            "dumbbell",
+            "cable",
+            "band assisted",
+            "lever",
+            "smith",
+            "rollout",
+            "rollerout",
+        )
+        if any(_phrase_in_haystack(hay, m) for m in strength_markers):
+            return None
+        equip_map = {
+            "treadmill": ("manual_distance", "running"),
+            "stationary_bike": ("manual_distance", "cycling"),
+            "elliptical": ("manual_distance", "elliptical"),
+            "rowing_machine": ("manual_distance", "rowing"),
+            "stair_climber": ("manual_distance", "stair_climber"),
+        }
+        for eq in sorted(equipment & MACHINE_EQUIPMENT):
+            mode, kind = equip_map[eq]
+            return mode, kind, "strict_machine_rule", "high"
     return None
 
 
-def _kind_from_name(hay: str) -> Optional[str]:
-    checks = [
-        ("treadmill", "running"),
-        ("tapis", "running"),
-        ("stationary bike", "cycling"),
-        ("velo", "cycling"),
-        ("elliptical", "elliptical"),
-        ("elliptique", "elliptical"),
-        ("rower", "rowing"),
-        ("rameur", "rowing"),
-        ("stair", "stair_climber"),
-        ("escalier", "stair_climber"),
-        ("jump rope", "jump_rope"),
-        ("corde a sauter", "jump_rope"),
-        ("plank", "other"),
-        ("planche", "other"),
-        ("yoga", "yoga"),
-        ("stretch", "stretching"),
-        ("mobil", "mobility"),
-        ("tabata", "hiit"),
-        ("hiit", "hiit"),
-        ("hike", "hiking"),
-        ("randonn", "hiking"),
-        ("roller", "roller"),
-        ("ski", "skiing"),
-        ("kayak", "kayaking"),
-        ("swim", "swimming"),
-        ("piscine", "swimming"),
-        ("shuttle", "shuttle"),
-        ("navette", "shuttle"),
-        ("track", "track"),
-        ("walk", "walking"),
-        ("marche", "walking"),
-        ("run", "running"),
-        ("course", "running"),
-        ("cycl", "cycling"),
-    ]
-    for needle, kind in checks:
-        if needle in hay:
-            return kind
+def _classify_timer(doc: Dict[str, Any], hay: str) -> Optional[Tuple[str, str, str, str]]:
+    if _is_dynamic_timer_excluded(hay):
+        return None
+    sport = doc.get("sport") or "other"
+    if sport in TIMER_SPORT_MAP:
+        return "timer", TIMER_SPORT_MAP[sport], "strict_timer_rule", "high"
+    if _any_phrase(hay, TIMER_HOLD_PHRASES):
+        kind = "jump_rope" if _phrase_in_haystack(hay, "jump rope") or _phrase_in_haystack(hay, "corde a sauter") else "other"
+        return "timer", kind, "strict_timer_rule", "high"
+    # Planche statique simple uniquement (mot complet plank/planche sans modifiers dynamiques)
+    if (_phrase_in_haystack(hay, "plank") or _phrase_in_haystack(hay, "planche")) and not _is_dynamic_timer_excluded(hay):
+        dynamic_mods = ("tap", "rotation", "leg lift", "shoulder", "rear fly", "twist", "reach")
+        if not any(_phrase_in_haystack(hay, m) for m in dynamic_mods):
+            return "timer", "other", "strict_timer_rule", "medium"
+    return None
+
+
+def _classify_intervals(hay: str) -> Optional[Tuple[str, str, str, str]]:
+    if _any_phrase(hay, INTERVAL_PHRASES):
+        kind = "hiit" if _phrase_in_haystack(hay, "tabata") or _phrase_in_haystack(hay, "hiit") else "running"
+        return "intervals", kind, "strict_interval_rule", "high"
     return None
 
 
 def classify_exercise(
     doc: Dict[str, Any],
     overrides: Optional[Dict[str, Any]] = None,
-) -> Tuple[str, str, str]:
+) -> Tuple[str, str, str, str, str]:
     """
-    Retourne (activity_tracking_mode, activity_kind, source).
-    source: override_id | override_name | rule:<id> | default_standard
+    Retourne (mode, kind, source, confidence, version).
+    GPS sur catalogue ExerciseDB : uniquement via by_id explicite validé.
     """
     cfg = overrides or load_overrides()
     eid = str(doc.get("id") or "")
+    hay = _name_haystack(doc)
+
+    global_exclusions = list(cfg.get("global_exclusions") or [])
+    if eid in KNOWN_FALSE_POSITIVE_IDS or _matches_global_exclusion(hay, global_exclusions):
+        return _finalize("standard", "other", "explicit_override", "high")
+
     by_id = cfg.get("by_id") or {}
     if eid and eid in by_id:
         entry = by_id[eid]
         mode = entry.get("activity_tracking_mode") or "standard"
         kind = entry.get("activity_kind") or "other"
-        return _sanitize(mode, kind, "override_id")
+        conf = entry.get("activity_classification_confidence") or "high"
+        source = entry.get("activity_classification_source") or "explicit_override"
+        return _finalize(mode, kind, source, conf)
 
-    hay = _name_haystack(doc)
-    by_name = cfg.get("by_name_fold") or {}
-    for key, entry in by_name.items():
-        if fold_text(key) and fold_text(key) in hay:
-            # Prefer exact-ish match: key appears as whole token or full fold equality
-            if hay == fold_text(key) or f" {fold_text(key)} " in f" {hay} " or hay.startswith(fold_text(key)):
-                mode = entry.get("activity_tracking_mode") or "standard"
-                kind = entry.get("activity_kind") or "other"
-                return _sanitize(mode, kind, "override_name")
+    # Pas de GPS ni de laps catalogue via nom — activités complètes via presets FitMatch
+    machine = _classify_machine(doc, hay)
+    if machine:
+        return _finalize(*machine)
 
-    # Second pass: substring for curated names
-    for key, entry in sorted(by_name.items(), key=lambda kv: -len(kv[0])):
-        fk = fold_text(key)
-        if fk and fk in hay:
-            mode = entry.get("activity_tracking_mode") or "standard"
-            kind = entry.get("activity_kind") or "other"
-            return _sanitize(mode, kind, "override_name")
+    timer = _classify_timer(doc, hay)
+    if timer:
+        return _finalize(*timer)
 
-    sport = doc.get("sport") or "other"
-    equipment = list(doc.get("equipment") or [])
-    sport_map = cfg.get("sport_kind_map") or {}
-    equip_map = cfg.get("equipment_kind_map") or {}
+    intervals = _classify_intervals(hay)
+    if intervals:
+        return _finalize(*intervals)
 
-    rules = sorted(cfg.get("rules") or [], key=lambda r: int(r.get("priority") or 100))
-    for rule in rules:
-        if not _match_any(hay, rule.get("require_any_name")):
-            continue
-        if not _match_none(hay, rule.get("exclude_any_name")):
-            continue
-        req_sports = rule.get("require_any_sport") or []
-        if req_sports and sport not in req_sports:
-            continue
-        req_eq = rule.get("require_any_equipment") or []
-        if req_eq and not any(e in equipment for e in req_eq):
-            continue
-        mode = rule.get("activity_tracking_mode") or "standard"
-        kind = rule.get("activity_kind")
-        if rule.get("activity_kind_from_sport"):
-            kind = sport_map.get(sport) or kind or "other"
-            if mode == "intervals" and not kind:
-                kind = "hiit"
-        if rule.get("activity_kind_from_equipment"):
-            kind = _kind_from_equipment(equipment, equip_map) or kind or "other"
-        if rule.get("activity_kind_from_name"):
-            kind = _kind_from_name(hay) or kind or "other"
-        # Ne jamais forcer GPS sur équipement indoor
-        if mode == "gps" and any(
-            e in equipment
-            for e in ("treadmill", "stationary_bike", "elliptical", "rowing_machine", "stair_climber")
-        ):
-            continue
-        return _sanitize(mode, kind or "other", f"rule:{rule.get('id') or 'unknown'}")
-
-    # Défaut : standard (Player classique) — ne pas classifier naïvement
-    return "standard", "other", "default_standard"
+    return _finalize("standard", "other", "default_standard", "high")
 
 
-def _sanitize(mode: str, kind: str, source: str) -> Tuple[str, str, str]:
+def _finalize(mode: str, kind: str, source: str, confidence: str) -> Tuple[str, str, str, str, str]:
     if mode not in ACTIVITY_TRACKING_MODES:
         mode = "standard"
     if kind not in ACTIVITY_KINDS:
         kind = "other"
-    return mode, kind, source
+    if mode == "gps" and confidence != "high":
+        mode = "standard"
+        kind = "other"
+        source = "default_standard"
+        confidence = "high"
+    return mode, kind, source, confidence, str(CLASSIFICATION_VERSION)
+
+
+def is_reliable_catalog_activity(doc: Dict[str, Any], overrides: Optional[Dict[str, Any]] = None) -> bool:
+    """Exercice catalogue sûr pour démarrage activité (jamais GPS faible)."""
+    fields = classification_fields(doc, overrides)
+    mode = fields["activity_tracking_mode"]
+    confidence = fields["activity_classification_confidence"]
+    if mode in ("standard", "gps"):
+        return False
+    return confidence == "high"
+
+
+def classification_fields(doc: Dict[str, Any], overrides: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    mode, kind, source, confidence, version = classify_exercise(doc, overrides)
+    return {
+        "activity_tracking_mode": mode,
+        "activity_kind": kind,
+        "activity_classification_version": int(version),
+        "activity_classification_source": source,
+        "activity_classification_confidence": confidence,
+    }
 
 
 def classify_catalog_documents(
@@ -188,31 +322,50 @@ def classify_catalog_documents(
     cfg = overrides or load_overrides()
     counts = {m: 0 for m in ACTIVITY_TRACKING_MODES}
     counts["unclassified"] = 0
-    overrides_used = 0
     changes = 0
+    false_positive_fixes = 0
     errors: List[str] = []
     updates: List[Dict[str, Any]] = []
+    sample_before_after: Dict[str, Dict[str, Any]] = {}
 
     for doc in docs:
         try:
-            mode, kind, source = classify_exercise(doc, cfg)
-            if source.startswith("override"):
-                overrides_used += 1
+            fields = classification_fields(doc, cfg)
+            mode = fields["activity_tracking_mode"]
+            kind = fields["activity_kind"]
+            source = fields["activity_classification_source"]
+
             if mode == "standard" and source == "default_standard":
                 counts["unclassified"] += 1
             counts[mode] = counts.get(mode, 0) + 1
+
             prev_mode = doc.get("activity_tracking_mode")
             prev_kind = doc.get("activity_kind")
-            if prev_mode != mode or prev_kind != kind:
+            eid = doc.get("id")
+
+            if prev_mode == "gps" and mode == "standard":
+                false_positive_fixes += 1
+
+            changed = (
+                prev_mode != mode
+                or prev_kind != kind
+                or doc.get("activity_classification_version") != fields["activity_classification_version"]
+                or doc.get("activity_classification_source") != fields["activity_classification_source"]
+                or doc.get("activity_classification_confidence") != fields["activity_classification_confidence"]
+            )
+            if changed:
                 changes += 1
-                updates.append(
-                    {
-                        "id": doc.get("id"),
+                updates.append({"id": eid, **fields, "prev_mode": prev_mode, "prev_kind": prev_kind})
+
+            if eid in SAMPLE_REPORT_IDS:
+                sample_before_after[eid] = {
+                    "before": {"activity_tracking_mode": prev_mode, "activity_kind": prev_kind},
+                    "after": {
                         "activity_tracking_mode": mode,
                         "activity_kind": kind,
                         "source": source,
-                    }
-                )
+                    },
+                }
         except Exception as exc:  # noqa: BLE001
             errors.append(f"{doc.get('id')}: {exc}")
 
@@ -225,10 +378,12 @@ def classify_catalog_documents(
         "gps": counts.get("gps", 0),
         "intervals": counts.get("intervals", 0),
         "unclassified": counts.get("unclassified", 0),
-        "overrides_used": overrides_used,
         "changes": changes,
+        "false_positive_fixes": false_positive_fixes,
         "errors": errors,
         "updates": updates,
+        "sample_before_after": sample_before_after,
+        "classification_version": CLASSIFICATION_VERSION,
     }
 
 
@@ -236,6 +391,7 @@ def apply_activity_modes(
     db,
     *,
     dry_run: bool = True,
+    reclassify: bool = False,
     overrides: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     from exercises.catalog import CATALOG_COLLECTION
@@ -244,19 +400,21 @@ def apply_activity_modes(
     docs = list(col.find({}))
     report = classify_catalog_documents(docs, overrides=overrides)
     report["dry_run"] = dry_run
+    report["reclassify"] = reclassify
+
     if dry_run:
         return report
+
     for upd in report.get("updates") or []:
-        col.update_one(
-            {"id": upd["id"]},
-            {
-                "$set": {
-                    "activity_tracking_mode": upd["activity_tracking_mode"],
-                    "activity_kind": upd["activity_kind"],
-                }
-            },
-        )
-    # Relecture pour vérifier idempotence stats
+        fields = {
+            "activity_tracking_mode": upd["activity_tracking_mode"],
+            "activity_kind": upd["activity_kind"],
+            "activity_classification_version": upd["activity_classification_version"],
+            "activity_classification_source": upd["activity_classification_source"],
+            "activity_classification_confidence": upd["activity_classification_confidence"],
+        }
+        col.update_one({"id": upd["id"]}, {"$set": fields})
+
     docs2 = list(col.find({}))
     verify = classify_catalog_documents(docs2, overrides=overrides)
     report["verify_changes"] = verify.get("changes", 0)

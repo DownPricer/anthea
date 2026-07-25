@@ -347,6 +347,11 @@ def main(argv: Optional[List[str]] = None) -> int:
         action="store_true",
         help="Print activity modes classification report",
     )
+    parser.add_argument(
+        "--reclassify",
+        action="store_true",
+        help="Recompute activity modes on already classified catalog documents",
+    )
     parser.add_argument("--provider", default=None, help="exercisedb | free_exercise_db")
     parser.add_argument("--fixture", default=None, help="Optional local JSON fixture")
     args = parser.parse_args(argv)
@@ -369,8 +374,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                 report["changes"] = report.get("changes", 0)
                 print(json.dumps(report, indent=2, ensure_ascii=False, default=str))
                 return 0 if not report.get("errors") else 1
-            report = apply_activity_modes(db, dry_run=dry)
-            # Rapport compact (sans liste updates complète en stdout sauf dry-run court)
+            report = apply_activity_modes(db, dry_run=dry, reclassify=bool(args.reclassify))
             out = {k: v for k, v in report.items() if k != "updates"}
             if dry:
                 out["sample_updates"] = (report.get("updates") or [])[:20]
