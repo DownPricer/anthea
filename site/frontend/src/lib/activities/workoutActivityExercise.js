@@ -111,3 +111,15 @@ export function formatActivityModeBadgeKey(mode) {
   };
   return map[mode] || mode;
 }
+
+/** Clé stable pour démarrer un exercice suivi dans une séance (anti-doublon). */
+export function buildStartIdempotencyKey({
+  workoutSessionId,
+  scheduledWorkoutId,
+  exerciseIndex,
+  presetId,
+}) {
+  const workoutPart = workoutSessionId || scheduledWorkoutId || 'unknown';
+  const preset = presetId || 'unknown';
+  return `workout:${workoutPart}:exercise:${exerciseIndex}:preset:${preset}`;
+}

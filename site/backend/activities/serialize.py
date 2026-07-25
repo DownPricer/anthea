@@ -40,6 +40,7 @@ LIST_SAFE_FIELDS = (
     "workout_session_id",
     "workout_exercise_index",
     "scheduled_workout_id",
+    "start_idempotency_key",
     "created_at",
     "updated_at",
 )

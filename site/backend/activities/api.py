@@ -19,11 +19,25 @@ def _http_from_service(exc: Exception) -> HTTPException:
     if isinstance(exc, service.ActivityValidationError):
         return HTTPException(status_code=400, detail=str(exc))
     if isinstance(exc, service.ActivityConflictError):
+        current = exc.current
+        safe_current = (
+            serialize_activity_list_item(current) if current else None
+        )
+        # Jamais de coordonnées GPS dans un conflit
+        if safe_current:
+            safe_current.pop("route", None)
+            safe_current.pop("route_preview", None)
+            safe_current["bounding_box"] = None
         return HTTPException(
             status_code=409,
             detail={
+                "code": getattr(exc, "code", None) or "ACTIVE_ACTIVITY_EXISTS",
                 "message": str(exc),
-                "current_activity": serialize_activity_list_item(exc.current) if exc.current else None,
+                "activity_id": (current or {}).get("id") if current else None,
+                "linked_to_current_exercise": bool(
+                    getattr(exc, "linked_to_current_exercise", False)
+                ),
+                "current_activity": safe_current,
             },
         )
     return HTTPException(status_code=500, detail="Erreur activité")
@@ -31,8 +45,26 @@ def _http_from_service(exc: Exception) -> HTTPException:
 
 async def start_handler(db, user: dict, payload: Dict[str, Any]) -> Dict[str, Any]:
     try:
-        doc = await service.start_activity(db, user["id"], payload)
-        return serialize_activity_detail(doc, include_private_route=False, viewer_is_owner=True)
+        result = await service.start_activity(db, user["id"], payload)
+        # Compat : anciens appels / nouveaux retours enveloppe
+        if isinstance(result, dict) and "activity" in result and "created" in result:
+            activity = result["activity"]
+            created = bool(result.get("created"))
+            resumed = bool(result.get("resumed"))
+        else:
+            activity = result
+            created = True
+            resumed = False
+        serialized = serialize_activity_detail(
+            activity, include_private_route=False, viewer_is_owner=True
+        )
+        return {
+            "activity": serialized,
+            "created": created,
+            "resumed": resumed,
+            # Compat champs plats pour anciens clients
+            **serialized,
+        }
     except Exception as exc:
         if isinstance(
             exc,

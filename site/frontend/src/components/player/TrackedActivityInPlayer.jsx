@@ -5,9 +5,17 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Pause, Play, Plus, Minus } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Pause, Play, Plus, Minus, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '../ui/dialog';
 import { useActivityClock } from '../../hooks/useActivityClock';
 import { createLocationTracker } from '../../lib/activities/locationTracker';
 import { TRACKING_MODES, GPS_STATES, ACTIVITY_STATUS } from '../../lib/activities/constants';
@@ -25,8 +33,54 @@ import {
   drainPoints,
 } from '../../lib/activities/activityStore';
 import { activitiesApi, formatApiError } from '../../lib/api';
-import { getActivityTrackingMode } from '../../lib/activities/workoutActivityExercise';
+import {
+  getActivityTrackingMode,
+  buildStartIdempotencyKey,
+} from '../../lib/activities/workoutActivityExercise';
 import { toast } from 'sonner';
+
+export { buildStartIdempotencyKey };
+
+function unwrapStartResponse(data) {
+  if (data?.activity && typeof data.activity === 'object') {
+    return {
+      activity: data.activity,
+      created: Boolean(data.created),
+      resumed: Boolean(data.resumed),
+    };
+  }
+  return { activity: data, created: true, resumed: false };
+}
+
+function applyActivityToState(activity, {
+  setActivity,
+  setPhase,
+  startedRef,
+  clock,
+  setLaps,
+  setManualDistance,
+  mode,
+  restartClock = false,
+}) {
+  setActivity(activity);
+  setPhase('active');
+  startedRef.current = true;
+  if (restartClock) {
+    clock.start();
+  } else {
+    clock.restore({
+      startedAt: activity.started_at,
+      status: activity.status || ACTIVITY_STATUS.ACTIVE,
+      pausedAt: activity.paused_at,
+      pausedSeconds: activity.paused_seconds || 0,
+      endedAt: activity.ended_at,
+    });
+  }
+  if (activity.laps) setLaps(activity.laps);
+  if (activity.distance_meters && mode === TRACKING_MODES.MANUAL_DISTANCE) {
+    setManualDistance(String((activity.distance_meters / 1000).toFixed(2)));
+  }
+}
 
 export function TrackedActivityInPlayer({
   exercise,
@@ -38,8 +92,10 @@ export function TrackedActivityInPlayer({
   globalPaused = false,
 }) {
   const { t } = useTranslation(['player', 'activity', 'common']);
+  const navigate = useNavigate();
   const mode = getActivityTrackingMode(exercise) || TRACKING_MODES.TIMER;
   const config = exercise?.activity_config || {};
+  const presetId = exercise?.preset_id || (exercise?.exercise_id || '').replace(/^activity:/, '');
 
   const [phase, setPhase] = useState('ready'); // ready | active | finishing
   const [activity, setActivity] = useState(null);
@@ -48,16 +104,22 @@ export function TrackedActivityInPlayer({
   const [manualDistance, setManualDistance] = useState('');
   const [laps, setLaps] = useState(0);
   const [intervalRound, setIntervalRound] = useState(1);
-  const [intervalPhase, setIntervalPhase] = useState('work'); // work | rest
+  const [intervalPhase, setIntervalPhase] = useState('work');
   const [intervalRemaining, setIntervalRemaining] = useState(0);
-  const [starting, setStarting] = useState(false);
+  const [startPending, setStartPending] = useState(false);
   const [completing, setCompleting] = useState(false);
+  const [conflictActivity, setConflictActivity] = useState(null);
+  const [conflictOpen, setConflictOpen] = useState(false);
+  const [conflictBusy, setConflictBusy] = useState(false);
 
   const clock = useActivityClock();
   const locationTrackerRef = useRef(null);
   const syncRef = useRef(null);
   const intervalTimerRef = useRef(null);
   const startedRef = useRef(false);
+  const startPendingRef = useRef(false);
+  const toastShownRef = useRef(false);
+  const recoveringRef = useRef(false);
 
   const distanceMeters =
     mode === TRACKING_MODES.GPS
@@ -73,61 +135,94 @@ export function TrackedActivityInPlayer({
     Number.isFinite(paceMinPerKmRaw) && paceMinPerKmRaw > 0 ? paceMinPerKmRaw : null;
   const paceSecPerKm = paceMinPerKm != null ? paceMinPerKm * 60 : null;
 
-  // Reprise après reload
+  const isLinkedCurrent = useCallback((current) => {
+    if (!current) return false;
+    if (!['active', 'paused'].includes(current.status)) return false;
+    const idx = current.workout_exercise_index;
+    if (Number(idx) !== Number(exerciseIndex)) return false;
+    if (
+      scheduledWorkoutId &&
+      String(current.scheduled_workout_id || '') === String(scheduledWorkoutId)
+    ) {
+      return true;
+    }
+    if (
+      workoutSessionId &&
+      String(current.workout_session_id || '') === String(workoutSessionId)
+    ) {
+      return true;
+    }
+    return false;
+  }, [exerciseIndex, scheduledWorkoutId, workoutSessionId]);
+
+  // Reprise après reload — aucun POST start
   useEffect(() => {
     let cancelled = false;
+    recoveringRef.current = true;
     (async () => {
       try {
         const { data } = await activitiesApi.getCurrent();
         const current = data?.activity;
-        if (
-          current &&
-          current.scheduled_workout_id === scheduledWorkoutId &&
-          current.workout_exercise_index === exerciseIndex &&
-          ['active', 'paused'].includes(current.status)
-        ) {
+        if (current && isLinkedCurrent(current)) {
           if (cancelled) return;
-          setActivity(current);
-          setPhase('active');
-          startedRef.current = true;
-          clock.restore({
-            startedAt: current.started_at,
-            status: current.status,
-            pausedAt: current.paused_at,
-            pausedSeconds: current.paused_seconds || 0,
-            endedAt: current.ended_at,
+          applyActivityToState(current, {
+            setActivity,
+            setPhase,
+            startedRef,
+            clock,
+            setLaps,
+            setManualDistance,
+            mode,
           });
-          if (current.laps) setLaps(current.laps);
-          if (current.distance_meters && mode === TRACKING_MODES.MANUAL_DISTANCE) {
-            setManualDistance(String((current.distance_meters / 1000).toFixed(2)));
-          }
           return;
         }
       } catch {
         /* ignore */
       }
-      const local = await getActiveActivity();
-      if (
-        local &&
-        local.scheduled_workout_id === scheduledWorkoutId &&
-        local.workout_exercise_index === exerciseIndex
-      ) {
-        if (cancelled) return;
-        setActivity(local);
-        setPhase('active');
-        startedRef.current = true;
-        if (local.clock) clock.restore(local.clock);
-        if (local.laps) setLaps(local.laps);
-        if (local.gpsPoints) setGpsPoints(local.gpsPoints);
+      try {
+        const local = await getActiveActivity();
+        if (
+          local &&
+          Number(local.workout_exercise_index) === Number(exerciseIndex) &&
+          ((scheduledWorkoutId &&
+            String(local.scheduled_workout_id || '') === String(scheduledWorkoutId)) ||
+            (workoutSessionId &&
+              String(local.workout_session_id || '') === String(workoutSessionId)))
+        ) {
+          if (cancelled) return;
+          applyActivityToState(
+            {
+              ...local,
+              started_at: local.clock?.startedAt || local.started_at,
+              status: local.clock?.status || local.status || ACTIVITY_STATUS.ACTIVE,
+              paused_at: local.clock?.pausedAt,
+              paused_seconds: local.clock?.pausedSeconds || 0,
+            },
+            {
+              setActivity,
+              setPhase,
+              startedRef,
+              clock,
+              setLaps,
+              setManualDistance,
+              mode,
+            },
+          );
+          if (local.gpsPoints) setGpsPoints(local.gpsPoints);
+        }
+      } catch {
+        /* ignore */
+      } finally {
+        recoveringRef.current = false;
       }
     })();
     return () => {
       cancelled = true;
+      recoveringRef.current = false;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scheduledWorkoutId, exerciseIndex]);
+  }, [scheduledWorkoutId, exerciseIndex, workoutSessionId]);
 
-  // Pause globale du player → pause activité
   useEffect(() => {
     if (phase !== 'active' || !activity) return;
     if (globalPaused && clock.status === ACTIVITY_STATUS.ACTIVE) {
@@ -136,7 +231,6 @@ export function TrackedActivityInPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [globalPaused]);
 
-  // GPS quand actif
   useEffect(() => {
     if (mode !== TRACKING_MODES.GPS || phase !== 'active' || clock.status !== ACTIVITY_STATUS.ACTIVE) {
       return undefined;
@@ -151,7 +245,6 @@ export function TrackedActivityInPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, phase, clock.status]);
 
-  // Sync périodique
   useEffect(() => {
     if (phase !== 'active' || !activity?.id) return undefined;
     syncRef.current = setInterval(() => syncMetrics(), 20000);
@@ -159,7 +252,6 @@ export function TrackedActivityInPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, activity?.id, gpsPoints, laps, manualDistance]);
 
-  // Intervalles
   useEffect(() => {
     if (mode !== TRACKING_MODES.INTERVALS || phase !== 'active' || clock.status !== ACTIVITY_STATUS.ACTIVE) {
       if (intervalTimerRef.current) clearInterval(intervalTimerRef.current);
@@ -178,7 +270,6 @@ export function TrackedActivityInPlayer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, phase, clock.status, intervalPhase, intervalRound]);
 
-  // Persistance locale
   useEffect(() => {
     if (!activity?.id || phase !== 'active') return;
     saveActiveActivity({
@@ -221,7 +312,6 @@ export function TrackedActivityInPlayer({
     } else {
       const next = intervalRound + 1;
       if (next > (ic.rounds || 8)) {
-        // Fin auto des intervalles → laisse l'utilisateur terminer
         setIntervalRemaining(0);
         return;
       }
@@ -285,41 +375,153 @@ export function TrackedActivityInPlayer({
     }
   };
 
-  const handleStart = async () => {
-    if (starting || startedRef.current) return;
-    setStarting(true);
-    try {
-      const payload = {
-        tracking_mode: mode,
-        activity_kind: exercise.activity_kind || 'other',
-        exercise_id: exercise.exercise_id,
-        exercise_name_snapshot: exerciseName || exercise.name,
-        exercise_name_i18n_snapshot: exercise.exercise_name_i18n_snapshot || {},
-        pool_length_meters: config.pool_length_meters ?? (mode === TRACKING_MODES.LAPS ? 25 : null),
-        interval_config: config.interval_config || null,
-        visibility: 'private',
-        scheduled_workout_id: scheduledWorkoutId,
-        workout_exercise_index: exerciseIndex,
-        workout_session_id: workoutSessionId,
-        force_discard_current: false,
-      };
-      const { data } = await activitiesApi.start(payload);
-      setActivity(data);
-      startedRef.current = true;
-      clock.start();
-      setPhase('active');
-      if (mode === TRACKING_MODES.INTERVALS) {
-        const ic = config.interval_config || { work_seconds: 30, rest_seconds: 30, rounds: 8 };
-        setIntervalRound(1);
-        setIntervalPhase('work');
-        setIntervalRemaining(ic.work_seconds || 30);
-      }
-      // GPS démarre via l'effet après status ACTIVE — permission après clic
-    } catch (error) {
-      toast.error(formatApiError(error) || t('activity:errors.startFailed', { defaultValue: 'Impossible de démarrer' }));
-    } finally {
-      setStarting(false);
+  const buildStartPayload = (extra = {}) => ({
+    tracking_mode: mode,
+    activity_kind: exercise.activity_kind || 'other',
+    exercise_id: exercise.exercise_id,
+    exercise_name_snapshot: exerciseName || exercise.name,
+    exercise_name_i18n_snapshot: exercise.exercise_name_i18n_snapshot || {},
+    pool_length_meters: config.pool_length_meters ?? (mode === TRACKING_MODES.LAPS ? 25 : null),
+    interval_config: config.interval_config || null,
+    visibility: 'private',
+    scheduled_workout_id: scheduledWorkoutId,
+    workout_exercise_index: exerciseIndex,
+    workout_session_id: workoutSessionId,
+    idempotency_key: buildStartIdempotencyKey({
+      workoutSessionId,
+      scheduledWorkoutId,
+      exerciseIndex,
+      presetId,
+    }),
+    force_discard_current: false,
+    ...extra,
+  });
+
+  const activateFromStartData = (data, { restartClock = false } = {}) => {
+    const { activity: started } = unwrapStartResponse(data);
+    applyActivityToState(started, {
+      setActivity,
+      setPhase,
+      startedRef,
+      clock,
+      setLaps,
+      setManualDistance,
+      mode,
+      restartClock: restartClock || Boolean(data?.created),
+    });
+    if (mode === TRACKING_MODES.INTERVALS && data?.created) {
+      const ic = config.interval_config || { work_seconds: 30, rest_seconds: 30, rounds: 8 };
+      setIntervalRound(1);
+      setIntervalPhase('work');
+      setIntervalRemaining(ic.work_seconds || 30);
     }
+  };
+
+  const showStartErrorOnce = (message) => {
+    if (toastShownRef.current) return;
+    toastShownRef.current = true;
+    toast.error(message);
+    setTimeout(() => {
+      toastShownRef.current = false;
+    }, 1500);
+  };
+
+  const handleStart = async () => {
+    if (startPendingRef.current || startedRef.current || recoveringRef.current) return;
+    startPendingRef.current = true;
+    setStartPending(true);
+    toastShownRef.current = false;
+
+    try {
+      const { data } = await activitiesApi.start(buildStartPayload());
+      activateFromStartData(data, { restartClock: Boolean(data?.created) });
+    } catch (error) {
+      const status = error?.response?.status;
+      const detail = error?.response?.data?.detail;
+      if (status === 409) {
+        const current = detail?.current_activity;
+        const activityId = detail?.activity_id || current?.id;
+        // Même activité liée déjà en cours — récupérer sans erreur
+        if (detail?.linked_to_current_exercise || (current && isLinkedCurrent(current))) {
+          try {
+            const { data } = await activitiesApi.getOne(activityId);
+            activateFromStartData({ activity: data, created: false, resumed: true });
+            return;
+          } catch {
+            /* fallthrough */
+          }
+        }
+        if (current || activityId) {
+          setConflictActivity(current || { id: activityId });
+          setConflictOpen(true);
+          return;
+        }
+        showStartErrorOnce(
+          t('player:tracked.errors.anotherActive', {
+            defaultValue: 'Une autre activité est déjà en cours.',
+          }),
+        );
+        return;
+      }
+      showStartErrorOnce(
+        formatApiError(error) ||
+          t('player:tracked.errors.startFailed', {
+            defaultValue: "Impossible de démarrer l'activité pour le moment.",
+          }),
+      );
+    } finally {
+      startPendingRef.current = false;
+      setStartPending(false);
+    }
+  };
+
+  const handleConflictResume = () => {
+    const other = conflictActivity;
+    setConflictOpen(false);
+    if (!other) return;
+    if (other.scheduled_workout_id) {
+      navigate(`/player/${other.scheduled_workout_id}`);
+      return;
+    }
+    if (other.id) {
+      navigate(`/activity/${other.id}/live`);
+    }
+  };
+
+  const handleConflictDiscardAndStart = async () => {
+    if (conflictBusy || startPendingRef.current) return;
+    setConflictBusy(true);
+    startPendingRef.current = true;
+    setStartPending(true);
+    try {
+      const otherId = conflictActivity?.id;
+      if (otherId) {
+        await activitiesApi.discard(otherId);
+        await clearActiveActivity();
+      }
+      setConflictOpen(false);
+      setConflictActivity(null);
+      const { data } = await activitiesApi.start(
+        buildStartPayload({ force_discard_current: true }),
+      );
+      activateFromStartData(data, { restartClock: true });
+    } catch (error) {
+      showStartErrorOnce(
+        formatApiError(error) ||
+          t('player:tracked.errors.startFailed', {
+            defaultValue: "Impossible de démarrer l'activité pour le moment.",
+          }),
+      );
+    } finally {
+      setConflictBusy(false);
+      startPendingRef.current = false;
+      setStartPending(false);
+    }
+  };
+
+  const handleConflictCancel = () => {
+    setConflictOpen(false);
+    setConflictActivity(null);
   };
 
   const handlePause = useCallback(async () => {
@@ -436,15 +638,75 @@ export function TrackedActivityInPlayer({
         <Button
           type="button"
           onClick={handleStart}
-          disabled={starting}
+          disabled={startPending}
           data-testid="tracked-activity-start-btn"
           className="h-14 w-full rounded-2xl text-lg font-bold text-foreground btn-primary"
         >
-          <Play size={22} className="mr-2" fill="currentColor" />
-          {starting
+          {startPending ? (
+            <Loader2 size={22} className="mr-2 animate-spin" />
+          ) : (
+            <Play size={22} className="mr-2" fill="currentColor" />
+          )}
+          {startPending
             ? t('common:loading', { defaultValue: '…' })
             : t('player:tracked.start', { defaultValue: 'Démarrer' })}
         </Button>
+
+        <Dialog open={conflictOpen} onOpenChange={setConflictOpen}>
+          <DialogContent className="bg-surface-elevated border-border max-w-sm mx-4">
+            <DialogHeader>
+              <DialogTitle className="text-foreground text-center">
+                {t('player:tracked.conflict.title', {
+                  defaultValue: 'Une autre activité est déjà en cours',
+                })}
+              </DialogTitle>
+              <DialogDescription className="text-muted text-center pt-2">
+                {t('player:tracked.conflict.description', {
+                  defaultValue:
+                    'Choisissez de reprendre, d’abandonner ou de conserver l’activité actuellement en cours.',
+                })}
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-3 pt-2">
+              <Button
+                type="button"
+                onClick={handleConflictResume}
+                disabled={conflictBusy}
+                data-testid="tracked-conflict-resume"
+                className="w-full h-12 rounded-xl btn-primary text-foreground"
+              >
+                {t('player:tracked.conflict.resume', {
+                  defaultValue: 'Reprendre l’activité existante',
+                })}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleConflictDiscardAndStart}
+                disabled={conflictBusy}
+                data-testid="tracked-conflict-discard-start"
+                className="w-full h-12 rounded-xl border-border text-foreground"
+              >
+                {conflictBusy ? (
+                  <Loader2 size={18} className="mr-2 animate-spin" />
+                ) : null}
+                {t('player:tracked.conflict.discardAndStart', {
+                  defaultValue: 'Abandonner et démarrer celle-ci',
+                })}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleConflictCancel}
+                disabled={conflictBusy}
+                data-testid="tracked-conflict-cancel"
+                className="w-full h-11 rounded-xl border-border text-muted"
+              >
+                {t('player:tracked.conflict.cancel', { defaultValue: 'Annuler' })}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }

@@ -485,6 +485,8 @@ class ActivityStartBody(BaseModel):
     workout_session_id: Optional[str] = None
     workout_exercise_index: Optional[int] = None
     scheduled_workout_id: Optional[str] = None
+    idempotency_key: Optional[str] = None
+    start_idempotency_key: Optional[str] = None
 
 
 class ActivityPointsBody(BaseModel):

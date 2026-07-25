@@ -90,7 +90,19 @@
     "intervalRound": "Rep {{current}} / {{total}}",
     "laps": "laps",
     "undoLap": "Undo",
-    "routePoints": "{{count}} GPS points"
+    "routePoints": "{{count}} GPS points",
+    "errors": {
+      "alreadyActive": "This activity is already in progress.",
+      "anotherActive": "Another activity is already in progress.",
+      "startFailed": "Unable to start the activity right now."
+    },
+    "conflict": {
+      "title": "Another activity is already in progress",
+      "description": "Choose to resume, discard, or keep the activity currently in progress.",
+      "resume": "Resume existing activity",
+      "discardAndStart": "Discard and start this one",
+      "cancel": "Cancel"
+    }
   },
   "prep": {
     "savedProgress": "Saved progress"

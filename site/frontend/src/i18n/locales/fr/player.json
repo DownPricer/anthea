@@ -90,7 +90,19 @@
     "intervalRound": "Répétition {{current}} / {{total}}",
     "laps": "longueurs",
     "undoLap": "Annuler",
-    "routePoints": "{{count}} points GPS"
+    "routePoints": "{{count}} points GPS",
+    "errors": {
+      "alreadyActive": "Cette activité est déjà en cours.",
+      "anotherActive": "Une autre activité est déjà en cours.",
+      "startFailed": "Impossible de démarrer l'activité pour le moment."
+    },
+    "conflict": {
+      "title": "Une autre activité est déjà en cours",
+      "description": "Choisissez de reprendre, d'abandonner ou de conserver l'activité actuellement en cours.",
+      "resume": "Reprendre l'activité existante",
+      "discardAndStart": "Abandonner et démarrer celle-ci",
+      "cancel": "Annuler"
+    }
   },
   "prep": {
     "savedProgress": "Progression sauvegardée"

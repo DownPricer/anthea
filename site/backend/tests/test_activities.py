@@ -298,34 +298,47 @@ def test_list_serialization_no_route_coords():
 
 # ─── Service async ──────────────────────────────────────────
 
+def _started_doc(result):
+    if isinstance(result, dict) and "activity" in result:
+        return result["activity"]
+    return result
+
+
 def test_start_timer_activity(fake_db):
-    doc = asyncio.run(
+    result = asyncio.run(
         service.start_activity(
             fake_db,
             "user1",
             {"tracking_mode": "timer", "activity_kind": "yoga", "exercise_name_snapshot": "Yoga"},
         )
     )
+    doc = _started_doc(result)
     assert doc["status"] == "active"
     assert doc["tracking_mode"] == "timer"
+    assert result["created"] is True
+    assert result["resumed"] is False
 
 
 def test_active_conflict(fake_db):
     asyncio.run(
         service.start_activity(fake_db, "user1", {"tracking_mode": "timer", "activity_kind": "yoga"})
     )
-    with pytest.raises(service.ActivityConflictError):
+    with pytest.raises(service.ActivityConflictError) as exc:
         asyncio.run(
             service.start_activity(fake_db, "user1", {"tracking_mode": "timer", "activity_kind": "yoga"})
         )
+    assert exc.value.code == "ACTIVE_ACTIVITY_EXISTS"
+    assert exc.value.linked_to_current_exercise is False
 
 
 def test_pause_resume_complete(fake_db):
-    doc = asyncio.run(
-        service.start_activity(
-            fake_db,
-            "user1",
-            {"tracking_mode": "manual_distance", "activity_kind": "running"},
+    doc = _started_doc(
+        asyncio.run(
+            service.start_activity(
+                fake_db,
+                "user1",
+                {"tracking_mode": "manual_distance", "activity_kind": "running"},
+            )
         )
     )
     aid = doc["id"]
@@ -346,11 +359,13 @@ def test_pause_resume_complete(fake_db):
 
 
 def test_laps_pool_25m(fake_db):
-    doc = asyncio.run(
-        service.start_activity(
-            fake_db,
-            "user1",
-            {"tracking_mode": "laps", "activity_kind": "swimming", "pool_length_meters": 25},
+    doc = _started_doc(
+        asyncio.run(
+            service.start_activity(
+                fake_db,
+                "user1",
+                {"tracking_mode": "laps", "activity_kind": "swimming", "pool_length_meters": 25},
+            )
         )
     )
     aid = doc["id"]
@@ -362,16 +377,20 @@ def test_laps_pool_25m(fake_db):
 
 
 def test_foreign_activity_forbidden(fake_db):
-    doc = asyncio.run(
-        service.start_activity(fake_db, "user1", {"tracking_mode": "timer", "activity_kind": "other"})
+    doc = _started_doc(
+        asyncio.run(
+            service.start_activity(fake_db, "user1", {"tracking_mode": "timer", "activity_kind": "other"})
+        )
     )
     with pytest.raises(service.ActivityForbiddenError):
         asyncio.run(service.require_owner(fake_db, doc["id"], "user2"))
 
 
 def test_gps_points_and_distance(fake_db):
-    doc = asyncio.run(
-        service.start_activity(fake_db, "user1", {"tracking_mode": "gps", "activity_kind": "running"})
+    doc = _started_doc(
+        asyncio.run(
+            service.start_activity(fake_db, "user1", {"tracking_mode": "gps", "activity_kind": "running"})
+        )
     )
     aid = doc["id"]
     base = datetime.now(timezone.utc)
@@ -393,8 +412,10 @@ def test_gps_points_and_distance(fake_db):
 
 
 def test_delete_route_keeps_stats(fake_db):
-    doc = asyncio.run(
-        service.start_activity(fake_db, "user1", {"tracking_mode": "gps", "activity_kind": "running"})
+    doc = _started_doc(
+        asyncio.run(
+            service.start_activity(fake_db, "user1", {"tracking_mode": "gps", "activity_kind": "running"})
+        )
     )
     aid = doc["id"]
     doc["distance_meters"] = 3000

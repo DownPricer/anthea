@@ -1,4 +1,4 @@
-"""Tests flux activité liée à une séance Player."""
+"""Tests démarrage idempotent d'activités liées à une séance."""
 
 from __future__ import annotations
 
@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from activities import service
+from activities.api import _http_from_service, start_handler
 from activities.constants import SESSIONS_COLLECTION
 
 
@@ -29,29 +30,37 @@ class FakeCollection:
     def __init__(self):
         self.docs = {}
 
+    def _match(self, doc, query):
+        if query.get("id") and doc.get("id") != query["id"]:
+            return False
+        if query.get("user_id") and doc.get("user_id") != query["user_id"]:
+            return False
+        if "status" in query:
+            st = query["status"]
+            if isinstance(st, dict) and "$in" in st:
+                if doc.get("status") not in st["$in"]:
+                    return False
+            elif doc.get("status") != st:
+                return False
+        for key in (
+            "scheduled_workout_id",
+            "workout_session_id",
+            "workout_exercise_index",
+            "start_idempotency_key",
+        ):
+            if key in query and doc.get(key) != query[key]:
+                return False
+        return True
+
     async def find_one(self, query, projection=None, sort=None):
-        for doc in self.docs.values():
-            if query.get("id") and doc.get("id") != query["id"]:
-                continue
-            if query.get("user_id") and doc.get("user_id") != query["user_id"]:
-                continue
-            if "status" in query:
-                st = query["status"]
-                if isinstance(st, dict) and "$in" in st:
-                    if doc.get("status") not in st["$in"]:
-                        continue
-                elif doc.get("status") != st:
-                    continue
-            if query.get("scheduled_workout_id") and doc.get("scheduled_workout_id") != query[
-                "scheduled_workout_id"
-            ]:
-                continue
-            if "workout_exercise_index" in query and doc.get("workout_exercise_index") != query[
-                "workout_exercise_index"
-            ]:
-                continue
-            return dict(doc)
-        return None
+        matches = [dict(d) for d in self.docs.values() if self._match(d, query)]
+        if not matches:
+            return None
+        if sort:
+            # sort=[("started_at", -1)]
+            field, direction = sort[0]
+            matches.sort(key=lambda d: d.get(field) or "", reverse=direction < 0)
+        return matches[0]
 
     async def insert_one(self, doc):
         stored = dict(doc)
@@ -61,6 +70,9 @@ class FakeCollection:
     async def replace_one(self, query, doc):
         self.docs[doc["id"]] = dict(doc)
         return MagicMock()
+
+    async def delete_many(self, query):
+        return MagicMock(deleted_count=0)
 
     def find(self, query, projection=None):
         results = []
@@ -85,34 +97,53 @@ class FakeDB:
         self.sessions = FakeCollection()
 
     def __getitem__(self, name):
-        if name == SESSIONS_COLLECTION:
-            return self.sessions
         return self.sessions
 
 
-def test_start_activity_links_to_workout_exercise():
+def _act(result):
+    return result["activity"] if isinstance(result, dict) and "activity" in result else result
+
+
+def test_first_start_creates_activity():
     db = FakeDB()
-    doc = asyncio.run(
+    result = asyncio.run(
         service.start_activity(
             db,
             "user1",
             {
                 "tracking_mode": "gps",
                 "activity_kind": "running",
-                "exercise_id": "activity:outdoor_running",
-                "exercise_name_snapshot": "Course",
-                "scheduled_workout_id": "workout123",
+                "scheduled_workout_id": "w1",
                 "workout_exercise_index": 0,
-                "workout_session_id": None,
+                "exercise_id": "activity:outdoor_running",
+                "idempotency_key": "workout:w1:exercise:0:preset:outdoor_running",
             },
         )
     )
-    assert doc["scheduled_workout_id"] == "workout123"
-    assert doc["workout_exercise_index"] == 0
-    assert doc["status"] == "active"
+    assert result["created"] is True
+    assert result["resumed"] is False
+    assert _act(result)["scheduled_workout_id"] == "w1"
+    assert _act(result)["start_idempotency_key"].endswith("outdoor_running")
 
 
-def test_start_activity_reuses_linked_session():
+def test_second_identical_start_reuses_same_activity():
+    db = FakeDB()
+    payload = {
+        "tracking_mode": "gps",
+        "activity_kind": "running",
+        "scheduled_workout_id": "w1",
+        "workout_exercise_index": 0,
+        "idempotency_key": "workout:w1:exercise:0:preset:outdoor_running",
+    }
+    first = asyncio.run(service.start_activity(db, "user1", payload))
+    second = asyncio.run(service.start_activity(db, "user1", payload))
+    assert first["activity"]["id"] == second["activity"]["id"]
+    assert second["created"] is False
+    assert second["resumed"] is True
+    assert len(db.sessions.docs) == 1
+
+
+def test_paused_linked_activity_reused():
     db = FakeDB()
     first = asyncio.run(
         service.start_activity(
@@ -126,7 +157,9 @@ def test_start_activity_reuses_linked_session():
             },
         )
     )
-    second = asyncio.run(
+    aid = first["activity"]["id"]
+    asyncio.run(service.pause_activity(db, aid, "user1"))
+    again = asyncio.run(
         service.start_activity(
             db,
             "user1",
@@ -138,10 +171,157 @@ def test_start_activity_reuses_linked_session():
             },
         )
     )
-    assert first["id"] == second["id"]
+    assert again["activity"]["id"] == aid
+    assert again["resumed"] is True
 
 
-def test_list_excludes_workout_linked_by_default():
+def test_completed_activity_not_reused():
+    db = FakeDB()
+    first = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "timer",
+                "activity_kind": "yoga",
+                "scheduled_workout_id": "w1",
+                "workout_exercise_index": 0,
+            },
+        )
+    )
+    aid = first["activity"]["id"]
+    asyncio.run(service.complete_activity(db, aid, "user1", {}))
+    second = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "timer",
+                "activity_kind": "yoga",
+                "scheduled_workout_id": "w1",
+                "workout_exercise_index": 0,
+            },
+        )
+    )
+    assert second["created"] is True
+    assert second["activity"]["id"] != aid
+
+
+def test_other_active_returns_structured_409():
+    db = FakeDB()
+    asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {"tracking_mode": "timer", "activity_kind": "yoga"},
+        )
+    )
+    with pytest.raises(service.ActivityConflictError) as exc:
+        asyncio.run(
+            service.start_activity(
+                db,
+                "user1",
+                {
+                    "tracking_mode": "gps",
+                    "activity_kind": "running",
+                    "scheduled_workout_id": "w2",
+                    "workout_exercise_index": 0,
+                },
+            )
+        )
+    assert exc.value.code == "ACTIVE_ACTIVITY_EXISTS"
+    assert exc.value.linked_to_current_exercise is False
+    http = _http_from_service(exc.value)
+    assert http.status_code == 409
+    detail = http.detail
+    assert detail["code"] == "ACTIVE_ACTIVITY_EXISTS"
+    assert detail["activity_id"]
+    assert detail["linked_to_current_exercise"] is False
+    assert "route" not in (detail.get("current_activity") or {})
+    assert (detail.get("current_activity") or {}).get("bounding_box") is None
+
+
+def test_discard_then_start_new():
+    db = FakeDB()
+    orphan = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {"tracking_mode": "timer", "activity_kind": "yoga"},
+        )
+    )
+    asyncio.run(service.discard_activity(db, orphan["activity"]["id"], "user1"))
+    result = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "gps",
+                "activity_kind": "running",
+                "scheduled_workout_id": "w1",
+                "workout_exercise_index": 0,
+            },
+        )
+    )
+    assert result["created"] is True
+
+
+def test_force_discard_current_then_start():
+    db = FakeDB()
+    asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {"tracking_mode": "timer", "activity_kind": "yoga"},
+        )
+    )
+    result = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "gps",
+                "activity_kind": "running",
+                "scheduled_workout_id": "w1",
+                "workout_exercise_index": 0,
+                "force_discard_current": True,
+            },
+        )
+    )
+    assert result["created"] is True
+    assert result["activity"]["scheduled_workout_id"] == "w1"
+
+
+def test_workout_session_id_link_reused():
+    db = FakeDB()
+    first = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "timer",
+                "activity_kind": "stretching",
+                "workout_session_id": "sess-1",
+                "workout_exercise_index": 1,
+            },
+        )
+    )
+    second = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "timer",
+                "activity_kind": "stretching",
+                "workout_session_id": "sess-1",
+                "workout_exercise_index": 1,
+            },
+        )
+    )
+    assert first["activity"]["id"] == second["activity"]["id"]
+
+
+def test_list_excludes_workout_linked():
     db = FakeDB()
     linked = asyncio.run(
         service.start_activity(
@@ -155,25 +335,8 @@ def test_list_excludes_workout_linked_by_default():
             },
         )
     )
-    db.sessions.docs[linked["id"]]["status"] = "completed"
-    items = asyncio.run(service.list_activities(db, "user1"))
-    assert items == []
-
-    standalone = asyncio.run(
-        service.start_activity(
-            db,
-            "user1",
-            {
-                "tracking_mode": "timer",
-                "activity_kind": "yoga",
-                "force_discard_current": True,
-            },
-        )
-    )
-    db.sessions.docs[standalone["id"]]["status"] = "completed"
-    items2 = asyncio.run(service.list_activities(db, "user1"))
-    assert len(items2) == 1
-    assert items2[0]["id"] == standalone["id"]
+    db.sessions.docs[linked["activity"]["id"]]["status"] = "completed"
+    assert asyncio.run(service.list_activities(db, "user1")) == []
 
 
 def test_publish_blocked_for_workout_linked():
@@ -190,14 +353,37 @@ def test_publish_blocked_for_workout_linked():
             },
         )
     )
-    db.sessions.docs[doc["id"]]["status"] = "completed"
+    aid = doc["activity"]["id"]
+    db.sessions.docs[aid]["status"] = "completed"
     with pytest.raises(service.ActivityValidationError):
         asyncio.run(
             service.publish_activity(
                 db,
-                doc["id"],
+                aid,
                 "user1",
                 {"visibility": "public"},
                 create_post_fn=AsyncMock(),
             )
         )
+
+
+def test_start_handler_envelope():
+    db = FakeDB()
+
+    async def _run():
+        return await start_handler(
+            db,
+            {"id": "user1"},
+            {
+                "tracking_mode": "timer",
+                "activity_kind": "yoga",
+                "scheduled_workout_id": "w1",
+                "workout_exercise_index": 0,
+            },
+        )
+
+    out = asyncio.run(_run())
+    assert out["created"] is True
+    assert out["resumed"] is False
+    assert out["activity"]["id"]
+    assert out["id"] == out["activity"]["id"]

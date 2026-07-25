@@ -41,9 +41,18 @@ from .serialize import serialize_activity_detail, serialize_activity_list_item
 
 
 class ActivityConflictError(Exception):
-    def __init__(self, message: str, current: Optional[Dict[str, Any]] = None):
+    def __init__(
+        self,
+        message: str,
+        current: Optional[Dict[str, Any]] = None,
+        *,
+        code: str = "ACTIVE_ACTIVITY_EXISTS",
+        linked_to_current_exercise: bool = False,
+    ):
         super().__init__(message)
         self.current = current
+        self.code = code
+        self.linked_to_current_exercise = linked_to_current_exercise
 
 
 class ActivityNotFoundError(Exception):
@@ -62,6 +71,45 @@ def _now_iso() -> str:
     return utc_now().isoformat()
 
 
+def _normalize_exercise_index(value: Any) -> Optional[int]:
+    if value is None or value == "":
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _is_same_workout_exercise_link(doc: Dict[str, Any], payload: Dict[str, Any]) -> bool:
+    """True si l'activité courante correspond au même exercice de séance."""
+    idx = _normalize_exercise_index(payload.get("workout_exercise_index"))
+    doc_idx = _normalize_exercise_index(doc.get("workout_exercise_index"))
+    if idx is None or doc_idx is None or idx != doc_idx:
+        return False
+
+    sched = payload.get("scheduled_workout_id")
+    if sched and str(doc.get("scheduled_workout_id") or "") == str(sched):
+        return True
+
+    wsid = payload.get("workout_session_id")
+    if wsid and str(doc.get("workout_session_id") or "") == str(wsid):
+        return True
+
+    idem = payload.get("idempotency_key") or payload.get("start_idempotency_key")
+    if idem and doc.get("start_idempotency_key") == idem:
+        return True
+
+    # Même preset / exercise_id dans le même contexte séance
+    ex_id = payload.get("exercise_id")
+    if ex_id and doc.get("exercise_id") == ex_id and (sched or wsid):
+        if sched and str(doc.get("scheduled_workout_id") or "") == str(sched):
+            return True
+        if wsid and str(doc.get("workout_session_id") or "") == str(wsid):
+            return True
+
+    return False
+
+
 async def ensure_activity_indexes(db) -> None:
     sessions = db[SESSIONS_COLLECTION]
     await sessions.create_index("id", unique=True)
@@ -71,6 +119,32 @@ async def ensure_activity_indexes(db) -> None:
     await sessions.create_index("activity_kind")
     await sessions.create_index("tracking_mode")
     await sessions.create_index("published_post_id")
+    # Une seule activité active/paused par exercice de séance planifiée
+    try:
+        await sessions.create_index(
+            [("user_id", 1), ("scheduled_workout_id", 1), ("workout_exercise_index", 1)],
+            unique=True,
+            partialFilterExpression={
+                "status": {"$in": ["active", "paused"]},
+                "scheduled_workout_id": {"$type": "string"},
+                "workout_exercise_index": {"$type": "number"},
+            },
+            name="uniq_active_scheduled_workout_exercise",
+        )
+    except Exception:
+        pass
+    try:
+        await sessions.create_index(
+            [("user_id", 1), ("start_idempotency_key", 1)],
+            unique=True,
+            partialFilterExpression={
+                "status": {"$in": ["active", "paused"]},
+                "start_idempotency_key": {"$type": "string"},
+            },
+            name="uniq_active_start_idempotency",
+        )
+    except Exception:
+        pass
     chunks = db[ROUTE_CHUNKS_COLLECTION]
     await chunks.create_index([("activity_id", 1), ("sequence", 1)], unique=True)
     await chunks.create_index("activity_id")
@@ -90,6 +164,7 @@ def new_activity_document(
     workout_session_id: Optional[str] = None,
     workout_exercise_index: Optional[int] = None,
     scheduled_workout_id: Optional[str] = None,
+    start_idempotency_key: Optional[str] = None,
 ) -> Dict[str, Any]:
     if tracking_mode not in ACTIVITY_TRACKING_MODES or tracking_mode == "standard":
         raise ActivityValidationError("tracking_mode invalide pour une activité suivie")
@@ -135,6 +210,7 @@ def new_activity_document(
         "workout_session_id": workout_session_id,
         "workout_exercise_index": workout_exercise_index,
         "scheduled_workout_id": scheduled_workout_id,
+        "start_idempotency_key": start_idempotency_key,
         "created_at": now,
         "updated_at": now,
     }
@@ -171,33 +247,105 @@ async def require_owner(db, activity_id: str, user_id: str) -> Dict[str, Any]:
     return doc
 
 
-async def start_activity(db, user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
-    scheduled_workout_id = payload.get("scheduled_workout_id")
-    workout_exercise_index = payload.get("workout_exercise_index")
-
-    # Reprise d'une activité déjà liée à cet exercice de séance (évite double démarrage)
-    if scheduled_workout_id is not None and workout_exercise_index is not None:
-        linked = await db[SESSIONS_COLLECTION].find_one(
+async def _find_linked_active_activity(db, user_id: str, payload: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Retrouve une activité active/paused déjà liée à cet exercice de séance."""
+    sessions = db[SESSIONS_COLLECTION]
+    idem = payload.get("idempotency_key") or payload.get("start_idempotency_key")
+    if idem:
+        found = await sessions.find_one(
             {
                 "user_id": user_id,
-                "scheduled_workout_id": str(scheduled_workout_id),
-                "workout_exercise_index": int(workout_exercise_index),
+                "start_idempotency_key": str(idem),
+                "status": {"$in": list(ACTIVE_STATUSES)},
+            },
+            {"_id": 0},
+        )
+        if found:
+            return found
+
+    idx = _normalize_exercise_index(payload.get("workout_exercise_index"))
+    if idx is None:
+        return None
+
+    sched = payload.get("scheduled_workout_id")
+    if sched:
+        found = await sessions.find_one(
+            {
+                "user_id": user_id,
+                "scheduled_workout_id": str(sched),
+                "workout_exercise_index": idx,
                 "status": {"$in": list(ACTIVE_STATUSES)},
             },
             {"_id": 0},
             sort=[("started_at", -1)],
         )
-        if linked:
-            return refresh_timing_fields(linked)
+        if found:
+            return found
+
+    wsid = payload.get("workout_session_id")
+    if wsid:
+        found = await sessions.find_one(
+            {
+                "user_id": user_id,
+                "workout_session_id": str(wsid),
+                "workout_exercise_index": idx,
+                "status": {"$in": list(ACTIVE_STATUSES)},
+            },
+            {"_id": 0},
+            sort=[("started_at", -1)],
+        )
+        if found:
+            return found
+
+    return None
+
+
+async def start_activity(db, user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Démarre ou réutilise une activité.
+    Retourne {"activity": doc, "created": bool, "resumed": bool}.
+    """
+    scheduled_workout_id = payload.get("scheduled_workout_id")
+    workout_exercise_index = _normalize_exercise_index(payload.get("workout_exercise_index"))
+    workout_session_id = payload.get("workout_session_id")
+    idem = payload.get("idempotency_key") or payload.get("start_idempotency_key")
+    if idem:
+        idem = str(idem)
+
+    # CAS A — même activité déjà active/paused
+    linked = await _find_linked_active_activity(db, user_id, payload)
+    if linked:
+        return {
+            "activity": refresh_timing_fields(linked),
+            "created": False,
+            "resumed": True,
+        }
 
     current = await get_current_activity(db, user_id)
     if current:
+        # Même exercice (lookup manqué pour raisons de typage) → réutiliser
+        if _is_same_workout_exercise_link(current, payload):
+            return {
+                "activity": refresh_timing_fields(current),
+                "created": False,
+                "resumed": True,
+            }
         force = bool(payload.get("force_discard_current"))
         resume = bool(payload.get("resume_existing"))
         if resume:
-            return refresh_timing_fields(current)
+            return {
+                "activity": refresh_timing_fields(current),
+                "created": False,
+                "resumed": True,
+            }
         if not force:
-            raise ActivityConflictError("Une activité est déjà en cours", current=current)
+            # CAS C — autre activité active
+            raise ActivityConflictError(
+                "Une autre activité est déjà en cours.",
+                current=current,
+                code="ACTIVE_ACTIVITY_EXISTS",
+                linked_to_current_exercise=False,
+            )
         current["status"] = "discarded"
         current["ended_at"] = _now_iso()
         current["updated_at"] = _now_iso()
@@ -213,23 +361,51 @@ async def start_activity(db, user_id: str, payload: Dict[str, Any]) -> Dict[str,
         pool_length_meters=payload.get("pool_length_meters"),
         interval_config=payload.get("interval_config"),
         visibility=payload.get("visibility") or "private",
-        workout_session_id=payload.get("workout_session_id"),
-        workout_exercise_index=(
-            int(workout_exercise_index) if workout_exercise_index is not None else None
-        ),
+        workout_session_id=str(workout_session_id) if workout_session_id else None,
+        workout_exercise_index=workout_exercise_index,
         scheduled_workout_id=str(scheduled_workout_id) if scheduled_workout_id else None,
+        start_idempotency_key=idem,
     )
     if payload.get("client_activity_id"):
-        # Reprise hors-ligne : conserver l'id client si libre
         existing = await get_activity(db, payload["client_activity_id"])
         if existing:
             if existing.get("user_id") != user_id:
                 raise ActivityForbiddenError("Identifiant d'activité déjà utilisé")
-            return refresh_timing_fields(existing)
+            return {
+                "activity": refresh_timing_fields(existing),
+                "created": False,
+                "resumed": True,
+            }
         doc["id"] = str(payload["client_activity_id"])
-    await db[SESSIONS_COLLECTION].insert_one(dict(doc))
+
+    try:
+        await db[SESSIONS_COLLECTION].insert_one(dict(doc))
+    except Exception as exc:
+        # Course concurrente / index unique → réutiliser l'existante
+        msg = str(exc).lower()
+        if "duplicate" in msg or "e11000" in msg:
+            again = await _find_linked_active_activity(db, user_id, payload)
+            if again:
+                return {
+                    "activity": refresh_timing_fields(again),
+                    "created": False,
+                    "resumed": True,
+                }
+            current2 = await get_current_activity(db, user_id)
+            if current2 and _is_same_workout_exercise_link(current2, payload):
+                return {
+                    "activity": refresh_timing_fields(current2),
+                    "created": False,
+                    "resumed": True,
+                }
+        raise
+
     doc.pop("_id", None)
-    return doc
+    return {
+        "activity": doc,
+        "created": True,
+        "resumed": False,
+    }
 
 
 async def pause_activity(db, activity_id: str, user_id: str) -> Dict[str, Any]:

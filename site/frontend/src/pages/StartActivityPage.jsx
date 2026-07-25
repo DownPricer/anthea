@@ -117,7 +117,8 @@ export function StartActivityPage() {
       };
 
       const { data } = await activitiesApi.start(payload);
-      navigate(`/activity/${data.id}/live`);
+      const started = data?.activity || data;
+      navigate(`/activity/${started.id}/live`);
     } catch (error) {
       if (error.response?.status === 409) {
         toast.error(t('activity:errors.alreadyActive'));
