@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from activities.classification import classify_exercise, classify_catalog_documents
+from activities.classification import classify_exercise, classify_catalog_documents, classification_fields
 from activities.clock import apply_pause, apply_resume, compute_elapsed, refresh_timing_fields
 from activities.constants import SESSIONS_COLLECTION, ROUTE_CHUNKS_COLLECTION
 from activities.geo import (
@@ -140,36 +140,43 @@ def _now_iso(offset_sec=0):
 
 def test_classify_pushups_standard():
     doc = {"id": "x1", "name": {"en": "Push-ups"}, "sport": "bodyweight", "equipment": ["bodyweight"]}
-    mode, kind, source = classify_exercise(doc)
+    mode, kind, source, confidence, version = classify_exercise(doc)
     assert mode == "standard"
     assert kind == "other"
+    assert source == "default_standard"
+    assert confidence == "high"
+    assert int(version) == 2
 
 
-def test_classify_outdoor_run_gps():
+def test_classify_outdoor_run_catalog_standard():
     doc = {"id": "x2", "name": {"en": "Outdoor running"}, "sport": "running", "equipment": ["other"]}
-    mode, kind, _ = classify_exercise(doc)
-    assert mode == "gps"
-    assert kind == "running"
+    mode, kind, _, confidence, _ = classify_exercise(doc)
+    assert mode == "standard"
+    assert kind == "other"
+    assert confidence == "high"
 
 
 def test_classify_treadmill_manual():
     doc = {"id": "x3", "name": {"en": "Treadmill running"}, "sport": "running", "equipment": ["treadmill"]}
-    mode, kind, _ = classify_exercise(doc)
+    mode, kind, source, confidence, _ = classify_exercise(doc)
     assert mode == "manual_distance"
     assert kind == "running"
+    assert source == "strict_machine_rule"
+    assert confidence == "high"
 
 
-def test_classify_pool_laps():
+def test_classify_pool_laps_removed_from_catalog():
     doc = {"id": "x4", "name": {"en": "Pool swimming"}, "sport": "swimming", "equipment": ["pool"]}
-    mode, kind, _ = classify_exercise(doc)
-    assert mode == "laps"
-    assert kind == "swimming"
+    mode, kind, _, _, _ = classify_exercise(doc)
+    assert mode == "standard"
+    assert kind == "other"
 
 
 def test_classify_tabata_intervals():
     doc = {"id": "x5", "name": {"en": "Tabata"}, "sport": "cardio", "equipment": ["bodyweight"]}
-    mode, kind, _ = classify_exercise(doc)
+    mode, kind, _, confidence, _ = classify_exercise(doc)
     assert mode == "intervals"
+    assert confidence == "high"
 
 
 def test_classification_idempotent():
@@ -179,9 +186,7 @@ def test_classification_idempotent():
     ]
     r1 = classify_catalog_documents(docs)
     for d in docs:
-        m, k, _ = classify_exercise(d)
-        d["activity_tracking_mode"] = m
-        d["activity_kind"] = k
+        d.update(classification_fields(d))
     r2 = classify_catalog_documents(docs)
     assert r2["changes"] == 0
 
