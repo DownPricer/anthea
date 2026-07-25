@@ -166,10 +166,10 @@ async def delete_route_handler(db, user: dict, activity_id: str) -> Dict[str, An
 
 
 async def presets_handler(db, user: dict, locale: str = "fr") -> Dict[str, Any]:
-    from .presets import list_activity_presets, localized_preset
+    from .presets import list_preset_search_payloads
 
-    presets = [localized_preset(p, locale) for p in list_activity_presets()]
-    return {"presets": presets}
+    presets = list_preset_search_payloads()
+    return {"presets": presets, "count": len(presets)}
 
 
 async def compatible_exercises_handler(

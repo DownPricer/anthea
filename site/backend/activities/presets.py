@@ -8,6 +8,86 @@ from typing import Any, Dict, List, Optional
 
 PRESETS_PATH = Path(__file__).resolve().parent.parent / "data" / "activities" / "activity_presets.json"
 
+PRESET_SEARCH_ALIASES: Dict[str, Dict[str, List[str]]] = {
+    "outdoor_running": {
+        "fr": ["course", "courir", "running", "jogging"],
+        "en": ["run", "running", "jogging"],
+        "es": ["correr", "carrera"],
+    },
+    "outdoor_walking": {
+        "fr": ["marche", "marcher", "promenade"],
+        "en": ["walk", "walking"],
+        "es": ["caminar", "marcha"],
+    },
+    "hiking": {
+        "fr": ["randonnee", "randonnée", "rando"],
+        "en": ["hike", "hiking"],
+        "es": ["senderismo"],
+    },
+    "outdoor_cycling": {
+        "fr": ["velo", "vélo", "cyclisme", "bicyclette"],
+        "en": ["bike", "cycling"],
+        "es": ["bicicleta", "ciclismo"],
+    },
+    "outdoor_roller": {
+        "fr": ["roller", "patin"],
+        "en": ["skating", "inline"],
+        "es": ["patinaje"],
+    },
+    "pool_swimming": {
+        "fr": ["natation", "nage", "piscine"],
+        "en": ["swim", "swimming", "pool"],
+        "es": ["natacion", "natación", "nadar", "piscina"],
+    },
+    "track_laps": {
+        "fr": ["piste", "tours de piste"],
+        "en": ["track", "track laps"],
+        "es": ["pista", "vueltas"],
+    },
+    "shuttle_run": {
+        "fr": ["navette"],
+        "en": ["shuttle"],
+        "es": ["naveta"],
+    },
+    "interval_running": {
+        "fr": ["fractionne", "fractionné", "intervalle", "intervalles"],
+        "en": ["interval", "intervals"],
+        "es": ["intervalos"],
+    },
+    "tabata": {"fr": ["tabata"], "en": ["tabata"], "es": ["tabata"]},
+    "free_intervals": {
+        "fr": ["intervalles libres"],
+        "en": ["free intervals"],
+        "es": ["intervalos libres"],
+    },
+    "treadmill_running": {
+        "fr": ["tapis", "tapis de course"],
+        "en": ["treadmill"],
+        "es": ["cinta de correr", "cinta"],
+    },
+    "indoor_cycling": {
+        "fr": ["velo interieur", "vélo intérieur", "home trainer"],
+        "en": ["indoor bike", "stationary bike"],
+        "es": ["ciclismo indoor", "bici estatica"],
+    },
+    "indoor_rowing": {
+        "fr": ["rameur", "aviron interieur", "aviron intérieur"],
+        "en": ["rowing", "rower"],
+        "es": ["remo"],
+    },
+    "elliptical": {
+        "fr": ["elliptique"],
+        "en": ["elliptical"],
+        "es": ["eliptica", "elíptica"],
+    },
+    "yoga_session": {"fr": ["yoga"], "en": ["yoga"], "es": ["yoga"]},
+    "stretching_session": {
+        "fr": ["etirement", "étirement", "etirements", "étirements"],
+        "en": ["stretch", "stretching"],
+        "es": ["estiramiento"],
+    },
+}
+
 
 def load_activity_presets(path: Optional[Path] = None) -> Dict[str, Any]:
     p = path or PRESETS_PATH
@@ -41,6 +121,24 @@ def preset_classification_fields(preset_id: str, path: Optional[Path] = None) ->
         "activity_classification_source": "activity_preset",
         "activity_classification_confidence": confidence,
     }
+
+
+def preset_search_payload(preset: Dict[str, Any]) -> Dict[str, Any]:
+    """Projection légère pour découverte / recherche (sans données catalogue)."""
+    preset_id = preset.get("id") or ""
+    return {
+        "id": preset_id,
+        "name": preset.get("name") or {},
+        "description": preset.get("description") or {},
+        "activity_kind": preset.get("activity_kind") or "other",
+        "activity_tracking_mode": preset.get("activity_tracking_mode") or "standard",
+        "aliases": preset.get("aliases") or PRESET_SEARCH_ALIASES.get(preset_id, {}),
+        "icon": preset.get("icon") or "",
+    }
+
+
+def list_preset_search_payloads(path: Optional[Path] = None) -> List[Dict[str, Any]]:
+    return [preset_search_payload(p) for p in list_activity_presets(path)]
 
 
 def localized_preset(preset: Dict[str, Any], locale: str = "fr") -> Dict[str, Any]:

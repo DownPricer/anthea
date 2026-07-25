@@ -77,6 +77,12 @@
     "repsShort": "reps",
     "searchPlaceholder": "Rechercher...",
     "noExercisesFound": "Aucun exercice trouvé.",
+    "activitySearch": {
+      "popularSection": "Activités populaires",
+      "activitiesSection": "Activités FitMatch",
+      "exercisesSection": "Exercices",
+      "fitmatchActivity": "Activité FitMatch"
+    },
     "exerciseCount_one": "{{count}} exercice",
     "exerciseCount_other": "{{count}} exercices",
     "blockTypes": {

@@ -3,8 +3,8 @@
  * Section Activités (presets canoniques) + exercices compatibles catalogue
  */
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { ArrowLeft, Play, AlertCircle } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -14,6 +14,8 @@ import { TRACKING_MODES } from '../lib/activities/constants';
 import {
   getLocalizedStartPagePresets,
   filterReliableCompatibleExercises,
+  getPresetById,
+  localizePreset,
 } from '../lib/activities/activityPresets';
 import { activitiesApi, formatApiError } from '../lib/api';
 import { getActiveActivity, clearActiveActivity } from '../lib/activities/activityStore';
@@ -22,6 +24,8 @@ import { toast } from 'sonner';
 export function StartActivityPage() {
   const { t, i18n } = useTranslation(['activity', 'common']);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const presetAutoStartedRef = useRef(false);
 
   const [step, setStep] = useState('select');
   const [selectedType, setSelectedType] = useState(null);
@@ -98,15 +102,16 @@ export function StartActivityPage() {
     }
   };
 
-  const handleStartActivity = async (type, config) => {
+  const handleStartActivity = useCallback(async (type, config, { nameOverride } = {}) => {
     setLoading(true);
 
     try {
+      const displayName = nameOverride || activityName || type.label || t(type.labelKey, { defaultValue: type.label });
       const payload = {
         tracking_mode: type.mode,
         activity_kind: type.kind,
         exercise_id: type.exerciseId || undefined,
-        exercise_name_snapshot: activityName || type.label || t(type.labelKey, { defaultValue: type.label }),
+        exercise_name_snapshot: displayName,
         pool_length_meters: config.pool_length_meters,
         interval_config: config.interval_config,
       };
@@ -123,7 +128,31 @@ export function StartActivityPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [activityName, navigate, t]);
+
+  useEffect(() => {
+    const presetId = searchParams.get('preset');
+    if (!presetId || checkingExisting || existingActivity || presetAutoStartedRef.current) return;
+    const preset = getPresetById(presetId);
+    if (!preset) return;
+
+    presetAutoStartedRef.current = true;
+    setSearchParams({}, { replace: true });
+
+    const localized = localizePreset(preset, i18n.language);
+    setSelectedType(localized);
+    setActivityName(localized.label);
+
+    if (
+      localized.mode === TRACKING_MODES.TIMER ||
+      localized.mode === TRACKING_MODES.MANUAL_DISTANCE ||
+      localized.mode === TRACKING_MODES.GPS
+    ) {
+      handleStartActivity(localized, {}, { nameOverride: localized.label });
+    } else {
+      setStep('configure');
+    }
+  }, [checkingExisting, existingActivity, searchParams, setSearchParams, i18n.language, handleStartActivity]);
 
   const handleCompatibleExerciseSelect = (exercise) => {
     handleTypeSelect({

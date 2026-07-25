@@ -2,6 +2,11 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
+import {
+  getActivityPresetsForDiscovery,
+  loadCachedActivityPresets,
+} from '../lib/activities/activityPresetSearch';
+import { ActivityPresetSearchCard } from '../components/activities/ActivityPresetSearchCard';
 import { sanitizeExerciseForApi, handleExerciseImageError } from '../lib/exerciseMedia';
 import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
 import {
@@ -191,6 +196,7 @@ export function CreateWorkoutPage() {
   const [currentBlockIndex, setCurrentBlockIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
+  const [activityPresetCatalog, setActivityPresetCatalog] = useState([]);
   const [showSchedulePreview, setShowSchedulePreview] = useState(false);
   const [exerciseTab, setExerciseTab] = useState('library');
   const [creatingExercise, setCreatingExercise] = useState(false);
@@ -472,6 +478,12 @@ export function CreateWorkoutPage() {
     setEquipmentFilter('');
     setMuscleFilter('');
     setFiltersOpen(false);
+  };
+
+  const handleActivityPresetSelect = (preset) => {
+    setExerciseDialogOpen(false);
+    resetExerciseDialogState();
+    navigate(`/activity/start?preset=${encodeURIComponent(preset.id)}`);
   };
 
   const libraryExerciseToForm = (exercise) => ({
@@ -882,6 +894,34 @@ export function CreateWorkoutPage() {
   };
 
   const filteredExercises = exercises;
+
+  const hasExerciseFilters = Boolean(sportFilter || equipmentFilter || muscleFilter);
+  const locale = (i18n?.language || 'fr').split('-')[0];
+
+  const activityPresetResults = useMemo(
+    () =>
+      getActivityPresetsForDiscovery({
+        query: debouncedQuery,
+        locale,
+        hasFilters: hasExerciseFilters,
+        presets: activityPresetCatalog.length ? activityPresetCatalog : undefined,
+      }),
+    [debouncedQuery, locale, hasExerciseFilters, activityPresetCatalog],
+  );
+
+  const showActivityPopularSection = !debouncedQuery && !hasExerciseFilters && activityPresetResults.length > 0;
+  const showActivitySearchSection = Boolean(debouncedQuery) && !hasExerciseFilters && activityPresetResults.length > 0;
+
+  useEffect(() => {
+    if (!exerciseDialogOpen) return;
+    let cancelled = false;
+    loadCachedActivityPresets({ locale }).then((presets) => {
+      if (!cancelled) setActivityPresetCatalog(presets);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [exerciseDialogOpen, locale]);
 
   useEffect(() => {
     const handle = setTimeout(() => setDebouncedQuery(searchQuery.trim()), 250);
@@ -1606,8 +1646,34 @@ export function CreateWorkoutPage() {
                           <div
                             ref={exerciseListRef}
                             onScroll={onExerciseListScroll}
-                            className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-contain pr-1"
+                            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pr-1 min-w-0 max-w-full"
                           >
+                              {(showActivityPopularSection || showActivitySearchSection) ? (
+                                <section className="space-y-2 min-w-0 max-w-full" data-testid="activity-preset-search-section">
+                                  <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle px-1">
+                                    {showActivityPopularSection
+                                      ? t('workouts:create.activitySearch.popularSection')
+                                      : t('workouts:create.activitySearch.activitiesSection')}
+                                  </h3>
+                                  <div className="space-y-2">
+                                    {activityPresetResults.map((preset) => (
+                                      <ActivityPresetSearchCard
+                                        key={preset.id}
+                                        preset={preset}
+                                        onSelect={handleActivityPresetSelect}
+                                        disabled={loading}
+                                      />
+                                    ))}
+                                  </div>
+                                </section>
+                              ) : null}
+
+                              <section className="space-y-2 min-w-0 max-w-full" data-testid="exercise-catalog-search-section">
+                                {(showActivityPopularSection || showActivitySearchSection) ? (
+                                  <h3 className="text-xs font-semibold uppercase tracking-wide text-subtle px-1 pt-1">
+                                    {t('workouts:create.activitySearch.exercisesSection')}
+                                  </h3>
+                                ) : null}
                               {exerciseLibraryLoading && exercises.length === 0 ? (
                                 <div className="space-y-2" data-testid="exercise-library-skeletons">
                                   {Array.from({ length: 10 }).map((_, i) => (
@@ -1691,11 +1757,12 @@ export function CreateWorkoutPage() {
                                   {t('workouts:create.loadingMore')}
                                 </div>
                               ) : null}
-                              {!exerciseLibraryLoading && filteredExercises.length === 0 && (
+                              {!exerciseLibraryLoading && filteredExercises.length === 0 && !showActivitySearchSection && !showActivityPopularSection && (
                                 <div className="rounded-xl border border-dashed border-border p-4 text-center text-sm text-subtle">
                                   {t('workouts:create.noExercisesFound')}
                                 </div>
                               )}
+                              </section>
                           </div>
                         </div>
                       ) : (
