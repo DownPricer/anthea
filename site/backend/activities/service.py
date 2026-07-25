@@ -87,6 +87,9 @@ def new_activity_document(
     pool_length_meters: Optional[float] = None,
     interval_config: Optional[Dict[str, Any]] = None,
     visibility: str = "private",
+    workout_session_id: Optional[str] = None,
+    workout_exercise_index: Optional[int] = None,
+    scheduled_workout_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     if tracking_mode not in ACTIVITY_TRACKING_MODES or tracking_mode == "standard":
         raise ActivityValidationError("tracking_mode invalide pour une activité suivie")
@@ -129,6 +132,9 @@ def new_activity_document(
         "last_lap_seconds": None,
         "average_lap_seconds": None,
         "route_deleted": False,
+        "workout_session_id": workout_session_id,
+        "workout_exercise_index": workout_exercise_index,
+        "scheduled_workout_id": scheduled_workout_id,
         "created_at": now,
         "updated_at": now,
     }
@@ -166,6 +172,24 @@ async def require_owner(db, activity_id: str, user_id: str) -> Dict[str, Any]:
 
 
 async def start_activity(db, user_id: str, payload: Dict[str, Any]) -> Dict[str, Any]:
+    scheduled_workout_id = payload.get("scheduled_workout_id")
+    workout_exercise_index = payload.get("workout_exercise_index")
+
+    # Reprise d'une activité déjà liée à cet exercice de séance (évite double démarrage)
+    if scheduled_workout_id is not None and workout_exercise_index is not None:
+        linked = await db[SESSIONS_COLLECTION].find_one(
+            {
+                "user_id": user_id,
+                "scheduled_workout_id": str(scheduled_workout_id),
+                "workout_exercise_index": int(workout_exercise_index),
+                "status": {"$in": list(ACTIVE_STATUSES)},
+            },
+            {"_id": 0},
+            sort=[("started_at", -1)],
+        )
+        if linked:
+            return refresh_timing_fields(linked)
+
     current = await get_current_activity(db, user_id)
     if current:
         force = bool(payload.get("force_discard_current"))
@@ -189,6 +213,11 @@ async def start_activity(db, user_id: str, payload: Dict[str, Any]) -> Dict[str,
         pool_length_meters=payload.get("pool_length_meters"),
         interval_config=payload.get("interval_config"),
         visibility=payload.get("visibility") or "private",
+        workout_session_id=payload.get("workout_session_id"),
+        workout_exercise_index=(
+            int(workout_exercise_index) if workout_exercise_index is not None else None
+        ),
+        scheduled_workout_id=str(scheduled_workout_id) if scheduled_workout_id else None,
     )
     if payload.get("client_activity_id"):
         # Reprise hors-ligne : conserver l'id client si libre
@@ -535,12 +564,20 @@ async def list_activities(
     *,
     limit: int = 20,
     status: Optional[str] = None,
+    include_workout_linked: bool = False,
 ) -> List[Dict[str, Any]]:
     query: Dict[str, Any] = {"user_id": user_id}
     if status:
         query["status"] = status
     else:
         query["status"] = {"$in": ["completed", "active", "paused"]}
+    # Les activités rattachées à une séance apparaissent dans l'historique séance, pas à part
+    if not include_workout_linked:
+        query["$or"] = [
+            {"scheduled_workout_id": {"$exists": False}},
+            {"scheduled_workout_id": None},
+            {"scheduled_workout_id": ""},
+        ]
     cursor = db[SESSIONS_COLLECTION].find(query, {"_id": 0}).sort("started_at", -1).limit(min(100, max(1, limit)))
     docs = await cursor.to_list(100)
     return [serialize_activity_list_item(refresh_timing_fields(d)) for d in docs]
@@ -558,6 +595,11 @@ async def publish_activity(
     doc = await require_owner(db, activity_id, user_id)
     if doc.get("status") != "completed":
         raise ActivityValidationError("Seule une activité terminée peut être publiée")
+    # Activité issue d'une séance : publication via le post de séance uniquement
+    if doc.get("scheduled_workout_id") and not payload.get("allow_workout_linked"):
+        raise ActivityValidationError(
+            "Cette activité appartient à une séance — publiez la séance, pas l'activité séparément"
+        )
     if doc.get("published_post_id") and not payload.get("force_new"):
         # Idempotent
         return {"activity": doc, "post_id": doc["published_post_id"], "idempotent": True}

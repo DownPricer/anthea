@@ -9,6 +9,12 @@ import { estimateCalories, formatCalories } from '../lib/calories';
 import { playShortBeep, vibrateShort } from '../lib/workoutFeedback';
 import { LiveWorkoutReactions } from '../components/LiveWorkoutReactions';
 import { ShareWorkoutDialog } from '../components/social/ShareWorkoutDialog';
+import { TrackedActivityInPlayer } from '../components/player/TrackedActivityInPlayer';
+import {
+  isTrackedActivityExercise,
+  getActivityTrackingMode,
+} from '../lib/activities/workoutActivityExercise';
+import { formatElapsed, formatDistanceMeters, formatPace } from '../lib/activities/formatActivity';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Slider } from '../components/ui/slider';
@@ -47,7 +53,7 @@ import {
 import { toast } from 'sonner';
 
 export function WorkoutPlayerPage() {
-  const { t, i18n } = useTranslation(['player', 'common']);
+  const { t, i18n } = useTranslation(['player', 'common', 'workouts']);
   const { workoutId } = useParams();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -64,6 +70,8 @@ export function WorkoutPlayerPage() {
   const [exercisesCompleted, setExercisesCompleted] = useState(0);
   // Par exercice: 'completed' | 'skipped' (absence = non fait / pas atteint)
   const [exerciseOutcomes, setExerciseOutcomes] = useState({});
+  // Résumés d'activités trackées par index d'exercice
+  const [activitySummaries, setActivitySummaries] = useState({});
   const [ttsEnabled, setTtsEnabled] = useState(true);
   const [musicMode, setMusicMode] = useState(false);
   const [partnerLive, setPartnerLive] = useState(null);
@@ -178,6 +186,7 @@ export function WorkoutPlayerPage() {
       setPauseTime(0);
       setExercisesCompleted(0);
       setExerciseOutcomes({});
+      setActivitySummaries({});
       
       if (progressRes.data) {
         setSavedProgress(progressRes.data);
@@ -246,7 +255,11 @@ export function WorkoutPlayerPage() {
   }, [isPaused, phase]);
 
   const isDurationExercise =
-    phase === 'exercise' && currentExercise?.exercise_type === 'duration';
+    phase === 'exercise' &&
+    currentExercise?.exercise_type === 'duration' &&
+    !isTrackedActivityExercise(currentExercise);
+
+  const isCurrentTracked = isTrackedActivityExercise(currentExercise);
 
   // Main timer (repos + exercices en durée uniquement — pas de chrono pour les séries en reps)
   useEffect(() => {
@@ -297,7 +310,18 @@ export function WorkoutPlayerPage() {
 
   const completeCurrentExercise = () => {
     if (phase !== 'exercise' || !currentExercise) return;
+    if (isTrackedActivityExercise(currentExercise)) return;
     markOutcome(currentExerciseIndex, 'completed');
+    finishExercisePhase();
+  };
+
+  const completeTrackedActivity = (summary) => {
+    if (phase !== 'exercise' || !currentExercise) return;
+    markOutcome(currentExerciseIndex, 'completed');
+    setActivitySummaries((prev) => ({
+      ...prev,
+      [currentExerciseIndex]: summary,
+    }));
     finishExercisePhase();
   };
 
@@ -342,7 +366,9 @@ export function WorkoutPlayerPage() {
 
     setPhase('exercise');
 
-    if (currentExercise.exercise_type === 'duration') {
+    if (isTrackedActivityExercise(currentExercise)) {
+      setTimeRemaining(0);
+    } else if (currentExercise.exercise_type === 'duration') {
       setTimeRemaining(currentExercise.duration || 30);
     } else {
       setTimeRemaining(0);
@@ -560,6 +586,7 @@ export function WorkoutPlayerPage() {
         const outcome = exerciseOutcomes[idx];
         const derived =
           outcome || (idx < exercisesCompleted ? 'completed' : 'not_done');
+        const activitySummary = activitySummaries[idx];
         return {
           name: ex.name,
           exercise_type: ex.exercise_type,
@@ -569,6 +596,10 @@ export function WorkoutPlayerPage() {
           status: derived, // 'completed' | 'skipped' | 'not_done'
           completed: derived === 'completed',
           skipped: derived === 'skipped',
+          source: ex.source || null,
+          preset_id: ex.preset_id || null,
+          activity_tracking_mode: getActivityTrackingMode(ex),
+          activity_summary: activitySummary || null,
         };
       });
 
@@ -786,6 +817,54 @@ export function WorkoutPlayerPage() {
             </div>
           </div>
 
+          {/* Détail exercices (séance mixte : activités + classiques) */}
+          {allExercises.length > 0 && (
+            <div className="card p-4 space-y-2" data-testid="workout-mixed-summary">
+              <p className="text-subtle text-xs uppercase tracking-wider mb-2">
+                {t('player:feedback.exerciseBreakdown', { defaultValue: 'Détail' })}
+              </p>
+              {allExercises.map((ex, idx) => {
+                const outcome = exerciseOutcomes[idx];
+                const summary = activitySummaries[idx];
+                const name = ex.name;
+                let detail = '';
+                if (summary) {
+                  const parts = [];
+                  if (summary.distance_meters > 0) {
+                    parts.push(formatDistanceMeters(summary.distance_meters));
+                  }
+                  if (summary.moving_seconds || summary.elapsed_seconds) {
+                    parts.push(formatElapsed(summary.moving_seconds || summary.elapsed_seconds, true));
+                  }
+                  if (summary.average_pace_seconds_per_km) {
+                    parts.push(formatPace(summary.average_pace_seconds_per_km / 60));
+                  } else if (summary.laps) {
+                    parts.push(`${summary.laps} ${t('player:tracked.laps', { defaultValue: 'longueurs' })}`);
+                  }
+                  detail = parts.join(' · ');
+                } else if (isTrackedActivityExercise(ex)) {
+                  detail = outcome === 'completed' ? t('player:feedback.done', { defaultValue: 'Terminé' }) : '';
+                } else if (ex.exercise_type === 'duration') {
+                  detail = ex.duration ? formatElapsed(ex.duration) : '';
+                } else if (ex.reps) {
+                  detail = t('player:repsCount', { count: ex.reps });
+                }
+                return (
+                  <div
+                    key={`${ex.exercise_id}-${idx}`}
+                    className="flex items-start justify-between gap-2 text-sm border-b border-border/50 pb-2 last:border-0 last:pb-0"
+                  >
+                    <span className="text-foreground font-medium min-w-0 truncate">
+                      {ex.icon ? <span className="mr-1" aria-hidden>{ex.icon}</span> : null}
+                      {name}
+                    </span>
+                    <span className="text-muted text-right shrink-0 tabular-nums">{detail}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* Feedback form */}
           <div className="card p-5 space-y-6">
             <div>
@@ -940,6 +1019,12 @@ export function WorkoutPlayerPage() {
             )}
             {currentExercise.exercise_type === 'duration' ? (
               <p className="text-muted mt-2">{currentExercise.duration}s</p>
+            ) : isTrackedActivityExercise(currentExercise) ? (
+              <p className="text-muted mt-2 text-xs uppercase tracking-wide">
+                {t(`workouts:create.activityMode.${getActivityTrackingMode(currentExercise)}`, {
+                  defaultValue: getActivityTrackingMode(currentExercise),
+                })}
+              </p>
             ) : (
               <p className="text-muted mt-2">{t('player:repsCount', { count: currentExercise.reps })}</p>
             )}
@@ -1147,7 +1232,9 @@ export function WorkoutPlayerPage() {
             className="flex w-full max-w-full min-w-0 mx-auto md:max-w-2xl flex-col items-center gap-4 sm:gap-6 text-center overflow-hidden"
             data-testid="player-exercise-stage"
           >
-              {(currentExercise?.image_url || currentExercise?.media_snapshot) && phase === 'exercise' && (
+              {(currentExercise?.image_url || currentExercise?.media_snapshot) &&
+                phase === 'exercise' &&
+                !isCurrentTracked && (
                 <div
                   className="w-auto max-w-[200px] max-h-[200px] md:max-w-sm md:max-h-none mx-auto overflow-hidden rounded-2xl bg-hover md:w-full md:aspect-video"
                   data-testid="player-exercise-gif"
@@ -1169,6 +1256,17 @@ export function WorkoutPlayerPage() {
                 </div>
               )}
 
+              {phase === 'exercise' && isCurrentTracked && currentExercise ? (
+                <TrackedActivityInPlayer
+                  exercise={currentExercise}
+                  exerciseIndex={currentExerciseIndex}
+                  scheduledWorkoutId={workoutId}
+                  exerciseName={localizedCurrentName || currentExercise.name}
+                  onExerciseComplete={completeTrackedActivity}
+                  globalPaused={isPaused}
+                />
+              ) : (
+              <>
               <div className="w-full max-w-full min-w-0 space-y-2 overflow-hidden">
                 {phaseLabel && (
                   <p className="inline-flex rounded-full bg-[var(--theme-surface-active)] px-4 py-1 text-sm uppercase tracking-wider text-[var(--theme-primary)]">
@@ -1239,7 +1337,10 @@ export function WorkoutPlayerPage() {
                   {t('player:exerciseDone')}
                 </Button>
               )}
+              </>
+              )}
 
+              {!(phase === 'exercise' && isCurrentTracked) && (
               <div
                 className="flex w-full max-w-md min-w-0 flex-col items-center gap-2 sm:gap-3 overflow-hidden"
                 data-testid="player-controls"
@@ -1287,6 +1388,7 @@ export function WorkoutPlayerPage() {
                   </button>
                 )}
               </div>
+              )}
 
               <div className="flex flex-col items-center gap-2">
                 <button

@@ -37,6 +37,9 @@ LIST_SAFE_FIELDS = (
     "visibility",
     "published_post_id",
     "route_deleted",
+    "workout_session_id",
+    "workout_exercise_index",
+    "scheduled_workout_id",
     "created_at",
     "updated_at",
 )

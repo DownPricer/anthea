@@ -76,7 +76,21 @@
     "difficultyFelt": "Dificultad percibida: {{value}}/10",
     "notesOptional": "Notas (opcional)",
     "notesPlaceholder": "¿Cómo fue esta sesión?",
-    "exitWithoutSaving": "Salir sin guardar"
+    "exitWithoutSaving": "Salir sin guardar",
+    "exerciseBreakdown": "Detalle",
+    "done": "Terminado"
+  },
+  "tracked": {
+    "start": "Empezar",
+    "finishExercise": "Terminar ejercicio",
+    "gpsHint": "Esta actividad usará tu posición durante el ejercicio.",
+    "readyHint": "Pulsa Empezar para cronometrar este ejercicio.",
+    "effort": "Esfuerzo",
+    "recovery": "Recuperación",
+    "intervalRound": "Repetición {{current}} / {{total}}",
+    "laps": "largos",
+    "undoLap": "Deshacer",
+    "routePoints": "{{count}} puntos GPS"
   },
   "prep": {
     "savedProgress": "Progreso guardado"

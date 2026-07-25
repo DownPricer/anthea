@@ -76,7 +76,21 @@
     "difficultyFelt": "Perceived difficulty: {{value}}/10",
     "notesOptional": "Notes (optional)",
     "notesPlaceholder": "How did this workout go?",
-    "exitWithoutSaving": "Exit without saving"
+    "exitWithoutSaving": "Exit without saving",
+    "exerciseBreakdown": "Breakdown",
+    "done": "Done"
+  },
+  "tracked": {
+    "start": "Start",
+    "finishExercise": "Finish exercise",
+    "gpsHint": "This activity will use your location during the exercise.",
+    "readyHint": "Tap Start to time this exercise.",
+    "effort": "Work",
+    "recovery": "Recovery",
+    "intervalRound": "Rep {{current}} / {{total}}",
+    "laps": "laps",
+    "undoLap": "Undo",
+    "routePoints": "{{count}} GPS points"
   },
   "prep": {
     "savedProgress": "Saved progress"
