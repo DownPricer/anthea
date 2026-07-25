@@ -82,6 +82,24 @@ from exercises.api import (
 )
 from exercises.legacy import build_legacy_map_from_system_exercises
 from exercises.resolve import resolve_exercise_reference
+from activities.api import (
+    complete_handler as activity_complete_handler,
+    current_handler as activity_current_handler,
+    delete_handler as activity_delete_handler,
+    delete_route_handler as activity_delete_route_handler,
+    discard_handler as activity_discard_handler,
+    get_handler as activity_get_handler,
+    laps_handler as activity_laps_handler,
+    list_handler as activity_list_handler,
+    metrics_handler as activity_metrics_handler,
+    pause_handler as activity_pause_handler,
+    points_handler as activity_points_handler,
+    publish_handler as activity_publish_handler,
+    resume_handler as activity_resume_handler,
+    start_handler as activity_start_handler,
+)
+from activities.service import ensure_activity_indexes, activity_stats_from_docs
+from activities.constants import SESSIONS_COLLECTION as ACTIVITY_SESSIONS_COLLECTION
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -427,8 +445,57 @@ class PostCreate(BaseModel):
     pair_key: Optional[str] = None
     duo_session_id: Optional[str] = None
     duo_id: Optional[str] = None
+    activity_id: Optional[str] = None
+    activity_snapshot: Optional[dict] = None
     post_on_duo_wall: bool = False
     visibility: str = "public"
+
+
+class ActivityStartBody(BaseModel):
+    tracking_mode: str
+    activity_kind: str = "other"
+    exercise_id: Optional[str] = None
+    exercise_name_snapshot: Optional[str] = None
+    exercise_name_i18n_snapshot: Optional[dict] = None
+    pool_length_meters: Optional[float] = None
+    interval_config: Optional[dict] = None
+    visibility: str = "private"
+    force_discard_current: bool = False
+    resume_existing: bool = False
+    client_activity_id: Optional[str] = None
+
+
+class ActivityPointsBody(BaseModel):
+    points: List[dict] = []
+
+
+class ActivityLapsBody(BaseModel):
+    action: str = "add"
+    count: int = 1
+    pool_length_meters: Optional[float] = None
+    idempotency_key: Optional[str] = None
+
+
+class ActivityMetricsBody(BaseModel):
+    distance_meters: Optional[float] = None
+    pool_length_meters: Optional[float] = None
+    interval_results: Optional[List[dict]] = None
+    interval_config: Optional[dict] = None
+
+
+class ActivityCompleteBody(BaseModel):
+    distance_meters: Optional[float] = None
+    interval_results: Optional[List[dict]] = None
+    keep_short: bool = False
+
+
+class ActivityPublishBody(BaseModel):
+    visibility: str = "private"
+    route_visibility: str = "summary_only"
+    confirm_full_route: bool = False
+    title: Optional[str] = None
+    description: Optional[str] = None
+    force_new: bool = False
 
 class PostCommentCreate(BaseModel):
     text: str
@@ -1056,6 +1123,7 @@ def serialize_notification(doc: dict) -> dict:
 POST_TYPES = {
     "workout_photo", "workout", "badge", "duo_repost", "duo", "free",
     "duo_free", "duo_common_session", "duo_badge", "duo_challenge",
+    "activity",
 }
 POST_VISIBILITY = {"public", "friends", "private", "duo"}
 DUO_WALL_POST_TYPES = {"duo", "duo_free", "duo_common_session", "duo_badge", "duo_challenge"}
@@ -1989,6 +2057,10 @@ async def lifespan(app: FastAPI):
     await db.duo_follows.create_index([("duo_id", 1), ("status", 1)])
     await db.duo_follows.create_index("status")
     await bootstrap_exercise_catalog(db)
+    try:
+        await ensure_activity_indexes(db)
+    except Exception as exc:
+        logger.warning("Activity indexes setup failed: %s", exc)
     
     await seed_system_exercises()
     await ensure_program_volume_templates(db, logger)
@@ -2944,6 +3016,20 @@ async def get_user_profile_stats(handle: str, user: dict = Depends(get_current_u
                 for s in (sessions[:5] if can_sessions else [])
             ],
         }
+        try:
+            acts = await db[ACTIVITY_SESSIONS_COLLECTION].find(
+                {"user_id": target_id, "status": "completed"}, {"_id": 0}
+            ).to_list(2000)
+            result["detailed_stats"]["activity_stats"] = activity_stats_from_docs(acts)
+            summary = result["detailed_stats"]["summary"]
+            summary["activity_moving_seconds"] = result["detailed_stats"]["activity_stats"].get(
+                "activity_moving_seconds", 0
+            )
+            summary["activities_completed"] = result["detailed_stats"]["activity_stats"].get(
+                "activities_completed", 0
+            )
+        except Exception as exc:
+            logger.warning("Activity stats failed: %s", exc)
         cal = await build_streak_calendar(target_id, target.get("partner_id"), start, end)
         result["calendar_days"] = cal if isinstance(cal, list) else []
 
@@ -5038,6 +5124,33 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         if not title and session_snapshot.get("workout_title"):
             title = session_snapshot["workout_title"]
 
+    activity_id = data.activity_id
+    activity_snapshot = None
+    if post_type == "activity":
+        if not activity_id:
+            raise HTTPException(status_code=400, detail="activity_id requis")
+        activity = await db[ACTIVITY_SESSIONS_COLLECTION].find_one({"id": activity_id}, {"_id": 0})
+        if not activity:
+            raise HTTPException(status_code=404, detail="Activité introuvable")
+        if activity.get("user_id") != user["id"]:
+            raise HTTPException(status_code=403, detail="Cette activité ne vous appartient pas")
+        if activity.get("status") != "completed":
+            raise HTTPException(status_code=400, detail="Activité non terminée")
+        # Snapshot fourni ou reconstruit — jamais de route brute non autorisée
+        from activities.privacy import activity_summary_for_post, build_shareable_route
+        route_vis = (activity.get("route_privacy") or {}).get("visibility") or "summary_only"
+        if isinstance(data.activity_snapshot, dict) and data.activity_snapshot.get("route_visibility"):
+            route_vis = data.activity_snapshot.get("route_visibility") or route_vis
+        shareable = build_shareable_route(activity, route_visibility=route_vis)
+        activity_snapshot = data.activity_snapshot or activity_summary_for_post(activity, shareable)
+        # Sécurité : retirer toute éventuelle route complète non shareable
+        if activity_snapshot.get("route_visibility") not in ("trimmed_route", "full_route"):
+            activity_snapshot["simplified_route"] = None
+            activity_snapshot["has_route"] = False
+        if not title:
+            name = activity.get("exercise_name_snapshot") or activity.get("activity_kind") or "activité"
+            title = f"Activité terminée : {name}"
+
     now = datetime.now(timezone.utc).isoformat()
     owner_type = "user"
     owner_id = user["id"]
@@ -5061,6 +5174,8 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         "description": description,
         "image_url": image_url,
         "workout_session_id": workout_session_id,
+        "activity_id": activity_id,
+        "activity_snapshot": activity_snapshot,
         "badge_id": data.badge_id,
         "badge_name": badge_name,
         "badge_icon": badge_icon,
@@ -5761,6 +5876,33 @@ async def _load_streak_context(user_id: str, partner_id: Optional[str], lookback
         sd = w.get("scheduled_date")
         if fu and sd:
             planned_by_user_date[(fu, sd)].append(w)
+
+    # Activités terminées = jour actif (entrée virtuelle completed)
+    try:
+        activities = await db[ACTIVITY_SESSIONS_COLLECTION].find(
+            {
+                "user_id": {"$in": users_in_pair},
+                "status": "completed",
+                "ended_at": {"$gte": start_s},
+            },
+            {"_id": 0, "user_id": 1, "ended_at": 1, "started_at": 1},
+        ).to_list(4000)
+        for act in activities:
+            stamp = act.get("ended_at") or act.get("started_at") or ""
+            day = str(stamp)[:10]
+            uid = act.get("user_id")
+            if uid and len(day) == 10:
+                planned_by_user_date[(uid, day)].append(
+                    {
+                        "is_draft": False,
+                        "status": "completed",
+                        "source": "activity",
+                        "scheduled_date": day,
+                        "for_user_id": uid,
+                    }
+                )
+    except Exception as exc:
+        logger.warning("Activity streak merge failed: %s", exc)
 
     return current_date, skip_pairs, rest_pairs, planned_by_user_date
 
@@ -6622,11 +6764,123 @@ async def coach_exempt_day(body: StreakCoachExemptBody, user: dict = Depends(get
 async def streak_coach_status(user: dict = Depends(get_current_user)):
     return {"can_moderate": await _can_moderate_streak(user)}
 
+
+# ============ ACTIVITIES ============
+
+@api_router.post("/activities/start")
+async def activities_start(data: ActivityStartBody, user: dict = Depends(get_current_user)):
+    return await activity_start_handler(db, user, data.model_dump())
+
+
+@api_router.get("/activities/current")
+async def activities_current(user: dict = Depends(get_current_user)):
+    return await activity_current_handler(db, user)
+
+
+@api_router.get("/activities")
+async def activities_list(
+    limit: int = 20,
+    status: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    return await activity_list_handler(db, user, limit=limit, status=status)
+
+
+@api_router.get("/activities/{activity_id}")
+async def activities_get(
+    activity_id: str,
+    include_route: bool = False,
+    user: dict = Depends(get_current_user),
+):
+    return await activity_get_handler(db, user, activity_id, include_route=include_route)
+
+
+@api_router.post("/activities/{activity_id}/pause")
+async def activities_pause(activity_id: str, user: dict = Depends(get_current_user)):
+    return await activity_pause_handler(db, user, activity_id)
+
+
+@api_router.post("/activities/{activity_id}/resume")
+async def activities_resume(activity_id: str, user: dict = Depends(get_current_user)):
+    return await activity_resume_handler(db, user, activity_id)
+
+
+@api_router.post("/activities/{activity_id}/points")
+async def activities_points(
+    activity_id: str,
+    data: ActivityPointsBody,
+    user: dict = Depends(get_current_user),
+):
+    return await activity_points_handler(db, user, activity_id, data.model_dump())
+
+
+@api_router.post("/activities/{activity_id}/laps")
+async def activities_laps(
+    activity_id: str,
+    data: ActivityLapsBody,
+    user: dict = Depends(get_current_user),
+):
+    return await activity_laps_handler(db, user, activity_id, data.model_dump())
+
+
+@api_router.patch("/activities/{activity_id}/metrics")
+async def activities_metrics(
+    activity_id: str,
+    data: ActivityMetricsBody,
+    user: dict = Depends(get_current_user),
+):
+    return await activity_metrics_handler(db, user, activity_id, data.model_dump(exclude_none=True))
+
+
+@api_router.post("/activities/{activity_id}/complete")
+async def activities_complete(
+    activity_id: str,
+    data: ActivityCompleteBody = ActivityCompleteBody(),
+    user: dict = Depends(get_current_user),
+):
+    return await activity_complete_handler(db, user, activity_id, data.model_dump())
+
+
+@api_router.delete("/activities/{activity_id}")
+async def activities_delete(activity_id: str, user: dict = Depends(get_current_user)):
+    return await activity_delete_handler(db, user, activity_id)
+
+
+@api_router.post("/activities/{activity_id}/discard")
+async def activities_discard(activity_id: str, user: dict = Depends(get_current_user)):
+    return await activity_discard_handler(db, user, activity_id)
+
+
+@api_router.post("/activities/{activity_id}/publish")
+async def activities_publish(
+    activity_id: str,
+    data: ActivityPublishBody,
+    user: dict = Depends(get_current_user),
+):
+    async def _create_post_fn(payload: dict, _user_id: str):
+        body = PostCreate(
+            type=payload["type"],
+            title=payload.get("title"),
+            description=payload.get("description"),
+            visibility=payload.get("visibility") or "private",
+            activity_id=payload.get("activity_id"),
+            activity_snapshot=payload.get("activity_snapshot"),
+        )
+        return await create_post(body, user)
+
+    return await activity_publish_handler(db, user, activity_id, data.model_dump(), _create_post_fn)
+
+
+@api_router.delete("/activities/{activity_id}/route")
+async def activities_delete_route(activity_id: str, user: dict = Depends(get_current_user)):
+    return await activity_delete_route_handler(db, user, activity_id)
+
+
 # ============ MAIN ============
 
 @api_router.get("/")
 async def root():
-    return {"message": "Anthea API", "version": "1.0.0"}
+    return {"message": "FitMatch API", "version": "1.0.0"}
 
 app.include_router(api_router)
 
