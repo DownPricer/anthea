@@ -9,6 +9,24 @@ import { formatDuration } from '../../lib/userProfile';
 import { useTranslation } from 'react-i18next';
 
 function formatExerciseDetail(ex) {
+  const summary = ex.activity_summary;
+  if (summary) {
+    const parts = [];
+    if (summary.distance_meters > 0) {
+      parts.push(`${(summary.distance_meters / 1000).toFixed(2)} km`);
+    }
+    if (summary.moving_seconds || summary.elapsed_seconds) {
+      const sec = summary.moving_seconds || summary.elapsed_seconds;
+      const m = Math.floor(sec / 60);
+      const s = sec % 60;
+      parts.push(`${m}:${String(s).padStart(2, '0')}`);
+    }
+    if (summary.laps) parts.push(`${summary.laps} longueurs`);
+    if (parts.length) return parts.join(' · ');
+  }
+  if (ex.source === 'activity_preset' || ex.activity_tracking_mode) {
+    return ex.activity_tracking_mode || 'activité';
+  }
   if (ex.exercise_type === 'reps' && ex.reps) return `${ex.reps} reps`;
   if (ex.duration) return formatDuration(ex.duration);
   return '';

@@ -188,12 +188,20 @@ export function StartActivityPage() {
   };
 
   const handleResumeExisting = () => {
+    if (existingActivity?.scheduled_workout_id) {
+      navigate(`/player/${existingActivity.scheduled_workout_id}`);
+      return;
+    }
     if (existingActivity?.id) {
       navigate(`/activity/${existingActivity.id}/live`);
     }
   };
 
   const handleCompleteExisting = () => {
+    if (existingActivity?.scheduled_workout_id) {
+      navigate(`/player/${existingActivity.scheduled_workout_id}`);
+      return;
+    }
     if (existingActivity?.id) {
       navigate(`/activity/${existingActivity.id}/summary`);
     }
