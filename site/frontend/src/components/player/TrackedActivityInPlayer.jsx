@@ -6,7 +6,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
-import { Pause, Play, Plus, Minus, Loader2 } from 'lucide-react';
+import { Pause, Play, Minus, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import {
@@ -103,6 +103,7 @@ export function TrackedActivityInPlayer({
   const [gpsState, setGpsState] = useState(GPS_STATES.IDLE);
   const [manualDistance, setManualDistance] = useState('');
   const [laps, setLaps] = useState(0);
+  const [lapsPending, setLapsPending] = useState(false);
   const [intervalRound, setIntervalRound] = useState(1);
   const [intervalPhase, setIntervalPhase] = useState('work');
   const [intervalRemaining, setIntervalRemaining] = useState(0);
@@ -553,18 +554,42 @@ export function TrackedActivityInPlayer({
   };
 
   const handleAddLaps = async (count) => {
+    if (lapsPending) return;
     const next = Math.max(0, laps + count);
+    setLapsPending(true);
     setLaps(next);
-    if (activity?.id) {
-      try {
-        if (count > 0) {
-          await activitiesApi.addLaps(activity.id, { action: 'add', count });
-        } else if (count < 0) {
-          await activitiesApi.addLaps(activity.id, { action: 'undo' });
+    try {
+      if (typeof navigator !== 'undefined' && navigator.vibrate) {
+        try {
+          navigator.vibrate(12);
+        } catch {
+          /* ignore */
         }
-      } catch {
-        /* ignore */
       }
+      if (activity?.id) {
+        const idempotencyKey = `lap:${activity.id}:${Date.now()}:${count}:${Math.random().toString(36).slice(2, 8)}`;
+        if (count > 0) {
+          const { data } = await activitiesApi.addLaps(activity.id, {
+            action: 'add',
+            count,
+            idempotency_key: idempotencyKey,
+          });
+          if (typeof data?.laps === 'number') setLaps(data.laps);
+          if (typeof data?.distance_meters === 'number') {
+            /* distance derived from laps locally too */
+          }
+        } else if (count < 0) {
+          const { data } = await activitiesApi.addLaps(activity.id, {
+            action: 'undo',
+            idempotency_key: idempotencyKey,
+          });
+          if (typeof data?.laps === 'number') setLaps(data.laps);
+        }
+      }
+    } catch {
+      setLaps((prev) => Math.max(0, prev - count));
+    } finally {
+      window.setTimeout(() => setLapsPending(false), 280);
     }
   };
 
@@ -785,46 +810,55 @@ export function TrackedActivityInPlayer({
       )}
 
       {mode === TRACKING_MODES.LAPS && (
-        <div className="space-y-3" data-testid="tracked-activity-laps">
-          <p className="text-3xl font-bold text-foreground">
+        <div className="w-full min-w-0 max-w-full space-y-2" data-testid="tracked-activity-laps">
+          <p className="text-3xl font-bold text-foreground tabular-nums" data-testid="tracked-laps-count">
             {laps}{' '}
             <span className="text-base font-normal text-muted">
               {t('player:tracked.laps', { defaultValue: 'longueurs' })}
             </span>
           </p>
-          <p className="text-muted">{formatDistanceMeters(distanceMeters)}</p>
-          <div className="flex justify-center gap-2">
+          <p className="text-muted text-sm" data-testid="tracked-laps-distance">
+            {formatDistanceMeters(distanceMeters)}
+          </p>
+          <div className="grid w-full min-w-0 max-w-full grid-cols-2 gap-2">
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => handleAddLaps(1)}
-              className="border-border"
+              disabled={lapsPending}
+              className="h-14 min-h-[56px] min-w-0 max-w-full border-border px-2 flex flex-col items-center justify-center gap-0.5"
               data-testid="tracked-lap-plus-1"
             >
-              <Plus size={14} className="mr-1" /> +1
+              <span className="text-xl font-bold leading-none">+1</span>
+              <span className="text-[11px] text-muted leading-tight">
+                {t('player:tracked.lapUnit', { defaultValue: 'longueur' })}
+              </span>
             </Button>
             <Button
               type="button"
               variant="outline"
-              size="sm"
               onClick={() => handleAddLaps(2)}
-              className="border-border"
+              disabled={lapsPending}
+              className="h-14 min-h-[56px] min-w-0 max-w-full border-border px-2 flex flex-col items-center justify-center gap-0.5"
+              data-testid="tracked-lap-plus-2"
             >
-              <Plus size={14} className="mr-1" /> +2
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => handleAddLaps(-1)}
-              className="border-border"
-              disabled={laps <= 0}
-            >
-              <Minus size={14} className="mr-1" />
-              {t('player:tracked.undoLap', { defaultValue: 'Annuler' })}
+              <span className="text-xl font-bold leading-none">+2</span>
+              <span className="text-[11px] text-muted leading-tight">
+                {t('player:tracked.roundTrip', { defaultValue: 'aller-retour' })}
+              </span>
             </Button>
           </div>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleAddLaps(-1)}
+            className="h-12 min-h-[48px] w-full min-w-0 max-w-full border-border"
+            disabled={laps <= 0 || lapsPending}
+            data-testid="tracked-lap-undo"
+          >
+            <Minus size={16} className="mr-1.5 shrink-0" />
+            {t('player:tracked.undoLap', { defaultValue: 'Annuler la dernière' })}
+          </Button>
         </div>
       )}
 
