@@ -1497,9 +1497,150 @@ async def can_view_session_in_post(viewer_id: str, author: dict, session: dict) 
         return False
     if access == "own":
         return True
+    # show_sessions=false masque détails et métriques d'exercices pour les non-auteurs
+    if author and not author.get("show_sessions", False):
+        return False
     if author.get("account_visibility") == "public":
         return True
     return access in ("follower", "friend")
+
+
+_GPS_COORD_KEYS = (
+    "route",
+    "simplified_route",
+    "shareable_route",
+    "coordinates",
+    "points",
+    "bounding_box",
+    "start_point",
+    "end_point",
+    "route_chunks",
+)
+
+
+def _safe_number(value):
+    if value is None:
+        return None
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return None
+    if num != num or num in (float("inf"), float("-inf")):  # NaN / Inf
+        return None
+    return num
+
+
+def _sanitize_pace_seconds_per_km(value):
+    pace = _safe_number(value)
+    if pace is None or pace <= 0 or pace >= 3600:
+        return None
+    return pace
+
+
+def build_exercise_summary_from_log_entry(entry: dict) -> Optional[dict]:
+    """Snapshot léger par exercice — jamais de coordonnées GPS."""
+    if not isinstance(entry, dict):
+        return None
+    status = entry.get("status") or ("completed" if entry.get("completed") else None)
+    if status and status not in ("completed", "skipped"):
+        # Inclure les complétés ; les non faits sans métriques sont ignorés
+        if not entry.get("activity_summary") and not entry.get("reps") and not entry.get("duration"):
+            return None
+
+    activity = entry.get("activity_summary") if isinstance(entry.get("activity_summary"), dict) else {}
+    # Retirer toute clé GPS éventuelle
+    for key in _GPS_COORD_KEYS:
+        activity.pop(key, None)
+
+    name = entry.get("name") or activity.get("name") or activity.get("exercise_name")
+    name_i18n = entry.get("name_i18n") or activity.get("exercise_name_i18n")
+    preset_id = entry.get("preset_id") or activity.get("preset_id")
+    tracking_mode = (
+        entry.get("activity_tracking_mode")
+        or activity.get("tracking_mode")
+        or activity.get("activity_tracking_mode")
+    )
+    exercise_id = entry.get("exercise_id") or activity.get("exercise_id")
+    if preset_id and not exercise_id:
+        exercise_id = f"activity:{preset_id}"
+
+    distance = _safe_number(activity.get("distance_meters"))
+    if distance is not None and distance < 0:
+        distance = None
+    elapsed = _safe_number(activity.get("elapsed_seconds"))
+    moving = _safe_number(activity.get("moving_seconds"))
+    laps = activity.get("laps")
+    try:
+        laps = int(laps) if laps is not None else None
+    except (TypeError, ValueError):
+        laps = None
+    if laps is not None and laps < 0:
+        laps = None
+
+    summary = {
+        "exercise_id": exercise_id,
+        "preset_id": preset_id,
+        "activity_session_id": activity.get("activity_id") or activity.get("id") or entry.get("activity_session_id"),
+        "activity_kind": entry.get("activity_kind") or activity.get("activity_kind"),
+        "tracking_mode": tracking_mode,
+        "name": name,
+        "name_i18n": name_i18n if isinstance(name_i18n, dict) else None,
+        "elapsed_seconds": int(elapsed) if elapsed is not None else None,
+        "moving_seconds": int(moving) if moving is not None else None,
+        "distance_meters": distance,
+        "average_pace_seconds_per_km": _sanitize_pace_seconds_per_km(
+            activity.get("average_pace_seconds_per_km")
+        ),
+        "laps": laps,
+        "pool_length_meters": _safe_number(activity.get("pool_length_meters") or entry.get("pool_length_meters")),
+        "reps": entry.get("reps"),
+        "sets": entry.get("sets") or entry.get("sets_completed"),
+        "duration": entry.get("duration"),
+        "interval_rounds": None,
+        "source": entry.get("source"),
+    }
+
+    interval_results = activity.get("interval_results") or []
+    if tracking_mode == "intervals":
+        if isinstance(interval_results, list) and interval_results:
+            summary["interval_rounds"] = len(interval_results)
+        elif entry.get("reps"):
+            summary["interval_rounds"] = entry.get("reps")
+
+    # Ne garder que les entrées avec un nom et au moins une métrique ou statut completed
+    if not summary.get("name") and not summary.get("preset_id"):
+        return None
+    has_metrics = any(
+        summary.get(k) not in (None, 0, 0.0, "")
+        for k in (
+            "distance_meters",
+            "elapsed_seconds",
+            "moving_seconds",
+            "laps",
+            "reps",
+            "sets",
+            "duration",
+            "interval_rounds",
+        )
+    )
+    if not has_metrics and status != "completed":
+        return None
+    if not has_metrics and not tracking_mode and not entry.get("source"):
+        # Exercice classique completed sans détail : afficher le nom seul
+        if status == "completed" and summary.get("name"):
+            return summary
+        return None
+    return summary
+
+
+def build_exercise_summaries_for_session(session: dict) -> list:
+    log = session.get("exercise_log") or []
+    out = []
+    for entry in log:
+        summary = build_exercise_summary_from_log_entry(entry)
+        if summary:
+            out.append(summary)
+    return out
 
 
 def build_session_snapshot(session: dict, workout: Optional[dict] = None) -> dict:
@@ -1514,6 +1655,7 @@ def build_session_snapshot(session: dict, workout: Optional[dict] = None) -> dic
         "difficulty": workout.get("difficulty") if workout else None,
         "estimated_calories": estimate_calories(session.get("total_time", 0), difficulty),
         "status": session.get("status"),
+        "exercise_summaries": build_exercise_summaries_for_session(session),
     }
 
 
@@ -1642,6 +1784,11 @@ async def serialize_post(
 
             can_details = await can_view_session_in_post(viewer_id, author, session) if author else False
             result["can_view_session_details"] = can_details
+            if result.get("session_snapshot") and not can_details:
+                # Masquer les métriques d'exercices si les détails de séance ne sont pas visibles
+                snap = dict(result["session_snapshot"])
+                snap.pop("exercise_summaries", None)
+                result["session_snapshot"] = snap
             if can_details:
                 result["session_details"] = {
                     "exercise_log": session.get("exercise_log") or [],
@@ -3041,8 +3188,19 @@ async def get_user_profile_stats(handle: str, user: dict = Depends(get_current_u
             ],
         }
         try:
+            # Agrégats légers uniquement — jamais de routes GPS / chunks
             acts = await db[ACTIVITY_SESSIONS_COLLECTION].find(
-                {"user_id": target_id, "status": "completed"}, {"_id": 0}
+                {"user_id": target_id, "status": "completed"},
+                {
+                    "_id": 0,
+                    "status": 1,
+                    "activity_kind": 1,
+                    "moving_seconds": 1,
+                    "elapsed_seconds": 1,
+                    "distance_meters": 1,
+                    "laps": 1,
+                    "average_pace_seconds_per_km": 1,
+                },
             ).to_list(2000)
             result["detailed_stats"]["activity_stats"] = activity_stats_from_docs(acts)
             summary = result["detailed_stats"]["summary"]
@@ -6600,6 +6758,28 @@ async def get_detailed_stats(
             "status": last.get("status"),
         }
 
+    activity_stats = {}
+    try:
+        act_query = {"user_id": stats_user_id, "status": "completed"}
+        if start_date:
+            act_query["ended_at"] = {"$gte": start_date}
+        acts = await db[ACTIVITY_SESSIONS_COLLECTION].find(
+            act_query,
+            {
+                "_id": 0,
+                "status": 1,
+                "activity_kind": 1,
+                "moving_seconds": 1,
+                "elapsed_seconds": 1,
+                "distance_meters": 1,
+                "laps": 1,
+                "average_pace_seconds_per_km": 1,
+            },
+        ).to_list(2000)
+        activity_stats = activity_stats_from_docs(acts)
+    except Exception as exc:
+        logger.warning("Duo detailed activity stats failed: %s", exc)
+
     return {
         "user": {
             "id": stats_user_id,
@@ -6623,6 +6803,8 @@ async def get_detailed_stats(
             "current_streak": current_streak,
             "best_streak": best_streak,
             "active_days": active_days_count,
+            "activities_completed": activity_stats.get("activities_completed", 0),
+            "activity_moving_seconds": activity_stats.get("activity_moving_seconds", 0),
         },
         "averages": {
             "fatigue_before": avg_fatigue_before,
@@ -6636,6 +6818,7 @@ async def get_detailed_stats(
         "current_streak": current_streak,
         "best_streak": best_streak,
         "active_days": active_days_count,
+        "activity_stats": activity_stats,
     }
 
 # ============ STREAK DAY ROUTES ============

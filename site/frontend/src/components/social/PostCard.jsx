@@ -30,6 +30,10 @@ import { patchPostInFeedCaches } from '../../lib/feedCache';
 import { toast } from 'sonner';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 import { getBadgeName } from '../../i18n/badgeLabels';
+import {
+  formatExerciseSummaryMetrics,
+  getExerciseSummaryDisplayName,
+} from '../../lib/activities/formatExerciseSummary';
 
 const ActivityPostBody = lazy(() => import('../activities/ActivityPostBody').then(m => ({ default: m.ActivityPostBody })));
 
@@ -49,7 +53,8 @@ export function PostCard({
   showRepostAction = true,
   isRepost = false,
 }) {
-  const { t } = useTranslation(['common', 'badges', 'home', 'workouts', 'duo']);
+  const { t, i18n } = useTranslation(['common', 'badges', 'home', 'workouts', 'duo']);
+  const locale = (i18n?.language || 'fr').split('-')[0];
   const { formatDateTime, formatDayMonthTime } = useLocaleFormat();
   const [liked, setLiked] = useState(!!post?.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
@@ -464,6 +469,28 @@ export function PostCard({
               </span>
             )}
           </div>
+          {post.can_view_session_details &&
+            Array.isArray(snapshot.exercise_summaries) &&
+            snapshot.exercise_summaries.length > 0 && (
+              <ul
+                className="mt-2 space-y-1.5 border-t border-border pt-2"
+                data-testid="workout-exercise-summaries"
+              >
+                {snapshot.exercise_summaries.map((entry, idx) => {
+                  const name = getExerciseSummaryDisplayName(entry, locale);
+                  const metrics = formatExerciseSummaryMetrics(entry, { locale });
+                  if (!name) return null;
+                  return (
+                    <li key={`${entry.exercise_id || entry.preset_id || name}-${idx}`} className="min-w-0">
+                      <p className="text-foreground text-sm font-medium truncate">{name}</p>
+                      {metrics ? (
+                        <p className="text-muted text-xs tabular-nums">{metrics}</p>
+                      ) : null}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
           {post.can_view_session_details && (
             <Button
               type="button"
