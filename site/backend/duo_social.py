@@ -1,4 +1,5 @@
 """Profil duo social : stats communes, confidentialité, activités."""
+import asyncio
 import re
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
@@ -332,7 +333,7 @@ _SESSION_FIELDS = {
 }
 
 
-async def _completed_sessions_by_user(db, user_id: str, limit: int = 2000) -> List[dict]:
+async def _completed_sessions_by_user(db, user_id: str, limit: int = 800) -> List[dict]:
     sessions = await db.workout_sessions.find(
         {"user_id": user_id},
         _SESSION_FIELDS,
@@ -439,8 +440,10 @@ async def session_completions_for_range(
 
 async def compute_together_stats(db, user_a_id: str, user_b_id: str) -> dict:
     """Stats basées uniquement sur l'activité commune (même jour)."""
-    sessions_a = await _completed_sessions_by_user(db, user_a_id)
-    sessions_b = await _completed_sessions_by_user(db, user_b_id)
+    sessions_a, sessions_b = await asyncio.gather(
+        _completed_sessions_by_user(db, user_a_id),
+        _completed_sessions_by_user(db, user_b_id),
+    )
 
     days_a = {_session_day(s) for s in sessions_a if _session_day(s)}
     days_b = {_session_day(s) for s in sessions_b if _session_day(s)}

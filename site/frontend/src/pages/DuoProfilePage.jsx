@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { parseISO } from 'date-fns';
-import { Loader2, LayoutGrid, BarChart3, Activity, Clock, Users } from 'lucide-react';
+import { LayoutGrid, BarChart3, Activity, Clock, Users } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
-import { duoProfilesApi, duoApi, formatApiError } from '../lib/api';
+import { duoProfilesApi, formatApiError } from '../lib/api';
 import { normalizeDuoStats, normalizeDuoActivityItem } from '../lib/duoStats';
 import { toast } from 'sonner';
 import { DuoProfileHeader } from '../components/duo/DuoProfileHeader';
@@ -22,10 +22,39 @@ import {
   setDuoCache,
   duoCacheKey,
   DUO_STALE,
+  dedupeInflight,
 } from '../lib/duoCache';
+import {
+  DuoHeaderSkeleton,
+  DuoStatsCardsSkeleton,
+  DuoActivitySkeleton,
+} from '../components/duo/DuoSkeletons';
+
+function scheduleSecondary(fn) {
+  if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+    window.requestIdleCallback(fn, { timeout: 1200 });
+  } else {
+    setTimeout(fn, 0);
+  }
+}
+
+function duoPerfMark(label) {
+  if (process.env.NODE_ENV !== 'development') return () => {};
+  const t0 = performance.now();
+  return (extra = {}) => {
+    // eslint-disable-next-line no-console
+    console.debug(`[DuoProfile] ${label}`, {
+      ms: Math.round(performance.now() - t0),
+      ...extra,
+    });
+  };
+}
 
 /**
- * Page profil duo consultable — réutilisable pour profil public ou membre.
+ * Page profil duo — chargement prioritaire P1 → P2 → P3.
+ * P1 : header (bannière, photo, nom, membres, boutons)
+ * P2 : stats / défi / compteurs
+ * P3 : mur, activité (onglets uniquement)
  */
 export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = null }) {
   const { t } = useTranslation(['duo', 'workouts']);
@@ -34,38 +63,63 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
   const [duoProfile, setDuoProfile] = useState(viewedDuo);
   const [stats, setStats] = useState(null);
   const [activity, setActivity] = useState([]);
-  const [loading, setLoading] = useState(!viewedDuo);
-  const [statsLoading, setStatsLoading] = useState(true);
-  const [activityLoading, setActivityLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(!viewedDuo);
+  const [statsLoading, setStatsLoading] = useState(false);
+  const [activityLoading, setActivityLoading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
   const [activeTab, setActiveTab] = useState('posts');
-
   const [statsError, setStatsError] = useState(null);
+  const [postsMounted, setPostsMounted] = useState(false);
+  const [activityRequested, setActivityRequested] = useState(false);
+
+  const abortRef = useRef(null);
+  const onDuoUpdateRef = useRef(onDuoUpdate);
+  onDuoUpdateRef.current = onDuoUpdate;
+  const reqCountRef = useRef({ profile: 0, stats: 0, activity: 0, posts: 0 });
 
   const resolvedTag = tag || duoProfile?.tag;
 
   const loadProfile = useCallback(async () => {
     if (!resolvedTag) return;
+    const end = duoPerfMark('header');
     const profileKey = duoCacheKey('publicProfile', resolvedTag);
     const cached = getDuoCache(profileKey);
     if (cached) {
       setDuoProfile(cached);
-      setLoading(false);
-      onDuoUpdate?.(cached);
+      setProfileLoading(false);
+      onDuoUpdateRef.current?.(cached);
+      end({ source: 'cache' });
     } else {
-      setLoading(true);
+      setProfileLoading(true);
     }
+
+    const ctrl = new AbortController();
+    abortRef.current?.abort();
+    abortRef.current = ctrl;
+
     try {
-      const { data } = await duoProfilesApi.getByTag(resolvedTag);
+      reqCountRef.current.profile += 1;
+      const data = await dedupeInflight(profileKey, async () => {
+        const { data: remote } = await duoProfilesApi.getByTag(resolvedTag, {
+          signal: ctrl.signal,
+        });
+        return remote;
+      });
+      if (ctrl.signal.aborted) return;
       setDuoProfile(data);
       if (data) setDuoCache(profileKey, data, DUO_STALE.profile);
-      onDuoUpdate?.(data);
-    } catch {
+      onDuoUpdateRef.current?.(data);
+      end({
+        source: 'network',
+        requests: reqCountRef.current.profile,
+      });
+    } catch (err) {
+      if (err?.name === 'CanceledError' || err?.code === 'ERR_CANCELED') return;
       if (!cached) setDuoProfile(null);
     } finally {
-      setLoading(false);
+      if (!ctrl.signal.aborted) setProfileLoading(false);
     }
-  }, [resolvedTag, onDuoUpdate]);
+  }, [resolvedTag]);
 
   const loadStats = useCallback(async () => {
     if (!resolvedTag || !duoProfile || isDuoLimited(duoProfile)) {
@@ -73,9 +127,8 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       setStatsLoading(false);
       return;
     }
-    const isMember = !!duoProfile.is_member;
     if (
-      !isMember
+      !duoProfile.is_member
       && !canViewDuoSection(duoProfile, 'stats')
       && !canViewDuoSection(duoProfile, 'badges')
       && !canViewDuoSection(duoProfile, 'challenges')
@@ -84,31 +137,34 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       setStatsLoading(false);
       return;
     }
+
+    const end = duoPerfMark('stats');
     const statsKey = duoCacheKey('publicStats', resolvedTag);
     const cached = getDuoCache(statsKey);
     if (cached) {
       setStats(cached);
       setStatsLoading(false);
+      end({ source: 'cache' });
     } else {
       setStatsLoading(true);
     }
     setStatsError(null);
+
     try {
-      const useMemberStats = isMember && !!user?.partner_id;
-      const { data } = useMemberStats
-        ? await duoApi.getStats()
-        : await duoProfilesApi.getStats(resolvedTag);
-      if (process.env.NODE_ENV === 'development') {
-        console.debug('[duo profile stats]', {
-          tag: resolvedTag,
-          duo_id: duoProfile.id,
-          endpoint: useMemberStats ? '/duo/stats' : `/duos/${resolvedTag}/stats`,
-          payload: data,
-        });
-      }
+      // Toujours l'endpoint public slim — évite /duo/stats (catalogue solo + N agrégats)
+      reqCountRef.current.stats += 1;
+      const data = await dedupeInflight(statsKey, async () => {
+        const { data: remote } = await duoProfilesApi.getStats(resolvedTag);
+        return remote;
+      });
       const normalized = normalizeDuoStats(data);
       setStats(normalized);
       setDuoCache(statsKey, normalized, DUO_STALE.stats);
+      end({
+        source: 'network',
+        endpoint: `/duos/${resolvedTag}/stats`,
+        requests: reqCountRef.current.stats,
+      });
     } catch (err) {
       if (process.env.NODE_ENV === 'development') console.error('[duo profile stats]', err);
       if (!cached) setStats(null);
@@ -118,7 +174,7 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
     } finally {
       setStatsLoading(false);
     }
-  }, [resolvedTag, duoProfile, user?.partner_id]);
+  }, [resolvedTag, duoProfile]);
 
   const loadActivity = useCallback(async () => {
     if (!resolvedTag || !duoProfile) {
@@ -132,22 +188,28 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       setActivityLoading(false);
       return;
     }
+
+    const end = duoPerfMark('activity');
     const actKey = duoCacheKey('publicActivity', resolvedTag);
     const cached = getDuoCache(actKey);
     if (cached) {
       setActivity(cached);
       setActivityLoading(false);
+      end({ source: 'cache' });
     } else {
       setActivityLoading(true);
     }
+
     try {
-      const useMemberFeed = isMember && !!user?.partner_id;
-      const { data } = useMemberFeed
-        ? await duoApi.getActivityFeed(30)
-        : await duoProfilesApi.getActivity(resolvedTag, 30);
+      reqCountRef.current.activity += 1;
+      const data = await dedupeInflight(actKey, async () => {
+        const { data: remote } = await duoProfilesApi.getActivity(resolvedTag, 30);
+        return remote;
+      });
       const items = (data || []).map(normalizeDuoActivityItem);
       setActivity(items);
       setDuoCache(actKey, items, DUO_STALE.activity);
+      end({ source: 'network', requests: reqCountRef.current.activity });
     } catch (err) {
       if (process.env.NODE_ENV === 'development') console.error('[duo profile activity]', err);
       if (!cached) setActivity([]);
@@ -155,38 +217,59 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
     } finally {
       setActivityLoading(false);
     }
-  }, [resolvedTag, duoProfile, user?.partner_id]);
+  }, [resolvedTag, duoProfile]);
 
   useEffect(() => {
     if (!viewedDuo && resolvedTag) loadProfile();
-    else if (viewedDuo) setDuoProfile(viewedDuo);
+    else if (viewedDuo) {
+      setDuoProfile(viewedDuo);
+      setProfileLoading(false);
+    }
+    return () => abortRef.current?.abort();
   }, [viewedDuo, resolvedTag, loadProfile]);
 
+  // P2 — stats après paint P1 (pas pendant le spinner header)
   useEffect(() => {
-    if (!duoProfile) return;
-    // Profil d'abord ; stats + activité ensuite en parallèle (pas de chaîne séquentielle).
-    Promise.allSettled([loadStats(), loadActivity()]);
-  }, [duoProfile, loadStats, loadActivity]);
+    if (!duoProfile) return undefined;
+    let cancelled = false;
+    scheduleSecondary(() => {
+      if (!cancelled) loadStats();
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [duoProfile, loadStats]);
+
+  // P3 — mur monté uniquement quand l'onglet posts est actif (défaut)
+  useEffect(() => {
+    if (activeTab === 'posts') setPostsMounted(true);
+    if (activeTab === 'activity') setActivityRequested(true);
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!activityRequested || !duoProfile) return;
+    loadActivity();
+  }, [activityRequested, duoProfile, loadActivity]);
 
   const canShowPosts = useMemo(
     () => canViewDuoSection(duoProfile, 'posts'),
-    [duoProfile]
+    [duoProfile],
   );
   const canShowStats = useMemo(
     () => canViewDuoSection(duoProfile, 'stats'),
-    [duoProfile]
+    [duoProfile],
   );
   const canShowBadges = useMemo(
     () => canViewDuoSection(duoProfile, 'badges'),
-    [duoProfile]
+    [duoProfile],
   );
   const canShowChallenges = useMemo(
     () => canViewDuoSection(duoProfile, 'challenges'),
-    [duoProfile]
+    [duoProfile],
   );
   const canShowActivity = useMemo(
     () => duoProfile?.is_member || canViewDuoSection(duoProfile, 'activity'),
-    [duoProfile]
+    [duoProfile],
   );
 
   const featuredBadges = useMemo(() => {
@@ -205,10 +288,10 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
       .slice(0, 3);
   }, [duoProfile?.featured_badges, duoProfile?.featured_badge_ids, stats]);
 
-  if (loading) {
+  if (!duoProfile && profileLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+      <div data-testid="duo-profile-page" className="p-5 pb-32 max-w-3xl mx-auto">
+        <DuoHeaderSkeleton />
       </div>
     );
   }
@@ -231,7 +314,7 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
         onEdit={duoProfile.is_member ? () => setEditOpen(true) : undefined}
         onFollowUpdate={(data) => {
           setDuoProfile(data);
-          onDuoUpdate?.(data);
+          onDuoUpdateRef.current?.(data);
         }}
       />
 
@@ -250,27 +333,42 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
 
         <TabsContent value="posts">
           {canShowPosts || duoProfile.is_member ? (
-            <DuoPostFeed duoProfile={duoProfile} viewer={user} />
+            postsMounted ? (
+              <DuoPostFeed duoProfile={duoProfile} viewer={user} />
+            ) : null
           ) : (
             <ProfileEmptyState title="Mur masqué" description="Le mur duo n'est pas visible." />
           )}
         </TabsContent>
 
         <TabsContent value="stats">
-          <DuoProfileStatsTab
-            stats={stats}
-            loading={statsLoading}
-            statsError={statsError}
-            canViewStats={canShowStats}
-            canViewBadges={canShowBadges}
-            canViewChallenges={canShowChallenges}
-            duoProfile={duoProfile}
-            onBadgeShared={loadStats}
-          />
+          {statsLoading && !stats ? (
+            <DuoStatsCardsSkeleton />
+          ) : (
+            <DuoProfileStatsTab
+              stats={stats}
+              loading={statsLoading && !stats}
+              statsError={statsError}
+              canViewStats={canShowStats}
+              canViewBadges={canShowBadges}
+              canViewChallenges={canShowChallenges}
+              duoProfile={duoProfile}
+              onBadgeShared={loadStats}
+            />
+          )}
         </TabsContent>
 
         <TabsContent value="activity">
-          <DuoActivityList activity={activity} loading={activityLoading} canView={canShowActivity} members={duoProfile.members} />
+          {activityLoading && !activity.length ? (
+            <DuoActivitySkeleton />
+          ) : (
+            <DuoActivityList
+              activity={activity}
+              loading={activityLoading && !activity.length}
+              canView={canShowActivity}
+              members={duoProfile.members}
+            />
+          )}
         </TabsContent>
       </Tabs>
 
@@ -281,10 +379,10 @@ export function DuoProfilePage({ viewedDuo = null, tag = null, onDuoUpdate = nul
           duoProfile={duoProfile}
           onSaved={(data) => {
             setDuoProfile(data);
-            onDuoUpdate?.(data);
+            onDuoUpdateRef.current?.(data);
             loadProfile();
             loadStats();
-            loadActivity();
+            if (activityRequested) loadActivity();
           }}
         />
       ) : null}
@@ -326,11 +424,7 @@ function DuoActivityList({ activity, loading, canView, members }) {
   }
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
-      </div>
-    );
+    return <DuoActivitySkeleton />;
   }
 
   if (!activity.length) {

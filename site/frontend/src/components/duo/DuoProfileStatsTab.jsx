@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useTranslation } from 'react-i18next';
 
-import { Loader2, Flame, Trophy, Target, Clock, Calendar, Zap, Medal } from 'lucide-react';
+import { Flame, Trophy, Target, Clock, Calendar, Zap, Medal } from 'lucide-react';
 
 import { BadgesPreview, BadgesCatalogView } from '../badges/BadgesCatalog';
 
@@ -15,6 +15,7 @@ import { parseISO } from 'date-fns';
 import { useState } from 'react';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 import { resolveChallengeLabels } from '../../i18n/challengeLabels';
+import { DuoStatsCardsSkeleton } from './DuoSkeletons';
 
 
 
@@ -65,18 +66,8 @@ export function DuoProfileStatsTab({
 
 
 
-  if (loading) {
-
-    return (
-
-      <div className="flex justify-center py-16">
-
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
-
-      </div>
-
-    );
-
+  if (loading && !stats) {
+    return <DuoStatsCardsSkeleton />;
   }
 
 
