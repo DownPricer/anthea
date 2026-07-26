@@ -29,6 +29,7 @@ import {
   duoCacheKey,
   DUO_STALE,
   duoTime,
+  dedupeInflight,
 } from '../lib/duoCache';
 import { DuoMembersAvatar } from '../components/duo/DuoMembersAvatar';
 import { UserAvatar } from '../components/UserAvatar';
@@ -493,7 +494,10 @@ export function DuoPage() {
 
     const statsPromise = (async () => {
       try {
-        const { data } = await duoApi.getStats();
+        const data = await dedupeInflight(statsKeyHint, async () => {
+          const res = await duoApi.getStats();
+          return res.data;
+        });
         if (gen !== loadGenRef.current) return data;
         setDuoStats(data);
         const pk = data?.duo_profile?.pair_key || pairKey;

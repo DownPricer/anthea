@@ -30,6 +30,13 @@ import {
   isProfileLimited,
   getPublicHandle,
 } from '../lib/userProfile';
+import {
+  duoCacheKey,
+  fetchDuoCached,
+  getDuoCache,
+  DUO_STALE,
+  invalidateDuoDomain,
+} from '../lib/duoCache';
 
 /**
  * Profil social V2 — affiche le profil connecté par défaut.
@@ -150,24 +157,37 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
     }
   };
 
-  const loadBadges = useCallback(async () => {
-    if (!isOwn) return;
-    try {
-      const { data } = await duoApi.getStats();
-      setBadges(data?.badges || []);
-      setDuoStats(data);
-    } catch {
-      setBadges([]);
-    }
-  }, [isOwn]);
-
-  const loadStats = useCallback(async () => {
+  const loadStats = useCallback(async ({ force = false } = {}) => {
     if (!profileUser?.id) {
       setStatsLoading(false);
       return;
     }
 
     if (isOwn) {
+      const statsKey = duoCacheKey('stats', profileUser.id, 'profile');
+      const detailedKey = duoCacheKey('detailedStats', profileUser.id, 'all');
+      const calKey = duoCacheKey('calendar', profileUser.id, 'year');
+
+      if (!force) {
+        const cachedStats = getDuoCache(statsKey);
+        const cachedDetailed = getDuoCache(detailedKey);
+        const cachedCal = getDuoCache(calKey);
+        if (cachedStats) {
+          setDuoStats(cachedStats);
+          setBadges(cachedStats?.badges || []);
+        }
+        if (cachedDetailed) setDetailedStats(cachedDetailed);
+        if (cachedCal) setCalendarDays(cachedCal);
+        if (cachedStats && cachedDetailed && cachedCal) {
+          setStatsLoading(false);
+          return;
+        }
+      } else {
+        invalidateDuoDomain('stats', profileUser.id);
+        invalidateDuoDomain('detailedStats', profileUser.id);
+        invalidateDuoDomain('calendar', profileUser.id);
+      }
+
       setStatsLoading(true);
       try {
         const end = new Date();
@@ -176,16 +196,48 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
         const startStr = start.toISOString().slice(0, 10);
         const endStr = end.toISOString().slice(0, 10);
 
-        const [statsRes, detailedRes, calendarRes] = await Promise.all([
-          duoApi.getStats(),
-          duoApi.getDetailedStats('all', profileUser.id),
-          streakApi.getCalendar(startStr, endStr),
+        // Une seule fois getStats (badges + streak) — plus de doublon loadBadges
+        const [statsData, detailedData, calendarData] = await Promise.allSettled([
+          fetchDuoCached(
+            statsKey,
+            async () => {
+              const { data } = await duoApi.getStats();
+              return data;
+            },
+            DUO_STALE.stats,
+          ),
+          fetchDuoCached(
+            detailedKey,
+            async () => {
+              const { data } = await duoApi.getDetailedStats('all', profileUser.id);
+              return data;
+            },
+            DUO_STALE.detailedStats,
+          ),
+          fetchDuoCached(
+            calKey,
+            async () => {
+              const { data } = await streakApi.getCalendar(startStr, endStr);
+              return data?.days || [];
+            },
+            DUO_STALE.detailedStats,
+          ),
         ]);
 
-        setDuoStats(statsRes.data);
-        setBadges(statsRes.data?.badges || []);
-        setDetailedStats(detailedRes.data);
-        setCalendarDays(calendarRes.data?.days || []);
+        if (statsData.status === 'fulfilled' && statsData.value) {
+          setDuoStats(statsData.value);
+          setBadges(statsData.value?.badges || []);
+        }
+        if (detailedData.status === 'fulfilled') {
+          setDetailedStats(detailedData.value || null);
+        } else {
+          setDetailedStats(null);
+        }
+        if (calendarData.status === 'fulfilled') {
+          setCalendarDays(calendarData.value || []);
+        } else {
+          setCalendarDays([]);
+        }
       } catch {
         setDetailedStats(null);
         setCalendarDays([]);
@@ -206,7 +258,15 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
     setStatsLoading(true);
     try {
       const handle = getPublicHandle(profileUser);
-      const { data } = await usersApi.getProfileStats(handle);
+      const cacheKey = duoCacheKey('profileStats', handle);
+      const data = await fetchDuoCached(
+        cacheKey,
+        async () => {
+          const res = await usersApi.getProfileStats(handle);
+          return res.data;
+        },
+        DUO_STALE.stats,
+      );
       setDuoStats(data?.duo_stats || null);
       setBadges(data?.duo_stats?.badges || []);
       setDetailedStats(data?.detailed_stats || null);
@@ -221,14 +281,15 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
   }, [profileUser, user, isOwn, isLimited]);
 
   useEffect(() => {
-    loadBadges();
+    // Priorité 1 : header/identité déjà disponibles via auth.
+    // Priorité 2 : stats principales (un seul getStats, badges inclus).
     loadStats();
-  }, [loadBadges, loadStats, user]);
+  }, [loadStats]);
 
   const handleSaveProfile = async (data) => {
     const result = await updateProfile(data);
     if (result.success) {
-      await loadStats();
+      await loadStats({ force: true });
     }
     return result;
   };

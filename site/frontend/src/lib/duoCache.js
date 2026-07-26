@@ -4,6 +4,7 @@
  */
 
 const store = new Map();
+const inflight = new Map();
 
 const STALE = {
   profile: 3 * 60 * 1000,
@@ -42,9 +43,46 @@ export function setDuoCache(parts, data, staleMs) {
   return data;
 }
 
+/**
+ * Déduplication in-flight : une seule requête réseau par clé à la fois.
+ * Si un cache frais existe, le retourne sans refetch (cache-first).
+ */
+export async function fetchDuoCached(parts, fetcher, staleMs) {
+  const key = Array.isArray(parts) ? keyOf(parts) : parts;
+  const cached = getDuoCache(key);
+  if (cached != null) return cached;
+
+  return dedupeInflight(key, async () => {
+    const data = await fetcher();
+    setDuoCache(key, data, staleMs);
+    return data;
+  });
+}
+
+/**
+ * Déduplique les appels parallèles sans court-circuiter le refresh réseau.
+ * Utile pour le boot page (hydrate cache puis refresh).
+ */
+export function dedupeInflight(parts, fetcher) {
+  const key = Array.isArray(parts) ? keyOf(parts) : parts;
+  if (inflight.has(key)) {
+    return inflight.get(key);
+  }
+  const promise = (async () => {
+    try {
+      return await fetcher();
+    } finally {
+      inflight.delete(key);
+    }
+  })();
+  inflight.set(key, promise);
+  return promise;
+}
+
 export function invalidateDuoCache(matcher) {
   if (!matcher) {
     store.clear();
+    inflight.clear();
     return;
   }
   const prefix = Array.isArray(matcher) ? keyOf(matcher) : String(matcher);
@@ -53,12 +91,20 @@ export function invalidateDuoCache(matcher) {
       store.delete(key);
     }
   }
+  for (const key of inflight.keys()) {
+    if (key === prefix || key.startsWith(`${prefix}::`) || key.includes(`::${prefix}`)) {
+      inflight.delete(key);
+    }
+  }
 }
 
 export function invalidateDuoDomain(domain, pairKey) {
   const needle = keyOf(['duo', domain, pairKey].filter(Boolean));
   for (const key of store.keys()) {
     if (key.startsWith(needle)) store.delete(key);
+  }
+  for (const key of inflight.keys()) {
+    if (key.startsWith(needle)) inflight.delete(key);
   }
 }
 

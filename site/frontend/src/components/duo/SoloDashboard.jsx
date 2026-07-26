@@ -25,6 +25,7 @@ import { resolveChallengeLabels } from '../../i18n/challengeLabels';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 import { PageHeader } from '../layout/PageHeader';
 import { BadgeArtwork } from '../badges/BadgeArtwork';
+import { duoCacheKey, fetchDuoCached, DUO_STALE } from '../../lib/duoCache';
 
 function filterSoloBadges(badges = []) {
   return badges.filter((b) => !b.id?.startsWith('duo_') && b.family !== 'duo');
@@ -76,12 +77,31 @@ export function SoloDashboard({ duoStats, duoNav, initialSessions = [], statsLoa
     if (!user?.id) return;
     setStatsLoading(true);
     try {
-      const [detailedRes, calendarRes] = await Promise.all([
-        duoApi.getDetailedStats('all', user.id),
-        streakApi.getCalendar(`${heatmapYear}-01-01`, `${heatmapYear}-12-31`),
+      const detailedKey = duoCacheKey('detailedStats', user.id, 'all');
+      const calKey = duoCacheKey('calendar', user.id, String(heatmapYear));
+      const [detailedData, calendarData] = await Promise.allSettled([
+        fetchDuoCached(
+          detailedKey,
+          async () => {
+            const { data } = await duoApi.getDetailedStats('all', user.id);
+            return data;
+          },
+          DUO_STALE.detailedStats,
+        ),
+        fetchDuoCached(
+          calKey,
+          async () => {
+            const { data } = await streakApi.getCalendar(
+              `${heatmapYear}-01-01`,
+              `${heatmapYear}-12-31`,
+            );
+            return data?.days || [];
+          },
+          DUO_STALE.detailedStats,
+        ),
       ]);
-      setDetailedStats(detailedRes.data);
-      setCalendarDays(calendarRes.data?.days || []);
+      setDetailedStats(detailedData.status === 'fulfilled' ? detailedData.value : null);
+      setCalendarDays(calendarData.status === 'fulfilled' ? calendarData.value || [] : []);
     } catch {
       setDetailedStats(null);
       setCalendarDays([]);

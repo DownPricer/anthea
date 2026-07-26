@@ -9,7 +9,6 @@ import {
   Target,
   Trophy,
   Dumbbell,
-  Loader2,
   Lock,
 } from 'lucide-react';
 import { formatCalories } from '../../lib/calories';
@@ -79,10 +78,18 @@ export function ProfileStatsTab({
     );
   }
 
-  if (loading) {
+  if (loading && !detailedStats && !duoStats) {
     return (
-      <div className="flex justify-center py-16">
-        <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
+      <div className="space-y-4" data-testid="profile-stats-skeletons">
+        <div className="grid grid-cols-2 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="card p-4 animate-pulse">
+              <div className="h-3 w-16 rounded bg-active mb-3" />
+              <div className="h-7 w-20 rounded bg-active" />
+            </div>
+          ))}
+        </div>
+        <div className="card p-4 h-24 animate-pulse bg-hover" />
       </div>
     );
   }
