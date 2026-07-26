@@ -5,17 +5,9 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useNavigate } from 'react-router-dom';
 import { Pause, Play, Minus, Loader2 } from 'lucide-react';
 import { Button } from '../ui/button';
 import { Input } from '../ui/input';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '../ui/dialog';
 import { useActivityClock } from '../../hooks/useActivityClock';
 import { createLocationTracker } from '../../lib/activities/locationTracker';
 import { TRACKING_MODES, GPS_STATES, ACTIVITY_STATUS } from '../../lib/activities/constants';
@@ -26,18 +18,28 @@ import {
 } from '../../lib/activities/formatActivity';
 import { calculateMovingDistance, calculateAveragePace } from '../../lib/activities/geo';
 import {
-  saveActiveActivity,
   getActiveActivity,
   clearActiveActivity,
   queuePoints,
-  drainPoints,
+  queueLaps,
+  hasSeenGpsKeepOpenTip,
+  markGpsKeepOpenTipSeen,
 } from '../../lib/activities/activityStore';
+import {
+  CHECKPOINT_INTERVAL_MS,
+  flushActivityCheckpoint,
+  keepaliveMetricsCheckpoint,
+  buildMetricsFromMode,
+  buildLapIdempotencyKey,
+  persistLocalSnapshot,
+} from '../../lib/activities/activityCheckpoint';
 import { activitiesApi, formatApiError } from '../../lib/api';
 import {
   getActivityTrackingMode,
   buildStartIdempotencyKey,
 } from '../../lib/activities/workoutActivityExercise';
 import { toast } from 'sonner';
+import { useLocation } from 'react-router-dom';
 
 export { buildStartIdempotencyKey };
 
@@ -89,10 +91,10 @@ export function TrackedActivityInPlayer({
   workoutSessionId = null,
   exerciseName,
   onExerciseComplete,
+  onRedirectToExercise = null,
   globalPaused = false,
 }) {
   const { t } = useTranslation(['player', 'activity', 'common']);
-  const navigate = useNavigate();
   const mode = getActivityTrackingMode(exercise) || TRACKING_MODES.TIMER;
   const config = exercise?.activity_config || {};
   const presetId = exercise?.preset_id || (exercise?.exercise_id || '').replace(/^activity:/, '');
@@ -109,10 +111,11 @@ export function TrackedActivityInPlayer({
   const [intervalRemaining, setIntervalRemaining] = useState(0);
   const [startPending, setStartPending] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [conflictActivity, setConflictActivity] = useState(null);
-  const [conflictOpen, setConflictOpen] = useState(false);
-  const [conflictBusy, setConflictBusy] = useState(false);
+  const [offlineSave, setOfflineSave] = useState(false);
+  const [restoredBanner, setRestoredBanner] = useState(false);
+  const [gpsKeepOpenTip, setGpsKeepOpenTip] = useState(false);
 
+  const location = useLocation();
   const clock = useActivityClock();
   const locationTrackerRef = useRef(null);
   const syncRef = useRef(null);
@@ -121,6 +124,15 @@ export function TrackedActivityInPlayer({
   const startPendingRef = useRef(false);
   const toastShownRef = useRef(false);
   const recoveringRef = useRef(false);
+  const distanceRef = useRef(0);
+  const lapsRef = useRef(0);
+  const activityRef = useRef(null);
+  const modeRef = useRef(mode);
+  const intervalStateRef = useRef({ round: 1, phase: 'work', remaining: 0 });
+  const syncFnRef = useRef(async () => {});
+  const persistFnRef = useRef(() => {});
+  const clockRef = useRef(clock);
+  const gpsPointsRef = useRef([]);
 
   const distanceMeters =
     mode === TRACKING_MODES.GPS
@@ -136,11 +148,84 @@ export function TrackedActivityInPlayer({
     Number.isFinite(paceMinPerKmRaw) && paceMinPerKmRaw > 0 ? paceMinPerKmRaw : null;
   const paceSecPerKm = paceMinPerKm != null ? paceMinPerKm * 60 : null;
 
-  const isLinkedCurrent = useCallback((current) => {
+  distanceRef.current = distanceMeters;
+  lapsRef.current = laps;
+  activityRef.current = activity;
+  modeRef.current = mode;
+  clockRef.current = clock;
+  gpsPointsRef.current = gpsPoints;
+  intervalStateRef.current = {
+    round: intervalRound,
+    phase: intervalPhase,
+    remaining: intervalRemaining,
+  };
+
+  const persistSnapshotNow = useCallback(() => {
+    const act = activityRef.current;
+    const clk = clockRef.current;
+    const points = gpsPointsRef.current || [];
+    if (!act?.id) return;
+    persistLocalSnapshot({
+      activity_id: act.id,
+      id: act.id,
+      name: exerciseName,
+      tracking_mode: modeRef.current,
+      scheduled_workout_id: scheduledWorkoutId,
+      workout_exercise_index: exerciseIndex,
+      workout_session_id: workoutSessionId,
+      preset_id: presetId,
+      status: clk.status,
+      started_at: clk.startedAt,
+      paused_at: clk.pausedAt,
+      moving_seconds: clk.movingSeconds,
+      paused_seconds: clk.pausedSeconds,
+      distance_meters: distanceRef.current,
+      laps: lapsRef.current,
+      interval_state: intervalStateRef.current,
+      last_gps_point: points.length ? points[points.length - 1] : null,
+      gpsPoints: points,
+      clock: {
+        startedAt: clk.startedAt,
+        status: clk.status,
+        pausedAt: clk.pausedAt,
+        pausedSeconds: clk.pausedSeconds,
+        endedAt: clk.endedAt,
+      },
+    }).catch(() => {});
+  }, [exerciseName, scheduledWorkoutId, exerciseIndex, workoutSessionId, presetId]);
+
+  const syncMetrics = useCallback(async () => {
+    const act = activityRef.current;
+    if (!act?.id) return;
+    persistFnRef.current();
+    const metrics = buildMetricsFromMode({
+      mode: modeRef.current,
+      distanceMeters: distanceRef.current,
+      laps: lapsRef.current,
+      intervalState: intervalStateRef.current,
+    });
+    const result = await flushActivityCheckpoint(act.id, {
+      metrics,
+      eventId: `cp-${Date.now()}`,
+    });
+    if (result.offline) setOfflineSave(true);
+    else if (result.ok) setOfflineSave(false);
+  }, []);
+
+  syncFnRef.current = syncMetrics;
+  persistFnRef.current = persistSnapshotNow;
+
+  useEffect(() => {
+    if (location?.state?.activityRestored) {
+      setRestoredBanner(true);
+      const tmr = setTimeout(() => setRestoredBanner(false), 2000);
+      return () => clearTimeout(tmr);
+    }
+    return undefined;
+  }, [location?.state?.activityRestored]);
+
+  const isSameWorkoutSession = useCallback((current) => {
     if (!current) return false;
-    if (!['active', 'paused'].includes(current.status)) return false;
-    const idx = current.workout_exercise_index;
-    if (Number(idx) !== Number(exerciseIndex)) return false;
     if (
       scheduledWorkoutId &&
       String(current.scheduled_workout_id || '') === String(scheduledWorkoutId)
@@ -154,7 +239,26 @@ export function TrackedActivityInPlayer({
       return true;
     }
     return false;
-  }, [exerciseIndex, scheduledWorkoutId, workoutSessionId]);
+  }, [scheduledWorkoutId, workoutSessionId]);
+
+  const isLinkedCurrent = useCallback((current) => {
+    if (!current) return false;
+    if (!['active', 'paused'].includes(current.status)) return false;
+    const idx = current.workout_exercise_index;
+    if (Number(idx) !== Number(exerciseIndex)) return false;
+    return isSameWorkoutSession(current);
+  }, [exerciseIndex, isSameWorkoutSession]);
+
+  const redirectIfOtherExercise = useCallback((current) => {
+    if (!current || !isSameWorkoutSession(current)) return false;
+    const idx = Number(current.workout_exercise_index);
+    if (!Number.isFinite(idx) || idx === Number(exerciseIndex)) return false;
+    if (typeof onRedirectToExercise === 'function') {
+      onRedirectToExercise(idx);
+      return true;
+    }
+    return false;
+  }, [exerciseIndex, isSameWorkoutSession, onRedirectToExercise]);
 
   // Reprise après reload — aucun POST start
   useEffect(() => {
@@ -175,6 +279,10 @@ export function TrackedActivityInPlayer({
             setManualDistance,
             mode,
           });
+          return;
+        }
+        // CAS B — autre exercice de la même séance déjà actif
+        if (current && redirectIfOtherExercise(current)) {
           return;
         }
       } catch {
@@ -248,10 +356,47 @@ export function TrackedActivityInPlayer({
 
   useEffect(() => {
     if (phase !== 'active' || !activity?.id) return undefined;
-    syncRef.current = setInterval(() => syncMetrics(), 20000);
+    const run = () => syncFnRef.current();
+    syncRef.current = setInterval(run, CHECKPOINT_INTERVAL_MS);
     return () => clearInterval(syncRef.current);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, activity?.id, gpsPoints, laps, manualDistance]);
+  }, [phase, activity?.id]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      setOfflineSave(false);
+      syncFnRef.current();
+    };
+    const onOffline = () => setOfflineSave(true);
+    const onVis = () => {
+      if (document.visibilityState === 'hidden' && activityRef.current?.id) {
+        persistFnRef.current();
+      }
+      if (document.visibilityState === 'visible' && activityRef.current?.id) {
+        syncFnRef.current();
+      }
+    };
+    const onHide = () => {
+      if (!activityRef.current?.id) return;
+      persistFnRef.current();
+      const metrics = buildMetricsFromMode({
+        mode: modeRef.current,
+        distanceMeters: distanceRef.current,
+        laps: lapsRef.current,
+        intervalState: intervalStateRef.current,
+      });
+      keepaliveMetricsCheckpoint(activityRef.current.id, metrics);
+    };
+    window.addEventListener('online', onOnline);
+    window.addEventListener('offline', onOffline);
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', onHide);
+    return () => {
+      window.removeEventListener('online', onOnline);
+      window.removeEventListener('offline', onOffline);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', onHide);
+    };
+  }, []);
 
   useEffect(() => {
     if (mode !== TRACKING_MODES.INTERVALS || phase !== 'active' || clock.status !== ACTIVITY_STATUS.ACTIVE) {
@@ -273,36 +418,22 @@ export function TrackedActivityInPlayer({
 
   useEffect(() => {
     if (!activity?.id || phase !== 'active') return;
-    saveActiveActivity({
-      id: activity.id,
-      name: exerciseName,
-      tracking_mode: mode,
-      scheduled_workout_id: scheduledWorkoutId,
-      workout_exercise_index: exerciseIndex,
-      workout_session_id: workoutSessionId,
-      clock: {
-        startedAt: clock.startedAt,
-        status: clock.status,
-        pausedAt: clock.pausedAt,
-        pausedSeconds: clock.pausedSeconds,
-        endedAt: clock.endedAt,
-      },
-      gpsPoints,
-      laps,
-      manualDistance: parseFloat(manualDistance) || 0,
-    }).catch(() => {});
+    persistSnapshotNow();
   }, [
     activity,
     phase,
-    clock,
+    clock.startedAt,
+    clock.status,
+    clock.pausedAt,
+    clock.pausedSeconds,
+    clock.movingSeconds,
     gpsPoints,
     laps,
     manualDistance,
-    exerciseName,
-    mode,
-    scheduledWorkoutId,
-    exerciseIndex,
-    workoutSessionId,
+    persistSnapshotNow,
+    intervalRound,
+    intervalPhase,
+    intervalRemaining,
   ]);
 
   const advanceInterval = () => {
@@ -320,6 +451,7 @@ export function TrackedActivityInPlayer({
       setIntervalPhase('work');
       setIntervalRemaining(ic.work_seconds || 30);
     }
+    setTimeout(() => syncFnRef.current(), 0);
   };
 
   const startGps = async () => {
@@ -330,49 +462,17 @@ export function TrackedActivityInPlayer({
       locationTrackerRef.current = tracker;
       tracker.subscribe((point) => {
         setGpsPoints((prev) => [...prev, point]);
-        if (activity?.id) queuePoints(activity.id, [point]);
+        if (activityRef.current?.id) queuePoints(activityRef.current.id, [point]);
       });
       await tracker.start();
       setGpsState(GPS_STATES.TRACKING);
+      if (!hasSeenGpsKeepOpenTip()) {
+        setGpsKeepOpenTip(true);
+        markGpsKeepOpenTipSeen();
+      }
     } catch {
       setGpsState(GPS_STATES.ERROR);
       toast.error(t('activity:gps.permissionDenied', { defaultValue: 'Permission GPS refusée' }));
-    }
-  };
-
-  const syncMetrics = async () => {
-    if (!activity?.id) return;
-    try {
-      if (mode === TRACKING_MODES.MANUAL_DISTANCE) {
-        await activitiesApi.updateMetrics(activity.id, {
-          distance_meters: (parseFloat(manualDistance) || 0) * 1000,
-        });
-      }
-      if (mode === TRACKING_MODES.GPS) {
-        const pending = await drainPoints(activity.id);
-        if (pending.length > 0) {
-          await activitiesApi.addPoints(activity.id, {
-            points: pending.map((p) => ({
-              longitude: p.lon ?? p.longitude,
-              latitude: p.lat ?? p.latitude,
-              timestamp: p.timestamp,
-              accuracy: p.accuracy,
-              altitude: p.altitude,
-              speed: p.speed,
-              idempotency_key: p.idempotency_key || `${p.timestamp}-${p.lat}-${p.lon}`,
-              after_pause: p.segment === 'new_segment',
-              new_segment: p.segment === 'new_segment',
-            })),
-          });
-        }
-      }
-      if (mode === TRACKING_MODES.LAPS) {
-        await activitiesApi.updateMetrics(activity.id, {
-          distance_meters: distanceMeters,
-        });
-      }
-    } catch {
-      /* sync silencieuse */
     }
   };
 
@@ -435,14 +535,23 @@ export function TrackedActivityInPlayer({
 
     try {
       const { data } = await activitiesApi.start(buildStartPayload());
+      const { activity: started } = unwrapStartResponse(data);
+      // CAS B — backend a renvoyé l'activité d'un autre exercice de la séance
+      if (
+        started &&
+        Number(started.workout_exercise_index) !== Number(exerciseIndex) &&
+        redirectIfOtherExercise(started)
+      ) {
+        return;
+      }
       activateFromStartData(data, { restartClock: Boolean(data?.created) });
     } catch (error) {
       const status = error?.response?.status;
       const detail = error?.response?.data?.detail;
+      // Filet de sécurité : résolution auto sans dialogue (backend ne doit plus 409 en parcours normal)
       if (status === 409) {
         const current = detail?.current_activity;
         const activityId = detail?.activity_id || current?.id;
-        // Même activité liée déjà en cours — récupérer sans erreur
         if (detail?.linked_to_current_exercise || (current && isLinkedCurrent(current))) {
           try {
             const { data } = await activitiesApi.getOne(activityId);
@@ -452,17 +561,17 @@ export function TrackedActivityInPlayer({
             /* fallthrough */
           }
         }
-        if (current || activityId) {
-          setConflictActivity(current || { id: activityId });
-          setConflictOpen(true);
+        if (current && redirectIfOtherExercise(current)) {
           return;
         }
-        showStartErrorOnce(
-          t('player:tracked.errors.anotherActive', {
-            defaultValue: 'Une autre activité est déjà en cours.',
-          }),
-        );
-        return;
+        // Retry : le serveur pause l'orpheline et démarre
+        try {
+          const { data } = await activitiesApi.start(buildStartPayload());
+          activateFromStartData(data, { restartClock: Boolean(data?.created) });
+          return;
+        } catch {
+          /* fallthrough */
+        }
       }
       showStartErrorOnce(
         formatApiError(error) ||
@@ -474,55 +583,6 @@ export function TrackedActivityInPlayer({
       startPendingRef.current = false;
       setStartPending(false);
     }
-  };
-
-  const handleConflictResume = () => {
-    const other = conflictActivity;
-    setConflictOpen(false);
-    if (!other) return;
-    if (other.scheduled_workout_id) {
-      navigate(`/player/${other.scheduled_workout_id}`);
-      return;
-    }
-    if (other.id) {
-      navigate(`/activity/${other.id}/live`);
-    }
-  };
-
-  const handleConflictDiscardAndStart = async () => {
-    if (conflictBusy || startPendingRef.current) return;
-    setConflictBusy(true);
-    startPendingRef.current = true;
-    setStartPending(true);
-    try {
-      const otherId = conflictActivity?.id;
-      if (otherId) {
-        await activitiesApi.discard(otherId);
-        await clearActiveActivity();
-      }
-      setConflictOpen(false);
-      setConflictActivity(null);
-      const { data } = await activitiesApi.start(
-        buildStartPayload({ force_discard_current: true }),
-      );
-      activateFromStartData(data, { restartClock: true });
-    } catch (error) {
-      showStartErrorOnce(
-        formatApiError(error) ||
-          t('player:tracked.errors.startFailed', {
-            defaultValue: "Impossible de démarrer l'activité pour le moment.",
-          }),
-      );
-    } finally {
-      setConflictBusy(false);
-      startPendingRef.current = false;
-      setStartPending(false);
-    }
-  };
-
-  const handleConflictCancel = () => {
-    setConflictOpen(false);
-    setConflictActivity(null);
   };
 
   const handlePause = useCallback(async () => {
@@ -533,10 +593,12 @@ export function TrackedActivityInPlayer({
     if (activity?.id) {
       try {
         await activitiesApi.pause(activity.id);
+        await syncMetrics();
       } catch {
-        /* ignore */
+        setOfflineSave(true);
       }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activity, clock]);
 
   const handleResume = async () => {
@@ -547,8 +609,9 @@ export function TrackedActivityInPlayer({
     if (activity?.id) {
       try {
         await activitiesApi.resume(activity.id);
+        await syncMetrics();
       } catch {
-        /* ignore */
+        setOfflineSave(true);
       }
     }
   };
@@ -567,7 +630,21 @@ export function TrackedActivityInPlayer({
         }
       }
       if (activity?.id) {
-        const idempotencyKey = `lap:${activity.id}:${Date.now()}:${count}:${Math.random().toString(36).slice(2, 8)}`;
+        const clientEventId = `${Date.now()}:${count}:${Math.random().toString(36).slice(2, 8)}`;
+        const idempotencyKey = buildLapIdempotencyKey(activity.id, clientEventId);
+        if (!navigator.onLine) {
+          await queueLaps(activity.id, [
+            {
+              action: count > 0 ? 'add' : 'undo',
+              count: Math.abs(count),
+              client_event_id: clientEventId,
+              idempotency_key: idempotencyKey,
+            },
+          ]);
+          setOfflineSave(true);
+          persistSnapshotNow();
+          return;
+        }
         if (count > 0) {
           const { data } = await activitiesApi.addLaps(activity.id, {
             action: 'add',
@@ -575,9 +652,6 @@ export function TrackedActivityInPlayer({
             idempotency_key: idempotencyKey,
           });
           if (typeof data?.laps === 'number') setLaps(data.laps);
-          if (typeof data?.distance_meters === 'number') {
-            /* distance derived from laps locally too */
-          }
         } else if (count < 0) {
           const { data } = await activitiesApi.addLaps(activity.id, {
             action: 'undo',
@@ -585,9 +659,22 @@ export function TrackedActivityInPlayer({
           });
           if (typeof data?.laps === 'number') setLaps(data.laps);
         }
+        await syncMetrics();
       }
     } catch {
-      setLaps((prev) => Math.max(0, prev - count));
+      if (activity?.id) {
+        await queueLaps(activity.id, [
+          {
+            action: count > 0 ? 'add' : 'undo',
+            count: Math.abs(count),
+            client_event_id: `${Date.now()}`,
+            idempotency_key: buildLapIdempotencyKey(activity.id, `${Date.now()}`),
+          },
+        ]);
+        setOfflineSave(true);
+      } else {
+        setLaps((prev) => Math.max(0, prev - count));
+      }
     } finally {
       window.setTimeout(() => setLapsPending(false), 280);
     }
@@ -676,68 +763,33 @@ export function TrackedActivityInPlayer({
             ? t('common:loading', { defaultValue: '…' })
             : t('player:tracked.start', { defaultValue: 'Démarrer' })}
         </Button>
-
-        <Dialog open={conflictOpen} onOpenChange={setConflictOpen}>
-          <DialogContent className="bg-surface-elevated border-border max-w-sm mx-4">
-            <DialogHeader>
-              <DialogTitle className="text-foreground text-center">
-                {t('player:tracked.conflict.title', {
-                  defaultValue: 'Une autre activité est déjà en cours',
-                })}
-              </DialogTitle>
-              <DialogDescription className="text-muted text-center pt-2">
-                {t('player:tracked.conflict.description', {
-                  defaultValue:
-                    'Choisissez de reprendre, d’abandonner ou de conserver l’activité actuellement en cours.',
-                })}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-3 pt-2">
-              <Button
-                type="button"
-                onClick={handleConflictResume}
-                disabled={conflictBusy}
-                data-testid="tracked-conflict-resume"
-                className="w-full h-12 rounded-xl btn-primary text-foreground"
-              >
-                {t('player:tracked.conflict.resume', {
-                  defaultValue: 'Reprendre l’activité existante',
-                })}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleConflictDiscardAndStart}
-                disabled={conflictBusy}
-                data-testid="tracked-conflict-discard-start"
-                className="w-full h-12 rounded-xl border-border text-foreground"
-              >
-                {conflictBusy ? (
-                  <Loader2 size={18} className="mr-2 animate-spin" />
-                ) : null}
-                {t('player:tracked.conflict.discardAndStart', {
-                  defaultValue: 'Abandonner et démarrer celle-ci',
-                })}
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleConflictCancel}
-                disabled={conflictBusy}
-                data-testid="tracked-conflict-cancel"
-                className="w-full h-11 rounded-xl border-border text-muted"
-              >
-                {t('player:tracked.conflict.cancel', { defaultValue: 'Annuler' })}
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     );
   }
 
   return (
     <div className="w-full max-w-md space-y-4" data-testid="tracked-activity-live">
+      {restoredBanner ? (
+        <p
+          className="text-xs text-[var(--theme-primary)]"
+          data-testid="tracked-activity-restored"
+        >
+          {t('player:tracked.restored', { defaultValue: 'Activité restaurée' })}
+        </p>
+      ) : null}
+      {offlineSave ? (
+        <p className="text-xs text-amber-400" data-testid="tracked-offline-save">
+          {t('player:tracked.offlineSave', { defaultValue: 'Sauvegarde hors ligne' })}
+        </p>
+      ) : null}
+      {gpsKeepOpenTip ? (
+        <p className="text-xs text-muted" data-testid="tracked-gps-keep-open-tip">
+          {t('player:tracked.gpsKeepOpen', {
+            defaultValue:
+              'Pour enregistrer tout le parcours, gardez FitGather ouvert et l’écran actif.',
+          })}
+        </p>
+      ) : null}
       <h1 className="text-2xl sm:text-3xl font-bold text-foreground font-['Outfit'] break-words line-clamp-2">
         {exerciseName}
       </h1>

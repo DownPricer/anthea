@@ -17,14 +17,15 @@ describe('CreateWorkoutPage dialog a11y (source)', () => {
   });
 });
 
-describe('TrackedActivity conflict dialog a11y (source)', () => {
+describe('TrackedActivity conflict dialog removed (source)', () => {
   const src = fs.readFileSync(
     path.join(__dirname, '../components/player/TrackedActivityInPlayer.jsx'),
     'utf8',
   );
 
-  test('conflict dialog includes DialogDescription', () => {
-    expect(src).toContain('tracked-conflict-resume');
-    expect(src).toMatch(/DialogDescription[\s\S]*conflict\.description/);
+  test('no conflict dialog UI remains', () => {
+    expect(src).not.toContain('tracked-conflict-resume');
+    expect(src).not.toContain('DialogDescription');
+    expect(src).toContain('redirectIfOtherExercise');
   });
 });

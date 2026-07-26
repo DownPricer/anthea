@@ -48,12 +48,13 @@ describe('TrackedActivityInPlayer start guards (source)', () => {
     expect(src).toContain('tracked-activity-start-btn');
   });
 
-  test('handles structured 409 with conflict dialog', () => {
-    expect(src).toContain('tracked-conflict-resume');
-    expect(src).toContain('tracked-conflict-discard-start');
-    expect(src).toContain('tracked-conflict-cancel');
-    expect(src).toContain('DialogDescription');
-    expect(src).toContain('force_discard_current: true');
+  test('resolves conflicts automatically without dialog', () => {
+    expect(src).not.toContain('tracked-conflict-resume');
+    expect(src).not.toContain('tracked-conflict-discard-start');
+    expect(src).not.toContain('tracked-conflict-cancel');
+    expect(src).not.toContain('Une autre activité est déjà en cours');
+    expect(src).toContain('redirectIfOtherExercise');
+    expect(src).toContain('onRedirectToExercise');
   });
 
   test('reload recovers linked activity without start POST in recovery effect', () => {
@@ -64,7 +65,7 @@ describe('TrackedActivityInPlayer start guards (source)', () => {
   });
 
   test('stays on player route for workout-linked resume', () => {
-    expect(src).toContain('/player/${other.scheduled_workout_id}');
+    expect(src).toContain('onRedirectToExercise');
     expect(src).not.toContain("navigate('/activity/start'");
   });
 });

@@ -58,13 +58,16 @@ async def start_handler(db, user: dict, payload: Dict[str, Any]) -> Dict[str, An
         serialized = serialize_activity_detail(
             activity, include_private_route=False, viewer_is_owner=True
         )
-        return {
+        out = {
             "activity": serialized,
             "created": created,
             "resumed": resumed,
             # Compat champs plats pour anciens clients
             **serialized,
         }
+        if isinstance(result, dict) and result.get("session_redirect"):
+            out["session_redirect"] = True
+        return out
     except Exception as exc:
         if isinstance(
             exc,

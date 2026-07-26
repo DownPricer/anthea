@@ -80,6 +80,17 @@ def _normalize_exercise_index(value: Any) -> Optional[int]:
         return None
 
 
+def _same_workout_session(doc: Dict[str, Any], payload: Dict[str, Any]) -> bool:
+    """True si doc et payload pointent la même séance (scheduled ou session)."""
+    sched = payload.get("scheduled_workout_id")
+    if sched and str(doc.get("scheduled_workout_id") or "") == str(sched):
+        return True
+    wsid = payload.get("workout_session_id")
+    if wsid and str(doc.get("workout_session_id") or "") == str(wsid):
+        return True
+    return False
+
+
 def _is_same_workout_exercise_link(doc: Dict[str, Any], payload: Dict[str, Any]) -> bool:
     """True si l'activité courante correspond au même exercice de séance."""
     idx = _normalize_exercise_index(payload.get("workout_exercise_index"))
@@ -87,12 +98,7 @@ def _is_same_workout_exercise_link(doc: Dict[str, Any], payload: Dict[str, Any])
     if idx is None or doc_idx is None or idx != doc_idx:
         return False
 
-    sched = payload.get("scheduled_workout_id")
-    if sched and str(doc.get("scheduled_workout_id") or "") == str(sched):
-        return True
-
-    wsid = payload.get("workout_session_id")
-    if wsid and str(doc.get("workout_session_id") or "") == str(wsid):
+    if _same_workout_session(doc, payload):
         return True
 
     idem = payload.get("idempotency_key") or payload.get("start_idempotency_key")
@@ -101,13 +107,26 @@ def _is_same_workout_exercise_link(doc: Dict[str, Any], payload: Dict[str, Any])
 
     # Même preset / exercise_id dans le même contexte séance
     ex_id = payload.get("exercise_id")
-    if ex_id and doc.get("exercise_id") == ex_id and (sched or wsid):
-        if sched and str(doc.get("scheduled_workout_id") or "") == str(sched):
-            return True
-        if wsid and str(doc.get("workout_session_id") or "") == str(wsid):
-            return True
+    if ex_id and doc.get("exercise_id") == ex_id and _same_workout_session(doc, payload):
+        return True
 
     return False
+
+
+async def _soft_pause_orphan(db, current: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    CAS C — checkpoint + pause d'une activité sans rapport.
+    Conserve les métriques ; ne discard pas ; reste consultable.
+    """
+    if current.get("status") == "active":
+        apply_pause(current)
+    refresh_timing_fields(current)
+    current["updated_at"] = _now_iso()
+    markers = list(current.get("segment_markers") or [])
+    markers.append({"type": "soft_pause_orphan", "at": current.get("updated_at")})
+    current["segment_markers"] = markers
+    await db[SESSIONS_COLLECTION].replace_one({"id": current["id"]}, current)
+    return current
 
 
 async def ensure_activity_indexes(db) -> None:
@@ -338,18 +357,22 @@ async def start_activity(db, user_id: str, payload: Dict[str, Any]) -> Dict[str,
                 "created": False,
                 "resumed": True,
             }
-        if not force:
-            # CAS C — autre activité active
-            raise ActivityConflictError(
-                "Une autre activité est déjà en cours.",
-                current=current,
-                code="ACTIVE_ACTIVITY_EXISTS",
-                linked_to_current_exercise=False,
-            )
-        current["status"] = "discarded"
-        current["ended_at"] = _now_iso()
-        current["updated_at"] = _now_iso()
-        await db[SESSIONS_COLLECTION].replace_one({"id": current["id"]}, current)
+        # CAS B — même séance, autre exercice : la progression existante gagne
+        if _same_workout_session(current, payload):
+            return {
+                "activity": refresh_timing_fields(current),
+                "created": False,
+                "resumed": True,
+                "session_redirect": True,
+            }
+        if force:
+            current["status"] = "discarded"
+            current["ended_at"] = _now_iso()
+            current["updated_at"] = _now_iso()
+            await db[SESSIONS_COLLECTION].replace_one({"id": current["id"]}, current)
+        else:
+            # CAS C — activité orpheline / sans rapport : pause auto, puis démarrer
+            await _soft_pause_orphan(db, current)
 
     doc = new_activity_document(
         user_id=user_id,
@@ -439,6 +462,10 @@ async def patch_metrics(db, activity_id: str, user_id: str, payload: Dict[str, A
     doc = await require_owner(db, activity_id, user_id)
     if doc.get("status") in ("completed", "discarded"):
         raise ActivityValidationError("Activité déjà terminée")
+    idem = payload.get("idempotency_key")
+    keys = list(doc.get("processed_idempotency_keys") or [])
+    if idem and idem in keys:
+        return refresh_timing_fields(doc)
     if "distance_meters" in payload and payload["distance_meters"] is not None:
         try:
             dist = float(payload["distance_meters"])
@@ -453,6 +480,9 @@ async def patch_metrics(db, activity_id: str, user_id: str, payload: Dict[str, A
         doc["interval_results"] = payload["interval_results"][:500]
     if "interval_config" in payload and isinstance(payload["interval_config"], dict):
         doc["interval_config"] = payload["interval_config"]
+    if idem:
+        keys.append(str(idem))
+        doc["processed_idempotency_keys"] = keys[-200:]
     recompute_derived_metrics(doc)
     doc["updated_at"] = _now_iso()
     await db[SESSIONS_COLLECTION].replace_one({"id": activity_id}, doc)

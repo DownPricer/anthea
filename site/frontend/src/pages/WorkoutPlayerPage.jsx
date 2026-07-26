@@ -14,6 +14,10 @@ import {
   isTrackedActivityExercise,
   getActivityTrackingMode,
 } from '../lib/activities/workoutActivityExercise';
+import {
+  getKeepScreenAwakePref,
+  setKeepScreenAwakePref,
+} from '../lib/activities/activityStore';
 import { formatElapsed, formatDistanceMeters, formatPace } from '../lib/activities/formatActivity';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -466,14 +470,15 @@ export function WorkoutPlayerPage() {
   ]);
 
   const sessionIsActive = phase !== 'preparation' && phase !== 'finished' && !isPaused;
+  const [keepScreenAwake, setKeepScreenAwake] = useState(() => getKeepScreenAwakePref());
 
   useEffect(() => {
-    if (sessionIsActive) {
+    if (sessionIsActive && keepScreenAwake) {
       requestWakeLock();
     } else {
       releaseWakeLock();
     }
-  }, [sessionIsActive, requestWakeLock, releaseWakeLock]);
+  }, [sessionIsActive, keepScreenAwake, requestWakeLock, releaseWakeLock]);
 
   useEffect(() => {
     if (phase === 'finished' || phase === 'preparation' || !user?.partner_id) {
@@ -1213,12 +1218,19 @@ export function WorkoutPlayerPage() {
             {wakeLockSupported && (
               <>
                 <DropdownMenuSeparator className="bg-active" />
-                <DropdownMenuItem disabled className="text-subtle text-xs">
-                  {wakeLockActive
-                    ? t('player:wakeLock.active')
-                    : wakeLockError && sessionIsActive
-                      ? t('player:wakeLock.failed')
-                      : t('player:wakeLock.inactive')}
+                <DropdownMenuItem
+                  onClick={() => {
+                    const next = !keepScreenAwake;
+                    setKeepScreenAwake(next);
+                    setKeepScreenAwakePref(next);
+                  }}
+                  className="text-foreground focus:bg-active cursor-pointer"
+                  data-testid="player-keep-screen-awake"
+                >
+                  {t('player:wakeLock.toggle', {
+                    defaultValue: 'Garder l’écran actif',
+                  })}
+                  {keepScreenAwake && wakeLockActive ? ' ✓' : keepScreenAwake ? '' : ' (off)'}
                 </DropdownMenuItem>
               </>
             )}
@@ -1263,6 +1275,11 @@ export function WorkoutPlayerPage() {
                   scheduledWorkoutId={workoutId}
                   exerciseName={localizedCurrentName || currentExercise.name}
                   onExerciseComplete={completeTrackedActivity}
+                  onRedirectToExercise={(idx) => {
+                    if (Number.isFinite(Number(idx))) {
+                      setCurrentExerciseIndex(Number(idx));
+                    }
+                  }}
                   globalPaused={isPaused}
                 />
               ) : (

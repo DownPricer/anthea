@@ -207,38 +207,68 @@ def test_completed_activity_not_reused():
     assert second["activity"]["id"] != aid
 
 
-def test_other_active_returns_structured_409():
+def test_other_active_soft_paused_then_new_starts():
+    """CAS C — orpheline mise en pause, nouvelle activité créée, pas de 409."""
     db = FakeDB()
-    asyncio.run(
+    first = asyncio.run(
         service.start_activity(
             db,
             "user1",
             {"tracking_mode": "timer", "activity_kind": "yoga"},
         )
     )
-    with pytest.raises(service.ActivityConflictError) as exc:
-        asyncio.run(
-            service.start_activity(
-                db,
-                "user1",
-                {
-                    "tracking_mode": "gps",
-                    "activity_kind": "running",
-                    "scheduled_workout_id": "w2",
-                    "workout_exercise_index": 0,
-                },
-            )
+    orphan_id = first["activity"]["id"]
+    second = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "gps",
+                "activity_kind": "running",
+                "scheduled_workout_id": "w2",
+                "workout_exercise_index": 0,
+            },
         )
-    assert exc.value.code == "ACTIVE_ACTIVITY_EXISTS"
-    assert exc.value.linked_to_current_exercise is False
-    http = _http_from_service(exc.value)
-    assert http.status_code == 409
-    detail = http.detail
-    assert detail["code"] == "ACTIVE_ACTIVITY_EXISTS"
-    assert detail["activity_id"]
-    assert detail["linked_to_current_exercise"] is False
-    assert "route" not in (detail.get("current_activity") or {})
-    assert (detail.get("current_activity") or {}).get("bounding_box") is None
+    )
+    assert second["created"] is True
+    assert second["resumed"] is False
+    orphan = asyncio.run(service.get_activity(db, orphan_id))
+    assert orphan["status"] == "paused"
+    assert second["activity"]["id"] != orphan_id
+
+
+def test_same_session_other_exercise_redirects():
+    """CAS B — même séance autre exercice → reprend l'existante."""
+    db = FakeDB()
+    first = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "timer",
+                "activity_kind": "yoga",
+                "scheduled_workout_id": "w1",
+                "workout_exercise_index": 0,
+            },
+        )
+    )
+    second = asyncio.run(
+        service.start_activity(
+            db,
+            "user1",
+            {
+                "tracking_mode": "gps",
+                "activity_kind": "running",
+                "scheduled_workout_id": "w1",
+                "workout_exercise_index": 1,
+            },
+        )
+    )
+    assert second["created"] is False
+    assert second["resumed"] is True
+    assert second.get("session_redirect") is True
+    assert second["activity"]["id"] == first["activity"]["id"]
+    assert second["activity"]["workout_exercise_index"] == 0
 
 
 def test_discard_then_start_new():

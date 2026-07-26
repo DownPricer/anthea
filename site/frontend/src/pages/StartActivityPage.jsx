@@ -118,14 +118,14 @@ export function StartActivityPage() {
 
       const { data } = await activitiesApi.start(payload);
       const started = data?.activity || data;
+      // Si reprise d'une activité liée à une séance, rester sur le Player
+      if (started?.scheduled_workout_id) {
+        navigate(`/player/${started.scheduled_workout_id}`);
+        return;
+      }
       navigate(`/activity/${started.id}/live`);
     } catch (error) {
-      if (error.response?.status === 409) {
-        toast.error(t('activity:errors.alreadyActive'));
-        await checkExistingActivity();
-      } else {
-        toast.error(formatApiError(error));
-      }
+      toast.error(formatApiError(error));
     } finally {
       setLoading(false);
     }
@@ -263,7 +263,7 @@ export function StartActivityPage() {
               <div className="flex-1 text-sm text-blue-400 min-w-0">
                 <p className="font-medium mb-1">{t('activity:gps.webWarningTitle')}</p>
                 <p className="text-blue-400/80 break-words">
-                  {t('activity:gps.webWarning', { productName: 'FitMatch' })}
+                  {t('activity:gps.webWarning', { productName: 'FitGather' })}
                 </p>
               </div>
             </div>

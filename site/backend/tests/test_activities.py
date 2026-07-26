@@ -319,16 +319,18 @@ def test_start_timer_activity(fake_db):
     assert result["resumed"] is False
 
 
-def test_active_conflict(fake_db):
-    asyncio.run(
+def test_active_orphan_soft_paused_on_new_start(fake_db):
+    """CAS C — démarrer une 2e activité pause automatiquement la 1re (pas de 409)."""
+    first = asyncio.run(
         service.start_activity(fake_db, "user1", {"tracking_mode": "timer", "activity_kind": "yoga"})
     )
-    with pytest.raises(service.ActivityConflictError) as exc:
-        asyncio.run(
-            service.start_activity(fake_db, "user1", {"tracking_mode": "timer", "activity_kind": "yoga"})
-        )
-    assert exc.value.code == "ACTIVE_ACTIVITY_EXISTS"
-    assert exc.value.linked_to_current_exercise is False
+    second = asyncio.run(
+        service.start_activity(fake_db, "user1", {"tracking_mode": "timer", "activity_kind": "yoga"})
+    )
+    assert second["created"] is True
+    orphan = asyncio.run(service.get_activity(fake_db, first["activity"]["id"]))
+    assert orphan["status"] == "paused"
+    assert second["activity"]["id"] != first["activity"]["id"]
 
 
 def test_pause_resume_complete(fake_db):
