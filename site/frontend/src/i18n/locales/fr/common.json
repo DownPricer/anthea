@@ -1,7 +1,7 @@
 {
   "app": {
-    "name": "Anthea",
-    "brand": "FitMatch"
+    "name": "FitGather",
+    "brand": "FitGather"
   },
   "actions": {
     "save": "Enregistrer",

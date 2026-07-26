@@ -79,9 +79,9 @@
     "noExercisesFound": "Ningún ejercicio encontrado.",
     "activitySearch": {
       "popularSection": "Actividades populares",
-      "activitiesSection": "Actividades FitMatch",
+      "activitiesSection": "Actividades FitGather",
       "exercisesSection": "Ejercicios",
-      "fitmatchActivity": "Actividad FitMatch"
+      "fitgatherActivity": "Actividad FitGather"
     },
     "activityMode": {
       "gps": "GPS",

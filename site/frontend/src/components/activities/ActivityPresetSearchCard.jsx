@@ -12,7 +12,7 @@ export function ActivityPresetSearchCard({ preset, onSelect, disabled = false })
     getLocalizedActivityPresetName(preset, locale);
   const description =
     (typeof preset?.description === 'string' && preset.description.trim()) ||
-    t('workouts:create.activitySearch.fitmatchActivity');
+    t('workouts:create.activitySearch.fitgatherActivity');
   const mode = preset?.mode || preset?.activity_tracking_mode;
   const badgeKey = mode ? getModeBadgeLabelKey(mode) : null;
   const badgeLabel = badgeKey

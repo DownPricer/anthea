@@ -31,7 +31,7 @@ export function getPushPlatformHints() {
     ios,
     needsInstall: ios && !isStandalonePwa(),
     message: ios && !isStandalonePwa()
-      ? 'Sur iPhone/iPad, installez FitMatch sur l’écran d’accueil (Partager → Sur l’écran d’accueil) puis activez les notifications.'
+      ? 'Sur iPhone/iPad, installez FitGather sur l’écran d’accueil (Partager → Sur l’écran d’accueil) puis activez les notifications.'
       : null,
   };
 }

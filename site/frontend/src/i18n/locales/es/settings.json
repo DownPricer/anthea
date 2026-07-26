@@ -123,7 +123,7 @@
       "notConfigured": "La clave VAPID pública no está configurada.",
       "denied": "Autoriza las notificaciones en los ajustes del navegador.",
       "expired": "Reactiva las notificaciones en este dispositivo.",
-      "iosInstall": "En iPhone/iPad, instala FitMatch en la pantalla de inicio (Compartir → Añadir a inicio) y activa las notificaciones."
+      "iosInstall": "En iPhone/iPad, instala FitGather en la pantalla de inicio (Compartir → Añadir a inicio) y activa las notificaciones."
     },
     "toasts": {
       "enabled": "Notificaciones activadas en este dispositivo",

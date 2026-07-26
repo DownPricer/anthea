@@ -12,9 +12,9 @@
         "es": "Carrera al aire libre"
       },
       "description": {
-        "fr": "Course avec suivi GPS FitMatch",
-        "en": "Running with FitMatch GPS tracking",
-        "es": "Carrera con seguimiento GPS FitMatch"
+        "fr": "Course avec suivi GPS FitGather",
+        "en": "Running with FitGather GPS tracking",
+        "es": "Carrera con seguimiento GPS FitGather"
       }
     },
     {
@@ -28,9 +28,9 @@
         "es": "Caminata"
       },
       "description": {
-        "fr": "Marche avec suivi GPS FitMatch",
-        "en": "Walking with FitMatch GPS tracking",
-        "es": "Caminata con seguimiento GPS FitMatch"
+        "fr": "Marche avec suivi GPS FitGather",
+        "en": "Walking with FitGather GPS tracking",
+        "es": "Caminata con seguimiento GPS FitGather"
       }
     },
     {
@@ -44,9 +44,9 @@
         "es": "Senderismo"
       },
       "description": {
-        "fr": "Randonnée avec suivi GPS FitMatch",
-        "en": "Hiking with FitMatch GPS tracking",
-        "es": "Senderismo con seguimiento GPS FitMatch"
+        "fr": "Randonnée avec suivi GPS FitGather",
+        "en": "Hiking with FitGather GPS tracking",
+        "es": "Senderismo con seguimiento GPS FitGather"
       }
     },
     {
@@ -60,9 +60,9 @@
         "es": "Ciclismo al aire libre"
       },
       "description": {
-        "fr": "Vélo avec suivi GPS FitMatch",
-        "en": "Cycling with FitMatch GPS tracking",
-        "es": "Ciclismo con seguimiento GPS FitMatch"
+        "fr": "Vélo avec suivi GPS FitGather",
+        "en": "Cycling with FitGather GPS tracking",
+        "es": "Ciclismo con seguimiento GPS FitGather"
       }
     },
     {
@@ -76,9 +76,9 @@
         "es": "Patinaje en línea"
       },
       "description": {
-        "fr": "Roller avec suivi GPS FitMatch",
-        "en": "Inline skating with FitMatch GPS tracking",
-        "es": "Patinaje con seguimiento GPS FitMatch"
+        "fr": "Roller avec suivi GPS FitGather",
+        "en": "Inline skating with FitGather GPS tracking",
+        "es": "Patinaje con seguimiento GPS FitGather"
       }
     },
     {
@@ -141,8 +141,8 @@
       },
       "description": {
         "fr": "Fractionné course avec chronomètre d'intervalles",
-        "en": "Interval running with FitMatch timer",
-        "es": "Carrera por intervalos con cronómetro FitMatch"
+        "en": "Interval running with FitGather timer",
+        "es": "Carrera por intervalos con cronómetro FitGather"
       }
     },
     {

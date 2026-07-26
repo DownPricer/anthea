@@ -120,9 +120,9 @@ describe('activity i18n keys', () => {
     }
   });
 
-  test('product name FitMatch in GPS warning', () => {
+  test('product name FitGather in GPS warning', () => {
     const fr = require('../../i18n/locales/fr/activity.json');
-    expect(fr.gps.webWarning).toMatch(/FitMatch/i);
+    expect(fr.gps.webWarning).toMatch(/FitGather/i);
   });
 });
 

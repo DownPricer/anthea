@@ -40,7 +40,7 @@ export function DesktopNav() {
             <AntheaLogo className="h-8 w-8" />
             <div className="min-w-0">
               <div className="text-foreground font-black tracking-tight font-['Outfit'] text-lg leading-tight">
-                Anthea
+                FitGather
               </div>
               <div className="text-subtle text-xs mt-0.5">{t('tagline')}</div>
             </div>

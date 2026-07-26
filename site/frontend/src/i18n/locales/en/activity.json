@@ -102,7 +102,7 @@
   },
   "gps": {
     "webWarningTitle": "Web GPS Mode",
-    "webWarning": "Web GPS tracking works while FitMatch remains open. Tracking may stop if your phone puts the browser to sleep.",
+    "webWarning": "Web GPS tracking works while FitGather remains open. Tracking may stop if your phone puts the browser to sleep.",
     "permissionDenied": "Location permission denied",
     "status": "GPS Status",
     "states": {

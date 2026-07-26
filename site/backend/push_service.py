@@ -280,7 +280,7 @@ def build_push_payload(
                     resolved_body = t(DEFAULT_LOCALE, "push.generic.body", actor=actor)
         except Exception:
             fallback = PUSH_TYPE_PAYLOADS.get(notif_type) or {}
-            resolved_title = resolved_title or fallback.get("title", "FitMatch")
+            resolved_title = resolved_title or fallback.get("title", "FitGather")
             resolved_body = resolved_body or fallback.get("body", "Nouvelle activité")
     if "{actor}" in resolved_body:
         resolved_body = resolved_body.replace("{actor}", actor)

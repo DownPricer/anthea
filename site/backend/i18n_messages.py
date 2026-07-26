@@ -385,9 +385,9 @@ _PUSH_RAW = {
 
 
 def _build_push_messages() -> Dict[str, Dict[str, str]]:
-    fr: Dict[str, str] = {"generic.title": "FitMatch", "generic.body": "Nouvelle activité"}
-    en: Dict[str, str] = {"generic.title": "FitMatch", "generic.body": "New activity"}
-    es: Dict[str, str] = {"generic.title": "FitMatch", "generic.body": "Nueva actividad"}
+    fr: Dict[str, str] = {"generic.title": "FitGather", "generic.body": "Nouvelle activité"}
+    en: Dict[str, str] = {"generic.title": "FitGather", "generic.body": "New activity"}
+    es: Dict[str, str] = {"generic.title": "FitGather", "generic.body": "Nueva actividad"}
     for ntype, entry in _PUSH_RAW.items():
         fr[f"push.{ntype}.title"] = entry["fr"][0]
         fr[f"push.{ntype}.body"] = entry["fr"][1]
@@ -653,7 +653,7 @@ _STATIC = {
         "notifications.badge_unlocked.body": "Vous avez débloqué « {badge} ».",
         "notifications.duo_badge_unlocked.title": "Nouveau badge Duo",
         "notifications.duo_badge_unlocked.body": "Votre Duo a obtenu « {badge} ».",
-        "push.generic.title": "FitMatch",
+        "push.generic.title": "FitGather",
         "push.generic.body": "Nouvelle activité",
         "push.generic.actor": "Quelqu'un",
     },
@@ -666,7 +666,7 @@ _STATIC = {
         "notifications.badge_unlocked.body": "You unlocked “{badge}”.",
         "notifications.duo_badge_unlocked.title": "New Duo badge",
         "notifications.duo_badge_unlocked.body": "Your Duo earned “{badge}”.",
-        "push.generic.title": "FitMatch",
+        "push.generic.title": "FitGather",
         "push.generic.body": "New activity",
         "push.generic.actor": "Someone",
     },
@@ -679,7 +679,7 @@ _STATIC = {
         "notifications.badge_unlocked.body": "Has desbloqueado « {badge} ».",
         "notifications.duo_badge_unlocked.title": "Nueva insignia Duo",
         "notifications.duo_badge_unlocked.body": "Vuestro Duo obtuvo « {badge} ».",
-        "push.generic.title": "FitMatch",
+        "push.generic.title": "FitGather",
         "push.generic.body": "Nueva actividad",
         "push.generic.actor": "Alguien",
     },

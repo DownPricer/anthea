@@ -1,4 +1,4 @@
-/* Service worker FitMatch — Web Push */
+/* Service worker FitGather — Web Push */
 self.addEventListener('install', (event) => {
   self.skipWaiting();
 });
@@ -15,12 +15,12 @@ self.addEventListener('push', (event) => {
     data = { body: event.data ? event.data.text() : '' };
   }
 
-  const title = data.title || 'FitMatch';
+  const title = data.title || 'FitGather';
   const options = {
     body: data.body || '',
     icon: data.icon || '/icons/icon-192.png',
     badge: data.badge || '/icons/badge-72.png',
-    tag: data.tag || 'fitmatch',
+    tag: data.tag || 'FitGather',
     renotify: Boolean(data.tag),
     data: {
       url: data.url || '/',

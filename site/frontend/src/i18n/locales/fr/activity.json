@@ -102,7 +102,7 @@
   },
   "gps": {
     "webWarningTitle": "Mode GPS Web",
-    "webWarning": "Le suivi GPS Web fonctionne lorsque FitMatch reste ouvert. Le suivi peut être interrompu si votre téléphone met le navigateur en veille.",
+    "webWarning": "Le suivi GPS Web fonctionne lorsque FitGather reste ouvert. Le suivi peut être interrompu si votre téléphone met le navigateur en veille.",
     "permissionDenied": "Permission de localisation refusée",
     "status": "État GPS",
     "states": {

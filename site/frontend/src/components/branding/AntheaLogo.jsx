@@ -4,7 +4,7 @@ import logoSrc from '../../assets/branding/logo-v1.png';
 /**
  * Logo officiel Anthea — proportions préservées.
  */
-export function AntheaLogo({ className, alt = 'Anthea', ...props }) {
+export function AntheaLogo({ className, alt = 'FitGather', ...props }) {
   return (
     <img
       src={logoSrc}

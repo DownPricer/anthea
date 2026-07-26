@@ -123,7 +123,7 @@
       "notConfigured": "The public VAPID key is not configured.",
       "denied": "Allow notifications in your browser settings.",
       "expired": "Re-enable notifications on this device.",
-      "iosInstall": "On iPhone/iPad, install FitMatch to your home screen (Share → Add to Home Screen) then enable notifications."
+      "iosInstall": "On iPhone/iPad, install FitGather to your home screen (Share → Add to Home Screen) then enable notifications."
     },
     "toasts": {
       "enabled": "Notifications enabled on this device",

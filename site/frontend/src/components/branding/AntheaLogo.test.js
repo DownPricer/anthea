@@ -34,14 +34,26 @@ describe('AntheaLogo branding', () => {
     expect(buf[3]).toBe(0x47);
   });
 
-  it('exposes AntheaLogo with className, alt Anthea, and contain constraints', () => {
-    expect(componentSrc).toContain("alt = 'Anthea'");
+  it('exposes AntheaLogo with className, alt FitGather, and contain constraints', () => {
+    expect(componentSrc).toContain("alt = 'FitGather'");
     expect(componentSrc).toContain('className');
     expect(componentSrc).toContain('object-contain');
     expect(componentSrc).toContain('shrink-0');
     expect(componentSrc).toContain('max-w-full');
     expect(componentSrc).toContain('logo-v1.png');
     expect(componentSrc).not.toContain('logo-v1.svg');
+  });
+
+  it('shows FitGather brand in desktop nav and HTML title', () => {
+    expect(desktopNavSrc).toContain('FitGather');
+    expect(indexHtml).toContain('<title>FitGather</title>');
+    expect(indexHtml).toMatch(/FitGather/);
+    const manifest = fs.readFileSync(
+      path.join(root, '../public/manifest.json'),
+      'utf8'
+    );
+    expect(manifest).toContain('"name": "FitGather"');
+    expect(manifest).toContain('"short_name": "FitGather"');
   });
 
   it('replaces legacy brand marks on login, register and desktop nav', () => {
