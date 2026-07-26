@@ -91,6 +91,9 @@
     "laps": "largos",
     "undoLap": "Deshacer",
     "routePoints": "{{count}} puntos GPS",
+    "restored": "Actividad restaurada",
+    "offlineSave": "Guardado sin conexión",
+    "gpsKeepOpen": "Para registrar todo el recorrido, mantén FitGather abierto y la pantalla activa.",
     "errors": {
       "alreadyActive": "Esta actividad ya está en curso.",
       "anotherActive": "Otra actividad ya está en curso.",
@@ -125,7 +128,8 @@
   "wakeLock": {
     "active": "Pantalla mantenida encendida",
     "failed": "Bloqueo de suspensión no disponible",
-    "inactive": "Suspensión automática activa"
+    "inactive": "Suspensión automática activa",
+    "toggle": "Mantener la pantalla activa"
   },
   "timeAdjust": {
     "title": "Ajustar tiempo",

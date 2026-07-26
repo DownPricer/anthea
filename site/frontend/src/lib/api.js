@@ -13,14 +13,49 @@ const api = axios.create({
   },
 });
 
-// Response interceptor for error handling
+/** Déduplication in-flight du refresh token */
+let refreshInflight = null;
+
+function refreshAccessToken() {
+  if (!refreshInflight) {
+    refreshInflight = api
+      .post('/auth/refresh')
+      .then((res) => res)
+      .finally(() => {
+        refreshInflight = null;
+      });
+  }
+  return refreshInflight;
+}
+
+// Response interceptor — refresh silencieux avant logout
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      // Clear auth state on 401
+  async (error) => {
+    const status = error.response?.status;
+    const original = error.config || {};
+    const url = String(original.url || '');
+    const isAuthEndpoint =
+      url.includes('/auth/login') ||
+      url.includes('/auth/register') ||
+      url.includes('/auth/refresh') ||
+      url.includes('/auth/logout');
+
+    if (status === 401 && !original._retry && !isAuthEndpoint) {
+      original._retry = true;
+      try {
+        await refreshAccessToken();
+        return api(original);
+      } catch {
+        window.dispatchEvent(new CustomEvent('auth:logout'));
+        return Promise.reject(error);
+      }
+    }
+
+    if (status === 401 && isAuthEndpoint && url.includes('/auth/refresh')) {
       window.dispatchEvent(new CustomEvent('auth:logout'));
     }
+
     return Promise.reject(error);
   }
 );
@@ -37,6 +72,7 @@ export const authApi = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
+  refresh: () => api.post('/auth/refresh'),
   me: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
 };
@@ -230,7 +266,7 @@ export const badgesApi = {
 
 // Duo profiles API (public)
 export const duoProfilesApi = {
-  getByTag: (tag) => api.get(`/duos/${encodeURIComponent(tag)}`),
+  getByTag: (tag, config) => api.get(`/duos/${encodeURIComponent(tag)}`, config || {}),
   getStats: (tag) => api.get(`/duos/${encodeURIComponent(tag)}/stats`),
   getActivity: (tag, limit = 15) =>
     api.get(`/duos/${encodeURIComponent(tag)}/activity`, { params: { limit } }),

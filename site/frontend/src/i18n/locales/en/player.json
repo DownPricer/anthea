@@ -91,6 +91,9 @@
     "laps": "laps",
     "undoLap": "Undo",
     "routePoints": "{{count}} GPS points",
+    "restored": "Activity restored",
+    "offlineSave": "Offline save",
+    "gpsKeepOpen": "To record the full route, keep FitGather open with the screen on.",
     "errors": {
       "alreadyActive": "This activity is already in progress.",
       "anotherActive": "Another activity is already in progress.",
@@ -125,7 +128,8 @@
   "wakeLock": {
     "active": "Screen kept awake",
     "failed": "Sleep lock unavailable",
-    "inactive": "Auto sleep active"
+    "inactive": "Auto sleep active",
+    "toggle": "Keep screen on"
   },
   "timeAdjust": {
     "title": "Adjust time",

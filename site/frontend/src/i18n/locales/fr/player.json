@@ -91,6 +91,9 @@
     "laps": "longueurs",
     "undoLap": "Annuler",
     "routePoints": "{{count}} points GPS",
+    "restored": "Activité restaurée",
+    "offlineSave": "Sauvegarde hors ligne",
+    "gpsKeepOpen": "Pour enregistrer tout le parcours, gardez FitGather ouvert et l'écran actif.",
     "errors": {
       "alreadyActive": "Cette activité est déjà en cours.",
       "anotherActive": "Une autre activité est déjà en cours.",
@@ -122,10 +125,11 @@
     "enable": "Activer les annonces",
     "disable": "Couper les annonces"
   },
-  "wakeLock": {
+    "wakeLock": {
     "active": "Écran gardé allumé",
     "failed": "Veille non bloquée",
-    "inactive": "Veille automatique active"
+    "inactive": "Veille automatique active",
+    "toggle": "Garder l'écran actif"
   },
   "timeAdjust": {
     "title": "Ajuster le temps",

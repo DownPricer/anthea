@@ -1959,11 +1959,16 @@ async def assemble_duo_common_stats(
     user_a_id: str, user_b_id: str, *, locale: Optional[str] = None
 ) -> dict:
     """Stats communes duo — source unique pour /duo/stats et /duos/{tag}/stats."""
-    together = await compute_together_stats(db, user_a_id, user_b_id)
-    streak = await calculate_streak(user_a_id, user_b_id)
+    import asyncio as _asyncio
+
     pair_key = duo_pair_key(user_a_id, user_b_id)
     service = BadgeProgressService(db)
-    duo_catalog = await service.get_duo_catalog_with_progress(pair_key)
+
+    together, streak, duo_catalog = await _asyncio.gather(
+        compute_together_stats(db, user_a_id, user_b_id),
+        calculate_streak(user_a_id, user_b_id),
+        service.get_duo_catalog_with_progress(pair_key),
+    )
     badges = list(duo_catalog.get("badges") or [])
     challenge = await get_current_challenge(user_a_id, user_b_id, streak, locale=locale)
 
@@ -2005,6 +2010,7 @@ async def assemble_duo_common_stats(
         "estimated_calories": together.get("estimated_calories", 0),
         "last_common_session": together.get("last_common_session"),
         "challenges_completed": together.get("challenges_completed", 0),
+        "streak": streak,
         "badges": badges,
         "duo_badges": badges,
         "badges_unlocked": summary.get("unlocked", len(unlocked)),
@@ -2366,6 +2372,48 @@ async def logout(response: Response):
     response.delete_cookie("access_token", path="/")
     response.delete_cookie("refresh_token", path="/")
     return {"message": "Logged out successfully"}
+
+
+@api_router.post("/auth/refresh")
+async def refresh_access_token(request: Request, response: Response):
+    """Renouvelle l'access_token via le cookie refresh_token (dédup côté client)."""
+    token = request.cookies.get("refresh_token")
+    if not token:
+        raise HTTPException(status_code=401, detail="No refresh token")
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "refresh":
+            raise HTTPException(status_code=401, detail="Invalid token type")
+        user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
+        if not user:
+            raise HTTPException(status_code=401, detail="User not found")
+        access_token = create_access_token(str(user["_id"]), user["username"])
+        # Rotation douce du refresh pour les sessions longues
+        new_refresh = create_refresh_token(str(user["_id"]))
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=86400,
+            path="/",
+        )
+        response.set_cookie(
+            key="refresh_token",
+            value=new_refresh,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=2592000,
+            path="/",
+        )
+        return {"ok": True}
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Refresh token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
 
 @api_router.get("/auth/me")
 async def get_me(user: dict = Depends(get_current_user)):
@@ -3588,7 +3636,10 @@ async def get_duo_profile_stats(tag: str, user: dict = Depends(get_current_user)
         return {"sessions_together": 0, "badges": [], "badges_unlocked": 0, "badges_total": 0}
 
     together = await assemble_duo_common_stats(a_id, b_id, locale=user.get("locale"))
-    calculated = await calculate_streak(a_id, b_id)
+    # assemble calcule déjà calculate_streak — ne pas le rappeler (goulot profil)
+    calculated = together.get("streak")
+    if calculated is None:
+        calculated = together.get("duo_streak_current", 0)
     manual = await _get_manual_streak_override(a_id, b_id)
     streak = manual if manual is not None else calculated
     together["streak"] = streak
@@ -7105,7 +7156,7 @@ async def activities_delete_route(activity_id: str, user: dict = Depends(get_cur
 
 @api_router.get("/")
 async def root():
-    return {"message": "FitMatch API", "version": "1.0.0"}
+    return {"message": "FitGather API", "version": "1.0.0"}
 
 app.include_router(api_router)
 

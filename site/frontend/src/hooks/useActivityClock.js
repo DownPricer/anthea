@@ -59,6 +59,22 @@ export function useActivityClock() {
     };
   }, [status, updateElapsed]);
 
+  // Recalcule depuis les horodatages au retour foreground (pas de dépendance au setInterval)
+  useEffect(() => {
+    const recalc = () => updateElapsed();
+    const onVis = () => {
+      if (document.visibilityState === 'visible') recalc();
+    };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pageshow', recalc);
+    window.addEventListener('focus', recalc);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pageshow', recalc);
+      window.removeEventListener('focus', recalc);
+    };
+  }, [updateElapsed]);
+
   // Démarrer
   const start = useCallback(() => {
     const now = new Date().toISOString();

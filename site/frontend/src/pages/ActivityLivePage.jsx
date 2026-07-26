@@ -71,6 +71,49 @@ export function ActivityLivePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activityId]);
 
+  // Sync automatique toutes les 12s + flush au retour réseau
+  useEffect(() => {
+    if (clock.status === ACTIVITY_STATUS.ACTIVE || clock.status === ACTIVITY_STATUS.PAUSED) {
+      syncIntervalRef.current = setInterval(() => {
+        syncMetrics();
+      }, 12000);
+
+      return () => {
+        if (syncIntervalRef.current) {
+          clearInterval(syncIntervalRef.current);
+        }
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clock.status]);
+
+  useEffect(() => {
+    const handleOnline = () => {
+      setIsOnline(true);
+      syncMetrics();
+    };
+    const handleOffline = () => setIsOnline(false);
+    const onVis = () => {
+      if (document.visibilityState === 'visible') syncMetrics();
+    };
+    const onHide = () => {
+      saveLocalState();
+    };
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', onHide);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', onHide);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Gère le wake lock
   useEffect(() => {
     if (clock.status === ACTIVITY_STATUS.ACTIVE && wakeLock.supported) {
@@ -82,36 +125,6 @@ export function ActivityLivePage() {
     return () => wakeLock.releaseWakeLock();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clock.status, wakeLock.supported]);
-
-  // Gère les événements online/offline
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-
-  // Sync automatique toutes les 20s
-  useEffect(() => {
-    if (clock.status === ACTIVITY_STATUS.ACTIVE || clock.status === ACTIVITY_STATUS.PAUSED) {
-      syncIntervalRef.current = setInterval(() => {
-        syncMetrics();
-      }, 20000);
-
-      return () => {
-        if (syncIntervalRef.current) {
-          clearInterval(syncIntervalRef.current);
-        }
-      };
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clock.status, gpsPoints, laps, manualDistance]);
 
   // Gère le GPS
   useEffect(() => {

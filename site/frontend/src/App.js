@@ -20,6 +20,7 @@ import { BadgesPage } from './pages/BadgesPage';
 import { StartActivityPage } from './pages/StartActivityPage';
 import { ActivityLivePage } from './pages/ActivityLivePage';
 import { ActivitySummaryPage } from './pages/ActivitySummaryPage';
+import { ActivityBootRecovery } from './components/activities/ActivityBootRecovery';
 import './index.css';
 
 function App() {
@@ -27,6 +28,7 @@ function App() {
     <AuthProvider>
       <ThemeProvider>
         <BrowserRouter>
+          <ActivityBootRecovery />
           <Routes>
             {/* Public routes */}
             <Route path="/login" element={<LoginPage />} />
