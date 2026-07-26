@@ -2,6 +2,9 @@ import {
   ACTIVITY_PRESETS,
   START_PAGE_PRESET_IDS,
   getLocalizedStartPagePresets,
+  getLocalizedActivityPresetName,
+  getLocalizedActivityPresetDescription,
+  isDisplayableActivityPreset,
   filterReliableCompatibleExercises,
   isBlockedCatalogExercise,
   BLOCKED_CATALOG_GPS_PATTERNS,
@@ -37,6 +40,52 @@ describe('activityPresets', () => {
     const hiitFr = getLocalizedStartPagePresets('fr').find((p) => p.id === 'interval_running');
     expect(hiitFr.label).toBe('Fractionné');
     expect(hiitFr.mode).toBe('intervals');
+  });
+
+  test('getLocalizedActivityPresetName falls back FR then EN', () => {
+    expect(
+      getLocalizedActivityPresetName(
+        { id: 'outdoor_running', name: { en: 'Outdoor running', es: 'Carrera' } },
+        'de',
+      ),
+    ).toBe('Outdoor running');
+    expect(
+      getLocalizedActivityPresetName(
+        { id: 'outdoor_walking', name: { fr: 'Marche' } },
+        'en',
+      ),
+    ).toBe('Marche');
+    expect(
+      getLocalizedActivityPresetName({ id: 'hiking', name_i18n: { fr: 'Randonnée' } }, 'en'),
+    ).toBe('Randonnée');
+    expect(getLocalizedActivityPresetName({ id: 'outdoor_running', name: {} }, 'fr')).toBe(
+      'Outdoor Running',
+    );
+  });
+
+  test('incomplete presets are not displayable', () => {
+    expect(isDisplayableActivityPreset({}, 'fr')).toBe(false);
+    expect(isDisplayableActivityPreset({ name: { fr: 'X' } }, 'fr')).toBe(false);
+    expect(isDisplayableActivityPreset({ id: 'outdoor_running', name: { fr: 'Course' } }, 'fr')).toBe(
+      true,
+    );
+  });
+
+  test('description empty when missing', () => {
+    expect(getLocalizedActivityPresetDescription({ id: 'x', name: { fr: 'X' } }, 'fr')).toBe('');
+  });
+
+  test('key activity names visible FR', () => {
+    const labels = Object.fromEntries(
+      getLocalizedStartPagePresets('fr').map((p) => [p.id, p.label]),
+    );
+    expect(labels.outdoor_running).toBe('Course extérieure');
+    expect(labels.outdoor_walking).toBe('Marche');
+    expect(labels.hiking).toBe('Randonnée');
+    expect(labels.pool_swimming).toBe('Natation');
+    expect(labels.treadmill_running).toBe('Course sur tapis');
+    expect(labels.indoor_rowing).toBe('Rameur');
+    expect(labels.interval_running).toBe('Fractionné');
   });
 
   test('GPS presets use gps mode', () => {

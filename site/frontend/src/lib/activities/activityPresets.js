@@ -168,22 +168,107 @@ export function getStartPagePresets() {
   return START_PAGE_PRESET_IDS.map((id) => getPresetById(id)).filter(Boolean);
 }
 
-export function localizePreset(preset, locale = 'fr') {
+/** Rend un preset_id lisible (outdoor_running → Outdoor running). */
+export function humanizePresetId(presetId) {
+  if (!presetId || typeof presetId !== 'string') return '';
+  return presetId
+    .replace(/^activity:/, '')
+    .replace(/[_-]+/g, ' ')
+    .replace(/\b\w/g, (c) => c.toUpperCase())
+    .trim();
+}
+
+function pickLocalizedField(obj, locale) {
+  if (!obj) return '';
+  if (typeof obj === 'string') return obj.trim();
+  if (typeof obj !== 'object') return '';
   const lang = (locale || 'fr').split('-')[0].toLowerCase();
-  const label = preset.name?.[lang] || preset.name?.en || preset.id;
+  const order = [lang, 'fr', 'en', 'es'];
+  for (const key of order) {
+    const value = obj[key];
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  for (const value of Object.values(obj)) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+  }
+  return '';
+}
+
+/**
+ * Nom d'activité localisé avec fallback stable.
+ * locale → fr → en → es → snapshot → preset_id lisible
+ */
+export function getLocalizedActivityPresetName(preset, locale = 'fr') {
+  if (!preset || typeof preset !== 'object') return '';
+
+  const fromName = pickLocalizedField(preset.name, locale);
+  if (fromName) return fromName;
+
+  const fromNameI18n = pickLocalizedField(preset.name_i18n, locale);
+  if (fromNameI18n) return fromNameI18n;
+
+  if (typeof preset.label === 'string' && preset.label.trim()) {
+    return preset.label.trim();
+  }
+
+  const snapshot =
+    (typeof preset.exercise_name_snapshot === 'string' && preset.exercise_name_snapshot.trim()) ||
+    (typeof preset.name_snapshot === 'string' && preset.name_snapshot.trim()) ||
+    '';
+  if (snapshot) return snapshot;
+
+  const id = preset.id || preset.preset_id || '';
+  return humanizePresetId(id);
+}
+
+export function getLocalizedActivityPresetDescription(preset, locale = 'fr') {
+  if (!preset || typeof preset !== 'object') return '';
+  return (
+    pickLocalizedField(preset.description, locale) ||
+    pickLocalizedField(preset.description_i18n, locale) ||
+    ''
+  );
+}
+
+/** true si le preset a un id et un nom affichable. */
+export function isDisplayableActivityPreset(preset, locale = 'fr') {
+  if (!preset || typeof preset !== 'object') return false;
+  const id = preset.id || preset.preset_id;
+  if (!id || typeof id !== 'string') return false;
+  const name = getLocalizedActivityPresetName(preset, locale);
+  return Boolean(name && name !== 'undefined' && name !== 'null');
+}
+
+export function warnInvalidActivityPreset(preset, context = 'activity-preset') {
+  if (process.env.NODE_ENV === 'production') return;
+  const id = preset?.id || preset?.preset_id || '(missing-id)';
+  // eslint-disable-next-line no-console
+  console.warn(`[${context}] preset invalide ignoré`, { id });
+}
+
+export function localizePreset(preset, locale = 'fr') {
+  const label = getLocalizedActivityPresetName(preset, locale);
+  const description = getLocalizedActivityPresetDescription(preset, locale);
   return {
     id: preset.id,
     kind: preset.activity_kind,
     mode: preset.activity_tracking_mode,
-    icon: preset.icon,
+    icon: preset.icon || '',
     label,
+    description: description || undefined,
     labelKey: `activity:presets.${preset.id}`,
     source: 'activity_preset',
   };
 }
 
 export function getLocalizedStartPagePresets(locale = 'fr') {
-  return getStartPagePresets().map((p) => localizePreset(p, locale));
+  return getStartPagePresets()
+    .filter((p) => {
+      if (isDisplayableActivityPreset(p, locale)) return true;
+      warnInvalidActivityPreset(p, 'start-page-presets');
+      return false;
+    })
+    .map((p) => localizePreset(p, locale));
 }
 
 /** Exercices catalogue à ne jamais proposer comme activité GPS */

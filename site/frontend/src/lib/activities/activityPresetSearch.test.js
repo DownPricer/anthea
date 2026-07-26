@@ -113,6 +113,28 @@ describe('activityPresetSearch', () => {
     const results = searchActivityPresets('fractionné', 'fr', ACTIVITY_PRESETS);
     expect(results.find((r) => r.id === 'interval_running')?.mode).toBe('intervals');
   });
+
+  test('incomplete presets ignored in search', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    const broken = [
+      ...ACTIVITY_PRESETS,
+      { id: '', name: { fr: '' }, activity_tracking_mode: 'gps' },
+      { name: { fr: 'Sans id' }, activity_tracking_mode: 'gps' },
+    ];
+    const results = searchActivityPresets('course', 'fr', broken);
+    expect(results.every((r) => r.label && r.id)).toBe(true);
+    expect(results.some((r) => !r.label)).toBe(false);
+    warn.mockRestore();
+  });
+
+  test('no empty labels for popular FR/EN', () => {
+    ['fr', 'en'].forEach((locale) => {
+      getPopularActivityPresets(locale, ACTIVITY_PRESETS).forEach((p) => {
+        expect(p.label).toBeTruthy();
+        expect(p.label).not.toBe('undefined');
+      });
+    });
+  });
 });
 
 describe('CreateWorkoutPage activity discovery wiring (source)', () => {
@@ -179,6 +201,15 @@ describe('ActivityPresetSearchCard layout (source)', () => {
     expect(src).toContain('line-clamp-2');
     expect(src).toContain('min-w-0');
     expect(src).toContain('max-w-full');
+  });
+
+  test('returns null when label empty', () => {
+    expect(src).toContain('if (!label) return null');
+  });
+
+  test('hides empty badge and uses localized name helper', () => {
+    expect(src).toContain('getLocalizedActivityPresetName');
+    expect(src).toContain('badgeLabel ?');
   });
 });
 

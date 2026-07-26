@@ -1,10 +1,25 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { getModeBadgeLabelKey } from '../../lib/activities/activityPresetSearch';
+import { getLocalizedActivityPresetName } from '../../lib/activities/activityPresets';
 
 /** Carte compacte alignée sur les cartes catalogue (pas de navigation). */
 export function ActivityPresetSearchCard({ preset, onSelect, disabled = false }) {
-  const { t } = useTranslation(['activity', 'workouts']);
+  const { t, i18n } = useTranslation(['activity', 'workouts']);
+  const locale = (i18n?.language || 'fr').split('-')[0];
+  const label =
+    (typeof preset?.label === 'string' && preset.label.trim()) ||
+    getLocalizedActivityPresetName(preset, locale);
+  const description =
+    (typeof preset?.description === 'string' && preset.description.trim()) ||
+    t('workouts:create.activitySearch.fitmatchActivity');
+  const mode = preset?.mode || preset?.activity_tracking_mode;
+  const badgeKey = mode ? getModeBadgeLabelKey(mode) : null;
+  const badgeLabel = badgeKey
+    ? t(badgeKey, { defaultValue: '' })
+    : '';
+
+  if (!label) return null;
 
   return (
     <button
@@ -18,18 +33,22 @@ export function ActivityPresetSearchCard({ preset, onSelect, disabled = false })
         className="flex h-16 w-16 shrink-0 items-center justify-center rounded-lg bg-active text-xl"
         aria-hidden
       >
-        {preset.icon}
+        {preset.icon || '•'}
       </div>
       <div className="min-w-0 flex-1 max-w-full overflow-hidden">
         <p className="text-foreground font-medium truncate max-w-full">
-          {preset.label}
-          <span className="ml-2 text-[10px] uppercase tracking-wide text-subtle">
-            {t(getModeBadgeLabelKey(preset.mode), { defaultValue: preset.mode })}
-          </span>
+          {label}
+          {badgeLabel ? (
+            <span className="ml-2 text-[10px] uppercase tracking-wide text-subtle">
+              {badgeLabel}
+            </span>
+          ) : null}
         </p>
-        <p className="text-subtle text-sm line-clamp-2 break-words [overflow-wrap:anywhere]">
-          {t('workouts:create.activitySearch.fitmatchActivity')}
-        </p>
+        {description ? (
+          <p className="text-subtle text-sm line-clamp-2 break-words [overflow-wrap:anywhere]">
+            {description}
+          </p>
+        ) : null}
       </div>
     </button>
   );

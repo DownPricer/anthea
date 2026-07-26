@@ -136,10 +136,11 @@ describe('activity routes wiring', () => {
     expect(source).toContain('/activity/:activityId/summary');
   });
 
-  test('WorkoutsPage has start activity entry', () => {
+  test('WorkoutsPage no longer embeds start activity CTA (routes stay in App)', () => {
     const fs = require('fs');
     const path = require('path');
     const source = fs.readFileSync(path.join(__dirname, '../../pages/WorkoutsPage.jsx'), 'utf8');
-    expect(source).toContain('/activity/start');
+    expect(source).not.toContain('/activity/start');
+    expect(source).toContain("navigate('/create')");
   });
 });

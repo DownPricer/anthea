@@ -7,6 +7,8 @@ import {
   ACTIVITY_PRESET_IDS,
   getPresetById,
   localizePreset,
+  isDisplayableActivityPreset,
+  warnInvalidActivityPreset,
 } from './activityPresets';
 
 const POPULAR_PRESET_IDS = [
@@ -184,6 +186,23 @@ function scorePreset(preset, query, locale) {
   return best;
 }
 
+function localizeSafePresets(presets, locale, context) {
+  const out = [];
+  for (const preset of presets || []) {
+    if (!isDisplayableActivityPreset(preset, locale)) {
+      warnInvalidActivityPreset(preset, context);
+      continue;
+    }
+    const localized = localizePreset(preset, locale);
+    if (!localized.label) {
+      warnInvalidActivityPreset(preset, context);
+      continue;
+    }
+    out.push(localized);
+  }
+  return out;
+}
+
 export function searchActivityPresets(query, locale = 'fr', presets = ACTIVITY_PRESETS) {
   const q = foldSearchText(query);
   if (!q) return [];
@@ -191,17 +210,28 @@ export function searchActivityPresets(query, locale = 'fr', presets = ACTIVITY_P
     .map((preset) => ({
       preset,
       score: scorePreset(preset, q, locale),
-      localized: localizePreset(preset, locale),
+      localized: isDisplayableActivityPreset(preset, locale)
+        ? localizePreset(preset, locale)
+        : null,
     }))
-    .filter((entry) => entry.score > 0)
+    .filter((entry) => {
+      if (entry.score <= 0) return false;
+      if (!entry.localized?.label) {
+        warnInvalidActivityPreset(entry.preset, 'activity-preset-search');
+        return false;
+      }
+      return true;
+    })
     .sort((a, b) => b.score - a.score || a.localized.label.localeCompare(b.localized.label))
     .map((entry) => entry.localized);
 }
 
 export function getPopularActivityPresets(locale = 'fr', presets = ACTIVITY_PRESETS) {
-  return POPULAR_PRESET_IDS.map((id) => getPresetById(id))
-    .filter(Boolean)
-    .map((p) => localizePreset(p, locale));
+  const source = POPULAR_PRESET_IDS.map((id) => {
+    const fromList = (presets || []).find((p) => p.id === id);
+    return fromList || getPresetById(id);
+  }).filter(Boolean);
+  return localizeSafePresets(source, locale, 'activity-preset-popular');
 }
 
 export function getActivityPresetsForDiscovery({ query, locale = 'fr', hasFilters = false, presets = ACTIVITY_PRESETS }) {
@@ -219,19 +249,42 @@ export async function loadCachedActivityPresets({ locale = 'fr', force = false }
     try {
       const { activitiesApi } = await import('../api');
       const { data } = await activitiesApi.getPresets({ locale });
-      const fromApi = (data?.presets || []).map((p) => ({
-        id: p.id,
-        activity_kind: p.activity_kind,
-        activity_tracking_mode: p.activity_tracking_mode,
-        icon: p.icon,
-        name:
-          p.name && typeof p.name === 'object'
-            ? p.name
-            : { fr: p.name, en: p.name, es: p.name },
-        description:
-          p.description && typeof p.description === 'object' ? p.description : {},
-        aliases: p.aliases || PRESET_SEARCH_ALIASES[p.id],
-      }));
+      const fromApi = (data?.presets || [])
+        .map((p) => {
+          const nameI18n =
+            p.name_i18n && typeof p.name_i18n === 'object'
+              ? p.name_i18n
+              : p.name && typeof p.name === 'object'
+                ? p.name
+                : null;
+          const name =
+            nameI18n ||
+            (typeof p.name === 'string' && p.name.trim()
+              ? { fr: p.name, en: p.name, es: p.name }
+              : {});
+          const descriptionI18n =
+            p.description_i18n && typeof p.description_i18n === 'object'
+              ? p.description_i18n
+              : p.description && typeof p.description === 'object'
+                ? p.description
+                : {};
+          return {
+            id: p.id,
+            activity_kind: p.activity_kind,
+            activity_tracking_mode: p.activity_tracking_mode,
+            icon: p.icon,
+            name,
+            name_i18n: nameI18n || name,
+            description: descriptionI18n,
+            description_i18n: descriptionI18n,
+            aliases: p.aliases || PRESET_SEARCH_ALIASES[p.id],
+          };
+        })
+        .filter((p) => {
+          if (isDisplayableActivityPreset(p, locale)) return true;
+          warnInvalidActivityPreset(p, 'activity-preset-cache');
+          return false;
+        });
       if (fromApi.length > 0) {
         cachedPresets = fromApi;
         return cachedPresets;
