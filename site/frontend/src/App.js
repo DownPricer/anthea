@@ -7,6 +7,7 @@ import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { CheckEmailPage } from './pages/CheckEmailPage';
+import { LegacyAccountPage } from './pages/LegacyAccountPage';
 import { HomePage } from './pages/HomePage';
 import { WorkoutsPage } from './pages/WorkoutsPage';
 import { CreateWorkoutPage } from './pages/CreateWorkoutPage';
@@ -37,6 +38,7 @@ function App() {
             <Route path="/register" element={<RegisterPage />} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/check-email" element={<CheckEmailPage />} />
+            <Route path="/legacy-account" element={<LegacyAccountPage />} />
 
             {/* Protected routes */}
             <Route
