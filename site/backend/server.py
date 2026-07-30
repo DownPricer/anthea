@@ -112,6 +112,42 @@ db = client[os.environ['DB_NAME']]
 JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ.get("JWT_SECRET", secrets.token_hex(32))
 
+DEFAULT_CORS_ORIGINS = [
+    "https://fitgather.fr",
+    "https://www.fitgather.fr",
+    "https://anthea.sitereadyshd.fr",
+    "http://localhost:3000",
+    "http://localhost:5173",
+]
+
+def parse_cors_origins() -> List[str]:
+    raw = os.environ.get("CORS_ORIGINS", "").strip()
+    if raw and raw != "*":
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return DEFAULT_CORS_ORIGINS.copy()
+
+COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
+
+def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    cookie_kwargs = {
+        "httponly": True,
+        "secure": COOKIE_SECURE,
+        "samesite": "lax",
+        "path": "/",
+    }
+    response.set_cookie(key="access_token", value=access_token, max_age=86400, **cookie_kwargs)
+    response.set_cookie(key="refresh_token", value=refresh_token, max_age=2592000, **cookie_kwargs)
+
+def clear_auth_cookies(response: Response) -> None:
+    delete_kwargs = {
+        "path": "/",
+        "httponly": True,
+        "secure": COOKIE_SECURE,
+        "samesite": "lax",
+    }
+    response.delete_cookie("access_token", **delete_kwargs)
+    response.delete_cookie("refresh_token", **delete_kwargs)
+
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -2341,8 +2377,7 @@ async def register(data: UserCreate, response: Response):
     access_token = create_access_token(str(result.inserted_id), data.username.lower())
     refresh_token = create_refresh_token(str(result.inserted_id))
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=2592000, path="/")
+    set_auth_cookies(response, access_token, refresh_token)
     
     return serialize_user(user_doc)
 
@@ -2358,8 +2393,7 @@ async def login(data: UserLogin, response: Response):
     access_token = create_access_token(str(user["_id"]), user["username"])
     refresh_token = create_refresh_token(str(user["_id"]))
     
-    response.set_cookie(key="access_token", value=access_token, httponly=True, secure=False, samesite="lax", max_age=86400, path="/")
-    response.set_cookie(key="refresh_token", value=refresh_token, httponly=True, secure=False, samesite="lax", max_age=2592000, path="/")
+    set_auth_cookies(response, access_token, refresh_token)
     
     now = datetime.now(timezone.utc).isoformat()
     await db.users.update_one({"_id": user["_id"]}, {"$set": {"last_seen_at": now}})
@@ -2369,8 +2403,7 @@ async def login(data: UserLogin, response: Response):
 
 @api_router.post("/auth/logout")
 async def logout(response: Response):
-    response.delete_cookie("access_token", path="/")
-    response.delete_cookie("refresh_token", path="/")
+    clear_auth_cookies(response)
     return {"message": "Logged out successfully"}
 
 
@@ -2390,24 +2423,7 @@ async def refresh_access_token(request: Request, response: Response):
         access_token = create_access_token(str(user["_id"]), user["username"])
         # Rotation douce du refresh pour les sessions longues
         new_refresh = create_refresh_token(str(user["_id"]))
-        response.set_cookie(
-            key="access_token",
-            value=access_token,
-            httponly=True,
-            secure=False,
-            samesite="lax",
-            max_age=86400,
-            path="/",
-        )
-        response.set_cookie(
-            key="refresh_token",
-            value=new_refresh,
-            httponly=True,
-            secure=False,
-            samesite="lax",
-            max_age=2592000,
-            path="/",
-        )
+        set_auth_cookies(response, access_token, new_refresh)
         return {"ok": True}
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Refresh token expired")
@@ -7165,7 +7181,7 @@ app.mount("/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="uploads")
 app.add_middleware(
     CORSMiddleware,
     allow_credentials=True,
-    allow_origins=["*"],
+    allow_origins=parse_cors_origins(),
     allow_methods=["*"],
     allow_headers=["*"],
 )

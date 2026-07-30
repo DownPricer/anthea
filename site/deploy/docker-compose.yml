@@ -23,6 +23,8 @@ services:
       MONGO_URL: ${MONGO_URL:-mongodb://mongo:27017}
       DB_NAME: ${DB_NAME:-anthea}
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
+      CORS_ORIGINS: ${CORS_ORIGINS:-https://fitgather.fr,https://www.fitgather.fr,https://anthea.sitereadyshd.fr,http://localhost:3000}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?set VAPID_PUBLIC_KEY in .env}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?set VAPID_PRIVATE_KEY in .env}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-https://anthea.sitereadyshd.fr}
