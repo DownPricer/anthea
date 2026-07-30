@@ -1,0 +1,44 @@
+{
+  "seo": {
+    "landingTitle": "FitGather — El deporte es mejor juntos",
+    "landingDescription": "Sigue tus entrenamientos, comparte tu progreso y avanza con una comunidad que te motiva.",
+    "postLockedTitle": "Publicación — FitGather",
+    "postUnavailableTitle": "Publicación no disponible — FitGather"
+  },
+  "nav": {
+    "login": "Iniciar sesión",
+    "join": "Unirse a FitGather"
+  },
+  "hero": {
+    "title": "El deporte es mejor cuando se comparte.",
+    "subtitle": "Sigue tus entrenamientos, comparte tu progreso y avanza con una comunidad que te motiva.",
+    "communityStat": "Únete a una comunidad de más de {{count}} usuarios.",
+    "ctaRegister": "Unirse gratis",
+    "ctaLogin": "Iniciar sesión"
+  },
+  "trending": {
+    "title": "Publicaciones del momento",
+    "subtitle": "Descubre entrenamientos, logros y progresos compartidos por la comunidad.",
+    "empty": "No hay publicaciones públicas por el momento.",
+    "error": "No se pudieron cargar las publicaciones."
+  },
+  "joinModal": {
+    "title": "Únete a FitGather",
+    "body": "Inicia sesión o crea una cuenta para interactuar con esta publicación.",
+    "login": "Iniciar sesión",
+    "register": "Crear una cuenta",
+    "continue": "Seguir mirando"
+  },
+  "post": {
+    "backHome": "Volver al inicio",
+    "share": "Compartir",
+    "shareCopied": "Enlace copiado",
+    "shareFailed": "No se pudo compartir",
+    "locked": "Esta publicación no es accesible públicamente.",
+    "lockedCta": "Inicia sesión para comprobar el acceso",
+    "unavailable": "Publicación no disponible",
+    "login": "Iniciar sesión",
+    "register": "Crear una cuenta",
+    "byAuthor": "Publicación de {{name}} en FitGather"
+  }
+}

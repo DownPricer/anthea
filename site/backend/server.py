@@ -681,6 +681,42 @@ async def get_current_user(request: Request) -> dict:
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
 
+
+async def get_optional_user(request: Request) -> Optional[dict]:
+    """Utilisateur courant si cookie/Bearer valide, sinon None (jamais 401)."""
+    token = request.cookies.get("access_token")
+    if not token:
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            token = auth_header[7:]
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        if payload.get("type") != "access":
+            return None
+        user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
+        if not user:
+            return None
+        status = user.get("account_status") or "active"
+        if status == "pending_email" or status == "disabled":
+            return None
+        if int(payload.get("tv") or 0) != int(user.get("token_version") or 0):
+            return None
+        user["id"] = str(user["_id"])
+        user.pop("_id", None)
+        user.pop("password_hash", None)
+        user.pop("email", None)
+        user.pop("email_normalized", None)
+        return user
+    except Exception:
+        return None
+
+
+async def _enforce_public_rate_limit(request: Request, action: str) -> None:
+    from auth.service import enforce_rate_limit
+    await enforce_rate_limit(db, request, action)
+
 def normalize_appearance(value: Optional[str]) -> Optional[str]:
     if not value:
         return None
@@ -1931,6 +1967,156 @@ async def serialize_post(
     result["repost_block_reason"] = None if can_repost else block_reason
 
     return result
+
+
+def _public_safe_comment(comment: Optional[dict]) -> Optional[dict]:
+    if not comment:
+        return None
+    return {
+        "id": comment.get("id"),
+        "username": comment.get("username"),
+        "handle": comment.get("handle"),
+        "display_name": comment.get("display_name"),
+        "avatar_url": comment.get("avatar_url"),
+        "text": comment.get("text"),
+        "created_at": comment.get("created_at"),
+        "likes_count": int(comment.get("likes_count") or 0),
+    }
+
+
+def _public_safe_actor(actor: Optional[dict]) -> Optional[dict]:
+    if not actor:
+        return None
+    safe = {
+        "type": actor.get("type"),
+        "name": actor.get("name"),
+        "handle": actor.get("handle"),
+        "tag": actor.get("tag"),
+        "avatar_url": actor.get("avatar_url"),
+        "member_avatars": actor.get("member_avatars"),
+        "member_colors": actor.get("member_colors"),
+    }
+    return {k: v for k, v in safe.items() if v is not None}
+
+
+async def serialize_public_post(
+    post: dict,
+    viewer_id: Optional[str] = None,
+    *,
+    include_comments: bool = False,
+) -> Optional[dict]:
+    """
+    Schéma public limité — n'expose jamais e-mail ni document Mongo brut.
+    Réutilise can_view_post_doc / serialize_post (confidentialité centralisée).
+    """
+    if not post:
+        return None
+    # Visiteur anonyme : viewer_id vide — can_view_* gère déjà None/"" via is_following.
+    vid = viewer_id or ""
+    if not await can_view_post_doc(vid if vid else None, post):
+        return None
+
+    author = None if is_duo_wall_post(post) else await get_user_doc_by_id(post.get("author_id"))
+    duo_doc = await find_duo_doc_for_post(post) if is_duo_wall_post(post) else None
+    full = await serialize_post(
+        post,
+        vid,
+        author,
+        include_all_comments=include_comments,
+        duo_doc=duo_doc,
+    )
+    if not full:
+        return None
+
+    comments = []
+    if include_comments:
+        for c in full.get("comments") or []:
+            safe_c = _public_safe_comment(c)
+            if safe_c:
+                comments.append(safe_c)
+
+    preview = _public_safe_comment(full.get("preview_comment"))
+
+    session_snapshot = None
+    if full.get("can_view_session_details") and full.get("session_snapshot"):
+        session_snapshot = full.get("session_snapshot")
+    elif full.get("session_snapshot"):
+        # Snapshot public sans détails d'exercices / notes
+        snap = dict(full["session_snapshot"])
+        snap.pop("exercise_summaries", None)
+        session_snapshot = {
+            k: snap.get(k)
+            for k in (
+                "workout_title",
+                "total_time",
+                "exercises_completed",
+                "exercises_total",
+                "difficulty_felt",
+                "estimated_calories",
+            )
+            if snap.get(k) is not None
+        } or None
+
+    public = {
+        "id": full.get("id"),
+        "type": full.get("type"),
+        "title": full.get("title"),
+        "description": full.get("description"),
+        "image_url": full.get("image_url"),
+        "author_username": full.get("author_username"),
+        "author_handle": full.get("author_handle"),
+        "author_display_name": full.get("author_display_name"),
+        "author_avatar_url": full.get("author_avatar_url"),
+        "actor_type": full.get("actor_type"),
+        "actor": _public_safe_actor(full.get("actor")),
+        "badge_id": full.get("badge_id"),
+        "badge_name": full.get("badge_name"),
+        "badge_icon": full.get("badge_icon"),
+        "badge_rarity": full.get("badge_rarity"),
+        "visibility": full.get("visibility"),
+        "likes_count": int(full.get("likes_count") or 0),
+        "comments_count": int(full.get("comments_count") or 0),
+        "reposts_count": int(full.get("reposts_count") or 0),
+        "created_at": full.get("created_at"),
+        "duo_name": full.get("duo_name"),
+        "duo_tag": full.get("duo_tag"),
+        "session_snapshot": session_snapshot,
+        "can_view_session_details": bool(full.get("can_view_session_details")),
+        "preview_comment": preview,
+        "comments": comments if include_comments else [],
+        "feed_source": full.get("feed_source"),
+        "trending_rank": full.get("trending_rank"),
+    }
+    # Strip None values that are not useful; keep counts/bools
+    return public
+
+
+async def resolve_public_post_response(
+    post_id: str,
+    viewer: Optional[dict] = None,
+    *,
+    include_comments: bool = True,
+) -> dict:
+    """
+    Réponse structurée pour GET public post.
+    status: visible | locked | unavailable
+    """
+    try:
+        post = await db.posts.find_one({"_id": ObjectId(post_id)})
+    except Exception:
+        post = None
+    if not post:
+        return {"status": "unavailable"}
+
+    viewer_id = viewer.get("id") if viewer else None
+    serialized = await serialize_public_post(
+        post, viewer_id, include_comments=include_comments
+    )
+    if serialized:
+        return {"status": "visible", "post": serialized}
+
+    # Ne pas différencier publiquement les raisons privées
+    return {"status": "locked", "reason": "authentication_required"}
 
 
 async def _get_user_streak_value(user_id: str) -> int:
@@ -3227,6 +3413,65 @@ async def get_feed_trending(
             posts.append(serialized)
 
     return {"posts": posts, "window_days": window_days}
+
+
+@api_router.get("/public/feed/trending")
+async def get_public_feed_trending(
+    request: Request,
+    limit: int = 6,
+    window_days: int = 7,
+    user: Optional[dict] = Depends(get_optional_user),
+):
+    """
+    Tendances publiques pour la landing — accessible sans cookie.
+    limit max 6 ; uniquement posts réellement publics via can_view_post_doc.
+    """
+    await _enforce_public_rate_limit(request, "public_feed_trending")
+    limit = max(1, min(int(limit or 6), 6))
+    window_days = max(1, min(int(window_days or 7), 30))
+    since = (datetime.now(timezone.utc) - timedelta(days=window_days)).isoformat()
+    viewer_id = user.get("id") if user else None
+
+    candidates = await db.posts.find({
+        "visibility": "public",
+        "created_at": {"$gte": since},
+    }).sort([("created_at", -1)]).limit(300).to_list(300)
+
+    scored = []
+    for post in candidates:
+        if not await can_view_post_doc(viewer_id, post):
+            continue
+        likes_n = len(post.get("likes") or [])
+        scored.append((likes_n, post.get("created_at") or "", str(post["_id"]), post))
+
+    scored.sort(key=lambda t: (t[0], t[1], t[2]), reverse=True)
+
+    posts = []
+    for rank, (_, __, ___, post) in enumerate(scored[:limit], start=1):
+        serialized = await serialize_public_post(post, viewer_id, include_comments=False)
+        if serialized:
+            serialized["trending_rank"] = rank
+            serialized["feed_source"] = "trending"
+            posts.append(serialized)
+
+    return {"posts": posts, "window_days": window_days}
+
+
+@api_router.get("/public/posts/{post_id}")
+async def get_public_post(
+    post_id: str,
+    request: Request,
+    user: Optional[dict] = Depends(get_optional_user),
+):
+    """
+    Lecture publique d'une publication.
+    visible → schéma public ; locked → sans contenu privé ; unavailable → générique.
+    """
+    await _enforce_public_rate_limit(request, "public_post_get")
+    result = await resolve_public_post_response(post_id, user, include_comments=True)
+    if result.get("status") == "unavailable":
+        raise HTTPException(status_code=404, detail="Publication indisponible")
+    return result
 
 
 @api_router.post("/uploads/image")

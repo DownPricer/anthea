@@ -18,6 +18,7 @@ const PRELOADED_NAMESPACES = [
   "challenges",
   "errors",
   "activity",
+  "public",
 ];
 
 function loadJson(locale, ns) {
@@ -38,6 +39,7 @@ function loadJson(locale, ns) {
       if (ns === "challenges") return import("./locales/fr/challenges.json");
       if (ns === "errors") return import("./locales/fr/errors.json");
       if (ns === "activity") return import("./locales/fr/activity.json");
+      if (ns === "public") return import("./locales/fr/public.json");
       break;
     case "en-US":
       if (ns === "common") return import("./locales/en/common.json");
@@ -54,6 +56,7 @@ function loadJson(locale, ns) {
       if (ns === "challenges") return import("./locales/en/challenges.json");
       if (ns === "errors") return import("./locales/en/errors.json");
       if (ns === "activity") return import("./locales/en/activity.json");
+      if (ns === "public") return import("./locales/en/public.json");
       break;
     case "es-ES":
       if (ns === "common") return import("./locales/es/common.json");
@@ -70,6 +73,7 @@ function loadJson(locale, ns) {
       if (ns === "challenges") return import("./locales/es/challenges.json");
       if (ns === "errors") return import("./locales/es/errors.json");
       if (ns === "activity") return import("./locales/es/activity.json");
+      if (ns === "public") return import("./locales/es/public.json");
       break;
     default:
       break;
@@ -140,6 +144,7 @@ i18n
         challenges: require("./locales/fr/challenges.json"),
         errors: require("./locales/fr/errors.json"),
         activity: require("./locales/fr/activity.json"),
+        public: require("./locales/fr/public.json"),
       },
     },
     interpolation: { escapeValue: false },

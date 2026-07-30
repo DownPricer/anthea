@@ -3,6 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
+import { AuthHomeSwitch } from './components/layout/AuthHomeSwitch';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
@@ -11,6 +12,7 @@ import { LegacyAccountPage } from './pages/LegacyAccountPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { HomePage } from './pages/HomePage';
+import { PublicPostPage } from './pages/PublicPostPage';
 import { WorkoutsPage } from './pages/WorkoutsPage';
 import { CreateWorkoutPage } from './pages/CreateWorkoutPage';
 import { WorkoutPlayerPage } from './pages/WorkoutPlayerPage';
@@ -43,14 +45,15 @@ function App() {
             <Route path="/legacy-account" element={<LegacyAccountPage />} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/post/:postId" element={<PublicPostPage />} />
 
-            {/* Protected routes */}
+            {/* Accueil : landing anonyme / HomePage connecté — pas de redirect / → /login */}
             <Route
               path="/"
               element={
-                <ProtectedRoute>
+                <AuthHomeSwitch>
                   <AppLayout />
-                </ProtectedRoute>
+                </AuthHomeSwitch>
               }
             >
               <Route index element={<HomePage />} />

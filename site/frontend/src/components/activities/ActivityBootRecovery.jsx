@@ -7,6 +7,7 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { activitiesApi } from '../../lib/api';
 import { getActiveActivity } from '../../lib/activities/activityStore';
 import { mergeLocalAndServer } from '../../lib/activities/activityCheckpoint';
+import { useAuth } from '../../context/AuthContext';
 
 function isTrackable(activity) {
   return activity && ['active', 'paused'].includes(activity.status);
@@ -15,14 +16,18 @@ function isTrackable(activity) {
 export function ActivityBootRecovery() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, loading } = useAuth();
   const ranRef = useRef(false);
 
   useEffect(() => {
+    if (loading) return;
+    if (!user) return;
     if (ranRef.current) return;
     const path = location.pathname || '';
     if (
       path.startsWith('/player/') ||
       path.startsWith('/activity/') ||
+      path.startsWith('/post/') ||
       path === '/login' ||
       path === '/register' ||
       path === '/verify-email' ||
@@ -83,7 +88,7 @@ export function ActivityBootRecovery() {
     return () => {
       cancelled = true;
     };
-  }, [location.pathname, navigate]);
+  }, [location.pathname, navigate, user, loading]);
 
   return null;
 }

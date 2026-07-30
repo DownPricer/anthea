@@ -1,0 +1,44 @@
+{
+  "seo": {
+    "landingTitle": "FitGather — Sport is better together",
+    "landingDescription": "Track your workouts, share your progress, and grow with a community that motivates you.",
+    "postLockedTitle": "Post — FitGather",
+    "postUnavailableTitle": "Post unavailable — FitGather"
+  },
+  "nav": {
+    "login": "Log in",
+    "join": "Join FitGather"
+  },
+  "hero": {
+    "title": "Sport is better when we share it.",
+    "subtitle": "Track your workouts, share your progress, and grow with a community that motivates you.",
+    "communityStat": "Join a community of more than {{count}} users.",
+    "ctaRegister": "Join for free",
+    "ctaLogin": "Log in"
+  },
+  "trending": {
+    "title": "Trending posts",
+    "subtitle": "Discover workouts, wins, and progress shared by the community.",
+    "empty": "No public posts at the moment.",
+    "error": "Could not load posts."
+  },
+  "joinModal": {
+    "title": "Join FitGather",
+    "body": "Log in or create an account to interact with this post.",
+    "login": "Log in",
+    "register": "Create an account",
+    "continue": "Keep browsing"
+  },
+  "post": {
+    "backHome": "Back to home",
+    "share": "Share",
+    "shareCopied": "Link copied",
+    "shareFailed": "Could not share",
+    "locked": "This post is not publicly available.",
+    "lockedCta": "Log in to check access",
+    "unavailable": "Post unavailable",
+    "login": "Log in",
+    "register": "Create an account",
+    "byAuthor": "Post by {{name}} on FitGather"
+  }
+}

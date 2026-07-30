@@ -46,6 +46,9 @@ api.interceptors.response.use(
       url.includes('/auth/legacy/');
 
     if (status === 401 && !original._retry && !isAuthEndpoint) {
+      if (original._skipAuthRefresh || url.includes('/public/')) {
+        return Promise.reject(error);
+      }
       original._retry = true;
       try {
         await refreshAccessToken();
@@ -213,6 +216,16 @@ export const postsApi = {
 export const feedApi = {
   get: (params = {}) => api.get('/feed', { params }),
   getTrending: (params = {}) => api.get('/feed/trending', { params }),
+};
+
+/** API publique (sans session requise) — pas de refresh token sur 401. */
+export const publicFeedApi = {
+  getTrending: (params = {}) =>
+    api.get('/public/feed/trending', { params, _skipAuthRefresh: true }),
+};
+
+export const publicPostsApi = {
+  getOne: (id) => api.get(`/public/posts/${encodeURIComponent(id)}`, { _skipAuthRefresh: true }),
 };
 
 // Uploads API

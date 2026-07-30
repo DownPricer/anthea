@@ -87,6 +87,8 @@ LIMITS = {
     "resend_verification": (3, 900),
     "forgot_password": (5, 3600),
     "legacy_email": (5, 900),
+    "public_feed_trending": (60, 60),
+    "public_post_get": (120, 60),
 }
 
 # Délai minimal entre deux renvois de vérification (secondes)
