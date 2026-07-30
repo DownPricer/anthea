@@ -14,6 +14,7 @@ import {
   Trophy,
   Trash2,
   Users,
+  Share2,
 } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
 import { Button } from '../ui/button';
@@ -34,6 +35,7 @@ import {
   formatExerciseSummaryMetrics,
   getExerciseSummaryDisplayName,
 } from '../../lib/activities/formatExerciseSummary';
+import { sharePublicPost } from '../../lib/sharePublicPost';
 
 const ActivityPostBody = lazy(() => import('../activities/ActivityPostBody').then(m => ({ default: m.ActivityPostBody })));
 
@@ -53,7 +55,7 @@ export function PostCard({
   showRepostAction = true,
   isRepost = false,
 }) {
-  const { t, i18n } = useTranslation(['common', 'badges', 'home', 'workouts', 'duo']);
+  const { t, i18n } = useTranslation(['common', 'badges', 'home', 'workouts', 'duo', 'public']);
   const locale = (i18n?.language || 'fr').split('-')[0];
   const { formatDateTime, formatDayMonthTime } = useLocaleFormat();
   const [liked, setLiked] = useState(!!post?.is_liked);
@@ -578,6 +580,23 @@ export function PostCard({
                 </span>
               </button>
             )}
+
+            <button
+              type="button"
+              onClick={() =>
+                sharePublicPost(post.id, {
+                  title: actorDisplay.name || 'FitGather',
+                  text: post.title || '',
+                  copiedMessage: t('public:post.shareCopied'),
+                  failedMessage: t('public:post.shareFailed'),
+                })
+              }
+              data-testid="post-share-button"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-hover text-muted hover:bg-active transition-colors ml-auto"
+              aria-label={t('public:post.share')}
+            >
+              <Share2 size={16} />
+            </button>
           </>
         )}
       </div>

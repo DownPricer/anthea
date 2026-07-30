@@ -8,6 +8,7 @@ import { Label } from '../components/ui/label';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { AntheaLogo } from '../components/branding/AntheaLogo';
+import { readNextFromSearch, sanitizeNextPath } from '../lib/safeNextPath';
 
 export function LoginPage() {
   const { t } = useTranslation(['auth', 'common']);
@@ -22,7 +23,11 @@ export function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = location.state?.from?.pathname || '/';
+  const fromState = location.state?.from?.pathname
+    ? `${location.state.from.pathname}${location.state.from.search || ''}`
+    : null;
+  const fromQuery = readNextFromSearch(location.search);
+  const from = sanitizeNextPath(fromQuery || fromState || '/', '/');
 
   const startCooldown = (seconds = 60) => {
     setResendCooldown(seconds);
@@ -182,7 +187,7 @@ export function LoginPage() {
         <p className="text-center mt-4 text-subtle text-sm">
           {t('login.noAccount')}{' '}
           <Link
-            to="/register"
+            to={from && from !== '/' ? `/register?next=${encodeURIComponent(from)}` : '/register'}
             data-testid="register-link"
             className="text-[var(--theme-primary)] hover:underline font-medium"
           >

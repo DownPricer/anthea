@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
 import { Button } from '../components/ui/button';
@@ -8,6 +8,7 @@ import { Label } from '../components/ui/label';
 import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { AntheaLogo } from '../components/branding/AntheaLogo';
+import { readNextFromSearch, withNextParam } from '../lib/safeNextPath';
 
 const HANDLE_RE = /^[a-z0-9_]{3,30}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -23,6 +24,8 @@ export function RegisterPage() {
 
   const { register } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const nextPath = readNextFromSearch(location.search);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -176,7 +179,7 @@ export function RegisterPage() {
         <p className="text-center mt-8 text-subtle text-sm">
           {t('register.hasAccount')}{' '}
           <Link
-            to="/login"
+            to={withNextParam('/login', nextPath)}
             data-testid="login-link"
             className="text-[var(--theme-primary)] hover:underline font-medium"
           >
