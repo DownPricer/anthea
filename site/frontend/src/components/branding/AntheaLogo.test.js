@@ -46,7 +46,7 @@ describe('AntheaLogo branding', () => {
 
   it('shows FitGather brand in desktop nav and HTML title', () => {
     expect(desktopNavSrc).toContain('FitGather');
-    expect(indexHtml).toContain('<title>FitGather</title>');
+    expect(indexHtml).toContain('<title>FitGather — Le sport est meilleur ensemble</title>');
     expect(indexHtml).toMatch(/FitGather/);
     const manifest = fs.readFileSync(
       path.join(root, '../public/manifest.json'),

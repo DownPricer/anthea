@@ -119,7 +119,7 @@ describe('FitGather branding (source)', () => {
     const indexHtml = fs.readFileSync(path.join(root, '../public/index.html'), 'utf8');
     expect(manifest).toContain('"name": "FitGather"');
     expect(manifest).toContain('"short_name": "FitGather"');
-    expect(indexHtml).toContain('<title>FitGather</title>');
+    expect(indexHtml).toContain('<title>FitGather — Le sport est meilleur ensemble</title>');
     expect(manifest).not.toMatch(/FitMatch/i);
     expect(indexHtml).not.toMatch(/FitMatch/i);
   });

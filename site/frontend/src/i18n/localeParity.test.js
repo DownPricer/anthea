@@ -12,6 +12,7 @@ const NAMESPACES = [
   "notifications",
   "challenges",
   "errors",
+  "public",
 ];
 
 function collectKeys(obj, prefix = "") {
