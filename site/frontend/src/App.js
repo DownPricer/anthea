@@ -8,6 +8,8 @@ import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
 import { CheckEmailPage } from './pages/CheckEmailPage';
 import { LegacyAccountPage } from './pages/LegacyAccountPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { HomePage } from './pages/HomePage';
 import { WorkoutsPage } from './pages/WorkoutsPage';
 import { CreateWorkoutPage } from './pages/CreateWorkoutPage';
@@ -39,6 +41,8 @@ function App() {
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/check-email" element={<CheckEmailPage />} />
             <Route path="/legacy-account" element={<LegacyAccountPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* Protected routes */}
             <Route

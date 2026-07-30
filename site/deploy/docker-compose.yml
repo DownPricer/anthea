@@ -25,6 +25,17 @@ services:
       JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET in .env}
       CORS_ORIGINS: ${CORS_ORIGINS:-https://fitgather.fr,https://www.fitgather.fr,https://anthea.sitereadyshd.fr,http://localhost:3000}
       COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://fitgather.fr}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-FitGather}
+      SMTP_STARTTLS: ${SMTP_STARTTLS:-true}
+      SMTP_USE_SSL: ${SMTP_USE_SSL:-false}
+      EMAIL_VERIFICATION_TTL_MINUTES: ${EMAIL_VERIFICATION_TTL_MINUTES:-60}
+      PASSWORD_RESET_TTL_MINUTES: ${PASSWORD_RESET_TTL_MINUTES:-30}
       VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY:?set VAPID_PUBLIC_KEY in .env}
       VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY:?set VAPID_PRIVATE_KEY in .env}
       VAPID_SUBJECT: ${VAPID_SUBJECT:-https://anthea.sitereadyshd.fr}
