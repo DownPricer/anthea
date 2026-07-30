@@ -24,7 +24,12 @@ export function ActivityBootRecovery() {
       path.startsWith('/player/') ||
       path.startsWith('/activity/') ||
       path === '/login' ||
-      path === '/register'
+      path === '/register' ||
+      path === '/verify-email' ||
+      path === '/check-email' ||
+      path === '/legacy-account' ||
+      path === '/forgot-password' ||
+      path === '/reset-password'
     ) {
       return;
     }

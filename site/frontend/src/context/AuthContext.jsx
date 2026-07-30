@@ -5,6 +5,18 @@ import { writeStoredTimeFormat } from '../i18n/storage';
 
 const AuthContext = createContext(null);
 
+function authErrorPayload(error) {
+  const detail = error?.response?.data?.detail;
+  const code = detail && typeof detail === 'object' ? detail.code : null;
+  return {
+    success: false,
+    error: formatApiError(error),
+    code,
+    detail,
+    status: error?.response?.status,
+  };
+}
+
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null); // null = checking, false = not auth, object = auth
   const [loading, setLoading] = useState(true);
@@ -23,7 +35,6 @@ export function AuthProvider({ children }) {
   useEffect(() => {
     checkAuth();
 
-    // Listen for logout events
     const handleLogout = () => {
       setUser(false);
     };
@@ -31,7 +42,6 @@ export function AuthProvider({ children }) {
     return () => window.removeEventListener('auth:logout', handleLogout);
   }, [checkAuth]);
 
-  // Applique les préférences côté user (sans F5) + persiste en local pour éviter le flash.
   useEffect(() => {
     if (!user || typeof user !== 'object') return;
     const locale = user?.locale;
@@ -44,23 +54,88 @@ export function AuthProvider({ children }) {
     }
   }, [user]);
 
-  const login = async (username, password) => {
+  const login = async (email, password) => {
     try {
-      const { data } = await authApi.login({ username, password });
+      const { data } = await authApi.login({ email, password });
       setUser(data);
       return { success: true };
     } catch (error) {
-      return { success: false, error: formatApiError(error) };
+      return authErrorPayload(error);
     }
   };
 
   const register = async (userData) => {
     try {
       const { data } = await authApi.register(userData);
-      setUser(data);
-      return { success: true };
+      // Pas de session tant que l'e-mail n'est pas confirmé
+      return { success: true, data };
     } catch (error) {
-      return { success: false, error: formatApiError(error) };
+      return authErrorPayload(error);
+    }
+  };
+
+  const verifyEmail = async (token) => {
+    try {
+      const { data } = await authApi.verifyEmail({ token });
+      if (data?.user) {
+        setUser(data.user);
+      } else {
+        await checkAuth();
+      }
+      return { success: true, data };
+    } catch (error) {
+      return authErrorPayload(error);
+    }
+  };
+
+  const resendVerification = async (email) => {
+    try {
+      const { data } = await authApi.resendVerification({ email });
+      return { success: true, data };
+    } catch (error) {
+      return authErrorPayload(error);
+    }
+  };
+
+  const legacyLogin = async (handle, password) => {
+    try {
+      const { data } = await authApi.legacyLogin({ handle, password });
+      return { success: true, data };
+    } catch (error) {
+      return authErrorPayload(error);
+    }
+  };
+
+  const legacyEmail = async (email, emailConfirmation) => {
+    try {
+      const payload = { email };
+      if (emailConfirmation != null) payload.email_confirmation = emailConfirmation;
+      const { data } = await authApi.legacyEmail(payload);
+      return { success: true, data };
+    } catch (error) {
+      return authErrorPayload(error);
+    }
+  };
+
+  const forgotPassword = async (email) => {
+    try {
+      const { data } = await authApi.forgotPassword({ email });
+      return { success: true, data };
+    } catch (error) {
+      return authErrorPayload(error);
+    }
+  };
+
+  const resetPassword = async (token, password, passwordConfirmation) => {
+    try {
+      const { data } = await authApi.resetPassword({
+        token,
+        password,
+        password_confirmation: passwordConfirmation,
+      });
+      return { success: true, data };
+    } catch (error) {
+      return authErrorPayload(error);
     }
   };
 
@@ -104,6 +179,12 @@ export function AuthProvider({ children }) {
         isAuthenticated: !!user,
         login,
         register,
+        verifyEmail,
+        resendVerification,
+        legacyLogin,
+        legacyEmail,
+        forgotPassword,
+        resetPassword,
         logout,
         updateProfile,
         patchUser,

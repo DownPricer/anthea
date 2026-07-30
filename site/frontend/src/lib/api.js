@@ -38,7 +38,12 @@ api.interceptors.response.use(
       url.includes('/auth/login') ||
       url.includes('/auth/register') ||
       url.includes('/auth/refresh') ||
-      url.includes('/auth/logout');
+      url.includes('/auth/logout') ||
+      url.includes('/auth/verify-email') ||
+      url.includes('/auth/resend-verification') ||
+      url.includes('/auth/forgot-password') ||
+      url.includes('/auth/reset-password') ||
+      url.includes('/auth/legacy/');
 
     if (status === 401 && !original._retry && !isAuthEndpoint) {
       original._retry = true;
@@ -74,6 +79,12 @@ export const authApi = {
   refresh: () => api.post('/auth/refresh'),
   me: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
+  verifyEmail: (data) => api.post('/auth/verify-email', data),
+  resendVerification: (data) => api.post('/auth/resend-verification', data),
+  legacyLogin: (data) => api.post('/auth/legacy/login', data),
+  legacyEmail: (data) => api.post('/auth/legacy/email', data),
+  forgotPassword: (data) => api.post('/auth/forgot-password', data),
+  resetPassword: (data) => api.post('/auth/reset-password', data),
 };
 
 // Users API

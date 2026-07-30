@@ -21,6 +21,11 @@ export function BottomNav() {
   if (
     location.pathname.startsWith('/login') ||
     location.pathname.startsWith('/register') ||
+    location.pathname.startsWith('/verify-email') ||
+    location.pathname.startsWith('/check-email') ||
+    location.pathname.startsWith('/legacy-account') ||
+    location.pathname.startsWith('/forgot-password') ||
+    location.pathname.startsWith('/reset-password') ||
     location.pathname.startsWith('/player')
   ) {
     return null;

@@ -155,16 +155,41 @@ logger = logging.getLogger(__name__)
 # ============ MODELS ============
 
 class UserCreate(BaseModel):
-    username: str
+    handle: str
+    email: str
     password: str
+    password_confirmation: str
+    # Compat anciens clients (ignorés si handle fourni)
+    username: Optional[str] = None
     display_name: Optional[str] = None
     gender: Optional[str] = None
     fitness_level: Optional[str] = "beginner"
     main_goal: Optional[str] = None
 
 class UserLogin(BaseModel):
-    username: str
+    email: str
     password: str
+    # Refusé volontairement pour le flux normal (migration = /auth/legacy/login)
+    username: Optional[str] = None
+
+class EmailOnlyPayload(BaseModel):
+    email: str
+
+class TokenPayload(BaseModel):
+    token: str
+
+class LegacyLoginPayload(BaseModel):
+    handle: str
+    password: str
+
+class LegacyEmailPayload(BaseModel):
+    email: str
+    email_confirmation: Optional[str] = None
+
+class ResetPasswordPayload(BaseModel):
+    token: str
+    password: str
+    password_confirmation: str
 
 class UserUpdate(BaseModel):
     display_name: Optional[str] = None
@@ -606,18 +631,20 @@ def hash_password(password: str) -> str:
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     return bcrypt.checkpw(plain_password.encode("utf-8"), hashed_password.encode("utf-8"))
 
-def create_access_token(user_id: str, username: str) -> str:
+def create_access_token(user_id: str, username: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
         "username": username,
+        "tv": int(token_version or 0),
         "exp": datetime.now(timezone.utc) + timedelta(hours=24),
         "type": "access"
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
-def create_refresh_token(user_id: str) -> str:
+def create_refresh_token(user_id: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
+        "tv": int(token_version or 0),
         "exp": datetime.now(timezone.utc) + timedelta(days=30),
         "type": "refresh"
     }
@@ -638,9 +665,16 @@ async def get_current_user(request: Request) -> dict:
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
+        status = user.get("account_status") or "active"
+        if status == "pending_email" or status == "disabled":
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        if int(payload.get("tv") or 0) != int(user.get("token_version") or 0):
+            raise HTTPException(status_code=401, detail="Invalid token")
         user["id"] = str(user["_id"])
         user.pop("_id", None)
         user.pop("password_hash", None)
+        user.pop("email", None)
+        user.pop("email_normalized", None)
         return user
     except jwt.ExpiredSignatureError:
         raise HTTPException(status_code=401, detail="Token expired")
@@ -705,7 +739,7 @@ LIVE_REACTION_ALLOWED = frozenset({"🔥", "❤️", "👏", "💪"})
 LIVE_REACTION_TTL_SECONDS = 8
 LIVE_ACTIVE_PHASES = ("countdown", "exercise", "rest")
 
-def serialize_user(user: dict) -> dict:
+def serialize_user(user: dict, include_email: bool = False) -> dict:
     partner_link = None
     handle = user.get("handle") or user.get("username")
     raw_ids = user.get("featured_badge_ids")
@@ -714,7 +748,7 @@ def serialize_user(user: dict) -> dict:
     if not isinstance(raw_ids, list):
         raw_ids = []
     featured_ids = [canonical_badge_id(str(b)) for b in raw_ids[:3] if canonical_badge_id(str(b))]
-    return {
+    out = {
         "id": str(user["_id"]) if "_id" in user else user.get("id"),
         "username": user.get("username"),
         "display_name": user.get("display_name"),
@@ -754,8 +788,14 @@ def serialize_user(user: dict) -> dict:
         "relation_type": user.get("relation_type"),
         "followers_count": int(user.get("followers_count") or 0),
         "following_count": int(user.get("following_count") or 0),
+        "account_status": user.get("account_status") or "active",
+        "email_migration_required": bool(user.get("email_migration_required")),
         "created_at": user.get("created_at", datetime.now(timezone.utc).isoformat())
     }
+    if include_email:
+        out["email"] = user.get("email")
+        out["email_verified"] = bool(user.get("email_verified_at"))
+    return out
 
 
 def _serialize_notification_prefs(raw) -> dict:
@@ -2216,6 +2256,14 @@ async def can_view_user_stats(viewer_id: str, target_user: dict) -> bool:
 async def lifespan(app: FastAPI):
     await db.users.create_index("username", unique=True)
     await db.users.create_index("handle", unique=True, sparse=True)
+    try:
+        from auth.service import ensure_auth_indexes, mark_legacy_users
+        await ensure_auth_indexes(db)
+        marked = await mark_legacy_users(db)
+        if marked:
+            logger.info("Marked %s legacy users for email migration", marked)
+    except Exception as exc:
+        logger.warning("Auth indexes / legacy mark failed: %s", exc)
     await db.exercises.create_index("user_id")
     await db.exercises.create_index("is_system")
     await db.workout_templates.create_index("user_id")
@@ -2309,34 +2357,58 @@ async def seed_system_exercises():
 async def seed_test_user():
     test_username = os.environ.get("TEST_USERNAME", "testuser")
     test_password = os.environ.get("TEST_PASSWORD", "test123")
+    test_email = os.environ.get("TEST_EMAIL", "testuser@fitgather.local")
     
     existing = await db.users.find_one({"username": test_username})
+    now = datetime.now(timezone.utc).isoformat()
     if not existing:
         await db.users.insert_one({
             "username": test_username,
+            "handle": test_username,
             "password_hash": hash_password(test_password),
             "display_name": "Test User",
+            "email": test_email.lower(),
+            "email_normalized": test_email.lower(),
+            "email_verified_at": now,
+            "email_migration_required": False,
+            "account_status": "active",
+            "token_version": 0,
             "fitness_level": "intermediate",
             "theme": "default",
             "appearance": "dark",
             "tts_enabled": True,
             "timer_sound": "beep",
-            "created_at": datetime.now(timezone.utc).isoformat()
+            "created_at": now,
         })
         logger.info(f"Test user created: {test_username}")
+    else:
+        # Aligner le compte de test existant sur l'auth e-mail
+        updates = {}
+        if not existing.get("email_normalized"):
+            updates["email"] = test_email.lower()
+            updates["email_normalized"] = test_email.lower()
+            updates["email_verified_at"] = existing.get("email_verified_at") or now
+            updates["email_migration_required"] = False
+            updates["account_status"] = "active"
+        if updates:
+            await db.users.update_one({"_id": existing["_id"]}, {"$set": updates})
     
     # Write credentials file
-    Path("/app/memory").mkdir(parents=True, exist_ok=True)
-    with open("/app/memory/test_credentials.md", "w") as f:
-        f.write(f"# Test Credentials\n\n")
-        f.write(f"## Test User\n")
-        f.write(f"- Username: {test_username}\n")
-        f.write(f"- Password: {test_password}\n\n")
-        f.write(f"## Auth Endpoints\n")
-        f.write(f"- POST /api/auth/register\n")
-        f.write(f"- POST /api/auth/login\n")
-        f.write(f"- POST /api/auth/logout\n")
-        f.write(f"- GET /api/auth/me\n")
+    try:
+        Path("/app/memory").mkdir(parents=True, exist_ok=True)
+        with open("/app/memory/test_credentials.md", "w") as f:
+            f.write(f"# Test Credentials\n\n")
+            f.write(f"## Test User\n")
+            f.write(f"- Username: {test_username}\n")
+            f.write(f"- Email: {test_email}\n")
+            f.write(f"- Password: {test_password}\n\n")
+            f.write(f"## Auth Endpoints\n")
+            f.write(f"- POST /api/auth/register\n")
+            f.write(f"- POST /api/auth/login\n")
+            f.write(f"- POST /api/auth/logout\n")
+            f.write(f"- GET /api/auth/me\n")
+    except OSError:
+        pass
 
 app = FastAPI(lifespan=lifespan)
 api_router = APIRouter(prefix="/api")
@@ -2344,62 +2416,114 @@ api_router = APIRouter(prefix="/api")
 # ============ AUTH ROUTES ============
 
 @api_router.post("/auth/register")
-async def register(data: UserCreate, response: Response):
-    existing = await db.users.find_one({"username": data.username.lower()})
-    if existing:
-        raise HTTPException(status_code=400, detail="Username already taken")
-    
-    user_doc = {
-        "username": data.username.lower(),
-        "handle": normalize_handle(data.username) or data.username.lower(),
-        "password_hash": hash_password(data.password),
-        "display_name": data.display_name or data.username,
-        "gender": data.gender,
-        "fitness_level": data.fitness_level,
-        "main_goal": data.main_goal,
-        "theme": "default",
-        "appearance": "dark",
-        "tts_enabled": True,
-        "timer_sound": "beep",
-        "account_visibility": "private",
-        "show_stats": False,
-        "show_badges": True,
-        "show_recent_activity": False,
-        "show_sessions": False,
-        "show_posts": False,
-        "featured_badges": [],
-        "created_at": datetime.now(timezone.utc).isoformat()
-    }
-    
-    result = await db.users.insert_one(user_doc)
-    user_doc["_id"] = result.inserted_id
-    
-    access_token = create_access_token(str(result.inserted_id), data.username.lower())
-    refresh_token = create_refresh_token(str(result.inserted_id))
-    
-    set_auth_cookies(response, access_token, refresh_token)
-    
-    return serialize_user(user_doc)
+async def register(data: UserCreate, request: Request):
+    from auth.service import register_user
+    handle = data.handle or data.username or ""
+    return await register_user(
+        db,
+        handle=handle,
+        email=data.email,
+        password=data.password,
+        password_confirmation=data.password_confirmation,
+        normalize_handle_fn=normalize_handle,
+        hash_password_fn=hash_password,
+        request=request,
+    )
 
 @api_router.post("/auth/login")
-async def login(data: UserLogin, response: Response):
-    user = await db.users.find_one({"username": data.username.lower()})
-    if not user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    if not verify_password(data.password, user["password_hash"]):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    access_token = create_access_token(str(user["_id"]), user["username"])
-    refresh_token = create_refresh_token(str(user["_id"]))
-    
-    set_auth_cookies(response, access_token, refresh_token)
-    
-    now = datetime.now(timezone.utc).isoformat()
-    await db.users.update_one({"_id": user["_id"]}, {"$set": {"last_seen_at": now}})
-    user["last_seen_at"] = now
-    
-    return serialize_user(user)
+async def login(data: UserLogin, response: Response, request: Request):
+    from auth.service import login_with_email, GENERIC_LOGIN_ERROR
+    # Connexion par pseudo refusée dans le flux normal
+    if data.username and not data.email:
+        raise HTTPException(status_code=401, detail=GENERIC_LOGIN_ERROR)
+    return await login_with_email(
+        db,
+        email=data.email,
+        password=data.password,
+        response=response,
+        request=request,
+        verify_password_fn=verify_password,
+        create_access_token_fn=create_access_token,
+        create_refresh_token_fn=create_refresh_token,
+        set_auth_cookies_fn=set_auth_cookies,
+        serialize_user_fn=serialize_user,
+    )
+
+@api_router.post("/auth/verify-email")
+async def verify_email_endpoint(data: TokenPayload, response: Response):
+    from auth.service import verify_email, verify_legacy_email
+    legacy = await verify_legacy_email(
+        db,
+        token=data.token,
+        response=response,
+        create_access_token_fn=create_access_token,
+        create_refresh_token_fn=create_refresh_token,
+        set_auth_cookies_fn=set_auth_cookies,
+        serialize_user_fn=serialize_user,
+        cookie_secure=COOKIE_SECURE,
+    )
+    if legacy is not None:
+        return legacy
+    return await verify_email(
+        db,
+        token=data.token,
+        response=response,
+        create_access_token_fn=create_access_token,
+        create_refresh_token_fn=create_refresh_token,
+        set_auth_cookies_fn=set_auth_cookies,
+        serialize_user_fn=serialize_user,
+    )
+
+@api_router.post("/auth/resend-verification")
+async def resend_verification_endpoint(data: EmailOnlyPayload, request: Request):
+    from auth.service import resend_verification
+    return await resend_verification(db, email=data.email, request=request)
+
+@api_router.post("/auth/legacy/login")
+async def legacy_login_endpoint(data: LegacyLoginPayload, response: Response, request: Request):
+    from auth.service import legacy_login
+    return await legacy_login(
+        db,
+        handle=data.handle,
+        password=data.password,
+        response=response,
+        request=request,
+        normalize_handle_fn=normalize_handle,
+        verify_password_fn=verify_password,
+        cookie_secure=COOKIE_SECURE,
+    )
+
+@api_router.post("/auth/legacy/email")
+async def legacy_email_endpoint(data: LegacyEmailPayload, request: Request, response: Response):
+    from auth.service import legacy_set_email
+    if data.email_confirmation is not None and data.email_confirmation.strip().lower() != data.email.strip().lower():
+        raise HTTPException(
+            status_code=400,
+            detail={"code": "email_mismatch", "message": "Les adresses e-mail ne correspondent pas"},
+        )
+    return await legacy_set_email(
+        db,
+        email=data.email,
+        request=request,
+        response=response,
+        cookie_secure=COOKIE_SECURE,
+    )
+
+@api_router.post("/auth/forgot-password")
+async def forgot_password_endpoint(data: EmailOnlyPayload, request: Request):
+    from auth.service import forgot_password
+    return await forgot_password(db, email=data.email, request=request)
+
+@api_router.post("/auth/reset-password")
+async def reset_password_endpoint(data: ResetPasswordPayload):
+    from auth.service import reset_password
+    return await reset_password(
+        db,
+        token=data.token,
+        password=data.password,
+        password_confirmation=data.password_confirmation,
+        hash_password_fn=hash_password,
+    )
 
 @api_router.post("/auth/logout")
 async def logout(response: Response):
@@ -2420,9 +2544,15 @@ async def refresh_access_token(request: Request, response: Response):
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
             raise HTTPException(status_code=401, detail="User not found")
-        access_token = create_access_token(str(user["_id"]), user["username"])
+        status = user.get("account_status") or "active"
+        if status in ("pending_email", "disabled"):
+            raise HTTPException(status_code=401, detail="Not authenticated")
+        if int(payload.get("tv") or 0) != int(user.get("token_version") or 0):
+            raise HTTPException(status_code=401, detail="Invalid refresh token")
+        tv = int(user.get("token_version") or 0)
+        access_token = create_access_token(str(user["_id"]), user["username"], tv)
         # Rotation douce du refresh pour les sessions longues
-        new_refresh = create_refresh_token(str(user["_id"]))
+        new_refresh = create_refresh_token(str(user["_id"]), tv)
         set_auth_cookies(response, access_token, new_refresh)
         return {"ok": True}
     except jwt.ExpiredSignatureError:
@@ -2437,7 +2567,7 @@ async def get_me(user: dict = Depends(get_current_user)):
     await db.users.update_one({"_id": ObjectId(user["id"])}, {"$set": {"last_seen_at": now}})
     full_user = await db.users.find_one({"_id": ObjectId(user["id"])})
     full_user["last_seen_at"] = now
-    return serialize_user(full_user)
+    return serialize_user(full_user, include_email=True)
 
 @api_router.put("/auth/profile")
 async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user)):
