@@ -131,12 +131,13 @@ export async function flushActivityCheckpoint(activityId, snapshot = {}) {
 /**
  * Dernier checkpoint au pagehide — fetch keepalive (pas de gros GPS).
  */
+import { resolveApiBaseUrl } from '../apiBaseUrl';
+
 export function keepaliveMetricsCheckpoint(activityId, metrics) {
   if (!activityId || !metrics) return;
-  const base = process.env.REACT_APP_BACKEND_URL;
-  if (!base || typeof fetch === 'undefined') return;
+  if (typeof fetch === 'undefined') return;
   try {
-    fetch(`${base}/api/activities/${activityId}/metrics`, {
+    fetch(`${resolveApiBaseUrl()}/activities/${activityId}/metrics`, {
       method: 'PATCH',
       credentials: 'include',
       keepalive: true,

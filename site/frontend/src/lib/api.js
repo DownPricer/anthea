@@ -1,12 +1,11 @@
 import axios from 'axios';
 import { invalidateFeedCache, removePostFromFeedCaches } from './feedCache';
 import { formatApiErrorDetail } from './formatApiErrorDetail';
+import { resolveApiBaseUrl } from './apiBaseUrl';
 import i18n from '../i18n';
 
-const API_URL = process.env.REACT_APP_BACKEND_URL;
-
 const api = axios.create({
-  baseURL: `${API_URL}/api`,
+  baseURL: resolveApiBaseUrl(),
   withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
