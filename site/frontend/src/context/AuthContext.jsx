@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { authApi, formatApiError } from '../lib/api';
 import { setAppLocale } from '../i18n';
 import { writeStoredTimeFormat } from '../i18n/storage';
@@ -18,30 +18,77 @@ function authErrorPayload(error) {
 }
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null); // null = checking, false = not auth, object = auth
-  const [loading, setLoading] = useState(true);
-  const authStatus = loading ? 'checking' : user ? 'authenticated' : 'anonymous';
+  const [user, setUser] = useState(null);
+  const [authStatus, setAuthStatus] = useState('checking');
+  const [authUnavailable, setAuthUnavailable] = useState(false);
+  const userRef = useRef(null);
+  const retryTimerRef = useRef(null);
+  const retryAttemptRef = useRef(0);
+  const mountedRef = useRef(true);
+  const loading = authStatus === 'checking';
 
-  const checkAuth = useCallback(async () => {
-    try {
-      const { data } = await authApi.me();
-      setUser(data);
-    } catch {
-      setUser(false);
-    } finally {
-      setLoading(false);
-    }
+  const commitUser = useCallback((nextUser) => {
+    userRef.current = nextUser;
+    if (mountedRef.current) setUser(nextUser);
   }, []);
 
+  const checkAuth = useCallback(async ({ manual = false } = {}) => {
+    if (retryTimerRef.current) {
+      window.clearTimeout(retryTimerRef.current);
+      retryTimerRef.current = null;
+    }
+    if (manual && !userRef.current) setAuthStatus('checking');
+    try {
+      const { data } = await authApi.me();
+      if (!mountedRef.current) return;
+      commitUser(data);
+      setAuthStatus('authenticated');
+      setAuthUnavailable(false);
+      retryAttemptRef.current = 0;
+    } catch (error) {
+      if (!mountedRef.current) return;
+      const status = error?.response?.status;
+      if (status === 401 || status === 403) {
+        commitUser(false);
+        setAuthStatus('anonymous');
+        setAuthUnavailable(false);
+        retryAttemptRef.current = 0;
+        return;
+      }
+
+      setAuthUnavailable(true);
+      setAuthStatus(userRef.current ? 'authenticated' : 'checking');
+      const delays = [2000, 5000, 10000, 30000];
+      const delay = delays[Math.min(retryAttemptRef.current, delays.length - 1)];
+      retryAttemptRef.current += 1;
+      retryTimerRef.current = window.setTimeout(() => {
+        checkAuth();
+      }, delay);
+    }
+  }, [commitUser]);
+
   useEffect(() => {
+    mountedRef.current = true;
     checkAuth();
 
-    const handleLogout = () => {
-      setUser(false);
+    const handleInvalidSession = () => {
+      commitUser(false);
+      setAuthStatus('anonymous');
+      setAuthUnavailable(false);
     };
-    window.addEventListener('auth:logout', handleLogout);
-    return () => window.removeEventListener('auth:logout', handleLogout);
-  }, [checkAuth]);
+    const handleTemporaryFailure = () => setAuthUnavailable(true);
+    const handleConnectionRestored = () => setAuthUnavailable(false);
+    window.addEventListener('auth:session-invalid', handleInvalidSession);
+    window.addEventListener('auth:temporary-unavailable', handleTemporaryFailure);
+    window.addEventListener('auth:connection-restored', handleConnectionRestored);
+    return () => {
+      mountedRef.current = false;
+      if (retryTimerRef.current) window.clearTimeout(retryTimerRef.current);
+      window.removeEventListener('auth:session-invalid', handleInvalidSession);
+      window.removeEventListener('auth:temporary-unavailable', handleTemporaryFailure);
+      window.removeEventListener('auth:connection-restored', handleConnectionRestored);
+    };
+  }, [checkAuth, commitUser]);
 
   useEffect(() => {
     if (!user || typeof user !== 'object') return;
@@ -58,7 +105,9 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     try {
       const { data } = await authApi.login({ email, password });
-      setUser(data);
+      commitUser(data);
+      setAuthStatus('authenticated');
+      setAuthUnavailable(false);
       return { success: true };
     } catch (error) {
       return authErrorPayload(error);
@@ -79,7 +128,9 @@ export function AuthProvider({ children }) {
     try {
       const { data } = await authApi.verifyEmail({ token });
       if (data?.user) {
-        setUser(data.user);
+        commitUser(data.user);
+        setAuthStatus('authenticated');
+        setAuthUnavailable(false);
       } else {
         await checkAuth();
       }
@@ -144,14 +195,16 @@ export function AuthProvider({ children }) {
     try {
       await authApi.logout();
     } finally {
-      setUser(false);
+      commitUser(false);
+      setAuthStatus('anonymous');
+      setAuthUnavailable(false);
     }
   };
 
   const updateProfile = async (data) => {
     try {
       const { data: updated } = await authApi.updateProfile(data);
-      setUser(updated);
+      commitUser(updated);
       window.dispatchEvent(new CustomEvent('user:profile-updated', { detail: updated }));
       return { success: true, user: updated };
     } catch (error) {
@@ -160,13 +213,17 @@ export function AuthProvider({ children }) {
   };
 
   const patchUser = (partial) => {
-    setUser((prev) => (prev && typeof prev === 'object' ? { ...prev, ...partial } : prev));
+    if (userRef.current && typeof userRef.current === 'object') {
+      commitUser({ ...userRef.current, ...partial });
+    }
   };
 
   const refreshUser = async () => {
     try {
       const { data } = await authApi.me();
-      setUser(data);
+      commitUser(data);
+      setAuthStatus('authenticated');
+      setAuthUnavailable(false);
     } catch {
       // Ignore errors
     }
@@ -178,6 +235,7 @@ export function AuthProvider({ children }) {
         user,
         loading,
         authStatus,
+        authUnavailable,
         isAuthenticated: !!user,
         login,
         register,
@@ -191,6 +249,7 @@ export function AuthProvider({ children }) {
         updateProfile,
         patchUser,
         refreshUser,
+        retryAuth: () => checkAuth({ manual: true }),
       }}
     >
       {children}

@@ -328,7 +328,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate('/', { replace: true });
   };
 
   if (!profileUser) {

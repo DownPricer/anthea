@@ -443,7 +443,7 @@ export function SettingsPage() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/login');
+    navigate('/', { replace: true });
   };
 
   const handleEditClose = useCallback((open) => {

@@ -12,55 +12,75 @@ const api = axios.create({
   },
 });
 
-/** Déduplication in-flight du refresh token */
-let refreshInflight = null;
+/** Déduplication single-flight du refresh token. */
+let refreshPromise = null;
 
 function refreshAccessToken() {
-  if (!refreshInflight) {
-    refreshInflight = api
-      .post('/auth/refresh')
-      .then((res) => res)
+  if (!refreshPromise) {
+    refreshPromise = api
+      .post('/auth/refresh', null, { _skipAuthRefresh: true })
       .finally(() => {
-        refreshInflight = null;
+        refreshPromise = null;
       });
   }
-  return refreshInflight;
+  return refreshPromise;
 }
 
-// Response interceptor — refresh silencieux avant logout
+const AUTH_REFRESH_EXCLUDED_PATHS = [
+  '/auth/login',
+  '/auth/register',
+  '/auth/refresh',
+  '/auth/logout',
+  '/auth/verify-email',
+  '/auth/resend-verification',
+  '/auth/forgot-password',
+  '/auth/reset-password',
+  '/auth/legacy/',
+];
+
+function skipsAuthRefresh(config = {}) {
+  if (config._skipAuthRefresh) return true;
+  const path = String(config.url || '').split('?')[0];
+  return (
+    path.includes('/public/') ||
+    AUTH_REFRESH_EXCLUDED_PATHS.some((excluded) => path.includes(excluded))
+  );
+}
+
+function isConfirmedSessionRejection(error) {
+  return error?.response?.status === 401 || error?.response?.status === 403;
+}
+
+function isTemporaryApiFailure(error) {
+  const status = error?.response?.status;
+  return !error?.response || status === 408 || status === 429 || status >= 500;
+}
+
+// Response interceptor — un seul refresh, un seul rejeu, jamais de logout réseau.
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    window.dispatchEvent(new CustomEvent('auth:connection-restored'));
+    return response;
+  },
   async (error) => {
     const status = error.response?.status;
     const original = error.config || {};
-    const url = String(original.url || '');
-    const isAuthEndpoint =
-      url.includes('/auth/login') ||
-      url.includes('/auth/register') ||
-      url.includes('/auth/refresh') ||
-      url.includes('/auth/logout') ||
-      url.includes('/auth/verify-email') ||
-      url.includes('/auth/resend-verification') ||
-      url.includes('/auth/forgot-password') ||
-      url.includes('/auth/reset-password') ||
-      url.includes('/auth/legacy/');
 
-    if (status === 401 && !original._retry && !isAuthEndpoint) {
-      if (original._skipAuthRefresh || url.includes('/public/')) {
-        return Promise.reject(error);
-      }
+    if (isTemporaryApiFailure(error)) {
+      window.dispatchEvent(new CustomEvent('auth:temporary-unavailable'));
+    }
+
+    if (status === 401 && !original._retry && !skipsAuthRefresh(original)) {
       original._retry = true;
       try {
         await refreshAccessToken();
         return api(original);
-      } catch {
-        window.dispatchEvent(new CustomEvent('auth:logout'));
-        return Promise.reject(error);
+      } catch (refreshError) {
+        if (isConfirmedSessionRejection(refreshError)) {
+          window.dispatchEvent(new CustomEvent('auth:session-invalid'));
+        }
+        return Promise.reject(refreshError);
       }
-    }
-
-    if (status === 401 && isAuthEndpoint && url.includes('/auth/refresh')) {
-      window.dispatchEvent(new CustomEvent('auth:logout'));
     }
 
     return Promise.reject(error);
@@ -79,7 +99,7 @@ export const authApi = {
   register: (data) => api.post('/auth/register', data),
   login: (data) => api.post('/auth/login', data),
   logout: () => api.post('/auth/logout'),
-  refresh: () => api.post('/auth/refresh'),
+  refresh: () => api.post('/auth/refresh', null, { _skipAuthRefresh: true }),
   me: () => api.get('/auth/me'),
   updateProfile: (data) => api.put('/auth/profile', data),
   verifyEmail: (data) => api.post('/auth/verify-email', data),

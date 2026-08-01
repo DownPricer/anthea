@@ -1,5 +1,6 @@
-/* Service worker FitGather — Web Push + invalidation bundle legacy */
-const SW_CACHE_VERSION = 'fitgather-v2-same-origin-api';
+/* Service worker FitGather — Web Push + auth strictement network-only */
+const SW_CACHE_VERSION = 'fitgather-v3-auth-network-only';
+const AUTH_NETWORK_ONLY_PREFIX = '/api/auth/';
 
 self.addEventListener('install', (event) => {
   self.skipWaiting();
@@ -18,6 +19,13 @@ self.addEventListener('activate', (event) => {
       )
       .then(() => clients.claim())
   );
+});
+
+self.addEventListener('fetch', (event) => {
+  const url = new URL(event.request.url);
+  if (url.origin === self.location.origin && url.pathname.startsWith(AUTH_NETWORK_ONLY_PREFIX)) {
+    event.respondWith(fetch(event.request, { cache: 'no-store' }));
+  }
 });
 
 self.addEventListener('push', (event) => {

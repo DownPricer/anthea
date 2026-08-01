@@ -7,7 +7,7 @@ UPLOAD_DIR.mkdir(exist_ok=True)
 load_dotenv(ROOT_DIR / '.env')
 
 from fastapi import FastAPI, APIRouter, HTTPException, Request, Response, Depends
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from starlette.middleware.cors import CORSMiddleware
 import base64
@@ -111,6 +111,8 @@ db = client[os.environ['DB_NAME']]
 
 JWT_ALGORITHM = "HS256"
 JWT_SECRET = os.environ.get("JWT_SECRET", secrets.token_hex(32))
+ACCESS_TOKEN_TTL_MINUTES = max(1, int(os.environ.get("ACCESS_TOKEN_TTL_MINUTES", "1440")))
+REFRESH_TOKEN_TTL_DAYS = max(1, int(os.environ.get("REFRESH_TOKEN_TTL_DAYS", "30")))
 
 DEFAULT_CORS_ORIGINS = [
     "https://fitgather.fr",
@@ -126,17 +128,35 @@ def parse_cors_origins() -> List[str]:
         return [origin.strip() for origin in raw.split(",") if origin.strip()]
     return DEFAULT_CORS_ORIGINS.copy()
 
-COOKIE_SECURE = os.environ.get("COOKIE_SECURE", "false").lower() in ("true", "1", "yes")
+APP_ENV = (os.environ.get("APP_ENV") or os.environ.get("ENV") or "").strip().lower()
+COOKIE_SECURE = os.environ.get(
+    "COOKIE_SECURE", "true" if APP_ENV in ("production", "prod") else "false"
+).lower() in ("true", "1", "yes")
 
 def set_auth_cookies(response: Response, access_token: str, refresh_token: str) -> None:
+    now = datetime.now(timezone.utc)
+    access_max_age = ACCESS_TOKEN_TTL_MINUTES * 60
+    refresh_max_age = REFRESH_TOKEN_TTL_DAYS * 24 * 60 * 60
     cookie_kwargs = {
         "httponly": True,
         "secure": COOKIE_SECURE,
         "samesite": "lax",
         "path": "/",
     }
-    response.set_cookie(key="access_token", value=access_token, max_age=86400, **cookie_kwargs)
-    response.set_cookie(key="refresh_token", value=refresh_token, max_age=2592000, **cookie_kwargs)
+    response.set_cookie(
+        key="access_token",
+        value=access_token,
+        max_age=access_max_age,
+        expires=now + timedelta(seconds=access_max_age),
+        **cookie_kwargs,
+    )
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        max_age=refresh_max_age,
+        expires=now + timedelta(seconds=refresh_max_age),
+        **cookie_kwargs,
+    )
 
 def clear_auth_cookies(response: Response) -> None:
     delete_kwargs = {
@@ -636,7 +656,7 @@ def create_access_token(user_id: str, username: str, token_version: int = 0) -> 
         "sub": user_id,
         "username": username,
         "tv": int(token_version or 0),
-        "exp": datetime.now(timezone.utc) + timedelta(hours=24),
+        "exp": datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_TTL_MINUTES),
         "type": "access"
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -645,7 +665,7 @@ def create_refresh_token(user_id: str, token_version: int = 0) -> str:
     payload = {
         "sub": user_id,
         "tv": int(token_version or 0),
-        "exp": datetime.now(timezone.utc) + timedelta(days=30),
+        "exp": datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_TTL_DAYS),
         "type": "refresh"
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
@@ -2712,7 +2732,32 @@ async def reset_password_endpoint(data: ResetPasswordPayload):
     )
 
 @api_router.post("/auth/logout")
-async def logout(response: Response):
+async def logout(request: Request, response: Response):
+    token = request.cookies.get("refresh_token") or request.cookies.get("access_token")
+    if token:
+        try:
+            payload = jwt.decode(
+                token,
+                JWT_SECRET,
+                algorithms=[JWT_ALGORITHM],
+                options={"verify_exp": False},
+            )
+            user_id = payload.get("sub")
+            token_version = int(payload.get("tv") or 0)
+            if user_id:
+                version_filter = (
+                    {"$in": [0, None]}
+                    if token_version == 0
+                    else token_version
+                )
+                await db.users.update_one(
+                    {"_id": ObjectId(user_id), "token_version": version_filter},
+                    {"$inc": {"token_version": 1}},
+                )
+        except (jwt.InvalidTokenError, ValueError, TypeError):
+            pass
+        except Exception:
+            logger.warning("auth_logout_revocation_failed", exc_info=True)
     clear_auth_cookies(response)
     return {"message": "Logged out successfully"}
 
@@ -2720,21 +2765,26 @@ async def logout(response: Response):
 @api_router.post("/auth/refresh")
 async def refresh_access_token(request: Request, response: Response):
     """Renouvelle l'access_token via le cookie refresh_token (dédup côté client)."""
+    def rejected(detail: str, status_code: int = 401) -> JSONResponse:
+        rejected_response = JSONResponse(status_code=status_code, content={"detail": detail})
+        clear_auth_cookies(rejected_response)
+        return rejected_response
+
     token = request.cookies.get("refresh_token")
     if not token:
-        raise HTTPException(status_code=401, detail="No refresh token")
+        return rejected("No refresh token")
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
         if payload.get("type") != "refresh":
-            raise HTTPException(status_code=401, detail="Invalid token type")
+            return rejected("Invalid token type")
         user = await db.users.find_one({"_id": ObjectId(payload["sub"])})
         if not user:
-            raise HTTPException(status_code=401, detail="User not found")
+            return rejected("User not found")
         status = user.get("account_status") or "active"
         if status in ("pending_email", "disabled"):
-            raise HTTPException(status_code=401, detail="Not authenticated")
+            return rejected("Not authenticated", 403 if status == "disabled" else 401)
         if int(payload.get("tv") or 0) != int(user.get("token_version") or 0):
-            raise HTTPException(status_code=401, detail="Invalid refresh token")
+            return rejected("Invalid refresh token")
         tv = int(user.get("token_version") or 0)
         access_token = create_access_token(str(user["_id"]), user["username"], tv)
         # Rotation douce du refresh pour les sessions longues
@@ -2742,9 +2792,9 @@ async def refresh_access_token(request: Request, response: Response):
         set_auth_cookies(response, access_token, new_refresh)
         return {"ok": True}
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=401, detail="Refresh token expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        return rejected("Refresh token expired")
+    except (jwt.InvalidTokenError, KeyError, ValueError):
+        return rejected("Invalid refresh token")
 
 
 @api_router.get("/auth/me")
