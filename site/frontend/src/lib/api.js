@@ -1,6 +1,6 @@
 import axios from 'axios';
 import { invalidateFeedCache, removePostFromFeedCaches } from './feedCache';
-import { formatApiErrorDetail } from './formatApiErrorDetail';
+import { formatApiErrorDetail, isApiNetworkError } from './formatApiErrorDetail';
 import { resolveApiBaseUrl } from './apiBaseUrl';
 import i18n from '../i18n';
 
@@ -52,9 +52,10 @@ function isConfirmedSessionRejection(error) {
 }
 
 function isTemporaryApiFailure(error) {
-  const status = error?.response?.status;
-  return !error?.response || status === 408 || status === 429 || status >= 500;
+  return isApiNetworkError(error) || error?.response?.status === 408 || error?.response?.status === 429;
 }
+
+export { isApiNetworkError };
 
 // Response interceptor — un seul refresh, un seul rejeu, jamais de logout réseau.
 api.interceptors.response.use(
@@ -89,6 +90,9 @@ api.interceptors.response.use(
 
 // Helper to format API errors (codes structurés → i18n, message backend en fallback)
 export function formatApiError(error) {
+  if (isApiNetworkError(error)) {
+    return i18n.t('errors:network');
+  }
   return formatApiErrorDetail(error.response?.data?.detail, (key, opts) =>
     i18n.t(key, opts)
   );

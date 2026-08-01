@@ -1274,7 +1274,169 @@ def serialize_notification(doc: dict) -> dict:
         out["body"] = doc.get("body")
     if doc.get("url"):
         out["url"] = doc.get("url")
+    if doc.get("comment_id"):
+        out["comment_id"] = doc.get("comment_id")
+    if doc.get("group_key"):
+        out["group_key"] = doc.get("group_key")
+    if doc.get("actor_count") is not None:
+        out["actor_count"] = int(doc.get("actor_count") or 0)
+    if doc.get("actor_ids"):
+        out["actor_ids"] = doc.get("actor_ids")
+    if doc.get("updated_at"):
+        out["updated_at"] = doc.get("updated_at")
     return out
+
+COMMENT_LIKE_GROUP_HOURS = int(os.environ.get("COMMENT_LIKE_GROUP_HOURS", "6"))
+
+
+def _comment_like_group_key(comment_id: str, now: datetime) -> str:
+    window_seconds = COMMENT_LIKE_GROUP_HOURS * 3600
+    window_idx = int(now.timestamp() // window_seconds)
+    return f"comment_like:{comment_id}:{window_idx}"
+
+
+async def _send_comment_like_push(
+    recipient_id: str,
+    actor: dict,
+    post_id: str,
+    comment_id: str,
+    *,
+    aggregated: bool,
+) -> None:
+    try:
+        from push_service import notify_push
+        from i18n_messages import load_user_locale, t, DEFAULT_LOCALE
+
+        recipient_locale = await load_user_locale(db, recipient_id)
+        actor_name = (
+            actor.get("display_name")
+            or actor.get("username")
+            or actor.get("handle")
+            or t(recipient_locale, "push.generic.actor")
+        )
+        if actor_name == "push.generic.actor":
+            actor_name = t(DEFAULT_LOCALE, "push.generic.actor")
+        notif_type = "comment_like_grouped" if aggregated else "comment_like"
+        url = f"/post/{post_id}?comment={comment_id}"
+        tag = f"comment-like-{comment_id}"
+        await notify_push(
+            db,
+            recipient_id,
+            notif_type,
+            actor_name=actor_name,
+            url=url,
+            tag=tag,
+        )
+    except Exception:
+        pass
+
+
+async def upsert_comment_like_notification(
+    recipient_id: str,
+    actor: dict,
+    post_id: str,
+    comment_id: str,
+    *,
+    liked: bool,
+) -> None:
+    actor_id = actor.get("id")
+    if not actor_id or recipient_id == actor_id:
+        return
+
+    now = datetime.now(timezone.utc)
+    now_iso = now.isoformat()
+    group_key = _comment_like_group_key(comment_id, now)
+
+    existing = await db.notifications.find_one({
+        "user_id": recipient_id,
+        "type": "comment_like",
+        "group_key": group_key,
+    })
+
+    if liked:
+        if existing:
+            actor_ids = list(existing.get("actor_ids") or [])
+            if actor_id in actor_ids:
+                return
+            actor_ids.append(actor_id)
+            actor_count = len(actor_ids)
+            push_sent_level = int(existing.get("push_sent_level") or 0)
+            await db.notifications.update_one(
+                {"_id": existing["_id"]},
+                {"$set": {
+                    "actor_id": actor_id,
+                    "actor_username": actor.get("username"),
+                    "actor_handle": actor.get("handle") or actor.get("username"),
+                    "actor_display_name": actor.get("display_name"),
+                    "actor_avatar_url": actor.get("avatar_url"),
+                    "latest_actor_id": actor_id,
+                    "actor_ids": actor_ids[-10:],
+                    "actor_count": actor_count,
+                    "read": False,
+                    "updated_at": now_iso,
+                }},
+            )
+            if actor_count == 2 and push_sent_level < 2:
+                await _send_comment_like_push(
+                    recipient_id, actor, post_id, comment_id, aggregated=True
+                )
+                await db.notifications.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"push_sent_level": 2}},
+                )
+            return
+
+        doc = {
+            "user_id": recipient_id,
+            "type": "comment_like",
+            "post_id": post_id,
+            "comment_id": comment_id,
+            "group_key": group_key,
+            "actor_id": actor_id,
+            "actor_username": actor.get("username"),
+            "actor_handle": actor.get("handle") or actor.get("username"),
+            "actor_display_name": actor.get("display_name"),
+            "actor_avatar_url": actor.get("avatar_url"),
+            "latest_actor_id": actor_id,
+            "actor_ids": [actor_id],
+            "actor_count": 1,
+            "push_sent_level": 1,
+            "read": False,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+        await db.notifications.insert_one(doc)
+        await _send_comment_like_push(
+            recipient_id, actor, post_id, comment_id, aggregated=False
+        )
+        return
+
+    if not existing:
+        return
+    actor_ids = [aid for aid in (existing.get("actor_ids") or []) if aid != actor_id]
+    actor_count = len(actor_ids)
+    if actor_count <= 0:
+        await db.notifications.delete_one({"_id": existing["_id"]})
+        return
+
+    latest_id = actor_ids[-1]
+    latest_user = await get_user_doc_by_id(latest_id)
+    patch = {
+        "actor_ids": actor_ids,
+        "actor_count": actor_count,
+        "actor_id": latest_id,
+        "latest_actor_id": latest_id,
+        "updated_at": now_iso,
+    }
+    if latest_user:
+        patch.update({
+            "actor_username": latest_user.get("username"),
+            "actor_handle": latest_user.get("handle") or latest_user.get("username"),
+            "actor_display_name": latest_user.get("display_name"),
+            "actor_avatar_url": latest_user.get("avatar_url"),
+        })
+    await db.notifications.update_one({"_id": existing["_id"]}, {"$set": patch})
+
 
 POST_TYPES = {
     "workout_photo", "workout", "badge", "duo_repost", "duo", "free",
@@ -3092,51 +3254,101 @@ async def follow_user(handle: str, user: dict = Depends(get_current_user)):
     return await serialize_profile_for_viewer(updated, user["id"])
 
 
-async def _accept_follow_request(request_doc: dict, accepter: dict) -> None:
+async def _accept_follow_request(request_doc: dict, accepter: dict) -> dict:
+    """Accepte une demande de suivi de façon idempotente."""
     requester_id = request_doc["requester_id"]
     target_id = request_doc["target_id"]
-    if str(accepter["_id"]) != target_id:
+    accepter_id = accepter.get("id") or str(accepter.get("_id", ""))
+    if accepter_id != target_id:
         raise HTTPException(status_code=403, detail="Non autorisé")
+
+    request_status = request_doc.get("status")
+    if request_status == "rejected":
+        raise HTTPException(status_code=404, detail="Demande introuvable")
 
     existing = await db.follows.find_one({
         "follower_id": requester_id,
         "following_id": target_id,
     })
     now = datetime.now(timezone.utc).isoformat()
+    follow_created = False
     if not existing:
-        await db.follows.insert_one({
-            "follower_id": requester_id,
-            "following_id": target_id,
-            "created_at": now,
-        })
-        await db.users.update_one({"_id": ObjectId(target_id)}, {"$inc": {"followers_count": 1}})
-        await db.users.update_one({"_id": ObjectId(requester_id)}, {"$inc": {"following_count": 1}})
+        try:
+            await db.follows.insert_one({
+                "follower_id": requester_id,
+                "following_id": target_id,
+                "created_at": now,
+            })
+            follow_created = True
+            await db.users.update_one({"_id": ObjectId(target_id)}, {"$inc": {"followers_count": 1}})
+            await db.users.update_one({"_id": ObjectId(requester_id)}, {"$inc": {"following_count": 1}})
+        except Exception as exc:
+            dup = exc.__class__.__name__ == "DuplicateKeyError" or "duplicate" in str(exc).lower()
+            if not dup:
+                logger.warning(
+                    "follow_accept failed request_id=%s user_id=%s step=follow_insert error=%s",
+                    str(request_doc.get("_id")),
+                    accepter_id,
+                    type(exc).__name__,
+                )
+                raise
+            existing = await db.follows.find_one({
+                "follower_id": requester_id,
+                "following_id": target_id,
+            })
 
-    await db.follow_requests.update_one(
-        {"_id": request_doc["_id"]},
-        {"$set": {"status": "accepted", "responded_at": now}},
-    )
-    requester = await get_user_doc_by_id(requester_id)
-    if requester:
-        await create_notification(requester_id, "follow_accepted", accepter, skip_if_exists=True)
+    if request_status == "pending":
+        await db.follow_requests.update_one(
+            {"_id": request_doc["_id"]},
+            {"$set": {"status": "accepted", "responded_at": now}},
+        )
+        if follow_created:
+            requester = await get_user_doc_by_id(requester_id)
+            if requester:
+                await create_notification(
+                    requester_id, "follow_accepted", accepter, skip_if_exists=True
+                )
+
+    if request_status == "accepted" or (existing and not follow_created):
+        return {"status": "already_accepted"}
+    return {"status": "accepted"}
 
 
 @api_router.post("/follow-requests/{request_id}/accept")
 async def accept_follow_request(request_id: str, user: dict = Depends(get_current_user)):
     try:
-        request_doc = await db.follow_requests.find_one({"_id": ObjectId(request_id)})
+        req_oid = ObjectId(request_id)
     except Exception:
-        request_doc = None
-    if not request_doc or request_doc.get("status") != "pending":
+        raise HTTPException(status_code=400, detail="Identifiant invalide")
+
+    request_doc = await db.follow_requests.find_one({"_id": req_oid})
+    if not request_doc:
         raise HTTPException(status_code=404, detail="Demande introuvable")
     if request_doc.get("target_id") != user["id"]:
         raise HTTPException(status_code=403, detail="Non autorisé")
+    if request_doc.get("status") not in ("pending", "accepted"):
+        raise HTTPException(status_code=404, detail="Demande introuvable")
 
-    await _accept_follow_request(request_doc, user)
+    try:
+        accept_result = await _accept_follow_request(request_doc, user)
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning(
+            "follow_accept failed request_id=%s user_id=%s step=accept error=%s: %s",
+            request_id,
+            user.get("id"),
+            type(exc).__name__,
+            exc,
+        )
+        raise HTTPException(status_code=500, detail="Erreur lors de l'acceptation")
+
     requester = await get_user_doc_by_id(request_doc["requester_id"])
     if requester:
-        return await serialize_profile_for_viewer(requester, user["id"])
-    return {"status": "ok"}
+        profile = await serialize_profile_for_viewer(requester, user["id"])
+        profile["accept_status"] = accept_result.get("status", "accepted")
+        return profile
+    return accept_result
 
 
 @api_router.post("/follow-requests/{request_id}/reject")
@@ -6234,6 +6446,7 @@ async def toggle_comment_like(
         raise HTTPException(status_code=404, detail="Commentaire introuvable")
 
     likes = list(comments[idx].get("likes") or [])
+    comment_author_id = comments[idx].get("user_id")
     if user["id"] in likes:
         likes = [uid for uid in likes if uid != user["id"]]
         is_liked = False
@@ -6246,6 +6459,16 @@ async def toggle_comment_like(
         {"_id": ObjectId(post_id)},
         {"$set": {"comments": comments}},
     )
+
+    if comment_author_id and comment_author_id != user["id"]:
+        await upsert_comment_like_notification(
+            comment_author_id,
+            user,
+            post_id,
+            comment_id,
+            liked=is_liked,
+        )
+
     return {"likes_count": len(likes), "is_liked": is_liked, "comment_id": comment_id}
 
 
@@ -6422,16 +6645,18 @@ async def create_repost(data: RepostCreate, user: dict = Depends(get_current_use
 @api_router.delete("/reposts/{repost_id}")
 async def delete_repost(repost_id: str, user: dict = Depends(get_current_user)):
     try:
-        repost = await db.reposts.find_one({"_id": ObjectId(repost_id)})
+        repost_oid = ObjectId(repost_id)
     except Exception:
-        repost = None
+        raise HTTPException(status_code=400, detail="Identifiant invalide")
+
+    repost = await db.reposts.find_one({"_id": repost_oid})
     if not repost:
-        raise HTTPException(status_code=404, detail="Republication introuvable")
+        return {"status": "ok", "already_removed": True}
     if repost.get("user_id") != user["id"]:
         raise HTTPException(status_code=403, detail="Non autorisé")
 
     duo_wall_post_id = repost.get("duo_wall_post_id")
-    await db.reposts.delete_one({"_id": ObjectId(repost_id)})
+    await db.reposts.delete_one({"_id": repost_oid})
     if duo_wall_post_id:
         try:
             await db.posts.delete_one({"_id": ObjectId(duo_wall_post_id)})

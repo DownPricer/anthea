@@ -2,6 +2,11 @@
  * Formatage des erreurs API (codes structurés → i18n).
  * Module séparé pour tests unitaires sans axios.
  */
+export function isApiNetworkError(error) {
+  const status = error?.response?.status;
+  return !error?.response || status === 502 || status === 503 || status === 504;
+}
+
 export function formatApiErrorDetail(detail, t) {
   const translate = t || ((key) => key);
   if (detail == null) return translate('errors:generic');

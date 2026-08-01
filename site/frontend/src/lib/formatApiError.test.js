@@ -1,4 +1,4 @@
-import { formatApiErrorDetail } from './formatApiErrorDetail';
+import { formatApiErrorDetail, isApiNetworkError } from './formatApiErrorDetail';
 
 const translations = {
   'errors:generic': 'Une erreur est survenue. Veuillez réessayer.',
@@ -31,5 +31,16 @@ describe('formatApiErrorDetail structured codes', () => {
     expect(formatApiErrorDetail('Vous suivez déjà cet utilisateur', t)).toBe(
       'Vous suivez déjà cet utilisateur'
     );
+  });
+});
+
+describe('isApiNetworkError', () => {
+  it('detects network and gateway errors only', () => {
+    expect(isApiNetworkError({})).toBe(true);
+    expect(isApiNetworkError({ response: { status: 502 } })).toBe(true);
+    expect(isApiNetworkError({ response: { status: 503 } })).toBe(true);
+    expect(isApiNetworkError({ response: { status: 504 } })).toBe(true);
+    expect(isApiNetworkError({ response: { status: 500 } })).toBe(false);
+    expect(isApiNetworkError({ response: { status: 403 } })).toBe(false);
   });
 });

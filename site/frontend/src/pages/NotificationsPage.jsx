@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Bell, ChevronLeft, Loader2, UserPlus, Heart, Trophy, Users } from 'lucide-react';
 import { parseISO } from 'date-fns';
@@ -60,6 +60,7 @@ export function NotificationsPage() {
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(null);
   const [requestLoading, setRequestLoading] = useState(null);
+  const acceptInFlightRef = useRef(new Set());
 
   const resolveBadgeName = useCallback(
     (notif) => {
@@ -101,6 +102,17 @@ export function NotificationsPage() {
           return t('notifications:duoRequestReceived.body', {
             actorName: notif.actor_display_name || notif.actor_username || '',
           });
+        case 'comment_like': {
+          const actor = notif.actor_display_name || notif.actor_username || '';
+          const count = Number(notif.actor_count || 1);
+          if (count > 1) {
+            return t('notifications:types.comment_like_grouped', {
+              actor,
+              others: count - 1,
+            });
+          }
+          return t('notifications:types.comment_like', { actor });
+        }
         default:
           if (hasTypeKey) {
             return t(typeKey, {
@@ -159,15 +171,18 @@ export function NotificationsPage() {
   };
 
   const handleAcceptFollowRequest = async (notif) => {
-    if (!notif.request_id) return;
+    if (!notif.request_id || acceptInFlightRef.current.has(notif.request_id)) return;
+    acceptInFlightRef.current.add(notif.request_id);
     setRequestLoading(notif.id);
+    setNotifications((prev) => prev.filter((n) => n.id !== notif.id));
     try {
       await usersApi.acceptFollowRequest(notif.request_id);
       toast.success(t('notifications:toasts.accepted'));
-      await loadNotifications();
     } catch (error) {
+      await loadNotifications();
       toast.error(formatApiError(error));
     } finally {
+      acceptInFlightRef.current.delete(notif.request_id);
       setRequestLoading(null);
     }
   };
@@ -287,7 +302,11 @@ export function NotificationsPage() {
               ? badgeDeepLink(notif)
               : duoRequest
                 ? duoRequestDeepLink(notif)
-                : null;
+                : notif.type === 'comment_like' && notif.post_id
+                  ? `/post/${notif.post_id}${notif.comment_id ? `?comment=${encodeURIComponent(notif.comment_id)}` : ''}`
+                  : notif.post_id && (notif.type === 'like' || notif.type === 'comment')
+                    ? `/post/${notif.post_id}`
+                    : null;
             const actorName = notif.actor_display_name || notif.actor_username || '';
 
             return (
@@ -366,6 +385,16 @@ export function NotificationsPage() {
                       className="mt-3 h-8 rounded-lg border-border text-muted text-xs"
                     >
                       <Link to={deepLink}>{t('notifications:duoRequestReceived.cta')}</Link>
+                    </Button>
+                  ) : null}
+                  {deepLink && !duoRequest && !badgeNotif ? (
+                    <Button
+                      asChild
+                      size="sm"
+                      variant="outline"
+                      className="mt-3 h-8 rounded-lg border-border text-muted text-xs"
+                    >
+                      <Link to={deepLink}>{t('notifications:actions.viewPost')}</Link>
                     </Button>
                   ) : null}
                   {notif.type === 'duo_follow_request' && notif.request_id ? (
