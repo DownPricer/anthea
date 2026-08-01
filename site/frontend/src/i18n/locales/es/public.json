@@ -10,17 +10,51 @@
     "join": "Unirse a FitGather"
   },
   "hero": {
+    "eyebrow": "Muévete. Comparte. Progresa.",
     "title": "El deporte es mejor cuando se comparte.",
     "subtitle": "Sigue tus entrenamientos, comparte tu progreso y avanza con una comunidad que te motiva.",
     "communityStat": "Únete a una comunidad de más de {{count}} usuarios.",
     "ctaRegister": "Unirse gratis",
-    "ctaLogin": "Iniciar sesión"
+    "ctaLogin": "Iniciar sesión",
+    "previewWorkoutTitle": "Carrera del domingo",
+    "previewWorkoutMeta": "Nuevo objetivo alcanzado",
+    "previewEncouragement": "Tu pareja te anima",
+    "previewEncouragementBody": "El progreso motiva más cuando se comparte.",
+    "previewCommunity": "Una comunidad activa",
+    "previewCommunityBody": "Conecta en torno a tus entrenamientos y logros."
   },
   "trending": {
     "title": "Publicaciones del momento",
     "subtitle": "Descubre entrenamientos, logros y progresos compartidos por la comunidad.",
     "empty": "No hay publicaciones públicas por el momento.",
     "error": "No se pudieron cargar las publicaciones."
+  },
+  "benefits": {
+    "title": "Todo lo que necesitas para avanzar",
+    "subtitle": "Herramientas sencillas para mantener la constancia, la motivación y el apoyo.",
+    "items": {
+      "tracking": {
+        "title": "Sigue tus entrenamientos",
+        "description": "Mantén una visión clara de tus sesiones y mide tu progreso."
+      },
+      "partner": {
+        "title": "Progresa con tu pareja",
+        "description": "Marcáos objetivos comunes y animaos cada día."
+      },
+      "sharing": {
+        "title": "Comparte tus logros",
+        "description": "Celebra cada etapa con una comunidad que te entiende."
+      }
+    }
+  },
+  "finalCta": {
+    "title": "¿Listo para progresar juntos?",
+    "body": "Crea tu cuenta gratis y empieza tu próximo entrenamiento.",
+    "register": "Crear mi cuenta",
+    "login": "Iniciar sesión"
+  },
+  "footer": {
+    "tagline": "El deporte nos une."
   },
   "joinModal": {
     "title": "Únete a FitGather",

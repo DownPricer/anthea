@@ -160,6 +160,17 @@ describe('public post page & join modal', () => {
     const src = read('pages/PublicLandingPage.jsx');
     expect(src).toContain('TRENDING_LIMIT = 6');
     expect(src).toContain('slice(0, TRENDING_LIMIT)');
+    expect(src).toContain('md:grid-cols-2 xl:grid-cols-3');
+  });
+
+  test('public cards are touch-friendly and media stays responsive', () => {
+    const src = read('components/public/PublicPostCard.jsx');
+    expect(src).toContain('loading="lazy"');
+    expect(src).toContain('aspect-video');
+    expect(src).toContain('[overflow-wrap:anywhere]');
+    expect(src).toContain('line-clamp-4');
+    expect(src).toContain('min-h-11');
+    expect(src).not.toMatch(/w-\[(?:[3-9]\d\d|\d{4,})px\]/);
   });
 });
 
@@ -173,6 +184,43 @@ describe('i18n public FR/EN/ES', () => {
     expect(es.hero.title).toBeTruthy();
     expect(Object.keys(fr.hero).sort()).toEqual(Object.keys(en.hero).sort());
     expect(Object.keys(fr.hero).sort()).toEqual(Object.keys(es.hero).sort());
+    expect(Object.keys(fr.benefits.items).sort()).toEqual(
+      Object.keys(en.benefits.items).sort()
+    );
+    expect(Object.keys(fr.benefits.items).sort()).toEqual(
+      Object.keys(es.benefits.items).sort()
+    );
+    expect(fr.finalCta.title).toBe('Prêt à progresser ensemble ?');
+  });
+});
+
+describe('mobile-first landing experience', () => {
+  const landing = read('pages/PublicLandingPage.jsx');
+
+  test('contains the complete public marketing flow and expected CTAs', () => {
+    expect(landing).toContain('public-landing-hero');
+    expect(landing).toContain('public-trending-section');
+    expect(landing).toContain('public-benefits-section');
+    expect(landing).toContain('public-final-cta');
+    expect(landing).toContain("t('hero.ctaRegister')");
+    expect(landing).toContain("t('hero.ctaLogin')");
+    expect(landing).toContain("t('finalCta.register')");
+    expect(landing).toContain("t('finalCta.login')");
+  });
+
+  test('uses fluid containers, safe areas and reduced-motion variants', () => {
+    expect(landing).toContain('max-w-7xl');
+    expect(landing).toContain('overflow-x-hidden');
+    expect(landing).toContain('env(safe-area-inset-top)');
+    expect(landing).toContain('env(safe-area-inset-bottom)');
+    expect(landing).toContain('motion-safe:animate-fade-in');
+    expect(landing).not.toMatch(/min-w-\[(?:[3-9]\d\d|\d{4,})px\]/);
+    expect(landing).not.toMatch(/w-\[(?:[3-9]\d\d|\d{4,})px\]/);
+  });
+
+  test('keeps HomePage as the authenticated /app home', () => {
+    const app = read('App.js');
+    expect(app).toContain('path="/app" element={<HomePage />}');
   });
 });
 

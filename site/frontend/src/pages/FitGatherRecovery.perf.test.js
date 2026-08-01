@@ -57,7 +57,7 @@ describe('activity recovery & idempotence (source)', () => {
 
   test('api refreshes token with in-flight dedupe', () => {
     expect(api).toContain('/auth/refresh');
-    expect(api).toContain('refreshInflight');
+    expect(api).toContain('refreshPromise');
     expect(api).toContain('_retry');
   });
 

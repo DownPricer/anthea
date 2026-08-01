@@ -10,17 +10,51 @@
     "join": "Join FitGather"
   },
   "hero": {
+    "eyebrow": "Move. Share. Progress.",
     "title": "Sport is better when we share it.",
     "subtitle": "Track your workouts, share your progress, and grow with a community that motivates you.",
     "communityStat": "Join a community of more than {{count}} users.",
     "ctaRegister": "Join for free",
-    "ctaLogin": "Log in"
+    "ctaLogin": "Log in",
+    "previewWorkoutTitle": "Sunday run",
+    "previewWorkoutMeta": "New goal reached",
+    "previewEncouragement": "Your partner is cheering you on",
+    "previewEncouragementBody": "Progress is more motivating when it is shared.",
+    "previewCommunity": "An active community",
+    "previewCommunityBody": "Connect around your workouts and achievements."
   },
   "trending": {
     "title": "Trending posts",
     "subtitle": "Discover workouts, wins, and progress shared by the community.",
     "empty": "No public posts at the moment.",
     "error": "Could not load posts."
+  },
+  "benefits": {
+    "title": "Everything you need to move forward",
+    "subtitle": "Simple tools to stay consistent, motivated, and supported.",
+    "items": {
+      "tracking": {
+        "title": "Track your workouts",
+        "description": "Keep a clear view of your sessions and measure your progress."
+      },
+      "partner": {
+        "title": "Progress with your partner",
+        "description": "Set shared goals and encourage each other every day."
+      },
+      "sharing": {
+        "title": "Share your achievements",
+        "description": "Celebrate every milestone with a community that gets you."
+      }
+    }
+  },
+  "finalCta": {
+    "title": "Ready to progress together?",
+    "body": "Create your free account and start your next workout.",
+    "register": "Create my account",
+    "login": "Log in"
+  },
+  "footer": {
+    "tagline": "Sport brings us together."
   },
   "joinModal": {
     "title": "Join FitGather",

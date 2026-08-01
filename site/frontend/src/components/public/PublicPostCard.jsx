@@ -34,56 +34,56 @@ export function PublicPostCard({ post, onRequireAuth, onOpen }) {
 
   return (
     <article
-      className="rounded-2xl border border-border bg-surface-elevated/60 p-4 space-y-3 transition-colors hover:border-[var(--theme-primary)]/40"
+      className="flex h-full min-w-0 flex-col overflow-hidden rounded-2xl border border-border bg-surface-elevated/60 p-4 transition-colors hover:border-[var(--theme-primary)]/40"
       data-testid={`public-post-card-${post.id}`}
     >
       <button
         type="button"
-        className="w-full text-left space-y-3"
+        className="min-w-0 flex-1 space-y-3 text-left"
         onClick={() => (onOpen ? onOpen(post) : null)}
         data-testid={`public-post-open-${post.id}`}
       >
-        <div className="flex items-start gap-3">
-          <UserAvatar user={author} className="w-10 h-10" />
+        <div className="flex min-w-0 items-center gap-3">
+          <UserAvatar user={author} className="h-10 w-10 shrink-0" />
           <div className="flex-1 min-w-0">
             <p className="text-foreground font-medium truncate">{actorDisplay.name}</p>
             {actorDisplay.handleLabel ? (
-              <span className="text-subtle text-xs">{actorDisplay.handleLabel}</span>
+              <span className="block truncate text-subtle text-xs">{actorDisplay.handleLabel}</span>
             ) : null}
             <p className="text-subtle text-xs">
               {post.created_at ? formatDateTime(parseISO(post.created_at)) : ''}
             </p>
           </div>
           {post.type ? (
-            <span className="text-[10px] uppercase tracking-wide text-subtle bg-hover px-1.5 py-0.5 rounded">
+            <span className="max-w-20 shrink-0 truncate rounded bg-hover px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-subtle">
               {post.type}
             </span>
           ) : null}
         </div>
 
         {post.title ? (
-          <h3 className="text-foreground font-semibold font-['Outfit'] line-clamp-2">{post.title}</h3>
+          <h3 className="line-clamp-2 [overflow-wrap:anywhere] text-foreground font-semibold font-['Outfit']">{post.title}</h3>
         ) : null}
         {post.description ? (
-          <p className="text-muted text-sm whitespace-pre-wrap line-clamp-4">{post.description}</p>
+          <p className="line-clamp-4 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-muted">{post.description}</p>
         ) : null}
         {imageUrl ? (
-          <div className="rounded-xl overflow-hidden border border-border bg-overlay">
+          <div className="aspect-video overflow-hidden rounded-xl border border-border bg-overlay">
             <img
               src={imageUrl}
               alt={post.title || ''}
-              className="w-full max-h-56 object-cover"
+              className="h-full w-full object-cover"
               loading="lazy"
             />
           </div>
         ) : null}
       </button>
 
-      <div className="flex items-center gap-4 text-subtle text-sm pt-1">
+      <div className="mt-3 flex min-w-0 items-center gap-1 border-t border-border/60 pt-2 text-sm text-subtle">
         <button
           type="button"
           onClick={guard}
-          className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+          className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-hover hover:text-foreground"
           data-testid={`public-post-like-${post.id}`}
           aria-label={t('common:actions.confirm')}
         >
@@ -93,7 +93,7 @@ export function PublicPostCard({ post, onRequireAuth, onOpen }) {
         <button
           type="button"
           onClick={guard}
-          className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+          className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-hover hover:text-foreground"
           data-testid={`public-post-comment-${post.id}`}
         >
           <MessageCircle size={16} />
@@ -102,7 +102,7 @@ export function PublicPostCard({ post, onRequireAuth, onOpen }) {
         <button
           type="button"
           onClick={guard}
-          className="flex items-center gap-1.5 hover:text-foreground transition-colors"
+          className="flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-lg px-2 transition-colors hover:bg-hover hover:text-foreground"
           data-testid={`public-post-repost-${post.id}`}
         >
           <Repeat2 size={16} />
@@ -110,7 +110,7 @@ export function PublicPostCard({ post, onRequireAuth, onOpen }) {
         </button>
         <Link
           to={postPath}
-          className="ml-auto text-xs text-[var(--theme-primary)] hover:underline"
+          className="ml-auto flex min-h-11 min-w-0 items-center rounded-lg px-2 text-right text-xs text-[var(--theme-primary)] hover:underline"
           data-testid={`public-post-link-${post.id}`}
         >
           {t('common:actions.seeAll')}

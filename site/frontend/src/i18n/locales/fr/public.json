@@ -10,17 +10,51 @@
     "join": "Rejoindre FitGather"
   },
   "hero": {
+    "eyebrow": "Bougez. Partagez. Progressez.",
     "title": "Le sport est meilleur quand on le partage.",
     "subtitle": "Suivez vos entraînements, partagez vos progrès et avancez avec une communauté qui vous motive.",
     "communityStat": "Rejoignez une communauté de plus de {{count}} utilisateurs.",
     "ctaRegister": "Rejoindre gratuitement",
-    "ctaLogin": "Se connecter"
+    "ctaLogin": "Se connecter",
+    "previewWorkoutTitle": "Sortie du dimanche",
+    "previewWorkoutMeta": "Nouvel objectif atteint",
+    "previewEncouragement": "Votre partenaire vous encourage",
+    "previewEncouragementBody": "Les progrès sont plus motivants quand ils sont partagés.",
+    "previewCommunity": "Une communauté active",
+    "previewCommunityBody": "Échangez autour de vos entraînements et de vos réussites."
   },
   "trending": {
     "title": "Les publications du moment",
     "subtitle": "Découvrez les entraînements, réussites et progrès partagés par la communauté.",
     "empty": "Aucune publication publique pour le moment.",
     "error": "Impossible de charger les publications."
+  },
+  "benefits": {
+    "title": "Tout ce qu’il faut pour avancer",
+    "subtitle": "Des outils simples pour rester régulier, motivé et entouré.",
+    "items": {
+      "tracking": {
+        "title": "Suivez vos entraînements",
+        "description": "Gardez une vue claire sur vos séances et mesurez vos progrès."
+      },
+      "partner": {
+        "title": "Progressez avec votre partenaire",
+        "description": "Fixez-vous des objectifs communs et encouragez-vous au quotidien."
+      },
+      "sharing": {
+        "title": "Partagez vos réussites",
+        "description": "Célébrez chaque étape avec une communauté qui vous comprend."
+      }
+    }
+  },
+  "finalCta": {
+    "title": "Prêt à progresser ensemble ?",
+    "body": "Créez votre compte gratuitement et commencez votre prochain entraînement.",
+    "register": "Créer mon compte",
+    "login": "Me connecter"
+  },
+  "footer": {
+    "tagline": "Le sport nous rassemble."
   },
   "joinModal": {
     "title": "Rejoignez FitGather",
