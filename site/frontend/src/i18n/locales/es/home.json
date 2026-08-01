@@ -48,6 +48,7 @@
     "unlike": "Quitar el me gusta",
     "repost": "Republicar",
     "reposted": "Republicado",
+    "unrepost": "Cancelar republicación",
     "repostForbidden": "Esta publicación no se puede republicar.",
     "repostPrivacyBlocked": "La privacidad de esta publicación impide republicarla.",
     "repostUnavailable": "No se puede republicar en este momento."

@@ -121,9 +121,23 @@ describe('share public post', () => {
   test('share helper targets fitgather.fr', () => {
     const src = read('lib/sharePublicPost.js');
     expect(src).toContain('buildPublicPostUrl');
+    expect(src).toContain('buildPostSharePayload');
     expect(src).toContain('navigator.share');
     expect(src).toContain('clipboard.writeText');
     expect(src).not.toContain('anthea.sitereadyshd.fr');
+  });
+
+  test('buildPostSharePayload produces clean text without tab placeholders', () => {
+    const { buildPostSharePayload } = require('../lib/sharePublicPost');
+    const payload = buildPostSharePayload(
+      { id: 'abc123', author_handle: 'alice' },
+      { t: (key, opts) => (key.includes('byAuthor') ? `Publication de ${opts.name} sur FitGather` : 'Découvrez cette publication sur FitGather.') }
+    );
+    expect(payload.url).toBe('https://fitgather.fr/post/abc123');
+    expect(payload.clipboardText).toContain('fitgather.fr/post/abc123');
+    expect(payload.clipboardText).not.toMatch(/\(T\)/);
+    expect(payload.clipboardText).not.toContain('\t');
+    expect(payload.title).toContain('@alice');
   });
 
   test('PostCard share button uses sharePublicPost', () => {
@@ -150,10 +164,12 @@ describe('public post page & join modal', () => {
     expect(src).not.toContain('postsApi.addComment');
   });
 
-  test('JoinFitGatherModal preserves next', () => {
+  test('JoinFitGatherModal preserves next and is mobile-safe', () => {
     const src = read('components/public/JoinFitGatherModal.jsx');
     expect(src).toContain('withNextParam');
     expect(src).toContain('join-fitgather-modal');
+    expect(src).toContain('calc(100vw-32px)');
+    expect(src).toContain('safe-area-inset-bottom');
   });
 
   test('trending grid capped at 6', () => {

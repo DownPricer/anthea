@@ -576,7 +576,7 @@ export function PostCard({
                 <Repeat2 size={16} />
                 <span className="text-sm tabular-nums">{repostsCount}</span>
                 <span className="text-sm hidden sm:inline">
-                  {reposted ? t('home:comments.reposted') : t('home:comments.repost')}
+                  {reposted ? t('home:comments.unrepost') : t('home:comments.repost')}
                 </span>
               </button>
             )}
@@ -584,9 +584,8 @@ export function PostCard({
             <button
               type="button"
               onClick={() =>
-                sharePublicPost(post.id, {
-                  title: actorDisplay.name || 'FitGather',
-                  text: post.title || '',
+                sharePublicPost(post, {
+                  t,
                   copiedMessage: t('public:post.shareCopied'),
                   failedMessage: t('public:post.shareFailed'),
                 })

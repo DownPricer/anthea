@@ -73,6 +73,7 @@
     "unavailable": "Post unavailable",
     "login": "Log in",
     "register": "Create an account",
-    "byAuthor": "Post by {{name}} on FitGather"
+    "byAuthor": "Post by {{name}} on FitGather",
+    "shareBody": "Discover this post on FitGather."
   }
 }

@@ -89,9 +89,8 @@ export function PublicPostPage() {
   });
 
   const handleShare = async () => {
-    await sharePublicPost(postId, {
-      title: t('post.byAuthor', { name: authorName }),
-      text: visiblePost?.title || '',
+    await sharePublicPost(visiblePost || { id: postId }, {
+      t,
       copiedMessage: t('post.shareCopied'),
       failedMessage: t('post.shareFailed'),
     });

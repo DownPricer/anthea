@@ -73,6 +73,7 @@
     "unavailable": "Publication indisponible",
     "login": "Se connecter",
     "register": "Créer un compte",
-    "byAuthor": "Publication de {{name}} sur FitGather"
+    "byAuthor": "Publication de {{name}} sur FitGather",
+    "shareBody": "Découvrez cette publication sur FitGather."
   }
 }
