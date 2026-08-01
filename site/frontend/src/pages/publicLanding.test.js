@@ -11,20 +11,44 @@ function read(rel) {
 }
 
 describe('public landing routing', () => {
-  test('App mounts AuthHomeSwitch and /post/:postId publicly', () => {
+  test('App separates /, /app and keeps /post/:postId public', () => {
     const src = read('App.js');
     expect(src).toContain('AuthHomeSwitch');
     expect(src).toContain('PublicPostPage');
     expect(src).toContain('path="/post/:postId"');
-    expect(src).toContain('<AuthHomeSwitch>');
+    expect(src).toContain('path="/" element={<AuthHomeSwitch />}');
+    expect(src).toContain('path="/app" element={<HomePage />}');
+    expect(src).toContain('<ProtectedRoute>');
     expect(src).toContain('<AppLayout />');
   });
 
-  test('AuthHomeSwitch shows PublicLandingPage when anonymous on /', () => {
+  test('AuthHomeSwitch never renders the landing while checking and redirects members', () => {
     const src = read('components/layout/AuthHomeSwitch.jsx');
     expect(src).toContain('PublicLandingPage');
     expect(src).toContain('auth-home-skeleton');
-    expect(src).toContain('isExactHome');
+    expect(src).toContain("authStatus === 'checking'");
+    expect(src).toContain("authStatus === 'authenticated'");
+    expect(src).toContain('<Navigate to="/app" replace />');
+    expect(src.indexOf("authStatus === 'checking'")).toBeLessThan(
+      src.indexOf('<PublicLandingPage />')
+    );
+  });
+
+  test('protected /app preserves next and auth entry routes redirect members', () => {
+    const protectedSrc = read('components/layout/ProtectedRoute.jsx');
+    const entrySrc = read('components/layout/AuthHomeSwitch.jsx');
+    expect(protectedSrc).toContain('/login?next=');
+    expect(protectedSrc).toContain('location.pathname');
+    expect(entrySrc).toContain('AuthEntryRoute');
+    expect(entrySrc).toContain('<Navigate to="/app" replace />');
+  });
+
+  test('application navigation uses /app for member home', () => {
+    const desktop = read('components/layout/DesktopNav.jsx');
+    const mobile = read('components/layout/BottomNav.jsx');
+    expect(desktop).toContain("{ path: '/app', icon: Home");
+    expect(desktop).toContain('<Link to="/app"');
+    expect(mobile).toContain("{ path: '/app', icon: Home");
   });
 
   test('PublicLandingPage does not mount HomePage private hooks', () => {
@@ -79,17 +103,17 @@ describe('safe next path', () => {
   });
 
   test('blocks external redirects', () => {
-    expect(sanitizeNextPath('https://evil.com')).toBe('/');
-    expect(sanitizeNextPath('//evil.com')).toBe('/');
-    expect(sanitizeNextPath('http://fitgather.fr/post/1')).toBe('/');
-    expect(sanitizeNextPath('\\evil')).toBe('/');
+    expect(sanitizeNextPath('https://evil.com', '/app')).toBe('/app');
+    expect(sanitizeNextPath('//evil.com', '/app')).toBe('/app');
+    expect(sanitizeNextPath('http://fitgather.fr/post/1', '/app')).toBe('/app');
+    expect(sanitizeNextPath('\\evil', '/app')).toBe('/app');
   });
 
   test('withNextParam and readNextFromSearch', () => {
     expect(withNextParam('/login', '/post/1')).toBe('/login?next=%2Fpost%2F1');
     expect(readNextFromSearch('?next=%2Fpost%2F1')).toBe('/post/1');
     expect(readNextFromSearch('?next=https://evil.com')).toBe(null);
-    expect(sanitizeNextPath(readNextFromSearch('?next=https://evil.com') || '/', '/')).toBe('/');
+    expect(sanitizeNextPath(readNextFromSearch('?next=https://evil.com') || '/app', '/app')).toBe('/app');
   });
 });
 
@@ -172,6 +196,13 @@ describe('login next sanitization', () => {
     const src = read('pages/LoginPage.jsx');
     expect(src).toContain('sanitizeNextPath');
     expect(src).toContain('readNextFromSearch');
+    expect(src).toContain("fromQuery || fromState || '/app'");
+  });
+
+  test('email confirmation redirects to a safe next or /app', () => {
+    const src = read('pages/VerifyEmailPage.jsx');
+    expect(src).toContain("sanitizeNextPath(searchParams.get('next') || '/app', '/app')");
+    expect(src).toContain('navigate(nextPath, { replace: true })');
   });
 });
 

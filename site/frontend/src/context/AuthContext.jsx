@@ -20,6 +20,7 @@ function authErrorPayload(error) {
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null); // null = checking, false = not auth, object = auth
   const [loading, setLoading] = useState(true);
+  const authStatus = loading ? 'checking' : user ? 'authenticated' : 'anonymous';
 
   const checkAuth = useCallback(async () => {
     try {
@@ -176,6 +177,7 @@ export function AuthProvider({ children }) {
       value={{
         user,
         loading,
+        authStatus,
         isAuthenticated: !!user,
         login,
         register,

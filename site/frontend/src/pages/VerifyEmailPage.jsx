@@ -6,11 +6,13 @@ import { Button } from '../components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { AntheaLogo } from '../components/branding/AntheaLogo';
+import { sanitizeNextPath } from '../lib/safeNextPath';
 
 export function VerifyEmailPage() {
   const { t } = useTranslation(['auth', 'common']);
   const [searchParams] = useSearchParams();
   const token = searchParams.get('token') || '';
+  const nextPath = sanitizeNextPath(searchParams.get('next') || '/app', '/app');
   const { verifyEmail } = useAuth();
   const navigate = useNavigate();
   const [status, setStatus] = useState('loading'); // loading | success | error
@@ -32,13 +34,13 @@ export function VerifyEmailPage() {
       if (result.success) {
         setStatus('success');
         toast.success(t('verify.success'));
-        setTimeout(() => navigate('/', { replace: true }), 1200);
+        setTimeout(() => navigate(nextPath, { replace: true }), 1200);
       } else {
         setStatus('error');
         setErrorCode(result.code || 'token_invalid');
       }
     })();
-  }, [token, verifyEmail, navigate, t]);
+  }, [token, nextPath, verifyEmail, navigate, t]);
 
   const errorMessage = () => {
     if (errorCode === 'token_expired') return t('verify.tokenExpired');

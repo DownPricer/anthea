@@ -36,7 +36,7 @@ self.addEventListener('push', (event) => {
     tag: data.tag || 'FitGather',
     renotify: Boolean(data.tag),
     data: {
-      url: data.url || '/',
+      url: data.url || '/app',
     },
   };
 
@@ -45,7 +45,7 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const targetUrl = event.notification.data?.url || '/';
+  const targetUrl = event.notification.data?.url || '/app';
 
   event.waitUntil(
     clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {

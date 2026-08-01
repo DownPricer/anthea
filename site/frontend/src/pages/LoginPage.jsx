@@ -27,7 +27,7 @@ export function LoginPage() {
     ? `${location.state.from.pathname}${location.state.from.search || ''}`
     : null;
   const fromQuery = readNextFromSearch(location.search);
-  const from = sanitizeNextPath(fromQuery || fromState || '/', '/');
+  const from = sanitizeNextPath(fromQuery || fromState || '/app', '/app');
 
   const startCooldown = (seconds = 60) => {
     setResendCooldown(seconds);
@@ -187,7 +187,7 @@ export function LoginPage() {
         <p className="text-center mt-4 text-subtle text-sm">
           {t('login.noAccount')}{' '}
           <Link
-            to={from && from !== '/' ? `/register?next=${encodeURIComponent(from)}` : '/register'}
+            to={from && from !== '/app' ? `/register?next=${encodeURIComponent(from)}` : '/register'}
             data-testid="register-link"
             className="text-[var(--theme-primary)] hover:underline font-medium"
           >

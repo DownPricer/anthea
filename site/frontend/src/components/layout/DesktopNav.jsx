@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation } from 'react-router-dom';
 import { Home, Dumbbell, Plus, User, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useDuoNavLabel } from '../../hooks/useDuoNavLabel';
@@ -12,7 +12,7 @@ export function DesktopNav() {
   const duoNav = useDuoNavLabel();
   const { count: duoUnread, badge: duoBadge } = useDuoUnreadCount();
   const baseNavItems = [
-    { path: '/', icon: Home, label: t('items.home') },
+    { path: '/app', icon: Home, label: t('items.home') },
     { path: '/workouts', icon: Dumbbell, label: t('items.workouts') },
     { path: '/create', icon: Plus, label: t('items.create') },
     { path: '/profile', icon: User, label: t('items.profile') },
@@ -40,7 +40,7 @@ export function DesktopNav() {
   return (
     <aside className="hidden md:flex fixed inset-y-0 left-0 z-40 w-64 flex-col border-r border-border bg-background">
       <div className="flex h-full flex-col p-4">
-        <div className="px-2 py-3">
+        <Link to="/app" className="px-2 py-3" aria-label={t('items.home')}>
           <div className="flex items-center gap-2.5 min-w-0">
             <AntheaLogo className="h-8 w-8" />
             <div className="min-w-0">
@@ -50,7 +50,7 @@ export function DesktopNav() {
               <div className="text-subtle text-xs mt-0.5">{t('tagline')}</div>
             </div>
           </div>
-        </div>
+        </Link>
 
         <nav className="mt-4 flex-1 space-y-1 overflow-y-auto min-h-0">
           {navItems.map((item) => {

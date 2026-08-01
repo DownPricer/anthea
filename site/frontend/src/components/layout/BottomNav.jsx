@@ -10,7 +10,7 @@ export function BottomNav() {
   const duoNav = useDuoNavLabel();
   const { count: duoUnread, badge: duoBadge } = useDuoUnreadCount();
   const navItems = [
-    { path: '/', icon: Home, label: t('items.home'), testId: 'home' },
+    { path: '/app', icon: Home, label: t('items.home'), testId: 'home' },
     { path: '/workouts', icon: Dumbbell, label: t('items.workouts'), testId: 'workouts' },
     { path: '/create', icon: Plus, label: t('items.create'), isCenter: true, testId: 'create' },
     { path: duoNav.path, icon: duoNav.Icon, label: duoNav.label, isDuo: true, testId: 'duo' },

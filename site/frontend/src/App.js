@@ -3,7 +3,7 @@ import { AuthProvider } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { AppLayout } from './components/layout/AppLayout';
 import { ProtectedRoute } from './components/layout/ProtectedRoute';
-import { AuthHomeSwitch } from './components/layout/AuthHomeSwitch';
+import { AuthEntryRoute, AuthHomeSwitch } from './components/layout/AuthHomeSwitch';
 import { LoginPage } from './pages/LoginPage';
 import { RegisterPage } from './pages/RegisterPage';
 import { VerifyEmailPage } from './pages/VerifyEmailPage';
@@ -38,25 +38,27 @@ function App() {
           <ActivityBootRecovery />
           <Routes>
             {/* Public routes */}
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/login" element={<AuthEntryRoute><LoginPage /></AuthEntryRoute>} />
+            <Route path="/register" element={<AuthEntryRoute><RegisterPage /></AuthEntryRoute>} />
             <Route path="/verify-email" element={<VerifyEmailPage />} />
             <Route path="/check-email" element={<CheckEmailPage />} />
-            <Route path="/legacy-account" element={<LegacyAccountPage />} />
+            <Route path="/legacy-account" element={<AuthEntryRoute><LegacyAccountPage /></AuthEntryRoute>} />
             <Route path="/forgot-password" element={<ForgotPasswordPage />} />
             <Route path="/reset-password" element={<ResetPasswordPage />} />
             <Route path="/post/:postId" element={<PublicPostPage />} />
 
-            {/* Accueil : landing anonyme / HomePage connecté — pas de redirect / → /login */}
+            {/* Landing publique uniquement ; les membres sont redirigés vers /app. */}
+            <Route path="/" element={<AuthHomeSwitch />} />
+
+            {/* Application authentifiée. Les URLs historiques restent inchangées. */}
             <Route
-              path="/"
               element={
-                <AuthHomeSwitch>
+                <ProtectedRoute>
                   <AppLayout />
-                </AuthHomeSwitch>
+                </ProtectedRoute>
               }
             >
-              <Route index element={<HomePage />} />
+              <Route path="/app" element={<HomePage />} />
               <Route path="workouts" element={<WorkoutsPage />} />
               <Route path="workouts/:workoutId" element={<CreateWorkoutPage />} />
               <Route path="create" element={<CreateWorkoutPage />} />

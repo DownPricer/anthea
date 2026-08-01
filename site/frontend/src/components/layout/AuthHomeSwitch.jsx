@@ -1,37 +1,51 @@
-import { Navigate, useLocation } from 'react-router-dom';
+import { Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { PublicLandingPage } from '../../pages/PublicLandingPage';
+import { AntheaLogo } from '../branding/AntheaLogo';
 
-/**
- * Racine `/` : landing publique si anonyme, layout app (HomePage) si connecté.
- * Autres chemins enfants : redirection login si anonyme (sans flash landing).
- */
-export function AuthHomeSwitch({ children }) {
-  const { user, loading } = useAuth();
-  const location = useLocation();
-  const isExactHome = location.pathname === '/' || location.pathname === '';
-
-  if (loading) {
-    return (
-      <div
-        className="min-h-screen bg-background"
-        data-testid="auth-home-skeleton"
-        aria-busy="true"
-      >
-        <div className="mx-auto max-w-5xl px-4 pt-8 space-y-4">
-          <div className="h-10 w-40 rounded-xl bg-hover animate-pulse" />
-          <div className="h-24 rounded-2xl bg-hover animate-pulse" />
-          <div className="h-40 rounded-2xl bg-hover animate-pulse" />
-        </div>
+export function AuthSplash() {
+  return (
+    <div
+      className="min-h-[100dvh] bg-background flex items-center justify-center px-4"
+      data-testid="auth-home-skeleton"
+      aria-busy="true"
+      aria-label="FitGather"
+    >
+      <div className="flex flex-col items-center gap-3 text-foreground">
+        <AntheaLogo className="h-12 w-12 motion-safe:animate-pulse" />
+        <span className="font-['Outfit'] text-lg font-black tracking-tight">FitGather</span>
       </div>
+    </div>
+  );
+}
+
+/** Racine publique : aucune landing tant que la restauration n'est pas terminée. */
+export function AuthHomeSwitch() {
+  const { authStatus } = useAuth();
+
+  if (authStatus === 'checking') {
+    return <AuthSplash />;
+  }
+
+  if (authStatus === 'authenticated') {
+    return <Navigate to="/app" replace />;
+  }
+
+  return <PublicLandingPage />;
+}
+
+/** Pages réservées aux visiteurs (connexion, inscription et migration). */
+export function AuthEntryRoute({ children }) {
+  const { authStatus } = useAuth();
+
+  if (authStatus === 'checking') {
+    return (
+      <AuthSplash />
     );
   }
 
-  if (!user) {
-    if (isExactHome) {
-      return <PublicLandingPage />;
-    }
-    return <Navigate to="/login" state={{ from: location }} replace />;
+  if (authStatus === 'authenticated') {
+    return <Navigate to="/app" replace />;
   }
 
   return children;
