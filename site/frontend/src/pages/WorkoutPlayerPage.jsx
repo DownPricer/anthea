@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, sessionsApi, streakApi, partnerApi } from '../lib/api';
+import { invalidateHomeWeekCache } from '../lib/homeCache';
 import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
 import { getLocalizedExerciseField } from '../lib/exerciseLocale';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -622,6 +623,7 @@ export function WorkoutPlayerPage() {
         exercise_log: exerciseLog,
       });
       toast.success(t('player:toast.sessionSaved'));
+      invalidateHomeWeekCache(user?.id);
       setCreatedSession({
         ...session,
         workout_title: session.workout_title || workout?.title,

@@ -21,8 +21,7 @@ describe('HomePage weekly load priority', () => {
   it('uses a short memory cache for week data and shows it immediately', () => {
     expect(source).toContain("from '../lib/homeCache'");
     expect(source).toContain('getHomeCache');
-    expect(source).toContain('setHomeCache');
-    expect(source).toContain('HOME_STALE.week');
+    expect(source).toContain('fetchHomeWeekCached');
     expect(source).toMatch(/if \(cachedWeek\)[\s\S]*setWeekLoading\(false\)/);
   });
 

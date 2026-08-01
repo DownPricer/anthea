@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { workoutsApi, streakApi, partnerApi } from '../lib/api';
+import { invalidateHomeWeekCache } from '../lib/homeCache';
 import { useUserAccent } from '../hooks/useUserAccent';
 import { getAccentForUser } from '../lib/userAccent';
 import { useTheme } from '../context/ThemeContext';
@@ -157,6 +158,7 @@ export function WorkoutsPage() {
     
     try {
       await workoutsApi.delete(workoutId);
+      invalidateHomeWeekCache(user?.id);
       toast.success(t('workouts:deleted'));
       loadTodayWorkouts();
       if (activeTab === 'agenda') loadCalendarWorkouts();

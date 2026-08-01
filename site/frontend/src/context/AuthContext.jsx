@@ -1,7 +1,10 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { authApi, formatApiError } from '../lib/api';
+import { startOfWeek, addDays, format } from 'date-fns';
+import { authApi, formatApiError, streakApi } from '../lib/api';
 import { setAppLocale } from '../i18n';
 import { writeStoredTimeFormat } from '../i18n/storage';
+import { calendarDaysToMap } from '../lib/agendaDayMap';
+import { preloadHomeWeek } from '../lib/homeCache';
 
 const AuthContext = createContext(null);
 
@@ -45,6 +48,14 @@ export function AuthProvider({ children }) {
       setAuthStatus('authenticated');
       setAuthUnavailable(false);
       retryAttemptRef.current = 0;
+      preloadHomeWeek(data.id, async () => {
+        const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+        const weekEnd = addDays(weekStart, 6);
+        const wsStr = format(weekStart, 'yyyy-MM-dd');
+        const weStr = format(weekEnd, 'yyyy-MM-dd');
+        const calRes = await streakApi.getCalendar(wsStr, weStr);
+        return calendarDaysToMap(calRes.data?.days || []);
+      });
     } catch (error) {
       if (!mountedRef.current) return;
       const status = error?.response?.status;

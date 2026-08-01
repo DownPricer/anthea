@@ -37,7 +37,7 @@ import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
-import { getHomeCache, setHomeCache, homeCacheKey, HOME_STALE } from '../lib/homeCache';
+import { getHomeCache, setHomeCache, homeCacheKey, HOME_STALE, fetchHomeWeekCached, invalidateHomeWeekCache } from '../lib/homeCache';
 import { UserAvatar } from '../components/UserAvatar';
 import { PageHeader } from '../components/layout/PageHeader';
 import { getPublicHandle } from '../lib/userProfile';
@@ -88,8 +88,8 @@ export function HomePage() {
     const weStr = format(weekEndDate, 'yyyy-MM-dd');
     weekRangeRef.current = { start: wsStr, end: weStr };
 
-    const todayKey = homeCacheKey('today', wsStr);
-    const weekKey = homeCacheKey('week', wsStr, weStr);
+    const todayKey = homeCacheKey('today', user?.id, wsStr);
+    const weekKey = homeCacheKey('week', user?.id, wsStr, weStr);
     const cachedToday = getHomeCache(todayKey);
     const cachedWeek = getHomeCache(weekKey);
 
@@ -127,13 +127,13 @@ export function HomePage() {
         setTodayLoading(false);
       });
 
-    const weekPromise = streakApi
-      .getCalendar(wsStr, weStr)
-      .then((calRes) => {
+    const weekPromise = fetchHomeWeekCached(user?.id, wsStr, weStr, async () => {
+        const calRes = await streakApi.getCalendar(wsStr, weStr);
+        return calendarDaysToMap(calRes.data?.days || []);
+      })
+      .then((map) => {
         if (!isActive()) return;
-        const map = calendarDaysToMap(calRes.data?.days || []);
         setCalendarDayMap(map);
-        setHomeCache(weekKey, map, HOME_STALE.week);
       })
       .catch((error) => {
         console.error('Failed to load week agenda:', error);
@@ -163,7 +163,7 @@ export function HomePage() {
         console.error('Failed to load home secondary data:', error);
       }
     });
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (didInitRef.current) return;
@@ -246,6 +246,8 @@ export function HomePage() {
     try {
       await streakApi.markRestDay(dateStr);
       setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'rest' }]);
+      invalidateHomeWeekCache(user?.id);
+      loadData();
       toast.success(t('home:restDayMarked'));
       setShowStreakModal(false);
     } catch {
@@ -258,6 +260,8 @@ export function HomePage() {
     try {
       await streakApi.markSkipDay(dateStr);
       setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'skip' }]);
+      invalidateHomeWeekCache(user?.id);
+      loadData();
       toast.success(t('home:skipDayMarked'));
       setShowStreakModal(false);
     } catch {
@@ -270,6 +274,8 @@ export function HomePage() {
     try {
       await streakApi.removeDay(dateStr);
       setStreakDays((prev) => prev.filter((d) => d.date !== dateStr));
+      invalidateHomeWeekCache(user?.id);
+      loadData();
       toast.success(t('home:markerRemoved'));
       setShowStreakModal(false);
     } catch {
