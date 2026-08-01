@@ -15,6 +15,8 @@
     "follow_back": "te suit en retour — vous êtes amis mutuels",
     "like": "a aimé ta publication",
     "comment": "a commenté ta publication",
+    "comment_like": "@{{actor}} a aimé votre commentaire.",
+    "comment_like_grouped": "@{{actor}} et {{others}} autres personnes ont aimé votre commentaire.",
     "duo_follow_request": "demande à suivre votre duo",
     "duo_follow_accepted": "a accepté votre demande de suivi duo",
     "duo_partner_request": "souhaite former un Duo avec vous",
@@ -58,6 +60,7 @@
     "reject": "Refuser",
     "seeDuo": "Voir le duo",
     "followBack": "Suivre en retour",
+    "viewPost": "Voir la publication",
     "seeMyBadges": "Voir mes badges",
     "seeMyBadge": "Voir mon badge",
     "seeDuoBadges": "Voir les badges Duo"

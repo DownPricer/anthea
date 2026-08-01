@@ -15,6 +15,8 @@
     "follow_back": "te sigue también — sois amigos mutuos",
     "like": "ha gustado tu publicación",
     "comment": "ha comentado tu publicación",
+    "comment_like": "@{{actor}} le gustó tu comentario.",
+    "comment_like_grouped": "@{{actor}} y {{others}} personas más le dieron me gusta a tu comentario.",
     "duo_follow_request": "quiere seguir vuestro dúo",
     "duo_follow_accepted": "ha aceptado tu solicitud de seguimiento del dúo",
     "duo_partner_request": "quiere formar un Dúo contigo",
@@ -58,6 +60,7 @@
     "reject": "Rechazar",
     "seeDuo": "Ver el dúo",
     "followBack": "Seguir también",
+    "viewPost": "Ver publicación",
     "seeMyBadges": "Ver mis insignias",
     "seeMyBadge": "Ver mi insignia",
     "seeDuoBadges": "Ver insignias Dúo"

@@ -148,6 +148,18 @@ PUSH_TYPE_PAYLOADS = {
         "url": "/notifications",
         "tag": "comment",
     },
+    "comment_like": {
+        "title": "Like sur commentaire",
+        "body": "{actor} a aimé votre commentaire.",
+        "url": "/notifications",
+        "tag": "comment-like",
+    },
+    "comment_like_grouped": {
+        "title": "Likes sur commentaire",
+        "body": "Plusieurs personnes ont aimé votre commentaire.",
+        "url": "/notifications",
+        "tag": "comment-like-grouped",
+    },
     "followed_user_post": {
         "title": "Nouvelle publication",
         "body": "{actor} a publié quelque chose.",
@@ -196,6 +208,8 @@ NOTIF_TYPE_TO_PREF: Dict[str, str] = {
     "session_soon": "scheduled_workout_reminder",
     "followed_user_post": "followed_user_post",
     "comment": "post_comment",
+    "comment_like": "post_comment",
+    "comment_like_grouped": "post_comment",
     "like": "post_like",
     "follow_request": "follow_request",
     "new_follower": "follow_accepted",

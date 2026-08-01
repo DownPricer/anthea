@@ -15,6 +15,8 @@
     "follow_back": "followed you back — you are mutual friends",
     "like": "liked your post",
     "comment": "commented on your post",
+    "comment_like": "@{{actor}} liked your comment.",
+    "comment_like_grouped": "@{{actor}} and {{others}} others liked your comment.",
     "duo_follow_request": "wants to follow your duo",
     "duo_follow_accepted": "accepted your duo follow request",
     "duo_partner_request": "wants to form a Duo with you",
@@ -58,6 +60,7 @@
     "reject": "Decline",
     "seeDuo": "View duo",
     "followBack": "Follow back",
+    "viewPost": "View post",
     "seeMyBadges": "See my badges",
     "seeMyBadge": "View my badge",
     "seeDuoBadges": "See Duo badges"

@@ -371,6 +371,16 @@ _PUSH_RAW = {
         "New comment", "{actor} commented on your post.",
         "Nuevo comentario", "{actor} comentó tu publicación.",
     ),
+    "comment_like": _push_entry(
+        "Like sur commentaire", "{actor} a aimé votre commentaire.",
+        "Comment liked", "{actor} liked your comment.",
+        "Me gusta en comentario", "{actor} le gustó tu comentario.",
+    ),
+    "comment_like_grouped": _push_entry(
+        "Likes sur commentaire", "Plusieurs personnes ont aimé votre commentaire.",
+        "Comment likes", "Several people liked your comment.",
+        "Me gusta en comentario", "Varias personas le dieron me gusta a tu comentario.",
+    ),
     "followed_user_post": _push_entry(
         "Nouvelle publication", "{actor} a publié quelque chose.",
         "New post", "{actor} posted something.",
