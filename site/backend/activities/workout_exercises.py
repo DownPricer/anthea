@@ -33,14 +33,12 @@ def parse_activity_preset_id(exercise_id: Optional[str]) -> Optional[str]:
 
 
 def is_activity_workout_exercise(ex: Dict[str, Any]) -> bool:
+    """True uniquement pour les presets FitMatch (activity:*), pas le catalogue exdb_*."""
     if not ex:
         return False
     if ex.get("source") == "activity_preset":
         return True
-    if parse_activity_preset_id(ex.get("exercise_id")):
-        return True
-    mode = ex.get("activity_tracking_mode") or ex.get("tracking_type_snapshot")
-    return bool(mode and mode not in ("standard", "reps", "duration", None))
+    return bool(parse_activity_preset_id(ex.get("exercise_id")))
 
 
 def default_activity_config(tracking_mode: str) -> Dict[str, Any]:

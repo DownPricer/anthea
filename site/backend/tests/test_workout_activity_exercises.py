@@ -124,3 +124,101 @@ def test_classic_exercise_untouched():
     )
     assert blocks[0]["exercises"][0]["reps"] == 10
     assert blocks[0]["exercises"][0].get("source") is None
+
+
+def test_catalog_exdb_exercise_accepted():
+    blocks = validate_workout_blocks(
+        [
+            {
+                "block_type": "main",
+                "exercises": [
+                    {
+                        "exercise_id": "exdb_1760",
+                        "name": "Squat goblet avec haltères",
+                        "exercise_type": "reps",
+                        "reps": 10,
+                        "tracking_type_snapshot": "reps_weight",
+                    }
+                ],
+            }
+        ]
+    )
+    ex = blocks[0]["exercises"][0]
+    assert not is_activity_workout_exercise(ex)
+    assert ex["exercise_id"] == "exdb_1760"
+
+
+def test_multiple_exdb_exercises_accepted():
+    blocks = validate_workout_blocks(
+        [
+            {
+                "block_type": "main",
+                "exercises": [
+                    {
+                        "exercise_id": "exdb_1760",
+                        "name": "Squat goblet",
+                        "exercise_type": "reps",
+                        "reps": 10,
+                        "tracking_type_snapshot": "reps_weight",
+                    },
+                    {
+                        "exercise_id": "exdb_42",
+                        "name": "Bench press",
+                        "exercise_type": "reps",
+                        "reps": 8,
+                        "tracking_type_snapshot": "reps_weight",
+                    },
+                ],
+            }
+        ]
+    )
+    assert len(blocks[0]["exercises"]) == 2
+    assert all(not is_activity_workout_exercise(ex) for ex in blocks[0]["exercises"])
+
+
+def test_mixed_exdb_and_activity_preset():
+    blocks = validate_workout_blocks(
+        [
+            {
+                "block_type": "main",
+                "exercises": [
+                    {
+                        "exercise_id": "exdb_1760",
+                        "name": "Squat goblet",
+                        "exercise_type": "reps",
+                        "reps": 10,
+                        "tracking_type_snapshot": "reps_weight",
+                    },
+                    {
+                        "exercise_id": "activity:outdoor_running",
+                        "source": "activity_preset",
+                        "preset_id": "outdoor_running",
+                        "name": "Course extérieure",
+                    },
+                ],
+            }
+        ]
+    )
+    exercises = blocks[0]["exercises"]
+    assert exercises[0]["exercise_id"] == "exdb_1760"
+    assert exercises[1]["activity_tracking_mode"] == "gps"
+
+
+def test_invalid_preset_still_rejected():
+    with pytest.raises(HTTPException) as exc:
+        validate_workout_blocks(
+            [
+                {
+                    "block_type": "main",
+                    "exercises": [
+                        {
+                            "exercise_id": "activity:fake_preset_xyz",
+                            "source": "activity_preset",
+                            "name": "Fake",
+                        }
+                    ],
+                }
+            ]
+        )
+    assert exc.value.status_code == 400
+    assert "Preset d'activité invalide" in exc.value.detail

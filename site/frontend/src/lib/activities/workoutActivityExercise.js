@@ -28,9 +28,7 @@ export function parseActivityPresetId(exerciseId) {
 export function isTrackedActivityExercise(exercise) {
   if (!exercise) return false;
   if (exercise.source === 'activity_preset') return true;
-  if (parseActivityPresetId(exercise.exercise_id)) return true;
-  const mode = exercise.activity_tracking_mode || exercise.tracking_type_snapshot;
-  return Boolean(mode && mode !== 'standard' && mode !== 'reps' && mode !== 'duration');
+  return Boolean(parseActivityPresetId(exercise.exercise_id));
 }
 
 export function defaultActivityConfig(trackingMode) {
