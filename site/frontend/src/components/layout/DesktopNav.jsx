@@ -106,7 +106,6 @@ export function DesktopNav() {
             <Settings size={18} />
             <span className="text-sm font-medium">{t('items.settings')}</span>
           </NavLink>
-          <p className="text-[10px] text-subtle px-2 pt-2">v0.x • responsive patch</p>
         </div>
       </div>
     </aside>
