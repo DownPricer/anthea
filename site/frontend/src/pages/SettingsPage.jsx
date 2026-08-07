@@ -5,6 +5,7 @@ import { useTheme } from '../context/ThemeContext';
 import { badgesApi, partnerApi, uploadsApi } from '../lib/api';
 import { useTranslation } from 'react-i18next';
 import { setAppLocale } from '../i18n';
+import i18n from '../i18n';
 import { readStoredLocale, readStoredTimeFormat, writeStoredTimeFormat } from '../i18n/storage';
 import { applyAccentToDocument, normalizeAccentColor, resolveUserAccent, getAccentForUser } from '../lib/userAccent';
 import { blobToDataUrl, revokePreviewUrl } from '../lib/imageCompress';
@@ -235,12 +236,12 @@ export function SettingsPage() {
         time_format: nextTimeFormat,
       });
       if (result?.success) {
-        toast.success(t('languageRegion.saveSuccess'));
+        toast.success(i18n.t('settings:languageRegion.saveSuccess', { lng: nextLocale }));
       } else {
-        toast.error(result?.error || t('languageRegion.saveError'));
+        toast.error(result?.error || i18n.t('settings:languageRegion.saveError', { lng: nextLocale }));
       }
     } catch (e) {
-      toast.error(t('languageRegion.saveError'));
+      toast.error(i18n.t('settings:languageRegion.saveError', { lng: nextLocale }));
     } finally {
       setSavingLocale(false);
     }
