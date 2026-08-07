@@ -103,6 +103,7 @@ from activities.api import (
 from activities.service import ensure_activity_indexes, activity_stats_from_docs
 from activities.constants import SESSIONS_COLLECTION as ACTIVITY_SESSIONS_COLLECTION
 from activities.workout_exercises import validate_workout_blocks
+from calendar_date import resolve_calendar_today
 
 # MongoDB connection
 mongo_url = os.environ['MONGO_URL']
@@ -5026,8 +5027,11 @@ async def get_workouts(
     return [{"id": str(w["_id"]), **{k: v for k, v in w.items() if k != "_id"}} for w in workouts]
 
 @api_router.get("/workouts/today")
-async def get_today_workouts(user: dict = Depends(get_current_user)):
-    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+async def get_today_workouts(
+    local_date: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    today = resolve_calendar_today(local_date).isoformat()
     
     query = {
         "scheduled_date": today,
@@ -6743,9 +6747,14 @@ def _combine_duo_outcomes(a: str, b: Optional[str]) -> str:
     return "ok"
 
 
-async def _load_streak_context(user_id: str, partner_id: Optional[str], lookback_days: int = 364):
+async def _load_streak_context(
+    user_id: str,
+    partner_id: Optional[str],
+    lookback_days: int = 364,
+    reference_date=None,
+):
     """Charge marqueurs et séances planifiées pour le calcul streak / calendrier."""
-    current_date = datetime.now(timezone.utc).date()
+    current_date = reference_date or datetime.now(timezone.utc).date()
     start_s = (current_date - timedelta(days=lookback_days)).isoformat()
     users_in_pair = [user_id]
     if partner_id:
@@ -6943,10 +6952,11 @@ async def build_streak_calendar(
     partner_id: Optional[str],
     start_date: str,
     end_date: str,
+    reference_date=None,
 ) -> List[dict]:
     """Calendrier jour par jour avec flammes de streak (logique serveur = calculate_streak)."""
     current_date, skip_pairs, rest_pairs, planned_by_user_date = await _load_streak_context(
-        user_id, partner_id
+        user_id, partner_id, reference_date=reference_date
     )
 
     # Chaîne de streak active (dates consécutives depuis aujourd'hui)
@@ -7586,11 +7596,13 @@ async def get_streak_calendar(
     start_date: str,
     end_date: str,
     target_user: Optional[str] = None,
+    local_date: Optional[str] = None,
     user: dict = Depends(get_current_user),
 ):
     """État visuel jour par jour pour l'agenda (streak, repos, duo, manqués)."""
     user_id = user["id"]
     partner_id = user.get("partner_id")
+    reference_date = resolve_calendar_today(local_date)
 
     if target_user and target_user != user_id:
         target = await get_user_doc_by_id(target_user)
@@ -7602,7 +7614,9 @@ async def get_streak_calendar(
         user_id = target_user
         partner_id = target.get("partner_id")
 
-    days = await build_streak_calendar(user_id, partner_id, start_date, end_date)
+    days = await build_streak_calendar(
+        user_id, partner_id, start_date, end_date, reference_date=reference_date
+    )
     streak = await calculate_streak(user_id, partner_id)
     manual = await _get_manual_streak_override(user_id, partner_id) if partner_id else None
     return {

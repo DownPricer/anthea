@@ -38,6 +38,12 @@ import { useLocaleFormat } from '../hooks/useLocaleFormat';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
 import { getHomeCache, setHomeCache, homeCacheKey, HOME_STALE, fetchHomeWeekCached, invalidateHomeWeekCache } from '../lib/homeCache';
+import {
+  getPrimaryWorkoutAction,
+  shouldShowEmptyTodayCard,
+  getCompletedTodayWorkouts,
+  getWorkoutListSubtitle,
+} from '../lib/homeWorkoutState';
 import { UserAvatar } from '../components/UserAvatar';
 import { PageHeader } from '../components/layout/PageHeader';
 import { getPublicHandle } from '../lib/userProfile';
@@ -45,7 +51,7 @@ import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
 export function HomePage() {
-  const { t } = useTranslation(['home', 'common']);
+  const { t } = useTranslation(['home', 'common', 'workouts']);
   const { formatWeekdayDate } = useLocaleFormat();
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -212,18 +218,10 @@ export function HomePage() {
 
 
   /** Prochaine action utile : reprendre une séance en cours (toi), sinon première séance pending. */
-  const getPrimaryWorkoutAction = () => {
-    const mineInProg = todayWorkouts.find(
-      (w) => w.for_user_id === user?.id && w.status === 'in_progress'
-    );
-    if (mineInProg) return { workout: mineInProg, resume: true };
-    const pending = todayWorkouts.filter((w) => w.status === 'pending');
-    const next = pending[0];
-    if (next) return { workout: next, resume: false };
-    return null;
-  };
-
-  const primaryWorkoutAction = getPrimaryWorkoutAction();
+  const primaryWorkoutAction = getPrimaryWorkoutAction(todayWorkouts, user?.id);
+  const completedTodayWorkouts = getCompletedTodayWorkouts(todayWorkouts);
+  const showCompletedTodayCard = !primaryWorkoutAction && completedTodayWorkouts.length > 0;
+  const showEmptyTodayCard = shouldShowEmptyTodayCard(todayWorkouts);
 
   const workoutHref = (w) => {
     if (
@@ -423,7 +421,34 @@ export function HomePage() {
                 )}
               </Button>
             </div>
-          ) : (
+          ) : showCompletedTodayCard ? (
+            <div
+              data-testid="completed-today-card"
+              className="card p-5 relative overflow-hidden"
+              style={{
+                background: `linear-gradient(135deg, var(--surface-elevated), var(--theme-surface-active))`,
+              }}
+            >
+              <p className="text-muted text-sm uppercase tracking-wider mb-2">
+                {t('home:workoutCompletedToday')}
+              </p>
+              <h3 className="text-xl font-bold text-foreground mb-1">
+                {completedTodayWorkouts[0].title}
+              </h3>
+              <p className="text-subtle text-sm mb-4">
+                {t('workouts:status.completed')}
+                {completedTodayWorkouts.length > 1 &&
+                  ` • ${t('home:additionalCompleted', { count: completedTodayWorkouts.length - 1 })}`}
+              </p>
+              <Button
+                onClick={() => navigate(`/workouts/${completedTodayWorkouts[0].id}`)}
+                variant="outline"
+                className="w-full h-12 rounded-2xl bg-hover border-border text-foreground hover:bg-active"
+              >
+                {t('home:viewCompletedWorkout')}
+              </Button>
+            </div>
+          ) : showEmptyTodayCard ? (
             <div className="card p-5 text-center">
               <div className="w-14 h-14 mx-auto rounded-full bg-hover flex items-center justify-center mb-3">
                 <Calendar className="text-subtle" size={24} />
@@ -437,7 +462,7 @@ export function HomePage() {
                 {t('home:scheduleWorkout')}
               </Button>
             </div>
-          )}
+          ) : null}
 
           {/* Week View */}
           <div>
@@ -503,9 +528,7 @@ export function HomePage() {
                     <div className="flex-1 min-w-0">
                       <h4 className="text-foreground font-medium truncate">{workout.title}</h4>
                       <p className="text-subtle text-sm">
-                        {workout.status === 'in_progress' && workout.for_user_id === user?.id
-                          ? t('home:pausedPlayer')
-                          : workout.scheduled_time || t('home:flexible')}
+                        {getWorkoutListSubtitle(workout, user?.id, t)}
                         {workout.for_user_id !== user?.id && ` • ${t('home:forUser', { username: workout.for_username })}`}
                       </p>
                     </div>

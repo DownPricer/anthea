@@ -2,6 +2,7 @@ import axios from 'axios';
 import { invalidateFeedCache, removePostFromFeedCaches } from './feedCache';
 import { formatApiErrorDetail, isApiNetworkError } from './formatApiErrorDetail';
 import { resolveApiBaseUrl } from './apiBaseUrl';
+import { localCalendarDate } from './calendarDate';
 import i18n from '../i18n';
 
 const api = axios.create({
@@ -179,7 +180,8 @@ export const templatesApi = {
 // Workouts API
 export const workoutsApi = {
   getAll: (params) => api.get('/workouts', { params }), // params.light=true : sans blocs (léger)
-  getToday: () => api.get('/workouts/today'),
+  getToday: () =>
+    api.get('/workouts/today', { params: { local_date: localCalendarDate() } }),
   getOne: (id, params) => api.get(`/workouts/${id}`, params ? { params } : undefined),
   getDrafts: () => api.get('/workouts/drafts'),
   create: (data) => api.post('/workouts', data),
@@ -332,7 +334,12 @@ export const streakApi = {
   getDays: (startDate, endDate) => api.get('/streak/days', { params: { start_date: startDate, end_date: endDate } }),
   getCalendar: (startDate, endDate, params = {}) =>
     api.get('/streak/calendar', {
-      params: { start_date: startDate, end_date: endDate, ...params },
+      params: {
+        start_date: startDate,
+        end_date: endDate,
+        local_date: localCalendarDate(),
+        ...params,
+      },
     }),
   removeDay: (date) => api.delete(`/streak/day/${date}`),
   getCoachStatus: () => api.get('/streak/coach/status'),
