@@ -43,6 +43,15 @@ describe('public landing routing', () => {
     expect(entrySrc).toContain('<Navigate to="/app" replace />');
   });
 
+  test('AuthEntryRoute renders login immediately without checking splash', () => {
+    const src = read('components/layout/AuthHomeSwitch.jsx');
+    const entryStart = src.indexOf('export function AuthEntryRoute');
+    const entryBlock = src.slice(entryStart, src.indexOf('export function', entryStart + 1) || src.length);
+    expect(entryBlock).not.toContain("authStatus === 'checking'");
+    expect(entryBlock).toContain('AuthConnectionNotice');
+    expect(entryBlock).toContain('{children}');
+  });
+
   test('application navigation uses /app for member home', () => {
     const desktop = read('components/layout/DesktopNav.jsx');
     const mobile = read('components/layout/BottomNav.jsx');

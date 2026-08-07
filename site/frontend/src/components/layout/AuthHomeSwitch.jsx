@@ -76,15 +76,14 @@ export function AuthHomeSwitch() {
 export function AuthEntryRoute({ children }) {
   const { authStatus } = useAuth();
 
-  if (authStatus === 'checking') {
-    return (
-      <AuthSplash />
-    );
-  }
-
   if (authStatus === 'authenticated') {
     return <Navigate to="/app" replace />;
   }
 
-  return children;
+  return (
+    <>
+      <AuthConnectionNotice />
+      {children}
+    </>
+  );
 }

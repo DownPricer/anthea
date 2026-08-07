@@ -8,6 +8,12 @@ import { preloadHomeWeek } from '../lib/homeCache';
 
 const AuthContext = createContext(null);
 
+function authDebug(label) {
+  if (process.env.NODE_ENV === 'development') {
+    console.debug(`[auth] ${label}`, performance.now());
+  }
+}
+
 function authErrorPayload(error) {
   const detail = error?.response?.data?.detail;
   const code = detail && typeof detail === 'object' ? detail.code : null;
@@ -41,13 +47,16 @@ export function AuthProvider({ children }) {
       retryTimerRef.current = null;
     }
     if (manual && !userRef.current) setAuthStatus('checking');
+    authDebug('auth_me_start');
     try {
       const { data } = await authApi.me();
+      authDebug('auth_me_end');
       if (!mountedRef.current) return;
       commitUser(data);
       setAuthStatus('authenticated');
       setAuthUnavailable(false);
       retryAttemptRef.current = 0;
+      authDebug('auth_resolution:authenticated');
       preloadHomeWeek(data.id, async () => {
         const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
         const weekEnd = addDays(weekStart, 6);
@@ -57,6 +66,7 @@ export function AuthProvider({ children }) {
         return calendarDaysToMap(calRes.data?.days || []);
       });
     } catch (error) {
+      authDebug('auth_me_end');
       if (!mountedRef.current) return;
       const status = error?.response?.status;
       if (status === 401 || status === 403) {
@@ -64,11 +74,13 @@ export function AuthProvider({ children }) {
         setAuthStatus('anonymous');
         setAuthUnavailable(false);
         retryAttemptRef.current = 0;
+        authDebug('auth_resolution:anonymous');
         return;
       }
 
       setAuthUnavailable(true);
       setAuthStatus(userRef.current ? 'authenticated' : 'checking');
+      authDebug(`auth_resolution:retry_${retryAttemptRef.current}`);
       const delays = [2000, 5000, 10000, 30000];
       const delay = delays[Math.min(retryAttemptRef.current, delays.length - 1)];
       retryAttemptRef.current += 1;
@@ -80,6 +92,7 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     mountedRef.current = true;
+    authDebug('auth_start');
     checkAuth();
 
     const handleInvalidSession = () => {

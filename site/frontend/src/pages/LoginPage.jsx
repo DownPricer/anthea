@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useAuth } from '../context/AuthContext';
@@ -28,6 +28,12 @@ export function LoginPage() {
     : null;
   const fromQuery = readNextFromSearch(location.search);
   const from = sanitizeNextPath(fromQuery || fromState || '/app', '/app');
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.debug('[auth] login_render', performance.now());
+    }
+  }, []);
 
   const startCooldown = (seconds = 60) => {
     setResendCooldown(seconds);

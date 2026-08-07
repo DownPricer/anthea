@@ -148,6 +148,8 @@ describe('auth persistence source guarantees', () => {
     expect(source).toContain("setAuthStatus('authenticated')");
     expect(source).toContain("setAuthStatus('anonymous')");
     expect(source).toContain('2000, 5000, 10000, 30000');
+    expect(source).toContain("authDebug('auth_start')");
+    expect(source).toContain("process.env.NODE_ENV === 'development'");
     expect(source).not.toMatch(/localStorage.*token|token.*localStorage/i);
   });
 });
