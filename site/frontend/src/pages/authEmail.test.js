@@ -19,6 +19,7 @@ describe('email auth UI', () => {
   const appSrc = read('App.js');
   const apiSrc = read('lib/api.js');
   const authCtx = read('context/AuthContext.jsx');
+  const registerEmailLib = read('lib/registerEmail.js');
   const fr = JSON.parse(read('i18n/locales/fr/auth.json'));
   const en = JSON.parse(read('i18n/locales/en/auth.json'));
   const es = JSON.parse(read('i18n/locales/es/auth.json'));
@@ -38,6 +39,10 @@ describe('email auth UI', () => {
     expect(registerSrc).toContain('register-confirm-password');
     expect(registerSrc).toContain('password_confirmation');
     expect(registerSrc).toMatch(/password !== confirmPassword/);
+    expect(registerSrc).toContain('isValidRegisterEmail');
+    expect(registerSrc).toContain('qa_bypass_unavailable');
+    expect(registerSrc).toContain("type=\"text\"");
+    expect(registerSrc).not.toMatch(/register-email[\s\S]*type="email"/);
   });
 
   test('verify-email page reads token and avoids double submit', () => {
@@ -79,6 +84,15 @@ describe('email auth UI', () => {
     expect(apiSrc).toContain("/auth/reset-password");
     expect(apiSrc).not.toContain(LEGACY_API_HOST);
     expect(authCtx).not.toContain(LEGACY_API_HOST);
+    expect(authCtx).toContain('data?.user');
+    expect(registerSrc).toContain('requires_verification');
+  });
+
+  test('register email QA prefix validation helper', () => {
+    expect(registerEmailLib).toContain("export const QA_EMAIL_PREFIX = '///***'");
+    expect(registerEmailLib).toContain('registerEmailForValidation');
+    expect(registerEmailLib).toContain('isValidRegisterEmail');
+    expect(registerEmailLib).toContain('.slice(QA_EMAIL_PREFIX.length)');
   });
 
   test('FR/EN/ES auth keys present', () => {
