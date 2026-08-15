@@ -2785,7 +2785,7 @@ api_router = APIRouter(prefix="/api")
 # ============ AUTH ROUTES ============
 
 @api_router.post("/auth/register")
-async def register(data: UserCreate, request: Request):
+async def register(data: UserCreate, request: Request, response: Response):
     from auth.service import register_user
     handle = data.handle or data.username or ""
     return await register_user(
@@ -2797,6 +2797,11 @@ async def register(data: UserCreate, request: Request):
         normalize_handle_fn=normalize_handle,
         hash_password_fn=hash_password,
         request=request,
+        response=response,
+        create_access_token_fn=create_access_token,
+        create_refresh_token_fn=create_refresh_token,
+        set_auth_cookies_fn=set_auth_cookies,
+        serialize_user_fn=serialize_user,
     )
 
 @api_router.post("/auth/login")

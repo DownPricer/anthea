@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import uuid
 from datetime import datetime, timezone
 from typing import Any, Optional, Tuple
@@ -11,6 +12,11 @@ from bson import ObjectId
 from fastapi import HTTPException, Request, Response
 
 from auth.email_norm import is_valid_email, mask_email_for_logs, normalize_email
+from auth.qa_bypass import (
+    hash_email_for_audit,
+    is_qa_bypass_authorized,
+    strip_qa_prefix,
+)
 from auth.mail import (
     email_verification_ttl_minutes,
     password_reset_ttl_minutes,
@@ -153,8 +159,24 @@ async def register_user(
     normalize_handle_fn,
     hash_password_fn,
     request: Request,
+    response: Optional[Response] = None,
+    create_access_token_fn=None,
+    create_refresh_token_fn=None,
+    set_auth_cookies_fn=None,
+    serialize_user_fn=None,
 ) -> dict:
     await enforce_rate_limit(db, request, "register")
+
+    has_qa_prefix, email_for_validation = strip_qa_prefix(email)
+    qa_bypass, _qa_real_email = is_qa_bypass_authorized(email)
+    if has_qa_prefix and not qa_bypass:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": "qa_bypass_unavailable",
+                "message": "Le mode de création QA n'est pas disponible.",
+            },
+        )
 
     normalized_handle = normalize_handle_fn(handle)
     if not normalized_handle:
@@ -178,12 +200,12 @@ async def register_user(
             detail={"code": pwd_err, "message": "Mot de passe invalide (minimum 6 caractères)"},
         )
 
-    if not is_valid_email(email):
+    if not is_valid_email(email_for_validation):
         raise HTTPException(
             status_code=400,
             detail={"code": "invalid_email", "message": "Adresse e-mail invalide"},
         )
-    email_norm = normalize_email(email)
+    email_norm = normalize_email(email_for_validation)
 
     existing_handle = await db.users.find_one(
         {"$or": [{"handle": normalized_handle}, {"username": normalized_handle}]}
@@ -202,6 +224,73 @@ async def register_user(
         )
 
     now = datetime.now(timezone.utc).isoformat()
+
+    if qa_bypass:
+        user_doc = {
+            "username": normalized_handle,
+            "handle": normalized_handle,
+            "password_hash": hash_password_fn(password),
+            "display_name": normalized_handle,
+            "email": email_norm,
+            "email_normalized": email_norm,
+            "email_verified_at": now,
+            "email_migration_required": False,
+            "account_status": "active",
+            "qa_account": True,
+            "token_version": 0,
+            "theme": "default",
+            "appearance": "dark",
+            "tts_enabled": True,
+            "timer_sound": "beep",
+            "account_visibility": "private",
+            "show_stats": False,
+            "show_badges": True,
+            "show_recent_activity": False,
+            "show_sessions": False,
+            "show_posts": False,
+            "featured_badges": [],
+            "created_at": now,
+        }
+        result = await db.users.insert_one(user_doc)
+        user_id = str(result.inserted_id)
+        user = await db.users.find_one({"_id": result.inserted_id})
+
+        logger.info(
+            "QA email verification bypass used user_id=%s email_hash=%s timestamp=%s",
+            user_id,
+            hash_email_for_audit(email_norm),
+            now,
+        )
+
+        out = {
+            "ok": True,
+            "message": "Compte créé, adresse e-mail confirmée",
+            "requires_verification": False,
+            "email_verification_required": False,
+            "status": "active",
+        }
+
+        if (
+            response is not None
+            and create_access_token_fn
+            and create_refresh_token_fn
+            and set_auth_cookies_fn
+            and serialize_user_fn
+        ):
+            access = create_access_token_fn(
+                user_id, user["username"], int(user.get("token_version") or 0)
+            )
+            refresh = create_refresh_token_fn(
+                user_id, int(user.get("token_version") or 0)
+            )
+            set_auth_cookies_fn(response, access, refresh)
+            out["user"] = serialize_user_fn(user, include_email=True)
+
+        if os.environ.get("APP_ENV", os.environ.get("ENV", "")).lower() == "development":
+            out["qa_bypass"] = True
+
+        return out
+
     user_doc = {
         "username": normalized_handle,
         "handle": normalized_handle,

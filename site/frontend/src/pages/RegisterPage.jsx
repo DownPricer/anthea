@@ -9,9 +9,9 @@ import { Loader2, Eye, EyeOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { AntheaLogo } from '../components/branding/AntheaLogo';
 import { readNextFromSearch, withNextParam } from '../lib/safeNextPath';
+import { isValidRegisterEmail } from '../lib/registerEmail';
 
 const HANDLE_RE = /^[a-z0-9_]{3,30}$/;
-const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function RegisterPage() {
   const { t } = useTranslation(['auth', 'common']);
@@ -49,7 +49,7 @@ export function RegisterPage() {
       toast.error(t('register.errors.emailRequired'));
       return;
     }
-    if (!EMAIL_RE.test(email.trim())) {
+    if (!isValidRegisterEmail(email)) {
       toast.error(t('register.errors.emailInvalid'));
       return;
     }
@@ -76,8 +76,15 @@ export function RegisterPage() {
     setIsLoading(false);
 
     if (result.success) {
+      if (result.data?.user && result.data?.requires_verification === false) {
+        toast.success(t('register.successActive'));
+        navigate(nextPath || '/app', { replace: true });
+        return;
+      }
       toast.success(t('register.success'));
       navigate(`/check-email?email=${encodeURIComponent(email.trim())}`, { replace: true });
+    } else if (result.code === 'qa_bypass_unavailable') {
+      toast.error(t('register.errors.qaBypassUnavailable'));
     } else if (result.code === 'email_taken') {
       toast.error(t('register.errors.emailTaken'));
     } else if (result.code === 'handle_taken') {
@@ -121,7 +128,11 @@ export function RegisterPage() {
             <Input
               id="email"
               data-testid="register-email"
-              type="email"
+              type="text"
+              inputMode="email"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="toi@email.com"

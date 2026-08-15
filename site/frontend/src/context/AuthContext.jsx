@@ -141,7 +141,11 @@ export function AuthProvider({ children }) {
   const register = async (userData) => {
     try {
       const { data } = await authApi.register(userData);
-      // Pas de session tant que l'e-mail n'est pas confirmé
+      if (data?.user) {
+        commitUser(data.user);
+        setAuthStatus('authenticated');
+        setAuthUnavailable(false);
+      }
       return { success: true, data };
     } catch (error) {
       return authErrorPayload(error);
