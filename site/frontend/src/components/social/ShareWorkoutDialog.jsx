@@ -42,6 +42,8 @@ import { postsApi, uploadsApi, formatApiError, resolveMediaUrl } from '../../lib
 
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 
+import { PostImageCropDialog } from './PostImageCropDialog';
+
 import { toast } from 'sonner';
 
 import { useTranslation } from 'react-i18next';
@@ -77,6 +79,12 @@ export function ShareWorkoutDialog({
   const [saving, setSaving] = useState(false);
 
   const [uploading, setUploading] = useState(false);
+
+  const [cropOpen, setCropOpen] = useState(false);
+
+  const [cropSrc, setCropSrc] = useState(null);
+
+  const [pendingImageFile, setPendingImageFile] = useState(null);
 
   const fileInputRef = useRef(null);
 
@@ -134,21 +142,47 @@ export function ShareWorkoutDialog({
 
     if (!file) return;
 
+    if (cropSrc) revokePreviewUrl(cropSrc);
+
+    setPendingImageFile(file);
+
+    setCropSrc(URL.createObjectURL(file));
+
+    setCropOpen(true);
+
+    if (fileInputRef.current) fileInputRef.current.value = '';
+
+  };
+
+
+
+  const handleCropConfirm = async (cropResult) => {
+
     setUploading(true);
 
     try {
 
-      const { blob, previewUrl } = await compressImageFile(file);
+      const { blob, previewUrl } = await compressImageFile(cropResult.file);
+
+      if (imagePreview) revokePreviewUrl(imagePreview);
 
       setImagePreview(previewUrl);
 
       const dataUrl = await blobToDataUrl(blob);
 
-      const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
+      const { data } = await uploadsApi.uploadImage(dataUrl, cropResult.file.name);
 
       const stored = data?.path || (data?.url?.includes('/uploads/') ? data.url.slice(data.url.indexOf('/uploads/')) : null);
 
       setImageUrl(stored || resolveMediaUrl(data.url) || data.url);
+
+      setCropOpen(false);
+
+      if (cropSrc) revokePreviewUrl(cropSrc);
+
+      setCropSrc(null);
+
+      setPendingImageFile(null);
 
       toast.success('Photo prête');
 
@@ -160,8 +194,6 @@ export function ShareWorkoutDialog({
 
       setUploading(false);
 
-      if (fileInputRef.current) fileInputRef.current.value = '';
-
     }
 
   };
@@ -169,6 +201,8 @@ export function ShareWorkoutDialog({
 
 
   return (
+
+    <>
 
     <Dialog open={open} onOpenChange={onOpenChange}>
 
@@ -405,6 +439,24 @@ export function ShareWorkoutDialog({
       </DialogContent>
 
     </Dialog>
+
+    <PostImageCropDialog
+      open={cropOpen}
+      imageSrc={cropSrc}
+      originalFile={pendingImageFile}
+      onOpenChange={(open) => {
+        setCropOpen(open);
+        if (!open) {
+          if (cropSrc) revokePreviewUrl(cropSrc);
+          setCropSrc(null);
+          setPendingImageFile(null);
+        }
+      }}
+      onConfirm={handleCropConfirm}
+      confirming={uploading}
+    />
+
+    </>
 
   );
 

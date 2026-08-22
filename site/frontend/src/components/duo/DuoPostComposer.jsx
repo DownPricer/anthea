@@ -8,6 +8,8 @@ import { postsApi, uploadsApi, formatApiError } from '../../lib/api';
 
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 
+import { PostImageCropDialog } from '../social/PostImageCropDialog';
+
 import { canSubmitDuoPost } from '../../lib/duoPostComposer';
 
 import { toast } from 'sonner';
@@ -42,6 +44,12 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const [cropOpen, setCropOpen] = useState(false);
+
+  const [cropSrc, setCropSrc] = useState(null);
+
+  const [pendingImageFile, setPendingImageFile] = useState(null);
+
   const fileRef = useRef(null);
 
 
@@ -64,23 +72,51 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
     if (!file) return;
 
+    if (cropSrc) revokePreviewUrl(cropSrc);
+
+    const src = URL.createObjectURL(file);
+
+    setPendingImageFile(file);
+
+    setCropSrc(src);
+
+    setCropOpen(true);
+
+    if (fileRef.current) fileRef.current.value = '';
+
+  };
+
+
+
+  const handleCropConfirm = async (cropResult) => {
+
     setUploading(true);
 
     try {
 
-      const { blob, previewUrl } = await compressImageFile(file);
+      const { blob, previewUrl } = await compressImageFile(cropResult.file);
+
+      if (preview) revokePreviewUrl(preview);
 
       setPreview(previewUrl);
 
       const dataUrl = await blobToDataUrl(blob);
 
-      const { data } = await uploadsApi.uploadImage(dataUrl, file.name);
+      const { data } = await uploadsApi.uploadImage(dataUrl, cropResult.file.name);
 
       const stored = uploadPathFromResponse(data);
 
       if (!stored) throw new Error('Réponse upload invalide');
 
       setUploadedImagePath(stored);
+
+      setCropOpen(false);
+
+      if (cropSrc) revokePreviewUrl(cropSrc);
+
+      setCropSrc(null);
+
+      setPendingImageFile(null);
 
       toast.success('Photo prête');
 
@@ -93,8 +129,6 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
     } finally {
 
       setUploading(false);
-
-      if (fileRef.current) fileRef.current.value = '';
 
     }
 
@@ -205,6 +239,8 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
 
   return (
+
+    <>
 
     <form
 
@@ -343,6 +379,24 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
       </div>
 
     </form>
+
+    <PostImageCropDialog
+      open={cropOpen}
+      imageSrc={cropSrc}
+      originalFile={pendingImageFile}
+      onOpenChange={(open) => {
+        setCropOpen(open);
+        if (!open) {
+          if (cropSrc) revokePreviewUrl(cropSrc);
+          setCropSrc(null);
+          setPendingImageFile(null);
+        }
+      }}
+      onConfirm={handleCropConfirm}
+      confirming={uploading}
+    />
+
+    </>
 
   );
 
