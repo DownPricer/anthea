@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { UserPlus, UserMinus, Pencil, Lock, Heart, Loader2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { UserAvatar } from '../UserAvatar';
+import { ProfileAvatarLightbox } from './ProfileAvatarLightbox';
 import { ProfileFeaturedBadges } from './ProfileFeaturedBadges';
 import { Button } from '../ui/button';
 import {
@@ -9,6 +11,7 @@ import {
   getDisplayName,
   isProfilePrivate,
 } from '../../lib/userProfile';
+import { resolveMediaUrl } from '../../lib/api';
 
 function StatItem({ value, label, onClick, clickable = false }) {
   const Tag = clickable && onClick ? 'button' : 'div';
@@ -45,9 +48,11 @@ export function ProfileHeader({
   isLimited = false,
 }) {
   const { t } = useTranslation(['profile', 'common']);
+  const [avatarLightboxOpen, setAvatarLightboxOpen] = useState(false);
   const displayName = getDisplayName(profileUser);
   const handle = formatHandle(profileUser);
   const bio = profileUser?.bio?.trim();
+  const hasAvatar = Boolean(resolveMediaUrl(profileUser?.avatar_url));
   const featuredIds = Array.isArray(profileUser?.featured_badge_ids)
     ? profileUser.featured_badge_ids
     : Array.isArray(profileUser?.featured_badges) && profileUser.featured_badges.length
@@ -59,10 +64,25 @@ export function ProfileHeader({
     <section className="card overflow-hidden" data-testid="profile-header">
       <div className="relative p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-3">
-          <UserAvatar
-            user={profileUser}
-            className="w-16 h-16 sm:w-20 sm:h-20 md:w-[88px] md:h-[88px] text-xl sm:text-2xl ring-2 ring-border shrink-0 mx-auto sm:mx-0"
-          />
+          {hasAvatar ? (
+            <button
+              type="button"
+              onClick={() => setAvatarLightboxOpen(true)}
+              className="shrink-0 mx-auto sm:mx-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)]"
+              data-testid="profile-avatar-open"
+              aria-label={t('profile:avatarLightboxOpen', { defaultValue: 'Agrandir la photo de profil' })}
+            >
+              <UserAvatar
+                user={profileUser}
+                className="w-16 h-16 sm:w-20 sm:h-20 md:w-[88px] md:h-[88px] text-xl sm:text-2xl ring-2 ring-border"
+              />
+            </button>
+          ) : (
+            <UserAvatar
+              user={profileUser}
+              className="w-16 h-16 sm:w-20 sm:h-20 md:w-[88px] md:h-[88px] text-xl sm:text-2xl ring-2 ring-border shrink-0 mx-auto sm:mx-0"
+            />
+          )}
 
           <div className="flex-1 min-w-0 text-center sm:text-left">
             <h1 className="text-lg sm:text-xl font-bold text-foreground font-['Outfit'] truncate leading-tight">
@@ -209,6 +229,13 @@ export function ProfileHeader({
           </div>
         </div>
       </div>
+      {hasAvatar ? (
+        <ProfileAvatarLightbox
+          open={avatarLightboxOpen}
+          onOpenChange={setAvatarLightboxOpen}
+          user={profileUser}
+        />
+      ) : null}
     </section>
   );
 }

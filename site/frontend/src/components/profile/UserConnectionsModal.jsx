@@ -8,6 +8,7 @@ import { Button } from '../ui/button';
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '../ui/dialog';
@@ -178,6 +179,11 @@ export function UserConnectionsModal({ open, onOpenChange, handle, mode, profile
       >
         <DialogHeader className="p-4 pb-2 shrink-0">
           <DialogTitle className="text-foreground font-['Outfit']">{title}</DialogTitle>
+          <DialogDescription className="text-subtle text-sm">
+            {mode === 'followers'
+              ? t('profile:connectionsFollowersDesc', { defaultValue: 'Liste des personnes qui suivent ce profil.' })
+              : t('profile:connectionsFollowingDesc', { defaultValue: 'Liste des personnes suivies par ce profil.' })}
+          </DialogDescription>
         </DialogHeader>
         <div className="flex-1 overflow-y-auto px-4 pb-4 min-h-0">
           {loading ? (
