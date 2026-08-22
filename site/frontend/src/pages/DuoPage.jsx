@@ -11,7 +11,6 @@ import { SoloDashboard } from '../components/duo/SoloDashboard';
 import { NotificationBell } from '../components/NotificationBell';
 import { BadgeArtwork } from '../components/badges/BadgeArtwork';
 import { getBadgeDisplayName } from '../lib/featuredBadges';
-import { SessionHistoryCard } from '../components/history/SessionHistoryCard';
 import { CollapsibleAnnualAgenda } from '../components/agenda/CollapsibleAnnualAgenda';
 import { CommonSessionCard } from '../components/duo/CommonSessionCard';
 import { DuoCompactStatCard } from '../components/duo/DuoCompactStatCard';
@@ -261,11 +260,9 @@ export function DuoPage() {
   const [coachStreakInput, setCoachStreakInput] = useState('');
   const [exemptDateStr, setExemptDateStr] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [exemptWho, setExemptWho] = useState('partner'); // 'me' | 'partner'
-  const [historySessions, setHistorySessions] = useState([]);
+  const [historyItems, setHistoryItems] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  // Historique doit s'ouvrir sur "Moi" par défaut (indépendant des Stats)
-  const [historyTarget, setHistoryTarget] = useState('me'); // 'me' | 'partner'
-  const [historyFilter, setHistoryFilter] = useState('all');
+  const [historyTarget, setHistoryTarget] = useState('me'); // export coach uniquement
   const [exporting, setExporting] = useState(false);
   const [exportPeriod, setExportPeriod] = useState('30d');
   const [exportStartDate, setExportStartDate] = useState('');
@@ -334,7 +331,7 @@ export function DuoPage() {
     }
     // Intentionally omit loader fns — they close over current filters
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, statsPeriod, statsScope, partnerUserId, historyFilter, historyTarget]);
+  }, [activeTab, statsPeriod, statsScope, partnerUserId]);
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
@@ -348,25 +345,17 @@ export function DuoPage() {
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
-      const params = {
-        limit: 100,
-        target_user: historyTarget === 'me' ? viewerUserId : partnerUserId,
-      };
-      if (historyFilter !== 'all') params.status = historyFilter;
-      const { data } = await sessionsApi.getHistory(params);
-      const enriched = (data || []).map((s) => {
-        const member = String(s.user_id) === String(viewerUserId)
-          ? (viewerMember || user)
-          : (partnerMember || partner);
-        return {
-          ...s,
-          display_name: getDisplayName(member) || s.username,
-          username: getDisplayName(member) || s.username,
-        };
-      });
-      setHistorySessions(enriched);
+      const { data } = await duoApi.getActivityFeed(100);
+      const commonSessions = (data || [])
+        .filter((item) => item.type === 'common_session')
+        .sort((a, b) => {
+          const aTime = a.created_at || a.date || '';
+          const bTime = b.created_at || b.date || '';
+          return bTime.localeCompare(aTime);
+        });
+      setHistoryItems(commonSessions);
     } catch {
-      toast.error('Impossible de charger l\'historique');
+      toast.error(t('duo:errors.historyLoadError'));
     } finally {
       setHistoryLoading(false);
     }
@@ -405,27 +394,6 @@ export function DuoPage() {
       toast.error(t('duo:export.unauthorized'));
     } finally {
       setExporting(false);
-    }
-  };
-
-  const handleAdjustSessionTime = async (session) => {
-    const mins = window.prompt(
-      t('duo:coachSettings.timeFixPrompt'),
-      String(Math.round((session.total_time || 0) / 60))
-    );
-    if (mins == null) return;
-    const sec = parseInt(mins, 10) * 60;
-    if (Number.isNaN(sec) || sec < 0) {
-      toast.error('Valeur invalide');
-      return;
-    }
-    if (!window.confirm('Confirmer la correction du temps ?')) return;
-    try {
-      await sessionsApi.adjustTime(session.id, { total_time: sec, reason: 'coach_manual' });
-      toast.success(t('duo:coachSettings.timeFixed'));
-      loadHistory();
-    } catch {
-      toast.error(t('duo:coachSettings.timeFixDenied'));
     }
   };
 
@@ -1105,35 +1073,19 @@ export function DuoPage() {
           <h2 className="text-sm font-medium text-muted uppercase tracking-wider">
             {t('duo:history')}
           </h2>
-          <div className="flex gap-2 flex-wrap items-center min-w-0">
-            <Select value={historyTarget} onValueChange={setHistoryTarget}>
-              <SelectTrigger className="w-[130px] h-9 rounded-full bg-surface-elevated border-border text-foreground text-sm">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-surface-elevated border-border">
-                <SelectItem value="me" className="text-foreground">{t('duo:me')}</SelectItem>
-                <SelectItem value="partner" className="text-foreground">
-                  {partner?.display_name || partner?.username || t('duo:partner')}
-                </SelectItem>
-              </SelectContent>
-            </Select>
-            {['all', 'completed', 'abandoned'].map((f) => (
-              <button
-                key={f}
-                type="button"
-                onClick={() => setHistoryFilter(f)}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
-                  historyFilter === f
-                    ? 'bg-[var(--theme-primary)] text-foreground'
-                    : 'bg-hover text-muted'
-                }`}
-              >
-                {f === 'all' ? t('duo:historyFilters.all') : f === 'completed' ? t('duo:historyFilters.completed') : t('duo:historyFilters.abandoned')}
-              </button>
-            ))}
-          </div>
           {(user?.relation_type === 'coach' || canModerateStreak) && (
             <div className="flex flex-wrap gap-2 items-center p-3 rounded-2xl bg-surface-elevated border border-border min-w-0">
+              <Select value={historyTarget} onValueChange={setHistoryTarget}>
+                <SelectTrigger className="h-9 w-[130px] rounded-full bg-background border-border text-foreground text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="bg-surface-elevated border-border">
+                  <SelectItem value="me" className="text-foreground">{t('duo:me')}</SelectItem>
+                  <SelectItem value="partner" className="text-foreground">
+                    {partner?.display_name || partner?.username || t('duo:partner')}
+                  </SelectItem>
+                </SelectContent>
+              </Select>
               <Select value={exportPeriod} onValueChange={setExportPeriod}>
                 <SelectTrigger className="h-9 w-[140px] rounded-full bg-background border-border text-foreground text-sm">
                   <SelectValue />
@@ -1186,35 +1138,28 @@ export function DuoPage() {
             <div className="flex justify-center py-12" data-testid="duo-history-list">
               <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
             </div>
-          ) : historySessions.length === 0 ? (
+          ) : historyItems.length === 0 ? (
             <div className="card p-8 text-center" data-testid="duo-history-list">
               <History className="mx-auto text-subtle mb-3" size={28} />
-              <p className="text-subtle">{t('duo:emptyStates.history')}</p>
+              <p className="text-subtle">{t('duo:emptyStates.sharedHistory')}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-1 gap-2 md:grid-cols-2" data-testid="duo-history-list">
-              {historySessions
-                .filter((s) => {
-                  if (historyTarget === 'me') return String(s.user_id) === String(viewerUserId);
-                  return String(s.user_id) === String(partnerUserId);
-                })
-                .map((session) => (
-                  <SessionHistoryCard
-                    key={session.id}
-                    session={session}
-                    canAdjustTime={
-                      canModerateStreak
-                      || user?.relation_type === 'coach'
-                      || user?.relation_type === 'coach_partner'
-                    }
-                    onAdjustTime={handleAdjustSessionTime}
-                  />
-                ))}
+            <div className="space-y-4" data-testid="duo-history-list">
+              {historyItems.map((item) => (
+                <CommonSessionCard
+                  key={`history-common-${item.date}`}
+                  item={item}
+                  user={user}
+                  partner={partner}
+                  theme={theme}
+                  duoProfile={duoStats?.duo_profile}
+                />
+              ))}
             </div>
           )}
           <CollapsibleAnnualAgenda
             year={new Date().getFullYear()}
-            userId={historyTarget === 'me' ? viewerUserId : partnerUserId}
+            userId={viewerUserId}
             title={t('duo:annualAgenda', { defaultValue: 'Agenda annuel' })}
             defaultOpen={false}
           />

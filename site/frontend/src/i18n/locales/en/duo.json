@@ -66,6 +66,7 @@
   "emptyStates": {
     "activity": "No activity yet",
     "history": "No workouts in history",
+    "sharedHistory": "No workouts completed together yet.",
     "statsPeriod": "No data for this period",
     "duoStats": "No Duo data available",
     "noData": "No data available",

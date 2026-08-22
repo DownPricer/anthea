@@ -66,6 +66,7 @@
   "emptyStates": {
     "activity": "Aún no hay actividad",
     "history": "Ninguna sesión en el historial",
+    "sharedHistory": "Ninguna sesión realizada juntos por el momento.",
     "statsPeriod": "Sin datos en este periodo",
     "duoStats": "No hay datos de Dúo disponibles",
     "noData": "No hay datos disponibles",

@@ -66,6 +66,7 @@
   "emptyStates": {
     "activity": "Pas encore d'activité",
     "history": "Aucune séance dans l'historique",
+    "sharedHistory": "Aucune séance réalisée ensemble pour le moment.",
     "statsPeriod": "Aucune donnée sur cette période",
     "duoStats": "Aucune donnée Duo disponible",
     "noData": "Aucune donnée disponible",
