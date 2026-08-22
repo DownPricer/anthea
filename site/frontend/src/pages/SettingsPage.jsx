@@ -146,27 +146,6 @@ function PrivacySelectRow({ icon: Icon, label, value, onChange, options, locked,
   );
 }
 
-function relativeLuminance(hex) {
-  const normalized = normalizeAccentColor(hex);
-  if (!normalized) return null;
-  const r = parseInt(normalized.slice(1, 3), 16) / 255;
-  const g = parseInt(normalized.slice(3, 5), 16) / 255;
-  const b = parseInt(normalized.slice(5, 7), 16) / 255;
-  const toLin = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
-  return 0.2126 * toLin(r) + 0.7152 * toLin(g) + 0.0722 * toLin(b);
-}
-
-function contrastOnAccent(hex) {
-  const L = relativeLuminance(hex);
-  if (L == null) return { text: '#ffffff', label: '—' };
-  const contrastWhite = (1.05) / (L + 0.05);
-  const contrastBlack = (L + 0.05) / 0.05;
-  if (contrastWhite >= contrastBlack) {
-    return { text: '#ffffff', label: `${contrastWhite.toFixed(1)}:1` };
-  }
-  return { text: '#0A0A0A', label: `${contrastBlack.toFixed(1)}:1` };
-}
-
 function SectionIcon({ icon: Icon }) {
   return (
     <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-hover mr-3">
@@ -477,9 +456,6 @@ export function SettingsPage() {
     })
     .slice(0, 3);
 
-  const previewAccent = accentColor || getAccentForUser(user, theme) || '#06B6D4';
-  const contrast = contrastOnAccent(previewAccent);
-
   const triggerClass =
     "px-4 hover:no-underline text-foreground font-['Outfit'] text-base font-semibold [&[data-state=open]]:text-foreground";
 
@@ -637,16 +613,6 @@ export function SettingsPage() {
                 onChange={(e) => setAccentPreview(e.target.value)}
                 className="h-10 w-full rounded-xl cursor-pointer"
               />
-            </div>
-
-            <div className="rounded-xl bg-hover p-3 space-y-2" data-testid="accent-contrast-preview">
-              <p className="text-foreground text-sm">{t('appearance.preview')}</p>
-              <div
-                className="h-14 rounded-xl flex items-center justify-center font-medium text-sm"
-                style={{ background: previewAccent, color: contrast.text }}
-              >
-                {t('common:app.brand')} · {contrast.label}
-              </div>
             </div>
 
             <Button
