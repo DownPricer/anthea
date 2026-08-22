@@ -9,6 +9,7 @@ import { postsApi, uploadsApi, formatApiError } from '../../lib/api';
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 
 import { PostImageCropDialog } from '../social/PostImageCropDialog';
+import { PostImageFrame } from '../social/PostImageFrame';
 
 import { canSubmitDuoPost } from '../../lib/duoPostComposer';
 
@@ -278,9 +279,9 @@ export function DuoPostComposer({ duoProfile, onPosted }) {
 
       {preview ? (
 
-        <div className="relative rounded-xl overflow-hidden border border-border">
+        <div className="relative">
 
-          <img src={preview} alt="" className="w-full max-h-48 object-cover" />
+          <PostImageFrame src={preview} alt="" />
 
           <button
 

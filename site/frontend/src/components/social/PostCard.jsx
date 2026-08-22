@@ -17,6 +17,7 @@ import {
   Share2,
 } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
+import { PostImageFrame } from './PostImageFrame';
 import { Button } from '../ui/button';
 import { Textarea } from '../ui/textarea';
 import { WorkoutDetailsDrawer } from './WorkoutDetailsDrawer';
@@ -550,17 +551,13 @@ export function PostCard({
       )}
 
       {post.image_url && (
-        <div className="rounded-xl overflow-hidden border border-border bg-overlay">
-          <img
-            src={post.image_url}
-            alt={post.title || 'Publication'}
-            className="w-full max-h-80 object-cover"
-            loading="lazy"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-            }}
-          />
-        </div>
+        <PostImageFrame
+          src={post.image_url}
+          alt={post.title || 'Publication'}
+          onError={(e) => {
+            e.currentTarget.style.display = 'none';
+          }}
+        />
       )}
 
       {isCommonSession ? (

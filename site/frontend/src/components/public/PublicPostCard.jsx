@@ -3,6 +3,7 @@ import { Heart, MessageCircle, Repeat2 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { parseISO } from 'date-fns';
 import { UserAvatar } from '../UserAvatar';
+import { PostImageFrame } from '../social/PostImageFrame';
 import { resolveMediaUrl } from '../../lib/api';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 import { getPostActorDisplay } from '../../lib/postActor';
@@ -68,14 +69,7 @@ export function PublicPostCard({ post, onRequireAuth, onOpen }) {
           <p className="line-clamp-4 whitespace-pre-wrap [overflow-wrap:anywhere] text-sm text-muted">{post.description}</p>
         ) : null}
         {imageUrl ? (
-          <div className="aspect-video overflow-hidden rounded-xl border border-border bg-overlay">
-            <img
-              src={imageUrl}
-              alt={post.title || ''}
-              className="h-full w-full object-cover"
-              loading="lazy"
-            />
-          </div>
+          <PostImageFrame src={imageUrl} alt={post.title || ''} />
         ) : null}
       </button>
 

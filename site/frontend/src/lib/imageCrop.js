@@ -1,11 +1,13 @@
+import {
+  POST_OUTPUT_WIDTH,
+  POST_OUTPUT_HEIGHT,
+  POST_VIEWPORT_WIDTH,
+  POST_VIEWPORT_HEIGHT,
+} from './postImageAspect';
+
 const AVATAR_SIZE = 512;
 const OUTPUT_MIME = 'image/webp';
 const DEFAULT_VIEWPORT = 280;
-
-const POST_ASPECT = 4 / 5;
-const POST_VIEWPORT_WIDTH = 320;
-const POST_VIEWPORT_HEIGHT = Math.round(POST_VIEWPORT_WIDTH / POST_ASPECT);
-const POST_OUTPUT_MAX = 1280;
 
 /**
  * Calcule le rectangle source (repère image naturelle) pour un viewport carré.
@@ -136,7 +138,8 @@ export async function cropRectImage(
     viewportWidth = POST_VIEWPORT_WIDTH,
     viewportHeight = POST_VIEWPORT_HEIGHT,
   } = {},
-  outputMax = POST_OUTPUT_MAX
+  outputWidth = POST_OUTPUT_WIDTH,
+  outputHeight = POST_OUTPUT_HEIGHT,
 ) {
   const image = await loadImage(imageSrc);
   const rect = computeCropSourceRect(
@@ -148,14 +151,6 @@ export async function cropRectImage(
     offsetY,
     viewportHeight
   );
-
-  const aspect = viewportWidth / viewportHeight;
-  let outputWidth = outputMax;
-  let outputHeight = Math.round(outputMax / aspect);
-  if (outputHeight > outputMax) {
-    outputHeight = outputMax;
-    outputWidth = Math.round(outputMax * aspect);
-  }
 
   const canvas = document.createElement('canvas');
   canvas.width = outputWidth;
@@ -252,5 +247,7 @@ export {
   DEFAULT_VIEWPORT,
   POST_VIEWPORT_WIDTH,
   POST_VIEWPORT_HEIGHT,
-  POST_OUTPUT_MAX,
+  POST_OUTPUT_WIDTH,
+  POST_OUTPUT_HEIGHT,
 };
+export { POST_IMAGE_RATIO, POST_IMAGE_ASPECT_CLASS } from './postImageAspect';

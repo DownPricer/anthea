@@ -43,6 +43,7 @@ import { postsApi, uploadsApi, formatApiError, resolveMediaUrl } from '../../lib
 import { compressImageFile, revokePreviewUrl, blobToDataUrl } from '../../lib/imageCompress';
 
 import { PostImageCropDialog } from './PostImageCropDialog';
+import { PostImageFrame } from './PostImageFrame';
 
 import { toast } from 'sonner';
 
@@ -336,15 +337,11 @@ export function ShareWorkoutDialog({
 
             {imagePreview ? (
 
-              <img
+              <div className="mt-3">
 
-                src={imagePreview}
+                <PostImageFrame src={imagePreview} alt="Aperçu" />
 
-                alt="Aperçu"
-
-                className="mt-3 w-full max-h-40 object-cover rounded-xl border border-border"
-
-              />
+              </div>
 
             ) : null}
 
