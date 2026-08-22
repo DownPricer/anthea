@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { duoApi, streakApi, usersApi, formatApiError } from '../lib/api';
 import { ProfileHeader } from '../components/profile/ProfileHeader';
+import { UserConnectionsModal } from '../components/profile/UserConnectionsModal';
 import { ProfileEditDialog } from '../components/profile/ProfileEditDialog';
 import { AvatarCropDialog } from '../components/profile/AvatarCropDialog';
 import { uploadsApi } from '../lib/api';
@@ -52,6 +53,7 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
   const isOwn = isOwnProfile(user, profileUser);
   const isLimited = isProfileLimited(profileUser, user);
   const [followLoading, setFollowLoading] = useState(false);
+  const [connectionsModal, setConnectionsModal] = useState(null);
 
   const [activeTab, setActiveTab] = useState('posts');
   const [editOpen, setEditOpen] = useState(false);
@@ -326,6 +328,28 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
     }
   };
 
+  const handleCancelFollowRequest = async () => {
+    const handle = getPublicHandle(profileUser);
+    if (!handle) return;
+
+    setFollowLoading(true);
+    try {
+      const { data: requests } = await usersApi.getFollowRequests();
+      const outgoing = requests?.outgoing || [];
+      const match = outgoing.find((r) => r.handle === handle || r.username === profileUser?.username);
+      if (match?.request_id) {
+        await usersApi.cancelFollowRequest(match.request_id);
+      }
+      const { data } = await usersApi.getByHandle(handle);
+      onProfileUpdate?.(data);
+      toast.success(t('profile:followRequestCancelled', { defaultValue: 'Demande annulée' }));
+    } catch (error) {
+      toast.error(formatApiError(error));
+    } finally {
+      setFollowLoading(false);
+    }
+  };
+
   const handleLogout = async () => {
     await logout();
     navigate('/', { replace: true });
@@ -371,6 +395,9 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
           onEdit={() => setEditOpen(true)}
           onFollow={handleFollow}
           onUnfollow={handleUnfollow}
+          onCancelFollowRequest={!isOwn && profileUser?.follow_request_pending ? handleCancelFollowRequest : undefined}
+          onFollowersClick={!isLimited || isOwn ? () => setConnectionsModal('followers') : undefined}
+          onFollowingClick={!isLimited || isOwn ? () => setConnectionsModal('following') : undefined}
           isFollowing={!!profileUser.is_following}
           isMutual={!!profileUser.is_mutual}
           followLoading={followLoading}
@@ -516,6 +543,14 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
           />
         </>
       ) : null}
+
+      <UserConnectionsModal
+        open={connectionsModal !== null}
+        onOpenChange={(open) => !open && setConnectionsModal(null)}
+        handle={getPublicHandle(profileUser)}
+        mode={connectionsModal || 'followers'}
+        profileUserId={profileUser?.id}
+      />
     </div>
   );
 }

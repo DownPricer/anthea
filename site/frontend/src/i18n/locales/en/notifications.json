@@ -4,6 +4,7 @@
   "subtitleDuo": "Your Duo activity",
   "filters": {
     "all": "All",
+    "requests": "Requests",
     "duo": "Duo"
   },
   "empty": "No notifications yet.",
@@ -15,6 +16,7 @@
     "follow_back": "followed you back — you are mutual friends",
     "like": "liked your post",
     "comment": "commented on your post",
+    "comment_reply": "@{{actor}} replied to your comment",
     "comment_like": "@{{actor}} liked your comment.",
     "comment_like_grouped": "@{{actor}} and {{others}} others liked your comment.",
     "duo_follow_request": "wants to follow your duo",

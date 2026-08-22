@@ -4,6 +4,7 @@
   "subtitleDuo": "Actividad de tu Dúo",
   "filters": {
     "all": "Todas",
+    "requests": "Solicitudes",
     "duo": "Dúo"
   },
   "empty": "Ninguna notificación por ahora.",
@@ -15,6 +16,7 @@
     "follow_back": "te sigue también — sois amigos mutuos",
     "like": "ha gustado tu publicación",
     "comment": "ha comentado tu publicación",
+    "comment_reply": "@{{actor}} respondió a tu comentario",
     "comment_like": "@{{actor}} le gustó tu comentario.",
     "comment_like_grouped": "@{{actor}} y {{others}} personas más le dieron me gusta a tu comentario.",
     "duo_follow_request": "quiere seguir vuestro dúo",

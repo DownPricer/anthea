@@ -10,12 +10,18 @@ import {
   isProfilePrivate,
 } from '../../lib/userProfile';
 
-function StatItem({ value, label }) {
+function StatItem({ value, label, onClick, clickable = false }) {
+  const Tag = clickable && onClick ? 'button' : 'div';
   return (
-    <div className="text-center min-w-[3.25rem]">
+    <Tag
+      type={clickable && onClick ? 'button' : undefined}
+      onClick={clickable ? onClick : undefined}
+      className={`text-center min-w-[3.25rem] ${clickable && onClick ? 'cursor-pointer hover:opacity-80 transition-opacity rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)]' : ''}`}
+      data-testid={clickable ? `stat-${label}` : undefined}
+    >
       <p className="text-sm sm:text-base font-bold text-foreground font-['Outfit'] leading-tight">{value}</p>
       <p className="text-[10px] sm:text-[11px] text-subtle uppercase tracking-wide mt-0.5">{label}</p>
-    </div>
+    </Tag>
   );
 }
 
@@ -29,6 +35,9 @@ export function ProfileHeader({
   onEdit,
   onFollow,
   onUnfollow,
+  onCancelFollowRequest,
+  onFollowersClick,
+  onFollowingClick,
   isFollowing = false,
   isMutual = false,
   followLoading = false,
@@ -66,8 +75,18 @@ export function ProfileHeader({
             )}
 
             <div className="flex items-center justify-center sm:justify-start gap-3 sm:gap-3.5 mt-2 sm:mt-2.5">
-              <StatItem value={formatCount(followersCount)} label={t('profile:followers')} />
-              <StatItem value={formatCount(followingCount)} label={t('profile:following')} />
+              <StatItem
+                value={formatCount(followersCount)}
+                label={t('profile:followers')}
+                clickable={!isLimited || isOwn}
+                onClick={onFollowersClick}
+              />
+              <StatItem
+                value={formatCount(followingCount)}
+                label={t('profile:following')}
+                clickable={!isLimited || isOwn}
+                onClick={onFollowingClick}
+              />
             </div>
 
             {bio ? (
@@ -97,13 +116,30 @@ export function ProfileHeader({
                 </Button>
               ) : isLimited ? (
                 followRequestPending ? (
-                  <Button
-                    type="button"
-                    disabled
-                    className="h-8 sm:h-9 rounded-xl px-3 sm:px-4 bg-hover text-muted border border-border text-sm"
-                  >
-                    {t('profile:requestSent')}
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      disabled
+                      className="h-8 sm:h-9 rounded-xl px-3 sm:px-4 bg-hover text-muted border border-border text-sm"
+                    >
+                      {t('profile:requestSent')}
+                    </Button>
+                    {onCancelFollowRequest ? (
+                      <Button
+                        type="button"
+                        onClick={onCancelFollowRequest}
+                        disabled={followLoading}
+                        variant="outline"
+                        className="h-8 sm:h-9 rounded-xl px-3 sm:px-4 border-border text-sm min-h-10"
+                        data-testid="cancel-follow-request-btn"
+                      >
+                        {followLoading ? (
+                          <Loader2 size={14} className="mr-1.5 animate-spin" />
+                        ) : null}
+                        {t('profile:cancelFollowRequest', { defaultValue: 'Annuler la demande' })}
+                      </Button>
+                    ) : null}
+                  </>
                 ) : (
                   <Button
                     type="button"

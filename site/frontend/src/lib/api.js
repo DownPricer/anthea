@@ -125,7 +125,13 @@ export const usersApi = {
   getProfileStats: (handle) => api.get(`/users/${encodeURIComponent(handle)}/profile-stats`),
   acceptFollowRequest: (requestId) => api.post(`/follow-requests/${requestId}/accept`),
   rejectFollowRequest: (requestId) => api.post(`/follow-requests/${requestId}/reject`),
+  cancelFollowRequest: (requestId) => api.delete(`/follow-requests/${requestId}`),
+  getFollowRequests: () => api.get('/follow-requests'),
   getPendingFollowRequests: () => api.get('/follow-requests/pending'),
+  getFollowers: (handle, params) =>
+    api.get(`/users/${encodeURIComponent(handle)}/followers`, { params }),
+  getFollowing: (handle, params) =>
+    api.get(`/users/${encodeURIComponent(handle)}/following`, { params }),
 };
 
 // Notifications API

@@ -605,6 +605,7 @@ class ActivityPublishBody(BaseModel):
 
 class PostCommentCreate(BaseModel):
     text: str
+    parent_comment_id: Optional[str] = None
 
 class RepostCreate(BaseModel):
     post_id: Optional[str] = None
@@ -948,6 +949,60 @@ async def get_follow_relation(viewer_id: str, profile_id: str) -> dict:
         "incoming_follow_request": incoming is not None,
     }
 
+
+async def _serialize_connection_user(user_doc: dict, viewer_id: str) -> Optional[dict]:
+    if not user_doc:
+        return None
+    uid = str(user_doc["_id"])
+    relation = await get_follow_relation(viewer_id, uid)
+    return {
+        "id": uid,
+        "username": user_doc.get("username"),
+        "handle": user_doc.get("handle") or user_doc.get("username"),
+        "display_name": user_doc.get("display_name"),
+        "avatar_url": user_doc.get("avatar_url"),
+        **relation,
+    }
+
+
+def _serialize_follow_request_item(doc: dict, user_doc: dict, *, outgoing: bool = False) -> dict:
+    handle = user_doc.get("handle") or user_doc.get("username")
+    item = {
+        "request_id": str(doc["_id"]),
+        "user_id": user_doc.get("id") or str(user_doc.get("_id")),
+        "username": user_doc.get("username"),
+        "handle": handle,
+        "display_name": user_doc.get("display_name"),
+        "avatar_url": user_doc.get("avatar_url"),
+        "created_at": doc.get("created_at"),
+        "status": doc.get("status", "pending"),
+    }
+    if outgoing:
+        item["target_id"] = doc.get("target_id")
+    else:
+        item["requester_id"] = doc.get("requester_id")
+    return item
+
+
+async def _cleanup_follow_request_notifications(request_id: str) -> None:
+    await db.notifications.delete_many({
+        "type": "follow_request",
+        "request_id": request_id,
+    })
+
+
+def _encode_connection_cursor(created_at: str, user_id: str) -> str:
+    return f"{created_at}|{user_id}"
+
+
+def _decode_connection_cursor(cursor: Optional[str]) -> tuple:
+    if not cursor:
+        return None, None
+    parts = cursor.split("|", 1)
+    if len(parts) != 2:
+        return None, None
+    return parts[0], parts[1]
+
 async def serialize_profile_for_viewer(profile_user: dict, viewer_id: str) -> dict:
     profile_id = str(profile_user["_id"])
     access = await get_profile_access_level(viewer_id, profile_user)
@@ -1143,6 +1198,7 @@ async def create_notification(
     *,
     skip_if_exists: bool = False,
     post_id: Optional[str] = None,
+    comment_id: Optional[str] = None,
     request_id: Optional[str] = None,
     duo_id: Optional[str] = None,
     duo_tag: Optional[str] = None,
@@ -1180,6 +1236,8 @@ async def create_notification(
     }
     if post_id:
         doc["post_id"] = post_id
+    if comment_id:
+        doc["comment_id"] = comment_id
     if request_id:
         doc["request_id"] = request_id
     if duo_id:
@@ -1966,6 +2024,7 @@ async def _load_workout_for_session(session: dict) -> Optional[dict]:
 
 def _serialize_post_comment(comment: dict, viewer_id: Optional[str] = None) -> dict:
     likes = comment.get("likes") or []
+    deleted = bool(comment.get("deleted"))
     return {
         "id": comment.get("id"),
         "user_id": comment.get("user_id"),
@@ -1973,11 +2032,31 @@ def _serialize_post_comment(comment: dict, viewer_id: Optional[str] = None) -> d
         "handle": comment.get("handle"),
         "display_name": comment.get("display_name"),
         "avatar_url": comment.get("avatar_url"),
-        "text": comment.get("text"),
+        "text": "" if deleted else comment.get("text"),
         "created_at": comment.get("created_at"),
         "likes_count": len(likes),
         "is_liked": viewer_id in likes if viewer_id else False,
+        "parent_comment_id": comment.get("parent_comment_id"),
+        "reply_to_user_id": comment.get("reply_to_user_id"),
+        "reply_to_handle": comment.get("reply_to_handle"),
+        "reply_to_display_name": comment.get("reply_to_display_name"),
+        "deleted": deleted,
     }
+
+
+def _serialize_comments_threaded(comments: list, viewer_id: Optional[str] = None) -> list:
+    roots = []
+    replies_by_parent: dict = {}
+    for comment in comments or []:
+        serialized = _serialize_post_comment(comment, viewer_id)
+        parent_id = comment.get("parent_comment_id")
+        if parent_id:
+            replies_by_parent.setdefault(parent_id, []).append(serialized)
+        else:
+            roots.append(serialized)
+    for root in roots:
+        root["replies"] = replies_by_parent.get(root["id"], [])
+    return roots
 
 
 async def serialize_post(
@@ -2012,7 +2091,8 @@ async def serialize_post(
 
     likes = post.get("likes") or []
     comments = post.get("comments") or []
-    serialized_comments = [_serialize_post_comment(c, viewer_id) for c in comments]
+    serialized_comments = _serialize_comments_threaded(comments, viewer_id)
+    flat_comments = [_serialize_post_comment(c, viewer_id) for c in comments]
 
     actor_type = post.get("actor_type") or ("duo" if is_duo else "user")
     actor_id = post.get("actor_id") or post.get("owner_id") or post.get("duo_id") or author_id
@@ -2055,9 +2135,9 @@ async def serialize_post(
         "can_repost": False,
         "repost_block_reason": "not_allowed",
         "can_delete": await can_delete_post(viewer_id, post, duo_doc),
-        "preview_comment": serialized_comments[-1] if serialized_comments else None,
+        "preview_comment": flat_comments[-1] if flat_comments else None,
         "comments": serialized_comments if include_all_comments else (
-            [serialized_comments[-1]] if serialized_comments else []
+            [flat_comments[-1]] if flat_comments else []
         ),
         "created_at": post.get("created_at"),
         "session_snapshot": post.get("session_snapshot"),
@@ -3308,6 +3388,7 @@ async def _accept_follow_request(request_doc: dict, accepter: dict) -> dict:
             {"_id": request_doc["_id"]},
             {"$set": {"status": "accepted", "responded_at": now}},
         )
+        await _cleanup_follow_request_notifications(str(request_doc["_id"]))
         if follow_created:
             requester = await get_user_doc_by_id(requester_id)
             if requester:
@@ -3375,6 +3456,58 @@ async def reject_follow_request(request_id: str, user: dict = Depends(get_curren
             "responded_at": datetime.now(timezone.utc).isoformat(),
         }},
     )
+    await _cleanup_follow_request_notifications(str(request_doc["_id"]))
+    return {"status": "ok"}
+
+
+@api_router.get("/follow-requests")
+async def list_follow_requests(user: dict = Depends(get_current_user)):
+    incoming_docs = await db.follow_requests.find({
+        "target_id": user["id"],
+        "status": "pending",
+    }).sort("created_at", -1).limit(50).to_list(50)
+
+    outgoing_docs = await db.follow_requests.find({
+        "requester_id": user["id"],
+        "status": "pending",
+    }).sort("created_at", -1).limit(50).to_list(50)
+
+    incoming = []
+    for doc in incoming_docs:
+        requester = await get_user_doc_by_id(doc.get("requester_id"))
+        if requester:
+            incoming.append(_serialize_follow_request_item(doc, requester, outgoing=False))
+
+    outgoing = []
+    for doc in outgoing_docs:
+        target = await get_user_doc_by_id(doc.get("target_id"))
+        if target:
+            outgoing.append(_serialize_follow_request_item(doc, target, outgoing=True))
+
+    return {"incoming": incoming, "outgoing": outgoing}
+
+
+@api_router.delete("/follow-requests/{request_id}")
+async def cancel_follow_request(request_id: str, user: dict = Depends(get_current_user)):
+    try:
+        req_oid = ObjectId(request_id)
+    except Exception:
+        return {"status": "ok"}
+
+    request_doc = await db.follow_requests.find_one({"_id": req_oid})
+    if not request_doc:
+        return {"status": "ok"}
+
+    if request_doc.get("requester_id") != user["id"]:
+        raise HTTPException(status_code=403, detail="Non autorisé")
+
+    if request_doc.get("status") == "accepted":
+        raise HTTPException(status_code=400, detail="Demande déjà acceptée")
+
+    if request_doc.get("status") == "pending":
+        await db.follow_requests.delete_one({"_id": req_oid})
+        await _cleanup_follow_request_notifications(request_id)
+
     return {"status": "ok"}
 
 
@@ -3399,6 +3532,98 @@ async def list_pending_follow_requests(user: dict = Depends(get_current_user)):
             "created_at": doc.get("created_at"),
         })
     return items
+
+
+@api_router.get("/users/{handle}/followers")
+async def list_user_followers(
+    handle: str,
+    limit: int = 30,
+    cursor: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    target_id = str(target["_id"])
+    access = await get_profile_access_level(user["id"], target)
+    if access == "limited":
+        raise HTTPException(status_code=403, detail="Profil privé")
+
+    page_limit = min(max(limit, 1), 50)
+    cursor_created_at, cursor_user_id = _decode_connection_cursor(cursor)
+    query: dict = {"following_id": target_id}
+    if cursor_created_at and cursor_user_id:
+        query["$or"] = [
+            {"created_at": {"$lt": cursor_created_at}},
+            {"created_at": cursor_created_at, "follower_id": {"$lt": cursor_user_id}},
+        ]
+
+    docs = await db.follows.find(query).sort(
+        [("created_at", -1), ("follower_id", -1)]
+    ).limit(page_limit + 1).to_list(page_limit + 1)
+
+    has_more = len(docs) > page_limit
+    docs = docs[:page_limit]
+    items = []
+    for doc in docs:
+        follower = await get_user_doc_by_id(doc.get("follower_id"))
+        serialized = await _serialize_connection_user(follower, user["id"])
+        if serialized:
+            items.append(serialized)
+
+    next_cursor = None
+    if has_more and docs:
+        last = docs[-1]
+        next_cursor = _encode_connection_cursor(last.get("created_at", ""), last.get("follower_id", ""))
+
+    return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
+
+
+@api_router.get("/users/{handle}/following")
+async def list_user_following(
+    handle: str,
+    limit: int = 30,
+    cursor: Optional[str] = None,
+    user: dict = Depends(get_current_user),
+):
+    target = await find_user_by_handle(handle)
+    if not target:
+        raise HTTPException(status_code=404, detail="Utilisateur introuvable")
+
+    target_id = str(target["_id"])
+    access = await get_profile_access_level(user["id"], target)
+    if access == "limited":
+        raise HTTPException(status_code=403, detail="Profil privé")
+
+    page_limit = min(max(limit, 1), 50)
+    cursor_created_at, cursor_user_id = _decode_connection_cursor(cursor)
+    query: dict = {"follower_id": target_id}
+    if cursor_created_at and cursor_user_id:
+        query["$or"] = [
+            {"created_at": {"$lt": cursor_created_at}},
+            {"created_at": cursor_created_at, "following_id": {"$lt": cursor_user_id}},
+        ]
+
+    docs = await db.follows.find(query).sort(
+        [("created_at", -1), ("following_id", -1)]
+    ).limit(page_limit + 1).to_list(page_limit + 1)
+
+    has_more = len(docs) > page_limit
+    docs = docs[:page_limit]
+    items = []
+    for doc in docs:
+        following_user = await get_user_doc_by_id(doc.get("following_id"))
+        serialized = await _serialize_connection_user(following_user, user["id"])
+        if serialized:
+            items.append(serialized)
+
+    next_cursor = None
+    if has_more and docs:
+        last = docs[-1]
+        next_cursor = _encode_connection_cursor(last.get("created_at", ""), last.get("following_id", ""))
+
+    return {"items": items, "next_cursor": next_cursor, "has_more": has_more}
 
 
 @api_router.delete("/users/{handle}/follow")
@@ -6385,6 +6610,26 @@ async def add_post_comment(
     if not await can_view_post_doc(user["id"], post):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
+    comments = post.get("comments") or []
+    parent_comment_id = (data.parent_comment_id or "").strip() or None
+    root_parent_id = None
+    reply_to_user_id = None
+    reply_to_handle = None
+    reply_to_display_name = None
+    notify_user_id = post.get("created_by_user_id") or post.get("author_id")
+
+    if parent_comment_id:
+        parent = next((c for c in comments if c.get("id") == parent_comment_id), None)
+        if not parent:
+            raise HTTPException(status_code=404, detail="Commentaire introuvable")
+        if parent.get("deleted"):
+            raise HTTPException(status_code=400, detail="Commentaire supprimé")
+        root_parent_id = parent.get("parent_comment_id") or parent.get("id")
+        reply_to_user_id = parent.get("user_id")
+        reply_to_handle = parent.get("handle") or parent.get("username")
+        reply_to_display_name = parent.get("display_name") or parent.get("username")
+        notify_user_id = reply_to_user_id
+
     comment = {
         "id": str(uuid.uuid4()),
         "user_id": user["id"],
@@ -6395,25 +6640,36 @@ async def add_post_comment(
         "text": text[:300],
         "created_at": datetime.now(timezone.utc).isoformat(),
         "likes": [],
+        "parent_comment_id": root_parent_id,
+        "reply_to_user_id": reply_to_user_id,
+        "reply_to_handle": reply_to_handle,
+        "reply_to_display_name": reply_to_display_name,
     }
 
     await db.posts.update_one(
         {"_id": ObjectId(post_id)},
         {"$push": {"comments": comment}},
     )
-    await create_notification(
-        post.get("created_by_user_id") or post.get("author_id"),
-        "comment",
-        user,
-        post_id=post_id,
-    )
+
+    if notify_user_id and notify_user_id != user["id"]:
+        notif_type = "comment_reply" if root_parent_id else "comment"
+        await create_notification(
+            notify_user_id,
+            notif_type,
+            user,
+            post_id=post_id,
+            comment_id=comment["id"],
+            push_url=f"/post/{post_id}?comment={comment['id']}",
+        )
 
     updated = await db.posts.find_one({"_id": ObjectId(post_id)})
-    comments = [_serialize_post_comment(c, user["id"]) for c in (updated.get("comments") or [])]
+    all_comments = updated.get("comments") or []
+    threaded = _serialize_comments_threaded(all_comments, user["id"])
+    flat = [_serialize_post_comment(c, user["id"]) for c in all_comments]
     return {
-        "comments_count": len(comments),
-        "preview_comment": comments[-1] if comments else None,
-        "comments": comments,
+        "comments_count": len(all_comments),
+        "preview_comment": flat[-1] if flat else None,
+        "comments": threaded,
     }
 
 
@@ -6429,8 +6685,9 @@ async def get_post_comments(post_id: str, user: dict = Depends(get_current_user)
     if not await can_view_post_doc(user["id"], post):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
-    comments = [_serialize_post_comment(c, user["id"]) for c in (post.get("comments") or [])]
-    return {"comments": comments, "comments_count": len(comments)}
+    comments = _serialize_comments_threaded(post.get("comments") or [], user["id"])
+    flat_count = len(post.get("comments") or [])
+    return {"comments": comments, "comments_count": flat_count}
 
 
 @api_router.post("/posts/{post_id}/comments/{comment_id}/like")

@@ -371,6 +371,11 @@ _PUSH_RAW = {
         "New comment", "{actor} commented on your post.",
         "Nuevo comentario", "{actor} comentó tu publicación.",
     ),
+    "comment_reply": _push_entry(
+        "Réponse à votre commentaire", "{actor} a répondu à votre commentaire.",
+        "Reply to your comment", "{actor} replied to your comment.",
+        "Respuesta a tu comentario", "{actor} respondió a tu comentario.",
+    ),
     "comment_like": _push_entry(
         "Like sur commentaire", "{actor} a aimé votre commentaire.",
         "Comment liked", "{actor} liked your comment.",

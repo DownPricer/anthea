@@ -18,6 +18,7 @@ import {
   badgeNotificationDeepLink,
   isBadgeUnlockNotification,
 } from '../lib/badgeNotificationLink';
+import { FollowRequestsPanel } from '../components/social/FollowRequestsPanel';
 
 function isBadgeNotif(type) {
   return isBadgeUnlockNotification(type);
@@ -56,6 +57,7 @@ export function NotificationsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const filterDuo = searchParams.get('filter') === 'duo';
+  const filterRequests = searchParams.get('filter') === 'requests';
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [followLoading, setFollowLoading] = useState(null);
@@ -113,6 +115,10 @@ export function NotificationsPage() {
           }
           return t('notifications:types.comment_like', { actor });
         }
+        case 'comment_reply':
+          return t('notifications:types.comment_reply', {
+            actor: notif.actor_display_name || notif.actor_username || '',
+          });
         default:
           if (hasTypeKey) {
             return t(typeKey, {
@@ -246,11 +252,11 @@ export function NotificationsPage() {
         }
       />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         <Link
           to="/notifications"
-          className={`px-3 py-1.5 rounded-lg text-xs border ${
-            !filterDuo
+          className={`px-3 py-1.5 rounded-lg text-xs border min-h-10 inline-flex items-center ${
+            !filterDuo && !filterRequests
               ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
               : 'border-border text-subtle'
           }`}
@@ -258,8 +264,19 @@ export function NotificationsPage() {
           {t('notifications:filters.all')}
         </Link>
         <Link
+          to="/notifications?filter=requests"
+          className={`px-3 py-1.5 rounded-lg text-xs border min-h-10 inline-flex items-center ${
+            filterRequests
+              ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
+              : 'border-border text-subtle'
+          }`}
+          data-testid="notifications-tab-requests"
+        >
+          {t('notifications:filters.requests', { defaultValue: 'Demandes' })}
+        </Link>
+        <Link
           to="/notifications?filter=duo"
-          className={`px-3 py-1.5 rounded-lg text-xs border ${
+          className={`px-3 py-1.5 rounded-lg text-xs border min-h-10 inline-flex items-center ${
             filterDuo
               ? 'bg-[var(--theme-primary)]/20 border-[var(--theme-primary)]/40 text-foreground'
               : 'border-border text-subtle'
@@ -269,7 +286,9 @@ export function NotificationsPage() {
         </Link>
       </div>
 
-      {loading ? (
+      {filterRequests ? (
+        <FollowRequestsPanel />
+      ) : loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
         </div>
@@ -304,9 +323,11 @@ export function NotificationsPage() {
                 ? duoRequestDeepLink(notif)
                 : notif.type === 'comment_like' && notif.post_id
                   ? `/post/${notif.post_id}${notif.comment_id ? `?comment=${encodeURIComponent(notif.comment_id)}` : ''}`
-                  : notif.post_id && (notif.type === 'like' || notif.type === 'comment')
-                    ? `/post/${notif.post_id}`
-                    : null;
+                  : (notif.type === 'comment' || notif.type === 'comment_reply') && notif.post_id
+                    ? `/post/${notif.post_id}${notif.comment_id ? `?comment=${encodeURIComponent(notif.comment_id)}` : ''}`
+                    : notif.post_id && notif.type === 'like'
+                      ? `/post/${notif.post_id}`
+                      : null;
             const actorName = notif.actor_display_name || notif.actor_username || '';
 
             return (
