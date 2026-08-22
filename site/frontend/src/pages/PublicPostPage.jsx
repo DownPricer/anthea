@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { Share2, ArrowLeft, Loader2, Lock } from 'lucide-react';
 import { AntheaLogo } from '../components/branding/AntheaLogo';
@@ -16,6 +16,8 @@ import { usePublicSeo } from '../hooks/usePublicSeo';
 
 export function PublicPostPage() {
   const { postId } = useParams();
+  const [searchParams] = useSearchParams();
+  const highlightCommentId = searchParams.get('comment');
   const { t } = useTranslation(['public', 'common']);
   const { user, loading: authLoading } = useAuth();
   const [state, setState] = useState({ status: 'loading' });
@@ -181,7 +183,7 @@ export function PublicPostPage() {
 
         {showBody && state.status === 'visible' && visiblePost ? (
           user ? (
-            <PostCard post={visiblePost} viewer={user} showRepostAction />
+            <PostCard post={visiblePost} viewer={user} showRepostAction highlightCommentId={highlightCommentId} />
           ) : (
             <PublicPostCard post={visiblePost} onRequireAuth={openJoin} />
           )

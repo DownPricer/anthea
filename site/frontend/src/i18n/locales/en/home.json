@@ -55,6 +55,12 @@
     "unrepost": "Remove repost",
     "repostForbidden": "This post cannot be reposted.",
     "repostPrivacyBlocked": "This post’s privacy settings prevent reposting.",
-    "repostUnavailable": "Unable to repost right now."
+    "repostUnavailable": "Unable to repost right now.",
+    "reply": "Reply",
+    "replyingTo": "Replying to {{name}}",
+    "send": "Send",
+    "viewReplies": "View {{count}} replies",
+    "hideReplies": "Hide replies",
+    "deleted": "Comment deleted"
   }
 }

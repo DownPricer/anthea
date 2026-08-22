@@ -18,7 +18,7 @@ import {
 } from 'lucide-react';
 import { UserAvatar } from '../UserAvatar';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { Textarea } from '../ui/textarea';
 import { WorkoutDetailsDrawer } from './WorkoutDetailsDrawer';
 import { getBadgeRarityStyle } from '../../lib/badgeStyles';
 import { BadgeArtwork } from '../badges/BadgeArtwork';
@@ -54,6 +54,7 @@ export function PostCard({
   onDelete,
   showRepostAction = true,
   isRepost = false,
+  highlightCommentId = null,
 }) {
   const { t, i18n } = useTranslation(['common', 'badges', 'home', 'workouts', 'duo', 'public']);
   const locale = (i18n?.language || 'fr').split('-')[0];
@@ -74,6 +75,8 @@ export function PostCard({
   const [repostId, setRepostId] = useState(post?.viewer_repost_id || null);
   const [repostsCount, setRepostsCount] = useState(post?.reposts_count || 0);
   const [commentLikes, setCommentLikes] = useState({});
+  const [replyingTo, setReplyingTo] = useState(null);
+  const [expandedReplies, setExpandedReplies] = useState({});
   const [canRepost, setCanRepost] = useState(
     post?.can_repost !== false || !!post?.viewer_has_reposted
   );
@@ -127,13 +130,30 @@ export function PostCard({
     }
   };
 
+  useEffect(() => {
+    if (!highlightCommentId) return;
+    setCommentOpen(true);
+    loadAllComments(true).then(() => {
+      requestAnimationFrame(() => {
+        const el = document.getElementById(`comment-${highlightCommentId}`);
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      });
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [highlightCommentId, post?.id]);
+
   const handleComment = async () => {
     const text = commentText.trim();
     if (!text || !post.id || post.id.startsWith('session-')) return;
     setCommentLoading(true);
     try {
-      const { data } = await postsApi.addComment(post.id, { text });
+      const payload = { text };
+      if (replyingTo?.id) {
+        payload.parent_comment_id = replyingTo.id;
+      }
+      const { data } = await postsApi.addComment(post.id, payload);
       setCommentText('');
+      setReplyingTo(null);
       setCommentsCount(data.comments_count);
       setPreviewComment(data.preview_comment);
       if (showAllComments && data.comments) {
@@ -147,8 +167,8 @@ export function PostCard({
     }
   };
 
-  const loadAllComments = async () => {
-    if (allComments) {
+  const loadAllComments = async (silent = false) => {
+    if (allComments && !silent) {
       setShowAllComments(true);
       return;
     }
@@ -157,7 +177,7 @@ export function PostCard({
       setAllComments(data.comments || []);
       setShowAllComments(true);
     } catch (error) {
-      toast.error(formatApiError(error));
+      if (!silent) toast.error(formatApiError(error));
     }
   };
 
@@ -311,8 +331,123 @@ export function PostCard({
   };
 
   const commentsToShow = showAllComments && allComments ? allComments : (
-    previewComment ? [previewComment] : []
+    previewComment ? [{ ...previewComment, replies: previewComment.replies || [] }] : []
   );
+
+  const startReply = (comment) => {
+    setCommentOpen(true);
+    setReplyingTo(comment);
+    const mention = comment.handle || comment.username;
+    setCommentText(mention ? `@${mention.replace(/^@/, '')} ` : '');
+  };
+
+  const cancelReply = () => {
+    setReplyingTo(null);
+    setCommentText('');
+  };
+
+  const renderCommentActions = (comment) => {
+    const likeState = getCommentLikeState(comment);
+    return (
+      <div className="flex items-center gap-3 mt-0.5 flex-wrap">
+        {comment.created_at && (
+          <p className="text-subtle text-[10px]">
+            {formatDayMonthTime(parseISO(comment.created_at))}
+          </p>
+        )}
+        {!post.id?.startsWith('session-') && comment.id ? (
+          <>
+            <button
+              type="button"
+              onClick={() => handleCommentLike(comment)}
+              aria-label={likeState.is_liked ? t('home:comments.unlike') : t('home:comments.like')}
+              aria-pressed={likeState.is_liked}
+              className={`inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] ${
+                likeState.is_liked ? 'text-[var(--theme-primary)]' : 'text-muted hover:bg-hover hover:text-foreground'
+              }`}
+            >
+              <Heart size={15} strokeWidth={2} fill={likeState.is_liked ? 'currentColor' : 'none'} />
+              {likeState.likes_count > 0 ? <span className="tabular-nums">{likeState.likes_count}</span> : null}
+            </button>
+            <button
+              type="button"
+              onClick={() => startReply(comment)}
+              className="text-xs text-muted hover:text-foreground min-h-10 px-2 rounded-full hover:bg-hover"
+              data-testid={`reply-btn-${comment.id}`}
+            >
+              {t('home:comments.reply', { defaultValue: 'Répondre' })}
+            </button>
+          </>
+        ) : null}
+      </div>
+    );
+  };
+
+  const renderCommentBlock = (comment, { isReply = false } = {}) => {
+    const commentUser = {
+      username: comment.username,
+      display_name: comment.display_name,
+      avatar_url: comment.avatar_url,
+      handle: comment.handle,
+    };
+    const commentHandle = getPublicHandle(commentUser) || comment.username;
+    const mention = comment.reply_to_handle || comment.reply_to_display_name;
+    return (
+      <div
+        key={comment.id}
+        id={comment.id ? `comment-${comment.id}` : undefined}
+        className={`flex gap-2 ${isReply ? 'ml-8 mt-2' : ''}`}
+        data-testid={isReply ? 'comment-reply' : 'comment-root'}
+      >
+        <Link to={commentHandle ? `/profile/${commentHandle}` : '#'} className="shrink-0">
+          <UserAvatar user={commentUser} className={isReply ? 'w-5 h-5' : 'w-6 h-6'} />
+        </Link>
+        <div className="flex-1 min-w-0">
+          <p className="text-muted text-sm">
+            <Link
+              to={commentHandle ? `/profile/${commentHandle}` : '#'}
+              className="text-foreground font-medium hover:underline"
+            >
+              {comment.display_name || comment.username || 'Utilisateur'}
+            </Link>{' '}
+            {mention && isReply ? (
+              <span className="text-[var(--theme-primary)]">@{String(mention).replace(/^@/, '')} </span>
+            ) : null}
+            {comment.deleted
+              ? t('home:comments.deleted', { defaultValue: 'Commentaire supprimé' })
+              : comment.text}
+          </p>
+          {!comment.deleted ? renderCommentActions(comment) : null}
+        </div>
+      </div>
+    );
+  };
+
+  const renderReplies = (comment) => {
+    const replies = comment.replies || [];
+    if (!replies.length) return null;
+    const expanded = expandedReplies[comment.id];
+    const visible = expanded ? replies : replies.slice(0, 4);
+    const hiddenCount = replies.length - visible.length;
+    return (
+      <div className="mt-1">
+        {visible.map((reply) => renderCommentBlock(reply, { isReply: true }))}
+        {replies.length > 4 ? (
+          <button
+            type="button"
+            className="text-[var(--theme-primary)] text-xs hover:underline ml-8 mt-1 min-h-10 px-2"
+            onClick={() =>
+              setExpandedReplies((prev) => ({ ...prev, [comment.id]: !expanded }))
+            }
+          >
+            {expanded
+              ? t('home:comments.hideReplies', { defaultValue: 'Masquer les réponses' })
+              : t('home:comments.viewReplies', { count: hiddenCount || replies.length, defaultValue: `Voir les ${hiddenCount || replies.length} réponses` })}
+          </button>
+        ) : null}
+      </div>
+    );
+  };
 
   if (!post) return null;
 
@@ -602,97 +737,62 @@ export function PostCard({
 
       {(commentOpen || commentsToShow.length > 0) && !post.id?.startsWith('session-') && (
         <div className="space-y-3 pt-1">
-          {commentsToShow.map((comment, cIdx) => {
-            const commentUser = {
-              username: comment.username,
-              display_name: comment.display_name,
-              avatar_url: comment.avatar_url,
-              handle: comment.handle,
-            };
-            const commentHandle = getPublicHandle(commentUser) || comment.username;
-            const likeState = getCommentLikeState(comment);
-            return (
-            <div key={comment.id || `comment-${cIdx}`} className="flex gap-2">
-              <Link to={commentHandle ? `/profile/${commentHandle}` : '#'} className="shrink-0">
-                <UserAvatar user={commentUser} className="w-6 h-6" />
-              </Link>
-              <div className="flex-1 min-w-0">
-                <p className="text-muted text-sm">
-                  <Link
-                    to={commentHandle ? `/profile/${commentHandle}` : '#'}
-                    className="text-foreground font-medium hover:underline"
-                  >
-                    {comment.display_name || comment.username || 'Utilisateur'}
-                  </Link>{' '}
-                  {comment.text}
-                </p>
-                <div className="flex items-center gap-3 mt-0.5">
-                  {comment.created_at && (
-                    <p className="text-subtle text-[10px]">
-                      {formatDayMonthTime(parseISO(comment.created_at))}
-                    </p>
-                  )}
-                  {!post.id?.startsWith('session-') && comment.id ? (
-                    <button
-                      type="button"
-                      onClick={() => handleCommentLike(comment)}
-                      aria-label={
-                        likeState.is_liked
-                          ? t('home:comments.unlike')
-                          : t('home:comments.like')
-                      }
-                      aria-pressed={likeState.is_liked}
-                      className={`inline-flex min-h-10 min-w-10 items-center justify-center gap-1 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--theme-primary)] focus-visible:ring-offset-2 focus-visible:ring-offset-background ${
-                        likeState.is_liked
-                          ? 'text-[var(--theme-primary)]'
-                          : 'text-muted hover:bg-hover hover:text-foreground'
-                      }`}
-                    >
-                      <Heart
-                        size={15}
-                        strokeWidth={2}
-                        fill={likeState.is_liked ? 'currentColor' : 'none'}
-                      />
-                      {likeState.likes_count > 0 ? (
-                        <span className="tabular-nums">{likeState.likes_count}</span>
-                      ) : null}
-                    </button>
-                  ) : null}
-                </div>
-              </div>
+          {commentsToShow.map((comment) => (
+            <div key={comment.id || comment.created_at}>
+              {renderCommentBlock(comment)}
+              {showAllComments ? renderReplies(comment) : null}
             </div>
-          );
-          })}
+          ))}
 
           {commentsCount > 1 && !showAllComments && (
             <button
               type="button"
-              onClick={loadAllComments}
-              className="text-[var(--theme-primary)] text-sm hover:underline"
+              onClick={() => loadAllComments()}
+              className="text-[var(--theme-primary)] text-sm hover:underline min-h-10"
             >
               {t('home:comments.viewCommentsCount', { count: commentsCount })}
             </button>
           )}
 
           {commentOpen && (
-            <div className="flex gap-2">
-              <Input
-                value={commentText}
-                onChange={(e) => setCommentText(e.target.value)}
-                placeholder={t('home:comments.addPlaceholder')}
-                className="flex-1 h-10 rounded-xl bg-background border-border text-foreground text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleComment();
-                }}
-              />
-              <Button
-                size="sm"
-                onClick={handleComment}
-                disabled={!commentText.trim() || commentLoading}
-                className="bg-[var(--theme-primary)] text-foreground rounded-xl"
-              >
-                <Send size={16} />
-              </Button>
+            <div className="space-y-2">
+              {replyingTo ? (
+                <div className="flex items-center justify-between text-xs text-muted px-1">
+                  <span>
+                    {t('home:comments.replyingTo', {
+                      defaultValue: 'Réponse à {{name}}',
+                      name: replyingTo.display_name || replyingTo.username,
+                    })}
+                  </span>
+                  <button type="button" onClick={cancelReply} className="text-[var(--theme-primary)] hover:underline min-h-10 px-2">
+                    {t('common:actions.cancel')}
+                  </button>
+                </div>
+              ) : null}
+              <div className="flex gap-2 items-end">
+                <Textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder={t('home:comments.addPlaceholder')}
+                  className="flex-1 min-h-[2.5rem] max-h-32 rounded-xl bg-background border-border text-foreground text-sm resize-y"
+                  rows={replyingTo ? 2 : 1}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      handleComment();
+                    }
+                  }}
+                />
+                <Button
+                  size="sm"
+                  onClick={handleComment}
+                  disabled={!commentText.trim() || commentLoading}
+                  className="bg-[var(--theme-primary)] text-foreground rounded-xl min-h-10 min-w-10 shrink-0"
+                  aria-label={t('home:comments.send', { defaultValue: 'Envoyer' })}
+                >
+                  <Send size={16} />
+                </Button>
+              </div>
             </div>
           )}
         </div>
