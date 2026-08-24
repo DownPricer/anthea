@@ -144,7 +144,8 @@ def test_reply_to_reply_flattens_to_root():
     captured = {}
 
     async def capture_update(*args, **kwargs):
-        captured["push"] = kwargs.get("$push", {}).get("comments")
+        update = args[1] if len(args) > 1 else kwargs.get("update") or {}
+        captured["push"] = update.get("$push", {}).get("comments")
 
     mock_db = MagicMock()
     mock_db.posts = MagicMock()

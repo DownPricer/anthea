@@ -32,6 +32,11 @@ describe('email auth UI', () => {
     expect(loginSrc).not.toContain('login-username');
   });
 
+  test('login clears stale unverified email when email input changes', () => {
+    expect(loginSrc).toContain('if (unverifiedEmail) setUnverifiedEmail');
+    expect(loginSrc).toMatch(/setEmail\(e\.target\.value\)/);
+  });
+
   test('register asks handle email password confirmation', () => {
     expect(registerSrc).toContain('register-handle');
     expect(registerSrc).toContain('register-email');

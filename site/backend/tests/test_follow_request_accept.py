@@ -42,6 +42,7 @@ def mock_db():
     db.notifications = MagicMock()
     db.notifications.find_one = AsyncMock(return_value=None)
     db.notifications.insert_one = AsyncMock()
+    db.notifications.delete_many = AsyncMock()
     return db
 
 

@@ -47,6 +47,7 @@ def _register_kwargs(db, **overrides):
         "request": _request(),
     }
     base.update(overrides)
+    base.pop("_cookies", None)
     return base
 
 
