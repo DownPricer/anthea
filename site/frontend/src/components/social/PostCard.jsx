@@ -63,7 +63,18 @@ export function PostCard({
   const [liked, setLiked] = useState(!!post?.is_liked);
   const [likesCount, setLikesCount] = useState(post.likes_count || 0);
   const [commentsCount, setCommentsCount] = useState(post.comments_count || 0);
-  const [previewComment, setPreviewComment] = useState(post.preview_comment);
+  const [previewComments, setPreviewComments] = useState(() => {
+    if (Array.isArray(post.preview_comments) && post.preview_comments.length) {
+      return post.preview_comments;
+    }
+    if (post.preview_comment) {
+      return [{ ...post.preview_comment, replies: post.preview_comment.replies || [] }];
+    }
+    if (Array.isArray(post.comments) && post.comments.length) {
+      return post.comments;
+    }
+    return [];
+  });
   const [allComments, setAllComments] = useState(null);
   const [showAllComments, setShowAllComments] = useState(false);
   const [commentText, setCommentText] = useState('');
@@ -81,6 +92,19 @@ export function PostCard({
   const [canRepost, setCanRepost] = useState(
     post?.can_repost !== false || !!post?.viewer_has_reposted
   );
+
+  useEffect(() => {
+    setCommentsCount(post.comments_count || 0);
+    if (Array.isArray(post.preview_comments) && post.preview_comments.length) {
+      setPreviewComments(post.preview_comments);
+    } else if (post.preview_comment) {
+      setPreviewComments([{ ...post.preview_comment, replies: post.preview_comment.replies || [] }]);
+    } else if (Array.isArray(post.comments) && post.comments.length) {
+      setPreviewComments(post.comments);
+    } else {
+      setPreviewComments([]);
+    }
+  }, [post.id, post.comments_count, post.preview_comments, post.preview_comment, post.comments]);
 
   useEffect(() => {
     setReposted(!!post?.viewer_has_reposted);
@@ -156,7 +180,11 @@ export function PostCard({
       setCommentText('');
       setReplyingTo(null);
       setCommentsCount(data.comments_count);
-      setPreviewComment(data.preview_comment);
+      if (Array.isArray(data.preview_comments) && data.preview_comments.length) {
+        setPreviewComments(data.preview_comments);
+      } else if (data.preview_comment) {
+        setPreviewComments([{ ...data.preview_comment, replies: data.preview_comment.replies || [] }]);
+      }
       if (showAllComments && data.comments) {
         setAllComments(data.comments);
       }
@@ -331,9 +359,11 @@ export function PostCard({
     }
   };
 
-  const commentsToShow = showAllComments && allComments ? allComments : (
-    previewComment ? [{ ...previewComment, replies: previewComment.replies || [] }] : []
-  );
+  const commentsToShow = showAllComments && allComments
+    ? allComments
+    : previewComments.slice(0, 2);
+
+  const hasMoreRootComments = commentsCount > 2 && !showAllComments;
 
   const startReply = (comment) => {
     setCommentOpen(true);
@@ -739,19 +769,29 @@ export function PostCard({
           {commentsToShow.map((comment) => (
             <div key={comment.id || comment.created_at}>
               {renderCommentBlock(comment)}
-              {showAllComments ? renderReplies(comment) : null}
+              {renderReplies(comment)}
             </div>
           ))}
 
-          {commentsCount > 1 && !showAllComments && (
+          {hasMoreRootComments ? (
             <button
               type="button"
               onClick={() => loadAllComments()}
               className="text-[var(--theme-primary)] text-sm hover:underline min-h-10"
             >
-              {t('home:comments.viewCommentsCount', { count: commentsCount })}
+              {t('home:comments.viewMoreComments')}
             </button>
-          )}
+          ) : null}
+
+          {showAllComments && commentsCount > 2 ? (
+            <button
+              type="button"
+              onClick={() => setShowAllComments(false)}
+              className="text-[var(--theme-primary)] text-sm hover:underline min-h-10"
+            >
+              {t('home:comments.hideComments', { defaultValue: 'Réduire' })}
+            </button>
+          ) : null}
 
           {commentOpen && (
             <div className="space-y-2">

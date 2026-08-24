@@ -47,6 +47,8 @@
   "comments": {
     "viewComments": "Ver comentarios",
     "viewCommentsCount": "Ver comentarios ({{count}})",
+    "viewMoreComments": "Ver más comentarios",
+    "hideComments": "Mostrar menos",
     "addPlaceholder": "Añadir un comentario...",
     "like": "Me gusta el comentario",
     "unlike": "Quitar el me gusta",
