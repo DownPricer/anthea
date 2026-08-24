@@ -41,7 +41,7 @@ import {
   ChevronRight,
   Heart,
 } from 'lucide-react';
-import { toast } from 'sonner';
+import { UserAvatar } from '../UserAvatar';
 import { useTranslation } from 'react-i18next';
 
 export function PartnerSettingsSection({ embedded = false, panel = null, highlightRequestId = null }) {
@@ -239,11 +239,11 @@ export function PartnerSettingsSection({ embedded = false, panel = null, highlig
             to={`/profile/${getPublicHandle(partner) || partner.username}`}
             className="flex items-center gap-4 rounded-xl hover:bg-hover p-2 -m-2 transition-colors"
           >
-            <div className="w-12 h-12 rounded-full bg-[var(--theme-secondary)] flex items-center justify-center">
-              <span className="text-foreground font-bold">
-                {partner.display_name?.[0] || partner.username?.[0]}
-              </span>
-            </div>
+            <UserAvatar
+              user={partner}
+              className="w-12 h-12 shrink-0"
+              cacheVersion={partner.updated_at || partner.avatar_url}
+            />
             <div className="flex-1">
               <p className="text-foreground font-medium">{partner.display_name || partner.username}</p>
               <p className="text-subtle text-sm">
