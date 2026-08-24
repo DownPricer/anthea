@@ -76,6 +76,11 @@
   "hero": {
     "tabMine": "Mis plantillas",
     "tabHero": "Retos Héroes",
+    "challengeLabel": "Reto especial",
+    "referenceLabel": "Referencia de entrenamiento",
+    "launchLabel": "¿Listo para el reto?",
+    "launchHint": "Prepara tu espacio. El cronómetro solo empieza al lanzar el reto.",
+    "launch": "Lanzar el reto",
     "startWorkout": "Hacer el entrenamiento",
     "viewProgram": "Ver el programa",
     "rounds": "Vueltas",
@@ -88,8 +93,11 @@
     "roundsCount_other": "{{count}} vueltas",
     "challengeDone": "Reto terminado",
     "challengeWon": "Reto superado",
+    "goalMissed": "Objetivo no alcanzado esta vez. Tu resultado queda guardado sin desbloqueo.",
+    "newRecord": "Nuevo récord",
     "successTitle": "Reto {{name}} superado",
     "newBadge": "Nueva insignia desbloqueada",
+    "badgeUnlocked": "Insignia desbloqueada",
     "newTheme": "Nuevo tema de perfil desbloqueado",
     "publishSuccess": "Publicar mi logro",
     "themeLocked": "Supera el reto {{name}}",
@@ -99,12 +107,13 @@
     "amrapSafety": "AMRAP: haz tantas vueltas como puedas con buena técnica. Adapta los ejercicios a tu nivel.",
     "legendaryGoal": "Objetivo legendario · {{count}} vueltas",
     "scoreLine": "{{rounds}} vueltas · {{reps}} reps · {{minutes}} min",
+    "sessionComplete": "Sesión completa · {{minutes}} min",
     "postScore": "{{rounds}} vueltas · {{reps}} reps · {{minutes}} min",
     "incompleteProgram": "Programa de referencia — faltan detalles para generar una sesión exacta.",
     "strengthDisclaimer": "Rendimiento público de referencia — no es una carga recomendada.",
     "actorRefDisclaimer": "Referencia pública del actor — no es una carga recomendada.",
     "close": "Cerrar",
-    "filters": { "all": "Todos", "marvel": "Marvel", "dc": "DC" },
+    "filters": { "all": "Todos", "marvel": "Energía", "dc": "Potencia" },
     "dropSetsDone": "Drop sets terminados",
     "types": {
       "amrap": "AMRAP",
@@ -115,13 +124,13 @@
     },
     "themes": {
       "default": "FitGather",
-      "spiderman": "Spider-Man",
-      "thor": "Thor",
-      "shangchi": "Shang-Chi",
-      "deadpool": "Deadpool",
-      "batman": "Batman",
-      "wonderwoman": "Wonder Woman",
-      "aquaman": "Aquaman"
+      "spiderman": "Spider Challenge",
+      "thor": "Storm Power",
+      "shangchi": "Explosive Day",
+      "deadpool": "Red Merc",
+      "batman": "Dark Knight",
+      "wonderwoman": "Amazon Power",
+      "aquaman": "Ocean Power"
     }
   }
 }

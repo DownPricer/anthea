@@ -450,31 +450,31 @@
     "description": "Duo aged at least 365 days with 100 shared workouts."
   },
   "hero_spiderman_challenge": {
-    "name": "Spider-Man Challenge",
+    "name": "Spider Challenge",
     "description": "Reach 27 rounds in 20 minutes."
   },
   "hero_thor_challenge": {
-    "name": "Thor Challenge",
-    "description": "Complete every prescribed Thor block."
+    "name": "Storm Power",
+    "description": "Complete every prescribed Storm Power block."
   },
   "hero_shangchi_challenge": {
-    "name": "Shang-Chi Challenge",
-    "description": "Complete every prescribed Shang-Chi block."
+    "name": "Explosive Day",
+    "description": "Complete every prescribed Explosive Day block."
   },
   "hero_deadpool_challenge": {
-    "name": "Deadpool Challenge",
-    "description": "Complete 5 Deadpool rounds."
+    "name": "Red Merc Challenge",
+    "description": "Complete all 5 Red Merc rounds."
   },
   "hero_batman_challenge": {
-    "name": "Batman Challenge",
-    "description": "Finish the Batman session."
+    "name": "Dark Knight Session",
+    "description": "Finish the Dark Knight session."
   },
   "hero_wonderwoman_challenge": {
-    "name": "Wonder Woman Challenge",
-    "description": "Complete the documented Wonder Woman blocks."
+    "name": "Amazon Power Day",
+    "description": "Complete the documented Amazon Power blocks."
   },
   "hero_aquaman_challenge": {
-    "name": "Aquaman Challenge",
-    "description": "Complete 5 rounds and the Aquaman drop sets."
+    "name": "Ocean Power Circuit",
+    "description": "Complete 5 rounds and the Ocean Power drop sets."
   }
 }

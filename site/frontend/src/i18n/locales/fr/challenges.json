@@ -76,6 +76,11 @@
   "hero": {
     "tabMine": "Mes modèles",
     "tabHero": "Défis Héros",
+    "challengeLabel": "Challenge signature",
+    "referenceLabel": "Référence d'entraînement",
+    "launchLabel": "Prêt à relever le défi ?",
+    "launchHint": "Préparez votre espace. Le chronomètre démarre uniquement lorsque vous lancez le challenge.",
+    "launch": "Lancer le challenge",
     "startWorkout": "Faire l'entraînement",
     "viewProgram": "Voir le programme",
     "rounds": "Tours",
@@ -88,8 +93,11 @@
     "roundsCount_other": "{{count}} tours",
     "challengeDone": "Défi terminé",
     "challengeWon": "Défi réussi",
+    "goalMissed": "Objectif non atteint cette fois. Votre résultat est enregistré, sans déblocage.",
+    "newRecord": "Nouveau record",
     "successTitle": "Défi {{name}} réussi",
     "newBadge": "Nouveau badge débloqué",
+    "badgeUnlocked": "Badge débloqué",
     "newTheme": "Nouveau thème de profil débloqué",
     "publishSuccess": "Publier ma réussite",
     "themeLocked": "Réussissez le défi {{name}}",
@@ -99,12 +107,13 @@
     "amrapSafety": "AMRAP : réalisez autant de tours que possible avec une technique propre. Adaptez les exercices à votre niveau.",
     "legendaryGoal": "Objectif légendaire · {{count}} tours",
     "scoreLine": "{{rounds}} tours · {{reps}} reps · {{minutes}} min",
+    "sessionComplete": "Séance complète · {{minutes}} min",
     "postScore": "{{rounds}} tours · {{reps}} reps · {{minutes}} min",
     "incompleteProgram": "Programme de référence — détails incomplets pour générer une séance exacte.",
     "strengthDisclaimer": "Performance publique de référence — ce n'est pas une charge conseillée.",
     "actorRefDisclaimer": "Référence publique de l'acteur — pas une charge recommandée.",
     "close": "Fermer",
-    "filters": { "all": "Tous", "marvel": "Marvel", "dc": "DC" },
+    "filters": { "all": "Tous", "marvel": "Énergie", "dc": "Puissance" },
     "dropSetsDone": "Drop sets terminés",
     "types": {
       "amrap": "AMRAP",
@@ -115,13 +124,13 @@
     },
     "themes": {
       "default": "FitGather",
-      "spiderman": "Spider-Man",
-      "thor": "Thor",
-      "shangchi": "Shang-Chi",
-      "deadpool": "Deadpool",
-      "batman": "Batman",
-      "wonderwoman": "Wonder Woman",
-      "aquaman": "Aquaman"
+      "spiderman": "Spider Challenge",
+      "thor": "Storm Power",
+      "shangchi": "Explosive Day",
+      "deadpool": "Red Merc",
+      "batman": "Dark Knight",
+      "wonderwoman": "Amazon Power",
+      "aquaman": "Ocean Power"
     }
   }
 }

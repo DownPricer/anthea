@@ -76,6 +76,11 @@
   "hero": {
     "tabMine": "My templates",
     "tabHero": "Hero Challenges",
+    "challengeLabel": "Signature challenge",
+    "referenceLabel": "Training reference",
+    "launchLabel": "Ready for the challenge?",
+    "launchHint": "Get your space ready. The timer only starts when you launch the challenge.",
+    "launch": "Launch challenge",
     "startWorkout": "Do the workout",
     "viewProgram": "View program",
     "rounds": "Rounds",
@@ -88,8 +93,11 @@
     "roundsCount_other": "{{count}} rounds",
     "challengeDone": "Challenge finished",
     "challengeWon": "Challenge beaten",
+    "goalMissed": "Goal not reached this time. Your result is saved without an unlock.",
+    "newRecord": "New record",
     "successTitle": "{{name}} challenge beaten",
     "newBadge": "New badge unlocked",
+    "badgeUnlocked": "Badge unlocked",
     "newTheme": "New profile theme unlocked",
     "publishSuccess": "Publish my result",
     "themeLocked": "Beat the {{name}} challenge",
@@ -99,12 +107,13 @@
     "amrapSafety": "AMRAP: complete as many rounds as possible with solid technique. Scale to your level.",
     "legendaryGoal": "Legendary goal · {{count}} rounds",
     "scoreLine": "{{rounds}} rounds · {{reps}} reps · {{minutes}} min",
+    "sessionComplete": "Workout complete · {{minutes}} min",
     "postScore": "{{rounds}} rounds · {{reps}} reps · {{minutes}} min",
     "incompleteProgram": "Reference program — not enough detail to generate an exact session.",
     "strengthDisclaimer": "Public performance reference — not a recommended load.",
     "actorRefDisclaimer": "Public actor reference — not a recommended load.",
     "close": "Close",
-    "filters": { "all": "All", "marvel": "Marvel", "dc": "DC" },
+    "filters": { "all": "All", "marvel": "Energy", "dc": "Power" },
     "dropSetsDone": "Drop sets done",
     "types": {
       "amrap": "AMRAP",
@@ -115,13 +124,13 @@
     },
     "themes": {
       "default": "FitGather",
-      "spiderman": "Spider-Man",
-      "thor": "Thor",
-      "shangchi": "Shang-Chi",
-      "deadpool": "Deadpool",
-      "batman": "Batman",
-      "wonderwoman": "Wonder Woman",
-      "aquaman": "Aquaman"
+      "spiderman": "Spider Challenge",
+      "thor": "Storm Power",
+      "shangchi": "Explosive Day",
+      "deadpool": "Red Merc",
+      "batman": "Dark Knight",
+      "wonderwoman": "Amazon Power",
+      "aquaman": "Ocean Power"
     }
   }
 }

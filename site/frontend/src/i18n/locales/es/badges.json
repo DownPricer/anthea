@@ -450,31 +450,31 @@
     "description": "Dúo de al menos 365 días con 100 sesiones en común."
   },
   "hero_spiderman_challenge": {
-    "name": "Spider-Man Challenge",
+    "name": "Spider Challenge",
     "description": "Alcanza 27 vueltas en 20 minutos."
   },
   "hero_thor_challenge": {
-    "name": "Thor Challenge",
-    "description": "Completa todos los bloques prescritos de Thor."
+    "name": "Storm Power",
+    "description": "Completa todos los bloques prescritos de Storm Power."
   },
   "hero_shangchi_challenge": {
-    "name": "Shang-Chi Challenge",
-    "description": "Completa todos los bloques prescritos de Shang-Chi."
+    "name": "Explosive Day",
+    "description": "Completa todos los bloques prescritos de Explosive Day."
   },
   "hero_deadpool_challenge": {
-    "name": "Deadpool Challenge",
-    "description": "Completa 5 vueltas de Deadpool."
+    "name": "Red Merc Challenge",
+    "description": "Completa las 5 vueltas de Red Merc."
   },
   "hero_batman_challenge": {
-    "name": "Batman Challenge",
-    "description": "Termina la sesión Batman."
+    "name": "Dark Knight Session",
+    "description": "Termina la sesión Dark Knight."
   },
   "hero_wonderwoman_challenge": {
-    "name": "Wonder Woman Challenge",
-    "description": "Completa los bloques documentados de Wonder Woman."
+    "name": "Amazon Power Day",
+    "description": "Completa los bloques documentados de Amazon Power."
   },
   "hero_aquaman_challenge": {
-    "name": "Aquaman Challenge",
-    "description": "Completa 5 vueltas y los drop sets de Aquaman."
+    "name": "Ocean Power Circuit",
+    "description": "Completa 5 vueltas y los drop sets de Ocean Power."
   }
 }

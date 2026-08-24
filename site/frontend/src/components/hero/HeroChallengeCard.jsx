@@ -37,12 +37,12 @@ export function HeroChallengeCard({ challenge, onSelect, compact = false }) {
         <div className="flex items-start justify-between gap-2">
           <div>
             <p className="text-[11px] uppercase tracking-[0.18em] text-white/70">
-              {challenge?.character_name}
+              {playable ? t('challenges:hero.challengeLabel') : t('challenges:hero.referenceLabel')}
             </p>
             <h3 className="text-lg font-semibold text-white font-['Outfit'] leading-tight">
-              {challenge?.character_name}
+              {challenge?.title}
             </h3>
-            <p className="text-sm text-white/80">{challenge?.actor_name}</p>
+            <p className="text-sm text-white/80">{challenge?.character_name}</p>
           </div>
           {badgeLocked ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-1 text-[10px] text-white/80">
