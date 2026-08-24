@@ -728,6 +728,7 @@ export function CreateWorkoutPage() {
           rest_after: ex.rest_after || 30,
           order,
           tts_enabled: true,
+          image_url: ex.image_url || ex.media_snapshot || null,
           exercise_name_snapshot: ex.name_i18n?.fr,
           exercise_name_i18n_snapshot: ex.name_i18n,
           sets: ex.sets,
@@ -1083,15 +1084,20 @@ export function CreateWorkoutPage() {
   return (
     <div data-testid="create-workout-page" className="pb-8 animate-fade-in">
       {/* Header */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border p-4">
-        <div className="flex items-center justify-between">
-          <button onClick={() => navigate(-1)} className="p-2 -ml-2">
+      <header className="sticky top-0 z-40 border-b border-border bg-background/90 px-3 py-3 backdrop-blur-xl sm:px-5">
+        <div className="grid min-h-10 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-2 sm:gap-4">
+          <button
+            type="button"
+            onClick={() => navigate(-1)}
+            className="flex h-10 w-10 items-center justify-center rounded-xl text-foreground hover:bg-hover"
+            aria-label={t('common:actions.back', { defaultValue: 'Retour' })}
+          >
             <ArrowLeft size={22} className="text-foreground" />
           </button>
-          <h1 className="text-lg font-semibold text-foreground">
+          <h1 className="min-w-0 truncate text-left text-lg font-semibold leading-none text-foreground font-['Outfit'] sm:text-xl">
             {isEditMode ? t('workouts:create.editTitle') : t('workouts:create.title')}
           </h1>
-          <div className="flex gap-2">
+          <div className="flex shrink-0 items-center gap-2">
             <Button
               type="button"
               size="sm"
@@ -1101,19 +1107,23 @@ export function CreateWorkoutPage() {
               data-testid="open-templates-btn"
               aria-label={t('workouts:create.templates.openAria')}
               title={t('workouts:create.templates.openTooltip')}
-              className="h-10 w-10 p-0 text-foreground border-border"
+              className="h-10 rounded-xl border-border px-3 text-foreground"
             >
-              <Library size={16} aria-hidden="true" />
+              <Library size={16} className="shrink-0 sm:mr-2" aria-hidden="true" />
+              <span className="hidden sm:inline">{t('workouts:create.templates.saved')}</span>
             </Button>
             <Button
+              type="button"
               size="sm"
               variant="outline"
               onClick={() => handleSave(true)}
               disabled={saving}
-              className="text-foreground border-border"
+              className="h-10 rounded-xl border-border px-3 text-foreground"
               title={t('workouts:create.saveDraftTitle')}
+              aria-label={t('workouts:create.saveDraftTitle')}
             >
-              <Save size={16} />
+              <Save size={16} className="shrink-0 sm:mr-2" />
+              <span className="hidden sm:inline">{t('workouts:create.saveDraftTitle')}</span>
             </Button>
           </div>
         </div>
@@ -1218,13 +1228,20 @@ export function CreateWorkoutPage() {
 
           <div>
             <Label className="text-muted text-sm">{t('workouts:create.timeOptional')}</Label>
-            <Input
-              type="time"
-              data-testid="workout-time"
-              value={scheduledTime}
-              onChange={(e) => setScheduledTime(e.target.value)}
-              className="workout-time-input mt-2 h-14 rounded-xl bg-surface-elevated border-border text-foreground inline-flex w-auto min-w-[9.5rem] items-center justify-start gap-2"
-            />
+            <div className="relative mt-2 w-full sm:w-44">
+              <Clock
+                size={18}
+                className="pointer-events-none absolute left-3 top-1/2 z-10 -translate-y-1/2 text-muted"
+                aria-hidden="true"
+              />
+              <Input
+                type="time"
+                data-testid="workout-time"
+                value={scheduledTime}
+                onChange={(e) => setScheduledTime(e.target.value)}
+                className="workout-time-input h-14 w-full rounded-xl border-border bg-surface-elevated pl-10 pr-3 text-foreground"
+              />
+            </div>
           </div>
             </div>
 
@@ -2205,15 +2222,19 @@ export function CreateWorkoutPage() {
       </div>
 
       <Dialog open={templatesModalOpen} onOpenChange={setTemplatesModalOpen}>
-        <DialogContent className="max-h-[90vh] overflow-hidden border-border bg-surface-elevated text-foreground sm:max-w-3xl">
-          <DialogHeader>
-            <DialogTitle>{t('workouts:create.templates.saved')}</DialogTitle>
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100vw-1rem)] flex-col gap-0 overflow-hidden rounded-2xl border-border bg-surface-elevated p-0 text-foreground sm:max-h-[min(88vh,760px)] sm:max-w-3xl sm:rounded-3xl">
+          <DialogHeader className="shrink-0 border-b border-border px-5 pb-4 pt-5 pr-12 text-left sm:px-6 sm:pt-6">
+            <DialogTitle className="flex items-center gap-2 text-xl font-semibold font-['Outfit']">
+              <Library size={20} className="text-[var(--theme-primary)]" aria-hidden="true" />
+              {t('workouts:create.templates.saved')}
+            </DialogTitle>
             <DialogDescription className="text-muted">
               {t('workouts:create.templates.modalHint')}
             </DialogDescription>
           </DialogHeader>
-          <Tabs value={templatesModalTab} onValueChange={setTemplatesModalTab}>
-            <TabsList className="grid w-full grid-cols-2">
+          <Tabs value={templatesModalTab} onValueChange={setTemplatesModalTab} className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 px-4 pt-4 sm:px-6">
+            <TabsList className="grid h-11 w-full grid-cols-2 rounded-xl bg-background p-1">
               <TabsTrigger value="mine" data-testid="templates-tab-mine">
                 {t('workouts:create.templates.tabMine')}
               </TabsTrigger>
@@ -2221,8 +2242,9 @@ export function CreateWorkoutPage() {
                 {t('workouts:create.templates.tabHero')}
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="mine">
-          <div className="max-h-[50vh] overflow-y-auto pr-1 space-y-2">
+            </div>
+            <TabsContent value="mine" className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-4 sm:px-6">
+          <div className="space-y-3">
             {templates.length === 0 ? (
               <p className="text-sm text-subtle py-4 text-center">
                 {t('workouts:create.templates.empty')}
@@ -2235,7 +2257,7 @@ export function CreateWorkoutPage() {
                 return (
                   <div
                     key={template.id}
-                    className="flex items-center gap-2 rounded-xl border border-border bg-background p-3"
+                    className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 rounded-2xl border border-border bg-background p-3 sm:grid-cols-[minmax(0,1fr)_auto_auto] sm:p-4"
                     data-testid={`template-item-${template.id}`}
                   >
                     <div className="min-w-0 flex-1">
@@ -2268,7 +2290,7 @@ export function CreateWorkoutPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => loadFromTemplate(template)}
-                      className="shrink-0 border-border bg-hover text-foreground hover:bg-active"
+                      className="shrink-0 rounded-xl border-border bg-hover text-foreground hover:bg-active"
                     >
                       {t('workouts:create.useTemplate')}
                     </Button>
@@ -2279,7 +2301,7 @@ export function CreateWorkoutPage() {
                         variant="ghost"
                         title={t('workouts:create.deleteTemplateTitle')}
                         aria-label={t('workouts:create.deleteTemplateTitle')}
-                        className="h-9 w-9 shrink-0 text-subtle hover:bg-red-500/15 hover:text-red-400"
+                        className="col-start-2 row-start-2 h-9 w-9 shrink-0 justify-self-end text-subtle hover:bg-red-500/15 hover:text-red-400 sm:col-start-auto sm:row-start-auto"
                         onClick={() => setTemplatePendingDelete(template)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -2290,7 +2312,7 @@ export function CreateWorkoutPage() {
               })
             )}
           </div>
-          <div className="pt-2 border-t border-border">
+          <div className="sticky bottom-0 mt-4 border-t border-border bg-surface-elevated pt-4">
             <Button
               type="button"
               variant="outline"
@@ -2309,8 +2331,8 @@ export function CreateWorkoutPage() {
             </Button>
           </div>
             </TabsContent>
-            <TabsContent value="hero">
-              <div className="flex gap-2 mb-3">
+            <TabsContent value="hero" className="min-h-0 flex-1 overflow-y-auto px-4 pb-5 pt-4 sm:px-6">
+              <div className="mb-4 flex flex-wrap gap-2">
                 {['all', 'marvel', 'dc'].map((f) => (
                   <button
                     key={f}
@@ -2322,7 +2344,7 @@ export function CreateWorkoutPage() {
                   </button>
                 ))}
               </div>
-              <div className="max-h-[55vh] overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 {heroChallenges
                   .filter((c) => heroFilter === 'all' || c.universe === heroFilter)
                   .map((challenge) => (
