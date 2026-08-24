@@ -1354,6 +1354,28 @@ def _comment_like_group_key(comment_id: str, now: datetime) -> str:
     return f"comment_like:{comment_id}:{window_idx}"
 
 
+def _sync_comment_like_actor_ids(current_liker_ids: list, recipient_id: str) -> list:
+    seen = set()
+    actor_ids = []
+    for uid in current_liker_ids or []:
+        if not uid or uid == recipient_id or uid in seen:
+            continue
+        seen.add(uid)
+        actor_ids.append(uid)
+    return actor_ids
+
+
+async def _find_comment_like_notification(recipient_id: str, comment_id: str):
+    return await db.notifications.find_one(
+        {
+            "user_id": recipient_id,
+            "type": "comment_like",
+            "comment_id": comment_id,
+        },
+        sort=[("updated_at", -1)],
+    )
+
+
 async def _send_comment_like_push(
     recipient_id: str,
     actor: dict,
@@ -1397,6 +1419,7 @@ async def upsert_comment_like_notification(
     comment_id: str,
     *,
     liked: bool,
+    current_liker_ids: Optional[list] = None,
 ) -> None:
     actor_id = actor.get("id")
     if not actor_id or recipient_id == actor_id:
@@ -1405,12 +1428,103 @@ async def upsert_comment_like_notification(
     now = datetime.now(timezone.utc)
     now_iso = now.isoformat()
     group_key = _comment_like_group_key(comment_id, now)
+    existing = await _find_comment_like_notification(recipient_id, comment_id)
 
-    existing = await db.notifications.find_one({
-        "user_id": recipient_id,
-        "type": "comment_like",
-        "group_key": group_key,
-    })
+    if current_liker_ids is not None:
+        actor_ids = _sync_comment_like_actor_ids(current_liker_ids, recipient_id)
+        if not actor_ids:
+            if existing:
+                await db.notifications.delete_one({"_id": existing["_id"]})
+            return
+
+        if not liked:
+            if not existing:
+                return
+            latest_id = actor_ids[-1]
+            latest_user = await get_user_doc_by_id(latest_id)
+            patch = {
+                "actor_ids": actor_ids[-10:],
+                "actor_count": len(actor_ids),
+                "actor_id": latest_id,
+                "latest_actor_id": latest_id,
+                "updated_at": now_iso,
+            }
+            if latest_user:
+                patch.update({
+                    "actor_username": latest_user.get("username"),
+                    "actor_handle": latest_user.get("handle") or latest_user.get("username"),
+                    "actor_display_name": latest_user.get("display_name"),
+                    "actor_avatar_url": latest_user.get("avatar_url"),
+                })
+            await db.notifications.update_one({"_id": existing["_id"]}, {"$set": patch})
+            return
+
+        previous_ids = set(existing.get("actor_ids") or []) if existing else set()
+        was_new_actor = actor_id not in previous_ids
+        actor_count = len(actor_ids)
+        latest_id = actor_ids[-1]
+        latest_user = await get_user_doc_by_id(latest_id) if latest_id != actor_id else actor
+
+        if existing:
+            push_sent_level = int(existing.get("push_sent_level") or 0)
+            patch = {
+                "actor_id": latest_id,
+                "latest_actor_id": latest_id,
+                "actor_ids": actor_ids[-10:],
+                "actor_count": actor_count,
+                "read": False,
+                "updated_at": now_iso,
+            }
+            if latest_id == actor_id:
+                patch.update({
+                    "actor_username": actor.get("username"),
+                    "actor_handle": actor.get("handle") or actor.get("username"),
+                    "actor_display_name": actor.get("display_name"),
+                    "actor_avatar_url": actor.get("avatar_url"),
+                })
+            elif latest_user:
+                patch.update({
+                    "actor_username": latest_user.get("username"),
+                    "actor_handle": latest_user.get("handle") or latest_user.get("username"),
+                    "actor_display_name": latest_user.get("display_name"),
+                    "actor_avatar_url": latest_user.get("avatar_url"),
+                })
+            await db.notifications.update_one({"_id": existing["_id"]}, {"$set": patch})
+            if was_new_actor and actor_count == 2 and push_sent_level < 2:
+                await _send_comment_like_push(
+                    recipient_id, actor, post_id, comment_id, aggregated=True
+                )
+                await db.notifications.update_one(
+                    {"_id": existing["_id"]},
+                    {"$set": {"push_sent_level": 2}},
+                )
+            return
+
+        display_user = actor if latest_id == actor_id else (latest_user or actor)
+        doc = {
+            "user_id": recipient_id,
+            "type": "comment_like",
+            "post_id": post_id,
+            "comment_id": comment_id,
+            "group_key": group_key,
+            "actor_id": latest_id,
+            "actor_username": display_user.get("username"),
+            "actor_handle": display_user.get("handle") or display_user.get("username"),
+            "actor_display_name": display_user.get("display_name"),
+            "actor_avatar_url": display_user.get("avatar_url"),
+            "latest_actor_id": latest_id,
+            "actor_ids": actor_ids[-10:],
+            "actor_count": actor_count,
+            "push_sent_level": 1,
+            "read": False,
+            "created_at": now_iso,
+            "updated_at": now_iso,
+        }
+        await db.notifications.insert_one(doc)
+        await _send_comment_like_push(
+            recipient_id, actor, post_id, comment_id, aggregated=False
+        )
+        return
 
     if liked:
         if existing:
@@ -6733,6 +6847,7 @@ async def toggle_comment_like(
             post_id,
             comment_id,
             liked=is_liked,
+            current_liker_ids=likes,
         )
 
     return {"likes_count": len(likes), "is_liked": is_liked, "comment_id": comment_id}
