@@ -128,7 +128,9 @@
       "exerciseCount_other": "{{count}} ejercicios",
       "namePromptTitle": "Nombre de la plantilla",
       "namePromptDesc": "Pon un nombre a esta plantilla para encontrarla después.",
-      "namePlaceholder": "Ej. Push día A"
+      "namePlaceholder": "Ej. Push día A",
+      "tabMine": "Mis plantillas",
+      "tabHero": "Retos Héroes"
     },
     "scheduling": {
       "title": "Planificación",

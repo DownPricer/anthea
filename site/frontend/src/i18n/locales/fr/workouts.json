@@ -128,7 +128,9 @@
       "exerciseCount_other": "{{count}} exercices",
       "namePromptTitle": "Nom du modèle",
       "namePromptDesc": "Donne un nom à ce modèle pour le retrouver plus tard.",
-      "namePlaceholder": "Ex. Push jour A"
+      "namePlaceholder": "Ex. Push jour A",
+      "tabMine": "Mes modèles",
+      "tabHero": "Défis Héros"
     },
     "scheduling": {
       "title": "Planification",

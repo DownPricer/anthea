@@ -493,3 +493,55 @@ input[type="number"] {
   color: #92400e;
   border: 1px solid #fcd34d;
 }
+
+input[type="time"].workout-time-input {
+  display: inline-flex;
+  width: auto;
+  min-width: 9.5rem;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 0.5rem;
+}
+
+input[type="time"].workout-time-input::-webkit-calendar-picker-indicator {
+  margin: 0 0.35rem 0 0;
+  cursor: pointer;
+}
+
+.hero-success-pop {
+  animation: hero-success-pop 420ms ease-out;
+}
+
+@keyframes hero-success-pop {
+  from { transform: scale(0.97); opacity: 0.7; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-success-pop {
+    animation: none;
+  }
+}
+
+.profile-hero-shell[data-profile-theme="spiderman"] {
+  background-image: radial-gradient(circle at 20% 0%, rgba(127, 29, 29, 0.28), transparent 55%);
+  border-color: rgba(127, 29, 29, 0.35);
+}
+.profile-hero-shell[data-profile-theme="thor"] {
+  background-image: linear-gradient(180deg, rgba(30, 58, 95, 0.28), transparent 60%);
+}
+.profile-hero-shell[data-profile-theme="shangchi"] {
+  background-image: radial-gradient(circle at 80% 0%, rgba(201, 162, 39, 0.22), transparent 50%);
+}
+.profile-hero-shell[data-profile-theme="deadpool"] {
+  background-image: repeating-linear-gradient(-45deg, rgba(127, 29, 29, 0.12) 0 8px, transparent 8px 16px);
+}
+.profile-hero-shell[data-profile-theme="batman"] {
+  background-image: linear-gradient(135deg, rgba(15, 15, 18, 0.5), rgba(234, 179, 8, 0.08));
+}
+.profile-hero-shell[data-profile-theme="wonderwoman"] {
+  background-image: linear-gradient(180deg, rgba(127, 29, 29, 0.2), rgba(201, 162, 39, 0.08));
+}
+.profile-hero-shell[data-profile-theme="aquaman"] {
+  background-image: linear-gradient(180deg, rgba(17, 94, 89, 0.28), transparent 65%);
+}

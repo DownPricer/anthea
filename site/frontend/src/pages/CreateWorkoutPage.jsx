@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, exercisesApi, templatesApi, formatApiError } from '../lib/api';
+import { workoutsApi, exercisesApi, templatesApi, heroChallengesApi, formatApiError } from '../lib/api';
 import {
   getActivityPresetsForDiscovery,
   loadCachedActivityPresets,
@@ -82,7 +82,10 @@ import {
 } from 'lucide-react';
 import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { toast } from 'sonner';
-import { useTranslation } from 'react-i18next';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
+import { HeroChallengeCard } from '../components/hero/HeroChallengeCard';
+import { HeroThemePattern } from '../components/hero/HeroThemePattern';
+import { fetchHeroCatalog } from '../lib/heroChallenges';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
 
 const BLOCK_TYPE_VALUES = ['warmup', 'main', 'cooldown'];
@@ -104,7 +107,7 @@ const DEFAULT_NEW_EXERCISE = {
 const MAX_GIF_FILE_BYTES = 2 * 1024 * 1024;
 
 export function CreateWorkoutPage() {
-  const { t, i18n } = useTranslation(['workouts', 'common']);
+  const { t, i18n } = useTranslation(['workouts', 'common', 'challenges']);
   const { dateFnsLocale, formatShortDate, formatDate } = useLocaleFormat();
   const blockTypes = useMemo(
     () =>
@@ -183,6 +186,11 @@ export function CreateWorkoutPage() {
   const [exercises, setExercises] = useState([]);
   const [templates, setTemplates] = useState([]);
   const [templatesModalOpen, setTemplatesModalOpen] = useState(false);
+  const [templatesModalTab, setTemplatesModalTab] = useState('mine');
+  const [heroChallenges, setHeroChallenges] = useState([]);
+  const [heroFilter, setHeroFilter] = useState('all');
+  const [heroDetail, setHeroDetail] = useState(null);
+  const [heroChallengeId, setHeroChallengeId] = useState(null);
   const [templatePendingDelete, setTemplatePendingDelete] = useState(null);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -344,6 +352,9 @@ export function CreateWorkoutPage() {
               expanded: true,
             }))
           );
+        }
+        if (w.source_type === 'hero_challenge') {
+          setHeroChallengeId(w.hero_challenge_id || null);
         }
       }
     } catch (error) {
@@ -694,6 +705,55 @@ export function CreateWorkoutPage() {
     }
   };
 
+  const applyHeroChallenge = (challenge) => {
+    if (!challenge?.playable) {
+      setHeroDetail(challenge);
+      return;
+    }
+    setHeroChallengeId(challenge.id);
+    setTitle(challenge.title);
+    setDescription(challenge.description || '');
+    const blocks = [
+      {
+        block_type: 'main',
+        expanded: true,
+        exercises: [...(challenge.exercises || []), ...(challenge.coda_exercises || [])].map((ex, order) => ({
+          exercise_id: ex.exercise_id,
+          name: ex.name_i18n?.[(i18n.language || 'fr').split('-')[0]] || ex.name_i18n?.fr,
+          description: ex.intensity_hint || ex.notes || null,
+          exercise_type: ex.exercise_type || 'reps',
+          duration: ex.duration,
+          reps: ex.reps,
+          rest_after: ex.rest_after || 30,
+          order,
+          tts_enabled: true,
+          exercise_name_snapshot: ex.name_i18n?.fr,
+          exercise_name_i18n_snapshot: ex.name_i18n,
+          sets: ex.sets,
+          reps_scheme: ex.reps_scheme,
+          intensity_hint: ex.intensity_hint,
+          load: ex.load ?? null,
+          per_side: ex.per_side,
+          distance_yards: ex.distance_yards,
+          distance_meters: ex.distance_meters,
+          hero_open_series: ex.hero_open_series,
+          unspecified: ex.unspecified,
+        })),
+      },
+    ];
+    setBlocks(blocks);
+    setHeroDetail(null);
+    setTemplatesModalOpen(false);
+    toast.success(t('workouts:create.toast.templateLoaded'));
+  };
+
+  const openTemplatesModal = () => {
+    setTemplatesModalOpen(true);
+    fetchHeroCatalog(() => heroChallengesApi.list().then(({ data }) => data)).then((data) => {
+      setHeroChallenges(data?.challenges || []);
+    }).catch(() => {});
+  };
+
   const confirmDeleteTemplate = async () => {
     if (!templatePendingDelete) return;
     setDeletingTemplate(true);
@@ -811,6 +871,7 @@ export function CreateWorkoutPage() {
           difficulty,
           blocks: blocksPayload,
           is_draft: asDraft,
+          hero_challenge_id: heroChallengeId || undefined,
         };
         const endpoint = `/workouts/${editWorkoutId}`;
         if (process.env.NODE_ENV === 'development') {
@@ -839,6 +900,7 @@ export function CreateWorkoutPage() {
           difficulty,
           blocks: blocksPayload,
           is_draft: asDraft,
+          hero_challenge_id: heroChallengeId || undefined,
         };
         const endpoint = '/workouts';
         if (process.env.NODE_ENV === 'development') {
@@ -873,6 +935,8 @@ export function CreateWorkoutPage() {
           start_date: scheduleMode === 'weekly' ? startDate : null,
           end_date: scheduleMode === 'weekly' ? endDate : null,
           repeat_weeks: scheduleMode === 'weekly' ? repeatWeeks : null,
+          hero_challenge_id: heroChallengeId || undefined,
+          source_type: heroChallengeId ? 'hero_challenge' : undefined,
         };
         const endpoint = '/workouts/multi-schedule';
         if (process.env.NODE_ENV === 'development') {
@@ -1028,6 +1092,19 @@ export function CreateWorkoutPage() {
           </h1>
           <div className="flex gap-2">
             <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={openTemplatesModal}
+              disabled={saving}
+              data-testid="open-templates-btn"
+              aria-label={t('workouts:create.templates.openAria')}
+              title={t('workouts:create.templates.openTooltip')}
+              className="h-10 w-10 p-0 text-foreground border-border"
+            >
+              <Library size={16} aria-hidden="true" />
+            </Button>
+            <Button
               size="sm"
               variant="outline"
               onClick={() => handleSave(true)}
@@ -1145,7 +1222,7 @@ export function CreateWorkoutPage() {
               data-testid="workout-time"
               value={scheduledTime}
               onChange={(e) => setScheduledTime(e.target.value)}
-              className="mt-2 h-14 rounded-xl bg-surface-elevated border-border text-foreground"
+              className="workout-time-input mt-2 h-14 rounded-xl bg-surface-elevated border-border text-foreground inline-flex w-auto min-w-[9.5rem] items-center justify-start gap-2"
             />
           </div>
             </div>
@@ -2077,18 +2154,6 @@ export function CreateWorkoutPage() {
             <div className="space-y-3 pt-4">
           <div className="flex gap-3">
             <Button
-              type="button"
-              variant="outline"
-              onClick={() => setTemplatesModalOpen(true)}
-              disabled={saving}
-              data-testid="open-templates-btn"
-              aria-label={t('workouts:create.templates.openAria')}
-              title={t('workouts:create.templates.openTooltip')}
-              className="h-14 w-14 shrink-0 rounded-2xl border-border bg-hover text-foreground hover:bg-active"
-            >
-              <Library size={22} aria-hidden="true" />
-            </Button>
-            <Button
               onClick={() => handleSave(false)}
               disabled={saving || previewDates.length === 0}
               data-testid="save-workout-btn"
@@ -2139,13 +2204,23 @@ export function CreateWorkoutPage() {
       </div>
 
       <Dialog open={templatesModalOpen} onOpenChange={setTemplatesModalOpen}>
-        <DialogContent className="max-h-[85vh] overflow-hidden border-border bg-surface-elevated text-foreground sm:max-w-lg">
+        <DialogContent className="max-h-[90vh] overflow-hidden border-border bg-surface-elevated text-foreground sm:max-w-3xl">
           <DialogHeader>
             <DialogTitle>{t('workouts:create.templates.saved')}</DialogTitle>
             <DialogDescription className="text-muted">
               {t('workouts:create.templates.modalHint')}
             </DialogDescription>
           </DialogHeader>
+          <Tabs value={templatesModalTab} onValueChange={setTemplatesModalTab}>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="mine" data-testid="templates-tab-mine">
+                {t('workouts:create.templates.tabMine')}
+              </TabsTrigger>
+              <TabsTrigger value="hero" data-testid="templates-tab-hero">
+                {t('workouts:create.templates.tabHero')}
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="mine">
           <div className="max-h-[50vh] overflow-y-auto pr-1 space-y-2">
             {templates.length === 0 ? (
               <p className="text-sm text-subtle py-4 text-center">
@@ -2232,6 +2307,101 @@ export function CreateWorkoutPage() {
               )}
             </Button>
           </div>
+            </TabsContent>
+            <TabsContent value="hero">
+              <div className="flex gap-2 mb-3">
+                {['all', 'marvel', 'dc'].map((f) => (
+                  <button
+                    key={f}
+                    type="button"
+                    onClick={() => setHeroFilter(f)}
+                    className={`px-3 py-1.5 rounded-full text-xs ${heroFilter === f ? 'bg-[var(--theme-primary)] text-foreground' : 'bg-hover text-muted'}`}
+                  >
+                    {t(`challenges:hero.filters.${f}`)}
+                  </button>
+                ))}
+              </div>
+              <div className="max-h-[55vh] overflow-y-auto grid grid-cols-1 sm:grid-cols-2 gap-3 pr-1">
+                {heroChallenges
+                  .filter((c) => heroFilter === 'all' || c.universe === heroFilter)
+                  .map((challenge) => (
+                    <HeroChallengeCard
+                      key={challenge.id}
+                      challenge={challenge}
+                      onSelect={applyHeroChallenge}
+                    />
+                  ))}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={Boolean(heroDetail)} onOpenChange={(open) => !open && setHeroDetail(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto border-border bg-surface-elevated text-foreground sm:max-w-lg">
+          {heroDetail ? (
+            <>
+              <div className="relative overflow-hidden rounded-2xl min-h-[120px] mb-3">
+                <HeroThemePattern themeId={heroDetail.visual_theme?.id} />
+                <div className="relative p-4 text-white">
+                  <DialogHeader>
+                    <DialogTitle className="text-white">{heroDetail.title}</DialogTitle>
+                    <DialogDescription className="text-white/80">{heroDetail.subtitle}</DialogDescription>
+                  </DialogHeader>
+                </div>
+              </div>
+              <p className="text-sm text-muted">{heroDetail.description}</p>
+              {heroDetail.challenge_type === 'program_reference' ? (
+                <p className="text-sm text-foreground mt-2">{t('challenges:hero.incompleteProgram')}</p>
+              ) : null}
+              {heroDetail.challenge_type === 'strength_reference' ? (
+                <p className="text-sm text-foreground mt-2">{t('challenges:hero.strengthDisclaimer')}</p>
+              ) : null}
+              {(heroDetail.strength_references || []).map((ref) => (
+                <p key={ref.movement} className="text-sm text-muted mt-1">
+                  {ref.movement}
+                  {ref.value_kg ? ` · ${ref.value_kg} kg / ${ref.value_lb} lb` : ''}
+                  {ref.note ? ` — ${ref.note}` : ''}
+                </p>
+              ))}
+              {(heroDetail.related_references || []).map((ref) => (
+                <div key={ref.id} className="mt-3 rounded-xl border border-border p-3">
+                  <p className="font-medium text-foreground">{ref.title}</p>
+                  <p className="text-xs text-muted">{t('challenges:hero.actorRefDisclaimer')}</p>
+                  {(ref.lifts || []).map((lift) => (
+                    <p key={lift.movement} className="text-sm text-muted">
+                      {lift.movement}
+                      {lift.scheme ? ` ${lift.scheme}` : ''}
+                      {lift.value_kg ? ` · ${lift.value_kg} kg / ${lift.value_lb} lb` : ''}
+                    </p>
+                  ))}
+                  {ref.source?.url ? (
+                    <a href={ref.source.url} target="_blank" rel="noopener noreferrer" className="text-sm underline mt-1 inline-block">
+                      {ref.source.label}
+                    </a>
+                  ) : null}
+                </div>
+              ))}
+              <div className="mt-4">
+                <p className="text-sm font-medium">{t('challenges:hero.source')}</p>
+                {heroDetail.source?.url ? (
+                  <a
+                    href={heroDetail.source.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm underline"
+                  >
+                    {heroDetail.source.label || heroDetail.source.url}
+                  </a>
+                ) : (
+                  <p className="text-sm text-muted">—</p>
+                )}
+                <p className="text-xs text-muted mt-2">
+                  {t('challenges:hero.unofficial', { actor: heroDetail.actor_name })}
+                </p>
+              </div>
+            </>
+          ) : null}
         </DialogContent>
       </Dialog>
 

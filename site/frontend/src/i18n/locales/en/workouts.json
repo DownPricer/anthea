@@ -128,7 +128,9 @@
       "exerciseCount_other": "{{count}} exercises",
       "namePromptTitle": "Template name",
       "namePromptDesc": "Give this template a name so you can find it later.",
-      "namePlaceholder": "e.g. Push day A"
+      "namePlaceholder": "e.g. Push day A",
+      "tabMine": "My templates",
+      "tabHero": "Hero Challenges"
     },
     "scheduling": {
       "title": "Scheduling",
