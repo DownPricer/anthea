@@ -82,6 +82,7 @@ import {
 } from 'lucide-react';
 import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { toast } from 'sonner';
+import { useTranslation } from 'react-i18next';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import { HeroChallengeCard } from '../components/hero/HeroChallengeCard';
 import { HeroThemePattern } from '../components/hero/HeroThemePattern';
