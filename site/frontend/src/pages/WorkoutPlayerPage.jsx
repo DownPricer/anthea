@@ -8,6 +8,7 @@ import { heroPlayerKind, heroSnapshot } from '../lib/heroChallenges';
 import { HeroAmrapPlayer } from '../components/hero/HeroAmrapPlayer';
 import { HeroRoundsPlayer } from '../components/hero/HeroRoundsPlayer';
 import { HeroResultScreen } from '../components/hero/HeroResultScreen';
+import { HeroThemePattern } from '../components/hero/HeroThemePattern';
 import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
 import { getLocalizedExerciseField } from '../lib/exerciseLocale';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -1060,10 +1061,22 @@ export function WorkoutPlayerPage() {
   // Preparation screen with resume option
   if (phase === 'preparation') {
     return (
-      <div className="min-h-screen bg-background flex flex-col items-center justify-center p-5 animate-fade-in">
+      <div
+        className={`relative min-h-screen overflow-hidden bg-background p-5 animate-fade-in ${
+          kind === 'structured' ? 'flex items-center justify-center' : 'flex flex-col items-center justify-center'
+        }`}
+        data-hero-theme={kind === 'structured' ? snap?.visual_theme?.id : undefined}
+      >
+        {kind === 'structured' ? <HeroThemePattern themeId={snap?.visual_theme?.id} className="opacity-80" /> : null}
+        <div className={`relative flex w-full flex-col items-center ${kind === 'structured' ? 'max-w-lg rounded-3xl border border-white/15 bg-black/25 p-5 text-white backdrop-blur-sm sm:p-8' : ''}`}>
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold text-foreground font-['Outfit'] mb-2">{workout?.title}</h1>
-          <p className="text-subtle">{t('player:exerciseCount', { count: totalExercises })}</p>
+          {kind === 'structured' ? (
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
+              {t('challenges:hero.launchLabel')}
+            </p>
+          ) : null}
+          <h1 className={`text-2xl font-bold font-['Outfit'] mb-2 ${kind === 'structured' ? 'text-white sm:text-3xl' : 'text-foreground'}`}>{workout?.title}</h1>
+          <p className={kind === 'structured' ? 'text-white/70' : 'text-subtle'}>{t('player:exerciseCount', { count: totalExercises })}</p>
         </div>
 
         {/* Resume from saved progress */}
@@ -1150,6 +1163,7 @@ export function WorkoutPlayerPage() {
         >
           {t('player:cancel')}
         </button>
+        </div>
       </div>
     );
   }
@@ -1192,6 +1206,7 @@ export function WorkoutPlayerPage() {
       className={`min-h-[100dvh] bg-background flex flex-col transition-shadow ${
         duoLive ? 'ring-2 ring-amber-400/60 ring-inset duo-live-glow' : ''
       }`}
+      data-hero-theme={kind === 'structured' ? snap?.visual_theme?.id : undefined}
     >
       <Dialog open={showStopModal} onOpenChange={setShowStopModal}>
         <DialogContent className="bg-surface-elevated border-border max-w-sm mx-4">
@@ -1266,19 +1281,20 @@ export function WorkoutPlayerPage() {
       )}
 
       <header className="relative flex h-16 shrink-0 items-center justify-center border-b border-border px-4">
+        {kind === 'structured' ? <HeroThemePattern themeId={snap?.visual_theme?.id} /> : null}
         <button
           type="button"
           onClick={handleStopClick}
           data-testid="stop-workout-btn"
-          className="absolute left-4 flex h-10 w-10 items-center justify-center rounded-lg text-foreground transition-colors hover:bg-active"
+          className={`absolute left-4 z-10 flex h-10 w-10 items-center justify-center rounded-lg transition-colors hover:bg-active ${kind === 'structured' ? 'text-white' : 'text-foreground'}`}
           aria-label={t('player:aria.stopSession')}
         >
           <X size={22} />
         </button>
 
-        <div className="min-w-0 max-w-[55%] text-center">
-          <p className="truncate text-sm text-muted">{workout?.title}</p>
-          <p className="text-xs text-subtle tabular-nums">
+        <div className="relative z-10 min-w-0 max-w-[55%] text-center">
+          <p className={`truncate text-sm ${kind === 'structured' ? 'font-semibold text-white' : 'text-muted'}`}>{workout?.title}</p>
+          <p className={`text-xs tabular-nums ${kind === 'structured' ? 'text-white/70' : 'text-subtle'}`}>
             {Math.min(currentExerciseIndex + 1, totalExercises)}/{totalExercises}
           </p>
         </div>
@@ -1287,7 +1303,11 @@ export function WorkoutPlayerPage() {
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="absolute right-4 flex h-10 items-center gap-1.5 rounded-full border border-border bg-hover px-3 text-xs font-medium text-muted transition-colors hover:bg-active hover:text-foreground"
+              className={`absolute right-4 z-10 flex h-10 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition-colors hover:bg-active hover:text-foreground ${
+                kind === 'structured'
+                  ? 'border-white/20 bg-black/25 text-white/80'
+                  : 'border-border bg-hover text-muted'
+              }`}
             >
               <MoreHorizontal size={16} />
               <span className="hidden sm:inline">{t('player:options')}</span>

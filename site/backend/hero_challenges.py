@@ -166,7 +166,7 @@ def build_workout_blocks(challenge: dict, locale: str = "fr") -> List[dict]:
             "rest_after": int(ex.get("rest_after") or 30),
             "order": order,
             "tts_enabled": True,
-            "image_url": None,
+            "image_url": ex.get("image_url") or ex.get("media_snapshot"),
             "exercise_name_snapshot": name,
             "exercise_name_i18n_snapshot": dict(ex.get("name_i18n") or {}),
             "sets": ex.get("sets"),

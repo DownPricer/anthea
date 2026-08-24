@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { HeroThemePattern } from './HeroThemePattern';
 import { repsPerRound } from '../../lib/heroChallenges';
+import { resolveExerciseMediaUrl } from '../../lib/exerciseMedia';
 
 function formatClock(seconds) {
   const s = Math.max(0, Math.floor(seconds));
@@ -22,7 +23,8 @@ export function HeroAmrapPlayer({
   const duration = Number(snapshot?.duration_seconds || 1200);
   const [remaining, setRemaining] = useState(duration);
   const [rounds, setRounds] = useState(0);
-  const [running, setRunning] = useState(true);
+  const [started, setStarted] = useState(false);
+  const [running, setRunning] = useState(false);
   const endedRef = useRef(false);
   const roundsRef = useRef(0);
   const remainingRef = useRef(duration);
@@ -53,7 +55,7 @@ export function HeroAmrapPlayer({
   );
 
   useEffect(() => {
-    if (!running) return undefined;
+    if (!started || !running) return undefined;
     const id = setInterval(() => {
       setRemaining((prev) => {
         if (prev <= 1) {
@@ -65,7 +67,7 @@ export function HeroAmrapPlayer({
       });
     }, 1000);
     return () => clearInterval(id);
-  }, [running, finish]);
+  }, [started, running, finish]);
 
   const addRound = () => {
     setRounds((n) => n + 1);
@@ -73,6 +75,53 @@ export function HeroAmrapPlayer({
   const subRound = () => {
     setRounds((n) => Math.max(0, n - 1));
   };
+
+  if (!started) {
+    const previewExercise = (snapshot?.exercises || []).find((exercise) => exercise.image_url || exercise.media_snapshot);
+    return (
+      <div className="relative min-h-screen overflow-hidden px-5 py-8" data-testid="hero-launch-screen" data-hero-theme={themeId}>
+        <HeroThemePattern themeId={themeId} />
+        <div className="relative mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center text-white">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">
+            {t('challenges:hero.launchLabel')}
+          </p>
+          <h1 className="mt-2 text-4xl font-black leading-tight font-['Outfit']">{snapshot?.title}</h1>
+          <p className="mt-2 text-white/80">{snapshot?.character_name}</p>
+          {previewExercise ? (
+            <div className="mt-6 aspect-video overflow-hidden rounded-2xl border border-white/20 bg-black/25">
+              <img
+                src={resolveExerciseMediaUrl(previewExercise.image_url || previewExercise.media_snapshot)}
+                alt={previewExercise.name_i18n?.[lang] || previewExercise.name_i18n?.fr || ''}
+                className="h-full w-full object-contain"
+                decoding="async"
+                onError={(event) => {
+                  event.currentTarget.parentElement.style.display = 'none';
+                }}
+              />
+            </div>
+          ) : null}
+          <div className="mt-6 rounded-2xl border border-white/15 bg-black/25 p-4 backdrop-blur-sm">
+            <p className="font-mono text-3xl font-bold tabular-nums">{formatClock(duration)}</p>
+            <p className="mt-2 text-sm text-white/75">{t('challenges:hero.launchHint')}</p>
+          </div>
+          <Button
+            type="button"
+            data-testid="hero-launch-button"
+            className="mt-6 h-14 w-full rounded-2xl bg-white text-base font-bold text-black hover:bg-white/90"
+            onClick={() => {
+              setStarted(true);
+              setRunning(true);
+            }}
+          >
+            {t('challenges:hero.launch')}
+          </Button>
+          <Button type="button" variant="ghost" className="mt-2 text-white/75 hover:text-white" onClick={() => onAbandon?.()}>
+            {t('player:cancel')}
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen pb-8" data-testid="hero-amrap-player" data-hero-theme={themeId}>
@@ -90,9 +139,23 @@ export function HeroAmrapPlayer({
       <div className="p-5 space-y-5">
         <ul className="rounded-2xl border border-border bg-surface-elevated p-4 space-y-2">
           {(snapshot?.exercises || []).map((ex) => (
-            <li key={ex.exercise_id} className="flex justify-between text-foreground">
-              <span>{ex.name_i18n?.[lang] || ex.name_i18n?.fr}</span>
-              <span className="font-semibold">{ex.reps}</span>
+            <li key={ex.exercise_id} className="flex items-center justify-between gap-3 text-foreground">
+              <div className="flex min-w-0 items-center gap-3">
+                {(ex.image_url || ex.media_snapshot) ? (
+                  <img
+                    src={resolveExerciseMediaUrl(ex.image_url || ex.media_snapshot)}
+                    alt=""
+                    className="h-11 w-11 shrink-0 rounded-xl bg-hover object-contain"
+                    loading="lazy"
+                    decoding="async"
+                    onError={(event) => {
+                      event.currentTarget.style.display = 'none';
+                    }}
+                  />
+                ) : null}
+                <span className="truncate">{ex.name_i18n?.[lang] || ex.name_i18n?.fr}</span>
+              </div>
+              <span className="shrink-0 font-semibold">{ex.reps}</span>
             </li>
           ))}
         </ul>
