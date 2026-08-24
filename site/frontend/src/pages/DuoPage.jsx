@@ -1793,7 +1793,7 @@ function SessionCard({
                 <div className="flex-1 min-w-0">
                   <p className="text-muted text-sm break-words">
                     <span className="text-foreground font-medium">{commentName}</span>{' '}
-                    {comment.text}
+                    <span className="whitespace-pre-wrap break-words">{comment.text}</span>
                   </p>
                 </div>
               </div>

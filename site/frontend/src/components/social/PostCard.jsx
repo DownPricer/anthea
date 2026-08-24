@@ -416,7 +416,9 @@ export function PostCard({
             ) : null}
             {comment.deleted
               ? t('home:comments.deleted', { defaultValue: 'Commentaire supprimé' })
-              : comment.text}
+              : (
+                <span className="whitespace-pre-wrap break-words">{comment.text}</span>
+              )}
           </p>
           {!comment.deleted ? renderCommentActions(comment) : null}
         </div>
