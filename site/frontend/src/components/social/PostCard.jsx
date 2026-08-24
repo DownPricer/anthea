@@ -37,6 +37,7 @@ import {
   getExerciseSummaryDisplayName,
 } from '../../lib/activities/formatExerciseSummary';
 import { sharePublicPost } from '../../lib/sharePublicPost';
+import { HeroPostCard } from '../hero/HeroPostCard';
 
 const ActivityPostBody = lazy(() => import('../activities/ActivityPostBody').then(m => ({ default: m.ActivityPostBody })));
 
@@ -574,11 +575,15 @@ export function PostCard({
         </Suspense>
       )}
 
-      {post.type !== 'badge' && post.type !== 'duo_badge' && post.type !== 'activity' && post.title && (
+      {post.type === 'hero_challenge' && (
+        <HeroPostCard post={post} />
+      )}
+
+      {post.type !== 'badge' && post.type !== 'duo_badge' && post.type !== 'activity' && post.type !== 'hero_challenge' && post.title && (
         <h3 className="text-foreground font-semibold font-['Outfit']">{post.title}</h3>
       )}
 
-      {post.description && post.type !== 'badge' && post.type !== 'duo_badge' && post.type !== 'activity' && (
+      {post.description && post.type !== 'badge' && post.type !== 'duo_badge' && post.type !== 'activity' && post.type !== 'hero_challenge' && (
         <p className="text-muted text-sm whitespace-pre-wrap">{post.description}</p>
       )}
 
