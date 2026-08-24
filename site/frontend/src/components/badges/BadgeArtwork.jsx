@@ -70,6 +70,13 @@ const ICON_GLYPHS = {
   link: '⚭',
   users: '👤',
   lock: '🔒',
+  hero_web: '✦',
+  hero_storm: '⌁',
+  hero_rings: '◎',
+  hero_slash: '/',
+  hero_shadow: '▲',
+  hero_star: '✶',
+  hero_wave: '~',
 };
 
 function resolveRarity(rarity) {

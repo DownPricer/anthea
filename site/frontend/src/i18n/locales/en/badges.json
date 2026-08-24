@@ -448,5 +448,33 @@
   "duo_legendary": {
     "name": "Legendary Duo",
     "description": "Duo aged at least 365 days with 100 shared workouts."
+  },
+  "hero_spiderman_challenge": {
+    "name": "Spider-Man Challenge",
+    "description": "Reach 27 rounds in 20 minutes."
+  },
+  "hero_thor_challenge": {
+    "name": "Thor Challenge",
+    "description": "Complete every prescribed Thor block."
+  },
+  "hero_shangchi_challenge": {
+    "name": "Shang-Chi Challenge",
+    "description": "Complete every prescribed Shang-Chi block."
+  },
+  "hero_deadpool_challenge": {
+    "name": "Deadpool Challenge",
+    "description": "Complete 5 Deadpool rounds."
+  },
+  "hero_batman_challenge": {
+    "name": "Batman Challenge",
+    "description": "Finish the Batman session."
+  },
+  "hero_wonderwoman_challenge": {
+    "name": "Wonder Woman Challenge",
+    "description": "Complete the documented Wonder Woman blocks."
+  },
+  "hero_aquaman_challenge": {
+    "name": "Aquaman Challenge",
+    "description": "Complete 5 rounds and the Aquaman drop sets."
   }
 }

@@ -448,5 +448,33 @@
   "duo_legendary": {
     "name": "Duo légendaire",
     "description": "Duo âgé d’au moins 365 jours avec 100 séances communes."
+  },
+  "hero_spiderman_challenge": {
+    "name": "Spider-Man Challenge",
+    "description": "Atteignez 27 tours en 20 minutes."
+  },
+  "hero_thor_challenge": {
+    "name": "Thor Challenge",
+    "description": "Terminez tous les blocs prescrits du défi Thor."
+  },
+  "hero_shangchi_challenge": {
+    "name": "Shang-Chi Challenge",
+    "description": "Terminez tous les blocs prescrits du défi Shang-Chi."
+  },
+  "hero_deadpool_challenge": {
+    "name": "Deadpool Challenge",
+    "description": "Terminez 5 tours du défi Deadpool."
+  },
+  "hero_batman_challenge": {
+    "name": "Batman Challenge",
+    "description": "Terminez la séance Batman."
+  },
+  "hero_wonderwoman_challenge": {
+    "name": "Wonder Woman Challenge",
+    "description": "Terminez les blocs documentés du défi Wonder Woman."
+  },
+  "hero_aquaman_challenge": {
+    "name": "Aquaman Challenge",
+    "description": "Terminez 5 tours et les drop sets du défi Aquaman."
   }
 }

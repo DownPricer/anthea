@@ -448,5 +448,33 @@
   "duo_legendary": {
     "name": "Dúo legendario",
     "description": "Dúo de al menos 365 días con 100 sesiones en común."
+  },
+  "hero_spiderman_challenge": {
+    "name": "Spider-Man Challenge",
+    "description": "Alcanza 27 vueltas en 20 minutos."
+  },
+  "hero_thor_challenge": {
+    "name": "Thor Challenge",
+    "description": "Completa todos los bloques prescritos de Thor."
+  },
+  "hero_shangchi_challenge": {
+    "name": "Shang-Chi Challenge",
+    "description": "Completa todos los bloques prescritos de Shang-Chi."
+  },
+  "hero_deadpool_challenge": {
+    "name": "Deadpool Challenge",
+    "description": "Completa 5 vueltas de Deadpool."
+  },
+  "hero_batman_challenge": {
+    "name": "Batman Challenge",
+    "description": "Termina la sesión Batman."
+  },
+  "hero_wonderwoman_challenge": {
+    "name": "Wonder Woman Challenge",
+    "description": "Completa los bloques documentados de Wonder Woman."
+  },
+  "hero_aquaman_challenge": {
+    "name": "Aquaman Challenge",
+    "description": "Completa 5 vueltas y los drop sets de Aquaman."
   }
 }

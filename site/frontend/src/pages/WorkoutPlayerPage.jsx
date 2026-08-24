@@ -1,9 +1,13 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, sessionsApi, streakApi, partnerApi } from '../lib/api';
+import { workoutsApi, sessionsApi, streakApi, partnerApi, postsApi } from '../lib/api';
 import { invalidateHomeWeekCache } from '../lib/homeCache';
 import { invalidateBadgesForUser } from '../lib/badgesCache';
+import { heroPlayerKind, heroSnapshot } from '../lib/heroChallenges';
+import { HeroAmrapPlayer } from '../components/hero/HeroAmrapPlayer';
+import { HeroRoundsPlayer } from '../components/hero/HeroRoundsPlayer';
+import { HeroResultScreen } from '../components/hero/HeroResultScreen';
 import { resolveExerciseMediaUrl } from '../lib/exerciseMedia';
 import { getLocalizedExerciseField } from '../lib/exerciseLocale';
 import { useWakeLock } from '../hooks/useWakeLock';
@@ -88,6 +92,8 @@ export function WorkoutPlayerPage() {
   const [showFeedback, setShowFeedback] = useState(false);
   const [createdSession, setCreatedSession] = useState(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
+  const [heroOutcome, setHeroOutcome] = useState(null);
+  const [heroPublishing, setHeroPublishing] = useState(false);
   const { supported: wakeLockSupported, active: wakeLockActive, error: wakeLockError, requestWakeLock, releaseWakeLock } = useWakeLock();
   const [showStopModal, setShowStopModal] = useState(false);
   const [savedProgress, setSavedProgress] = useState(null);
@@ -622,6 +628,15 @@ export function WorkoutPlayerPage() {
         difficulty_felt: difficultyFelt,
         notes: notes.trim() || null,
         exercise_log: exerciseLog,
+        hero_result: workout?.source_type === 'hero_challenge'
+          ? {
+              rounds: 0,
+              duration_seconds: totalTime,
+              blocks_complete: skippedCount === 0 && status === 'completed',
+              has_skips: skippedCount > 0,
+              coda_complete: skippedCount === 0 && status === 'completed',
+            }
+          : undefined,
       });
       toast.success(t('player:toast.sessionSaved'));
       invalidateHomeWeekCache(user?.id);
@@ -630,6 +645,10 @@ export function WorkoutPlayerPage() {
         ...session,
         workout_title: session.workout_title || workout?.title,
       });
+      if (session.hero_result) {
+        setHeroOutcome({ result: session.hero_result, snapshot: heroSnapshot(workout) });
+        return;
+      }
       setShareDialogOpen(true);
     } catch (error) {
       toast.error(t('player:toast.saveError'));
@@ -776,11 +795,85 @@ export function WorkoutPlayerPage() {
     phase === 'rest' ||
     (phase === 'exercise' && currentExercise?.exercise_type === 'duration');
 
+  const saveHeroSpecial = async (payload) => {
+    setSaving(true);
+    try {
+      await workoutsApi.clearProgress(workoutId).catch(() => {});
+      const { data: session } = await sessionsApi.create({
+        workout_id: workoutId,
+        total_time: payload.duration_seconds || 0,
+        pause_time: 0,
+        exercises_completed: payload.rounds || 0,
+        exercises_total: payload.rounds || 0,
+        status: payload.status || 'completed',
+        hero_result: payload,
+      });
+      invalidateHomeWeekCache(user?.id);
+      invalidateBadgesForUser(user?.id);
+      setCreatedSession(session);
+      setHeroOutcome({ result: session.hero_result || payload, snapshot: heroSnapshot(workout) });
+    } catch (error) {
+      toast.error(t('player:toast.saveError'));
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Loader2 className="w-8 h-8 animate-spin text-[var(--theme-primary)]" />
       </div>
+    );
+  }
+
+  if (heroOutcome) {
+    return (
+      <HeroResultScreen
+        result={heroOutcome.result}
+        snapshot={heroOutcome.snapshot}
+        publishing={heroPublishing}
+        onClose={() => navigate('/workouts')}
+        onPublish={async () => {
+          if (!createdSession?.id) return;
+          setHeroPublishing(true);
+          try {
+            await postsApi.create({
+              type: 'hero_challenge',
+              workout_session_id: createdSession.id,
+              visibility: 'public',
+            });
+            toast.success(t('player:toast.sessionSaved'));
+            navigate('/');
+          } catch (error) {
+            toast.error(t('player:toast.saveError'));
+          } finally {
+            setHeroPublishing(false);
+          }
+        }}
+      />
+    );
+  }
+
+  const snap = heroSnapshot(workout);
+  const kind = heroPlayerKind(workout);
+  if (kind === 'amrap' && snap) {
+    return (
+      <HeroAmrapPlayer
+        workout={workout}
+        snapshot={snap}
+        onComplete={saveHeroSpecial}
+        onAbandon={() => saveHeroSpecial({ status: 'abandoned', rounds: 0, duration_seconds: 0 })}
+      />
+    );
+  }
+  if (kind === 'rounds' && snap) {
+    return (
+      <HeroRoundsPlayer
+        snapshot={snap}
+        onComplete={saveHeroSpecial}
+        onAbandon={() => saveHeroSpecial({ status: 'abandoned', rounds: 0, duration_seconds: 0, coda_complete: false })}
+      />
     );
   }
 

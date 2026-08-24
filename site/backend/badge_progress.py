@@ -311,6 +311,11 @@ def _evaluate_duo_after_hour(metrics: dict, definition: dict) -> dict:
 BADGE_EVALUATORS["duo_common_workouts_before_hour"] = _evaluate_duo_before_hour
 BADGE_EVALUATORS["duo_common_workouts_after_hour"] = _evaluate_duo_after_hour
 
+from hero_challenges import evaluate_hero_badge  # noqa: E402
+
+BADGE_EVALUATORS["hero_challenge_complete"] = evaluate_hero_badge
+BADGE_EVALUATORS["hero_challenge_benchmark"] = evaluate_hero_badge
+
 
 def evaluate_badge(definition: dict, metrics: dict) -> dict:
     if not definition.get("enabled", True):
@@ -536,6 +541,9 @@ class BadgeProgressService:
             "total_active_weeks": active_weeks,
             "workouts_before_hour": dict(before_hour),
             "workouts_after_hour": dict(after_hour),
+            "hero_completed_ids": [],
+            "hero_success_ids": [],
+            "hero_best_scores": {},
             # Timelines pour migration historique (non exposées à l'API)
             "_timeline_completed_at": timeline_completed_at,
             "_timeline_active_days": active_days,
@@ -553,6 +561,13 @@ class BadgeProgressService:
                 if s.get("created_at")
             ],
         }
+        try:
+            from hero_challenges import hero_metrics_from_attempts
+
+            hero_rows = await self.db.hero_challenge_attempts.find({"user_id": user_id}).to_list(2000)
+            metrics.update(hero_metrics_from_attempts(hero_rows))
+        except Exception as exc:
+            logger.warning("hero metrics failed: %s", exc)
         self._cache_set(cache_key, metrics)
         return metrics
 
@@ -1119,7 +1134,7 @@ class BadgeProgressService:
         metrics = await self.get_solo_metrics(user_id, streak_value=streak_value)
         unlocked_map = await self.get_unlocked_solo(user_id)
         newly = []
-        for definition in SOLO_BADGES:
+        for definition in get_catalog("solo", include_disabled=False):
             if not definition.get("enabled", True):
                 continue
             progress = evaluate_badge(definition, metrics)
