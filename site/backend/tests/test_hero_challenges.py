@@ -33,6 +33,40 @@ def test_catalog_loads_and_validates():
     assert len(ids) == len(set(ids))
 
 
+def test_public_labels_use_actor_or_generic_names():
+    forbidden = (
+        "Spider-Man",
+        "Shang-Chi",
+        "Deadpool",
+        "Wolverine",
+        "Batman",
+        "Superman",
+        "Wonder Woman",
+        "Aquaman",
+        "Black Adam",
+        "Captain Marvel",
+    )
+    for challenge in all_challenges():
+        visible = " ".join(
+            str(value or "")
+            for value in (
+                challenge.get("character_name"),
+                challenge.get("title"),
+                (challenge.get("source") or {}).get("label"),
+            )
+        )
+        assert not any(name in visible for name in forbidden)
+
+
+def test_hero_media_is_optional_and_propagated_to_workout_blocks():
+    challenge = get_challenge("spider-man-tom-holland")
+    blocks = build_workout_blocks(challenge)
+    images = [exercise.get("image_url") for exercise in blocks[0]["exercises"]]
+    assert images[0].endswith(".gif")
+    assert images[1].endswith(".gif")
+    assert images[2] is None
+
+
 def test_no_invented_loads():
     for challenge in all_challenges():
         for ex in (challenge.get("exercises") or []) + (challenge.get("coda_exercises") or []):

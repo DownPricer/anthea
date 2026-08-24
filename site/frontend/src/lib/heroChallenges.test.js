@@ -41,6 +41,14 @@ describe('create workout UX + hero surfaces', () => {
     path.join(__dirname, '../components/hero/HeroAmrapPlayer.jsx'),
     'utf8'
   );
+  const resultSrc = fs.readFileSync(
+    path.join(__dirname, '../components/hero/HeroResultScreen.jsx'),
+    'utf8'
+  );
+  const postSrc = fs.readFileSync(
+    path.join(__dirname, '../components/hero/HeroPostCard.jsx'),
+    'utf8'
+  );
   const css = fs.readFileSync(path.join(__dirname, '../index.css'), 'utf8');
 
   it('places template icon in the header next to save', () => {
@@ -56,8 +64,8 @@ describe('create workout UX + hero surfaces', () => {
 
   it('aligns the time clock control', () => {
     expect(createSrc).toContain('workout-time-input');
-    expect(createSrc).toContain('inline-flex');
-    expect(createSrc).toContain('items-center');
+    expect(createSrc).toContain('absolute left-3 top-1/2');
+    expect(createSrc).toContain('pl-10');
     expect(css).toContain('workout-time-input');
     expect(css).toContain('::-webkit-calendar-picker-indicator');
   });
@@ -73,5 +81,15 @@ describe('create workout UX + hero surfaces', () => {
     expect(amrapSrc).toContain('hero-plus-round');
     expect(playerSrc).toContain('completeCurrentExercise');
     expect(playerSrc).toContain("source_type === 'hero_challenge'");
+  });
+
+  it('adds themed launch, result and post surfaces', () => {
+    expect(amrapSrc).toContain('hero-launch-screen');
+    expect(amrapSrc).toContain('hero-launch-button');
+    expect(amrapSrc).toContain('resolveExerciseMediaUrl');
+    expect(playerSrc).toContain('HeroThemePattern');
+    expect(resultSrc).toContain('goalMissed');
+    expect(resultSrc).toContain('newBadge');
+    expect(postSrc).toContain('badgeUnlocked');
   });
 });
