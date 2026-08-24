@@ -123,7 +123,7 @@ def catalog_badge_to_public(definition: dict, *, unlocked: bool = False, progres
         "description": description,
         "icon": definition.get("icon_key") or "trophy",
         "icon_key": definition.get("icon_key") or "trophy",
-        "family": definition.get("scope"),
+        "family": definition.get("family") or definition.get("category") or definition.get("scope"),
         "scope": definition.get("scope"),
         "category": definition.get("category"),
         "rarity": RARITY_LABELS.get(rarity_key, "Commun"),

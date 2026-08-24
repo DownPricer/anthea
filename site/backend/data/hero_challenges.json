@@ -1,0 +1,692 @@
+{
+  "version": 1,
+  "challenges": [
+    {
+      "id": "spider-man-tom-holland",
+      "slug": "spider-man-tom-holland",
+      "universe": "marvel",
+      "character_name": "Spider-Man",
+      "actor_name": "Tom Holland",
+      "rename_key": "spiderman",
+      "title": "Spider-Man — Tom Holland",
+      "subtitle": "AMRAP 20 min",
+      "description": "Autant de tours que possible en 20 minutes, technique propre.",
+      "challenge_type": "amrap",
+      "format_label": "AMRAP",
+      "duration_seconds": 1200,
+      "playable": true,
+      "difficulty": "legendary_goal",
+      "status": "published",
+      "is_curated": true,
+      "exercises": [
+        {
+          "exercise_id": "hero:pull-up",
+          "name_i18n": { "fr": "Tractions", "en": "Pull-ups", "es": "Dominadas" },
+          "exercise_type": "reps",
+          "reps": 5,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:push-up",
+          "name_i18n": { "fr": "Pompes", "en": "Push-ups", "es": "Flexiones" },
+          "exercise_type": "reps",
+          "reps": 10,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:bodyweight-squat",
+          "name_i18n": { "fr": "Squats au poids du corps", "en": "Bodyweight squats", "es": "Sentadillas con peso corporal" },
+          "exercise_type": "reps",
+          "reps": 15,
+          "load": null
+        }
+      ],
+      "notes": [
+        "Un gilet lesté a parfois été mentionné, sans poids public fiable — aucune charge par défaut."
+      ],
+      "safety_note_key": "amrapSafety",
+      "scoring": { "type": "rounds", "partial_reps": true },
+      "benchmark": { "type": "rounds", "target": 27, "duration_seconds": 1200, "total_reps": 810 },
+      "reward": {
+        "badge_id": "hero_spiderman_challenge",
+        "profile_theme_id": "spiderman",
+        "unlock_condition": { "type": "rounds_gte", "value": 27, "within_seconds": 1200 }
+      },
+      "visual_theme": { "id": "spiderman" },
+      "source": {
+        "label": "Men's Fitness — Tom Holland viral 20-minute workout",
+        "url": "https://www.mensfitness.com/training/tom-hollands-viral-20-minute-spider-man-workout"
+      },
+      "benchmark_source": {
+        "label": "Muscle & Fitness — 27-round record",
+        "url": "https://www.muscleandfitness.com/workouts/workout-routines/tom-hollands-crossfit-cindy-workout-can-you-beat-spider-mans-27-round-record/"
+      }
+    },
+    {
+      "id": "thor-chris-hemsworth",
+      "slug": "thor-chris-hemsworth",
+      "universe": "marvel",
+      "character_name": "Thor",
+      "actor_name": "Chris Hemsworth",
+      "rename_key": "thor",
+      "title": "Thor — Chris Hemsworth",
+      "subtitle": "Séance structurée",
+      "description": "Blocs prescrits. Charges non publiques.",
+      "challenge_type": "structured",
+      "format_label": "Structured",
+      "duration_seconds": null,
+      "playable": true,
+      "difficulty": "complete_blocks",
+      "status": "published",
+      "is_curated": true,
+      "exercises": [
+        {
+          "exercise_id": "hero:pull-up",
+          "name_i18n": { "fr": "Tractions", "en": "Pull-ups", "es": "Dominadas" },
+          "exercise_type": "reps",
+          "sets": 5,
+          "reps_scheme": [20, 15, 12, 10, 10],
+          "load": null
+        },
+        {
+          "exercise_id": "hero:push-up",
+          "name_i18n": { "fr": "Pompes", "en": "Push-ups", "es": "Flexiones" },
+          "exercise_type": "reps",
+          "sets": 5,
+          "reps": 20,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:machine-row",
+          "name_i18n": { "fr": "Row machine", "en": "Machine row", "es": "Remo en máquina" },
+          "exercise_type": "reps",
+          "sets": 4,
+          "reps": 12,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:dumbbell-row",
+          "name_i18n": { "fr": "Row haltère", "en": "Dumbbell row", "es": "Remo con mancuerna" },
+          "exercise_type": "reps",
+          "sets": 4,
+          "reps": 12,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:back-extension",
+          "name_i18n": { "fr": "Extensions lombaires", "en": "Back extensions", "es": "Extensiones lumbares" },
+          "exercise_type": "reps",
+          "sets": 4,
+          "reps": null,
+          "hero_open_series": true,
+          "load": null
+        }
+      ],
+      "scoring": { "type": "blocks_complete" },
+      "benchmark": null,
+      "reward": {
+        "badge_id": "hero_thor_challenge",
+        "profile_theme_id": "thor",
+        "unlock_condition": { "type": "all_prescribed_blocks" }
+      },
+      "visual_theme": { "id": "thor" },
+      "source": {
+        "label": "Muscle & Fitness — Chris Hemsworth God of Thor workout",
+        "url": "https://www.muscleandfitness.com/routine/workouts/workout-routines/chris-hemsworths-god-thor-workout/"
+      }
+    },
+    {
+      "id": "shang-chi-simu-liu",
+      "slug": "shang-chi-simu-liu",
+      "universe": "marvel",
+      "character_name": "Shang-Chi",
+      "actor_name": "Simu Liu",
+      "rename_key": "shangchi",
+      "title": "Shang-Chi — Simu Liu",
+      "subtitle": "Séance structurée",
+      "description": "Programme public. Charges non précisées.",
+      "challenge_type": "structured",
+      "format_label": "Structured",
+      "duration_seconds": null,
+      "playable": true,
+      "difficulty": "complete_blocks",
+      "status": "published",
+      "is_curated": true,
+      "exercises": [
+        {
+          "exercise_id": "hero:bike",
+          "name_i18n": { "fr": "Vélo", "en": "Bike", "es": "Bici" },
+          "exercise_type": "duration",
+          "duration": 300,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:trap-bar-deadlift-bands",
+          "name_i18n": { "fr": "Trap-bar deadlift avec bandes", "en": "Trap-bar deadlift with bands", "es": "Peso muerto trap bar con bandas" },
+          "exercise_type": "reps",
+          "sets": 5,
+          "reps": 5,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:box-jump",
+          "name_i18n": { "fr": "Box jumps", "en": "Box jumps", "es": "Saltos al cajón" },
+          "exercise_type": "reps",
+          "sets": 5,
+          "reps": 5,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:sled-sprint",
+          "name_i18n": { "fr": "Traîneau + sprint", "en": "Sled + sprint", "es": "Trineo + sprint" },
+          "exercise_type": "reps",
+          "sets": 5,
+          "reps": 1,
+          "distance_yards": 20,
+          "distance_meters": 18.3,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:med-ball-slam",
+          "name_i18n": { "fr": "Med-ball slam", "en": "Med-ball slam", "es": "Slam con balón medicinal" },
+          "exercise_type": "reps",
+          "sets": 3,
+          "reps": 5,
+          "per_side": true,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:lat-pulldown",
+          "name_i18n": { "fr": "Tirage vertical", "en": "Lat pulldown", "es": "Jalón al pecho" },
+          "exercise_type": "reps",
+          "sets": 3,
+          "reps": 15,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:lateral-raise",
+          "name_i18n": { "fr": "Élévations latérales", "en": "Lateral raises", "es": "Elevaciones laterales" },
+          "exercise_type": "reps",
+          "sets": 3,
+          "reps": 15,
+          "load": null
+        }
+      ],
+      "scoring": { "type": "blocks_complete" },
+      "benchmark": null,
+      "reward": {
+        "badge_id": "hero_shangchi_challenge",
+        "profile_theme_id": "shangchi",
+        "unlock_condition": { "type": "all_prescribed_blocks" }
+      },
+      "visual_theme": { "id": "shangchi" },
+      "source": {
+        "label": "Men's Health — Simu Liu Shang-Chi workout",
+        "url": "https://www.menshealth.com/fitness/a36460972/simu-liu-workout-shang-chi/"
+      }
+    },
+    {
+      "id": "deadpool-ryan-reynolds",
+      "slug": "deadpool-ryan-reynolds",
+      "universe": "marvel",
+      "character_name": "Deadpool",
+      "actor_name": "Ryan Reynolds",
+      "rename_key": "deadpool",
+      "title": "Deadpool — Ryan Reynolds",
+      "subtitle": "5 tours",
+      "description": "Circuit de 5 tours. Intensité squat/bench indiquée, pas convertie en kilos.",
+      "challenge_type": "rounds",
+      "format_label": "Rounds",
+      "duration_seconds": null,
+      "rounds": 5,
+      "playable": true,
+      "difficulty": "complete_rounds",
+      "status": "published",
+      "is_curated": true,
+      "exercises": [
+        {
+          "exercise_id": "hero:kb-swing",
+          "name_i18n": { "fr": "Kettlebell swing", "en": "Kettlebell swing", "es": "Swing de kettlebell" },
+          "exercise_type": "reps",
+          "reps": 5,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:front-squat",
+          "name_i18n": { "fr": "Front squat", "en": "Front squat", "es": "Sentadilla frontal" },
+          "exercise_type": "reps",
+          "reps": 5,
+          "load": null,
+          "intensity_hint": "80-85% effort"
+        },
+        {
+          "exercise_id": "hero:bench-press",
+          "name_i18n": { "fr": "Développé couché", "en": "Bench press", "es": "Press de banca" },
+          "exercise_type": "reps",
+          "reps": 5,
+          "load": null,
+          "intensity_hint": "80-85% effort"
+        },
+        {
+          "exercise_id": "hero:pull-up",
+          "name_i18n": { "fr": "Tractions", "en": "Pull-ups", "es": "Dominadas" },
+          "exercise_type": "reps",
+          "reps": 5,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:kb-carry",
+          "name_i18n": { "fr": "Carry kettlebell", "en": "Kettlebell carry", "es": "Paseo con kettlebell" },
+          "exercise_type": "reps",
+          "reps": 1,
+          "distance_yards": 25,
+          "distance_meters": 22.9,
+          "load": null
+        }
+      ],
+      "scoring": { "type": "rounds", "target_rounds": 5 },
+      "benchmark": { "type": "rounds", "target": 5 },
+      "reward": {
+        "badge_id": "hero_deadpool_challenge",
+        "profile_theme_id": "deadpool",
+        "unlock_condition": { "type": "rounds_gte", "value": 5 }
+      },
+      "visual_theme": { "id": "deadpool" },
+      "source": {
+        "label": "Men's Health — Ryan Reynolds Deadpool 2 workout",
+        "url": "https://www.menshealth.com/fitness/a20723702/ryan-reynolds-deadpool-2-workout/"
+      }
+    },
+    {
+      "id": "batman-ben-affleck",
+      "slug": "batman-ben-affleck",
+      "universe": "dc",
+      "character_name": "Batman",
+      "actor_name": "Ben Affleck",
+      "rename_key": "batman",
+      "title": "Batman — Ben Affleck",
+      "subtitle": "Séance structurée",
+      "description": "Charges non connues.",
+      "challenge_type": "structured",
+      "format_label": "Structured",
+      "duration_seconds": null,
+      "playable": true,
+      "difficulty": "complete_session",
+      "status": "published",
+      "is_curated": true,
+      "exercises": [
+        {
+          "exercise_id": "hero:db-front-squat",
+          "name_i18n": { "fr": "Front squat haltères", "en": "Dumbbell front squat", "es": "Sentadilla frontal con mancuernas" },
+          "exercise_type": "reps",
+          "sets": 4,
+          "reps": 12,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:deadlift",
+          "name_i18n": { "fr": "Deadlift", "en": "Deadlift", "es": "Peso muerto" },
+          "exercise_type": "reps",
+          "sets": 4,
+          "reps": 8,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:drop-sit",
+          "name_i18n": { "fr": "Drop sit", "en": "Drop sit", "es": "Drop sit" },
+          "exercise_type": "reps",
+          "sets": 4,
+          "reps": 10,
+          "per_side": true,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:squat-to-kick",
+          "name_i18n": { "fr": "Squat-to-kick", "en": "Squat-to-kick", "es": "Sentadilla con patada" },
+          "exercise_type": "reps",
+          "sets": 4,
+          "reps": 10,
+          "per_side": true,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:hollow-rock",
+          "name_i18n": { "fr": "Hollow rock", "en": "Hollow rock", "es": "Hollow rock" },
+          "exercise_type": "duration",
+          "sets": 3,
+          "duration": 60,
+          "load": null
+        }
+      ],
+      "scoring": { "type": "session_complete" },
+      "benchmark": null,
+      "reward": {
+        "badge_id": "hero_batman_challenge",
+        "profile_theme_id": "batman",
+        "unlock_condition": { "type": "session_complete" }
+      },
+      "visual_theme": { "id": "batman" },
+      "source": {
+        "label": "Men's Health — Ben Affleck Batman workout",
+        "url": "https://www.menshealth.com/fitness/a27274173/ben-affleck-batman-workout/"
+      }
+    },
+    {
+      "id": "wonder-woman-gal-gadot",
+      "slug": "wonder-woman-gal-gadot",
+      "universe": "dc",
+      "character_name": "Wonder Woman",
+      "actor_name": "Gal Gadot",
+      "rename_key": "wonderwoman",
+      "title": "Wonder Woman — Gal Gadot",
+      "subtitle": "Séance documentée",
+      "description": "Blocs réellement fournis. Les deux supersets bras/épaules ne sont pas détaillés dans la source.",
+      "challenge_type": "structured",
+      "format_label": "Structured",
+      "duration_seconds": null,
+      "playable": true,
+      "difficulty": "documented_blocks",
+      "status": "published",
+      "is_curated": true,
+      "exercises": [
+        {
+          "exercise_id": "hero:bike",
+          "name_i18n": { "fr": "Vélo", "en": "Bike", "es": "Bici" },
+          "exercise_type": "duration",
+          "duration": 300,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:intervals-20-20",
+          "name_i18n": { "fr": "6 tours : 20 s fort / 20 s repos", "en": "6 rounds: 20s hard / 20s rest", "es": "6 vueltas: 20 s fuerte / 20 s descanso" },
+          "exercise_type": "duration",
+          "sets": 6,
+          "duration": 20,
+          "rest_after": 20,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:curl",
+          "name_i18n": { "fr": "Curls", "en": "Curls", "es": "Curl" },
+          "exercise_type": "reps",
+          "sets": 3,
+          "reps": 8,
+          "per_side": true,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:skull-crusher",
+          "name_i18n": { "fr": "Skull crushers", "en": "Skull crushers", "es": "Extensiones de tríceps" },
+          "exercise_type": "reps",
+          "sets": 3,
+          "reps": 12,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:unspecified-arm-shoulder-supersets",
+          "name_i18n": {
+            "fr": "2 supersets bras/épaules — détails non précisés dans la source fournie",
+            "en": "2 arm/shoulder supersets — details not specified in the provided source",
+            "es": "2 superseries de brazos/hombros — detalles no precisados en la fuente"
+          },
+          "exercise_type": "reps",
+          "sets": 2,
+          "reps": null,
+          "hero_open_series": true,
+          "unspecified": true,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:hollow-hold",
+          "name_i18n": { "fr": "Hollow hold", "en": "Hollow hold", "es": "Hollow hold" },
+          "exercise_type": "duration",
+          "sets": 4,
+          "duration": 45,
+          "load": null
+        }
+      ],
+      "scoring": { "type": "documented_blocks_complete" },
+      "benchmark": null,
+      "reward": {
+        "badge_id": "hero_wonderwoman_challenge",
+        "profile_theme_id": "wonderwoman",
+        "unlock_condition": { "type": "documented_blocks_complete" }
+      },
+      "visual_theme": { "id": "wonderwoman" },
+      "source": {
+        "label": "Men's Health — Gal Gadot Wonder Woman 84 workout",
+        "url": "https://www.menshealth.com/fitness/a36198499/gal-gadot-wonder-woman-84-workout/"
+      }
+    },
+    {
+      "id": "aquaman-jason-momoa",
+      "slug": "aquaman-jason-momoa",
+      "universe": "dc",
+      "character_name": "Aquaman",
+      "actor_name": "Jason Momoa",
+      "rename_key": "aquaman",
+      "title": "Aquaman — Jason Momoa",
+      "subtitle": "5 tours + drop sets",
+      "description": "5 tours puis drop sets fly câble. Développé incliné ~70 % du max — pas converti en kilos.",
+      "challenge_type": "rounds",
+      "format_label": "Rounds",
+      "duration_seconds": null,
+      "rounds": 5,
+      "playable": true,
+      "difficulty": "rounds_plus_coda",
+      "status": "published",
+      "is_curated": true,
+      "exercises": [
+        {
+          "exercise_id": "hero:incline-press",
+          "name_i18n": { "fr": "Développé incliné", "en": "Incline press", "es": "Press inclinado" },
+          "exercise_type": "reps",
+          "reps": 6,
+          "load": null,
+          "intensity_hint": "~70% 1RM"
+        },
+        {
+          "exercise_id": "hero:db-shoulder-press",
+          "name_i18n": { "fr": "Shoulder press haltères", "en": "Dumbbell shoulder press", "es": "Press de hombros con mancuernas" },
+          "exercise_type": "reps",
+          "reps": 12,
+          "load": null
+        },
+        {
+          "exercise_id": "hero:push-up",
+          "name_i18n": { "fr": "Pompes", "en": "Push-ups", "es": "Flexiones" },
+          "exercise_type": "reps",
+          "reps": 24,
+          "load": null
+        }
+      ],
+      "coda_exercises": [
+        {
+          "exercise_id": "hero:cable-fly-dropset",
+          "name_i18n": { "fr": "Drop sets fly câble", "en": "Cable fly drop sets", "es": "Drop sets de aperturas en polea" },
+          "exercise_type": "reps",
+          "reps_scheme": [6, 12, 18],
+          "load": null
+        }
+      ],
+      "info_references": [
+        {
+          "label_i18n": {
+            "fr": "Jour jambes distinct : fentes haltères 40–50 lb / 18–23 kg (non inclus dans cette séance).",
+            "en": "Separate legs day: dumbbell lunges 40–50 lb / 18–23 kg (not part of this workout).",
+            "es": "Día de piernas distinto: zancadas con mancuernas 40–50 lb / 18–23 kg (no incluido en esta sesión)."
+          }
+        }
+      ],
+      "scoring": { "type": "rounds_plus_coda", "target_rounds": 5 },
+      "benchmark": { "type": "rounds_plus_coda", "target": 5 },
+      "reward": {
+        "badge_id": "hero_aquaman_challenge",
+        "profile_theme_id": "aquaman",
+        "unlock_condition": { "type": "rounds_plus_coda", "value": 5 }
+      },
+      "visual_theme": { "id": "aquaman" },
+      "source": {
+        "label": "Men's Health — Jason Momoa Aquaman workout (Mark Twight)",
+        "url": "https://www.menshealth.com/fitness/a19543046/jason-momoa-aquaman-workout-mark-twight/"
+      }
+    },
+    {
+      "id": "wolverine-hugh-jackman",
+      "slug": "wolverine-hugh-jackman",
+      "universe": "marvel",
+      "character_name": "Wolverine",
+      "actor_name": "Hugh Jackman",
+      "rename_key": "wolverine",
+      "title": "Programme Wolverine — Hugh Jackman",
+      "subtitle": "Programme de référence",
+      "description": "Données insuffisantes pour une séance exacte. Phases et mouvements cités, sans sets/reps imposés.",
+      "challenge_type": "program_reference",
+      "format_label": "Program",
+      "duration_seconds": null,
+      "playable": false,
+      "difficulty": "reference",
+      "status": "published",
+      "is_curated": true,
+      "program": {
+        "daily_duration_hint": "~1h30 / day",
+        "phases": [
+          "heavy phase with long rest",
+          "lighter / slower phase",
+          "explosive phase"
+        ],
+        "known_movements": ["bench", "barbell lunges", "squats", "leg press"]
+      },
+      "strength_references": [
+        {
+          "movement": "bench",
+          "value_lb": 315,
+          "value_kg": 143,
+          "note": "Personal cap mentioned publicly — not a starting load, not a badge condition."
+        }
+      ],
+      "exercises": [],
+      "scoring": null,
+      "benchmark": null,
+      "reward": { "badge_id": null, "profile_theme_id": null, "unlock_condition": { "type": "locked_unavailable" } },
+      "visual_theme": { "id": "wolverine" },
+      "source": {
+        "label": "Men's Health — Hugh Jackman workout plan",
+        "url": "https://www.menshealth.com/fitness/a19533923/hugh-jackmans-workout-plan/"
+      }
+    },
+    {
+      "id": "superman-david-corenswet",
+      "slug": "superman-david-corenswet",
+      "universe": "dc",
+      "character_name": "Superman",
+      "actor_name": "David Corenswet",
+      "rename_key": "superman",
+      "title": "Superman — David Corenswet",
+      "subtitle": "Programme de référence",
+      "description": "Split Push / Pull / Legs. Pas de sets/reps exacts fournis.",
+      "challenge_type": "program_reference",
+      "format_label": "Program",
+      "duration_seconds": null,
+      "playable": false,
+      "difficulty": "reference",
+      "status": "published",
+      "is_curated": true,
+      "program": {
+        "split": ["Push", "Pull", "Legs"],
+        "sessions_per_week": "3-4",
+        "session_duration_hint": "~2h",
+        "known_movements": ["presses", "pull-ups", "pulldowns", "rows"],
+        "notes": ["progressive overload", "no exact sets/reps in provided data"]
+      },
+      "related_references": [
+        {
+          "id": "superman-henry-cavill",
+          "title": "Références Superman — Henry Cavill",
+          "kind": "strength_reference",
+          "disclaimer": "Public actor reference — not a recommended load, not a badge condition.",
+          "lifts": [
+            { "movement": "deadlift", "value_lb": 435, "value_kg": 197 },
+            { "movement": "back squat", "value_lb": 365, "value_kg": 166 },
+            { "movement": "push press", "value_lb": 245, "value_kg": 111 },
+            { "movement": "front squat", "scheme": "10x10", "value_lb": 225, "value_kg": 102 }
+          ],
+          "source": {
+            "label": "Josh Hillis — Henry Cavill Superman workout numbers",
+            "url": "https://joshhillis.com/by-the-numbers-henry-cavill-superman-workout/"
+          }
+        }
+      ],
+      "exercises": [],
+      "scoring": null,
+      "benchmark": null,
+      "reward": { "badge_id": null, "profile_theme_id": null, "unlock_condition": { "type": "locked_unavailable" } },
+      "visual_theme": { "id": "superman" },
+      "source": {
+        "label": "GQ — David Corenswet Superman Legacy workout",
+        "url": "https://www.gq.com/story/david-corenswet-superman-legacy-workout"
+      }
+    },
+    {
+      "id": "captain-marvel-brie-larson",
+      "slug": "captain-marvel-brie-larson",
+      "universe": "marvel",
+      "character_name": "Captain Marvel",
+      "actor_name": "Brie Larson",
+      "rename_key": "captainmarvel",
+      "title": "Captain Marvel — Brie Larson",
+      "subtitle": "Repères de préparation",
+      "description": "Performances publiques de référence — ce n’est pas une charge conseillée.",
+      "challenge_type": "strength_reference",
+      "format_label": "Strength ref",
+      "duration_seconds": null,
+      "playable": false,
+      "difficulty": "reference",
+      "status": "published",
+      "is_curated": true,
+      "strength_references": [
+        { "movement": "hip thrust", "value_lb": 400, "value_kg": 181 },
+        { "movement": "deadlift", "value_lb": 200, "value_kg": 91 },
+        { "movement": "one-arm pull-up", "note": "filmed publicly — not a prescribed workout" }
+      ],
+      "exercises": [],
+      "scoring": null,
+      "benchmark": null,
+      "reward": { "badge_id": null, "profile_theme_id": null, "unlock_condition": { "type": "locked_unavailable" } },
+      "visual_theme": { "id": "captainmarvel" },
+      "source": {
+        "label": "Business Insider — Brie Larson Captain Marvel training",
+        "url": "https://www.businessinsider.com/brie-larson-captain-marvel-training-exceeded-fitness-expectations-2022-2"
+      }
+    },
+    {
+      "id": "black-adam-dwayne-johnson",
+      "slug": "black-adam-dwayne-johnson",
+      "universe": "dc",
+      "character_name": "Black Adam",
+      "actor_name": "Dwayne Johnson",
+      "rename_key": "blackadam",
+      "title": "Black Adam — Dwayne Johnson",
+      "subtitle": "Programme de référence",
+      "description": "Détails de la séance à compléter. Giant sets pecs/triceps de 4 exercices — exercices exacts non fournis.",
+      "challenge_type": "program_reference",
+      "format_label": "Program",
+      "duration_seconds": null,
+      "playable": false,
+      "difficulty": "incomplete",
+      "status": "published",
+      "is_curated": true,
+      "program": {
+        "days_per_week": 6,
+        "split": ["chest/triceps", "back/biceps", "shoulders", "arms", "chest/back", "legs"],
+        "notes": ["lifting + daily cardio", "chest/triceps giant sets of 4 exercises — exact exercises not provided"]
+      },
+      "exercises": [],
+      "scoring": null,
+      "benchmark": null,
+      "reward": { "badge_id": null, "profile_theme_id": null, "unlock_condition": { "type": "locked_unavailable" } },
+      "visual_theme": { "id": "blackadam" },
+      "source": { "label": null, "url": null }
+    }
+  ]
+}

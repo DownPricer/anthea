@@ -97,6 +97,7 @@ def _b(
         "reward_points": RARITY_POINTS.get(rarity, 10),
         "is_secret": is_secret,
         "enabled": enabled,
+        "family": category if category == "hero_challenge" else scope,
         "version": CATALOG_VERSION,
     }
 
@@ -530,9 +531,52 @@ def _build_duo_catalog() -> List[dict]:
     return badges
 
 
+def _build_hero_catalog() -> List[dict]:
+    s = "solo"
+    cat = "hero_challenge"
+    return [
+        _b("hero_spiderman_challenge", scope=s, name="Spider-Man Challenge",
+           description="Atteignez 27 tours en 20 minutes.", rarity="legendary",
+           category=cat, condition_type="hero_challenge_benchmark", condition_value=1,
+           params={"hero_challenge_id": "spider-man-tom-holland", "unlock": "benchmark"},
+           icon_key="hero_web", sort_order=201),
+        _b("hero_thor_challenge", scope=s, name="Thor Challenge",
+           description="Terminez tous les blocs prescrits du défi Thor.", rarity="epic",
+           category=cat, condition_type="hero_challenge_complete", condition_value=1,
+           params={"hero_challenge_id": "thor-chris-hemsworth", "unlock": "complete"},
+           icon_key="hero_storm", sort_order=202),
+        _b("hero_shangchi_challenge", scope=s, name="Shang-Chi Challenge",
+           description="Terminez tous les blocs prescrits du défi Shang-Chi.", rarity="epic",
+           category=cat, condition_type="hero_challenge_complete", condition_value=1,
+           params={"hero_challenge_id": "shang-chi-simu-liu", "unlock": "complete"},
+           icon_key="hero_rings", sort_order=203),
+        _b("hero_deadpool_challenge", scope=s, name="Deadpool Challenge",
+           description="Terminez 5 tours du défi Deadpool.", rarity="rare",
+           category=cat, condition_type="hero_challenge_complete", condition_value=1,
+           params={"hero_challenge_id": "deadpool-ryan-reynolds", "unlock": "complete"},
+           icon_key="hero_slash", sort_order=204),
+        _b("hero_batman_challenge", scope=s, name="Batman Challenge",
+           description="Terminez la séance Batman.", rarity="epic",
+           category=cat, condition_type="hero_challenge_complete", condition_value=1,
+           params={"hero_challenge_id": "batman-ben-affleck", "unlock": "complete"},
+           icon_key="hero_shadow", sort_order=205),
+        _b("hero_wonderwoman_challenge", scope=s, name="Wonder Woman Challenge",
+           description="Terminez les blocs documentés du défi Wonder Woman.", rarity="epic",
+           category=cat, condition_type="hero_challenge_complete", condition_value=1,
+           params={"hero_challenge_id": "wonder-woman-gal-gadot", "unlock": "complete"},
+           icon_key="hero_star", sort_order=206),
+        _b("hero_aquaman_challenge", scope=s, name="Aquaman Challenge",
+           description="Terminez 5 tours et les drop sets du défi Aquaman.", rarity="epic",
+           category=cat, condition_type="hero_challenge_complete", condition_value=1,
+           params={"hero_challenge_id": "aquaman-jason-momoa", "unlock": "complete"},
+           icon_key="hero_wave", sort_order=207),
+    ]
+
+
 SOLO_BADGES: List[dict] = _build_solo_catalog()
 DUO_BADGES: List[dict] = _build_duo_catalog()
-ALL_BADGES: List[dict] = SOLO_BADGES + DUO_BADGES
+HERO_BADGES: List[dict] = _build_hero_catalog()
+ALL_BADGES: List[dict] = SOLO_BADGES + DUO_BADGES + HERO_BADGES
 BADGE_BY_ID: Dict[str, dict] = {b["id"]: b for b in ALL_BADGES}
 
 # Alias historique : l'ancien duo_legendary (50 séances) pointe vers l'épique actuel.
@@ -553,8 +597,12 @@ def get_badge_definition(badge_id: Optional[str]) -> Optional[dict]:
 
 
 def get_catalog(scope: Optional[str] = None, *, include_disabled: bool = True) -> List[dict]:
-    if scope in ("solo", "duo"):
-        source = SOLO_BADGES if scope == "solo" else DUO_BADGES
+    if scope == "solo":
+        source = SOLO_BADGES + HERO_BADGES
+    elif scope == "duo":
+        source = DUO_BADGES
+    elif scope == "hero":
+        source = HERO_BADGES
     else:
         source = ALL_BADGES
     if include_disabled:

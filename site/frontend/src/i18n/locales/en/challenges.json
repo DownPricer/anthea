@@ -72,5 +72,56 @@
   "duo_weekly_3_encourage": {
     "title": "3 encouragements",
     "description": "Send 3 encouragements this week"
+  },
+  "hero": {
+    "tabMine": "My templates",
+    "tabHero": "Hero Challenges",
+    "startWorkout": "Do the workout",
+    "viewProgram": "View program",
+    "rounds": "Rounds",
+    "round": "Round",
+    "plusRound": "+1 round",
+    "minusRound": "−1",
+    "roundsDone": "Rounds completed",
+    "roundOf": "Round {{current}} / {{total}}",
+    "roundsCount_one": "{{count}} round",
+    "roundsCount_other": "{{count}} rounds",
+    "challengeDone": "Challenge finished",
+    "challengeWon": "Challenge beaten",
+    "successTitle": "{{name}} challenge beaten",
+    "newBadge": "New badge unlocked",
+    "newTheme": "New profile theme unlocked",
+    "publishSuccess": "Publish my result",
+    "themeLocked": "Beat the {{name}} challenge",
+    "badgeLocked": "Badge locked",
+    "source": "Workout source",
+    "unofficial": "Program inspired by a public workout attributed to {{actor}}. Unofficial.",
+    "amrapSafety": "AMRAP: complete as many rounds as possible with solid technique. Scale to your level.",
+    "legendaryGoal": "Legendary goal · {{count}} rounds",
+    "scoreLine": "{{rounds}} rounds · {{reps}} reps · {{minutes}} min",
+    "postScore": "{{rounds}} rounds · {{reps}} reps · {{minutes}} min",
+    "incompleteProgram": "Reference program — not enough detail to generate an exact session.",
+    "strengthDisclaimer": "Public performance reference — not a recommended load.",
+    "actorRefDisclaimer": "Public actor reference — not a recommended load.",
+    "close": "Close",
+    "filters": { "all": "All", "marvel": "Marvel", "dc": "DC" },
+    "dropSetsDone": "Drop sets done",
+    "types": {
+      "amrap": "AMRAP",
+      "rounds": "Rounds",
+      "structured": "Structured",
+      "program_reference": "Program",
+      "strength_reference": "Benchmarks"
+    },
+    "themes": {
+      "default": "FitGather",
+      "spiderman": "Spider-Man",
+      "thor": "Thor",
+      "shangchi": "Shang-Chi",
+      "deadpool": "Deadpool",
+      "batman": "Batman",
+      "wonderwoman": "Wonder Woman",
+      "aquaman": "Aquaman"
+    }
   }
 }

@@ -72,5 +72,56 @@
   "duo_weekly_3_encourage": {
     "title": "3 ánimos",
     "description": "Envía 3 ánimos esta semana"
+  },
+  "hero": {
+    "tabMine": "Mis plantillas",
+    "tabHero": "Retos Héroes",
+    "startWorkout": "Hacer el entrenamiento",
+    "viewProgram": "Ver el programa",
+    "rounds": "Vueltas",
+    "round": "Vuelta",
+    "plusRound": "+1 vuelta",
+    "minusRound": "−1",
+    "roundsDone": "Vueltas completadas",
+    "roundOf": "Vuelta {{current}} / {{total}}",
+    "roundsCount_one": "{{count}} vuelta",
+    "roundsCount_other": "{{count}} vueltas",
+    "challengeDone": "Reto terminado",
+    "challengeWon": "Reto superado",
+    "successTitle": "Reto {{name}} superado",
+    "newBadge": "Nueva insignia desbloqueada",
+    "newTheme": "Nuevo tema de perfil desbloqueado",
+    "publishSuccess": "Publicar mi logro",
+    "themeLocked": "Supera el reto {{name}}",
+    "badgeLocked": "Insignia bloqueada",
+    "source": "Fuente del entrenamiento",
+    "unofficial": "Programa inspirado en un entrenamiento público atribuido a {{actor}}. No oficial.",
+    "amrapSafety": "AMRAP: haz tantas vueltas como puedas con buena técnica. Adapta los ejercicios a tu nivel.",
+    "legendaryGoal": "Objetivo legendario · {{count}} vueltas",
+    "scoreLine": "{{rounds}} vueltas · {{reps}} reps · {{minutes}} min",
+    "postScore": "{{rounds}} vueltas · {{reps}} reps · {{minutes}} min",
+    "incompleteProgram": "Programa de referencia — faltan detalles para generar una sesión exacta.",
+    "strengthDisclaimer": "Rendimiento público de referencia — no es una carga recomendada.",
+    "actorRefDisclaimer": "Referencia pública del actor — no es una carga recomendada.",
+    "close": "Cerrar",
+    "filters": { "all": "Todos", "marvel": "Marvel", "dc": "DC" },
+    "dropSetsDone": "Drop sets terminados",
+    "types": {
+      "amrap": "AMRAP",
+      "rounds": "Vueltas",
+      "structured": "Estructurado",
+      "program_reference": "Programa",
+      "strength_reference": "Referencias"
+    },
+    "themes": {
+      "default": "FitGather",
+      "spiderman": "Spider-Man",
+      "thor": "Thor",
+      "shangchi": "Shang-Chi",
+      "deadpool": "Deadpool",
+      "batman": "Batman",
+      "wonderwoman": "Wonder Woman",
+      "aquaman": "Aquaman"
+    }
   }
 }

@@ -46,6 +46,22 @@ from badge_progress import (
     trigger_duo_evaluation,
 )
 from challenges import pick_weekly_challenge, compute_challenge_progress
+from hero_challenges import (
+    all_challenges,
+    assert_profile_theme_allowed,
+    attach_hero_metadata,
+    best_scores_map,
+    build_workout_blocks,
+    DEFAULT_PROFILE_THEME,
+    evaluate_hero_result,
+    get_challenge,
+    get_challenge_or_404,
+    is_playable,
+    public_challenge,
+    record_attempt,
+    snapshot_from_workout,
+    user_hero_progress,
+)
 from duo_social import (
     apply_duo_defaults,
     build_common_sessions,
@@ -243,6 +259,7 @@ class UserUpdate(BaseModel):
     activity_visibility: Optional[Literal["public", "followers", "me"]] = None
     posts_visibility: Optional[Literal["public", "followers", "me"]] = None
     notification_prefs: Optional[Dict[str, bool]] = None
+    profile_theme_id: Optional[str] = None
 
 class UserResponse(BaseModel):
     id: str
@@ -404,6 +421,16 @@ class WorkoutExercise(BaseModel):
     activity_tracking_mode: Optional[str] = None
     activity_config: Optional[ActivityExerciseConfig] = None
     icon: Optional[str] = None
+    sets: Optional[int] = None
+    reps_scheme: Optional[List[int]] = None
+    notes: Optional[str] = None
+    intensity_hint: Optional[str] = None
+    load: Optional[float] = None
+    per_side: Optional[bool] = None
+    distance_yards: Optional[float] = None
+    distance_meters: Optional[float] = None
+    hero_open_series: Optional[bool] = None
+    unspecified: Optional[bool] = None
 
 class WorkoutBlock(BaseModel):
     block_type: str
@@ -436,6 +463,10 @@ class ScheduledWorkoutCreate(BaseModel):
     blocks: List[WorkoutBlock] = []
     is_draft: bool = False
     repeat_pattern: Optional[str] = None
+    source_type: Optional[str] = None
+    hero_challenge_id: Optional[str] = None
+    hero_challenge_version: Optional[int] = None
+    hero_challenge_snapshot: Optional[dict] = None
 
 class MultiScheduleCreate(BaseModel):
     title: str
@@ -451,6 +482,8 @@ class MultiScheduleCreate(BaseModel):
     start_date: Optional[str] = None
     end_date: Optional[str] = None
     repeat_weeks: Optional[int] = None
+    source_type: Optional[str] = None
+    hero_challenge_id: Optional[str] = None
 
 class WorkoutProgressSave(BaseModel):
     workout_id: str
@@ -503,6 +536,7 @@ class WorkoutSessionCreate(BaseModel):
     mood: Optional[str] = None
     notes: Optional[str] = None
     exercise_log: Optional[List[dict]] = None
+    hero_result: Optional[dict] = None
 
 class WorkoutSessionResponse(BaseModel):
     id: str
@@ -549,6 +583,8 @@ class PostCreate(BaseModel):
     activity_snapshot: Optional[dict] = None
     post_on_duo_wall: bool = False
     visibility: str = "public"
+    hero_result: Optional[dict] = None
+    hero_challenge_id: Optional[str] = None
 
 
 class ActivityStartBody(BaseModel):
@@ -822,6 +858,7 @@ def serialize_user(user: dict, include_email: bool = False) -> dict:
         "fitness_level": user.get("fitness_level"),
         "main_goal": user.get("main_goal"),
         "theme": user.get("theme", "default"),
+        "profile_theme_id": user.get("profile_theme_id") or DEFAULT_PROFILE_THEME,
         "appearance": normalize_appearance(user.get("appearance")) or "dark",
         "accent_color": user.get("accent_color"),
         "tts_enabled": user.get("tts_enabled", True),
@@ -1614,7 +1651,7 @@ async def upsert_comment_like_notification(
 POST_TYPES = {
     "workout_photo", "workout", "badge", "duo_repost", "duo", "free",
     "duo_free", "duo_common_session", "duo_badge", "duo_challenge",
-    "activity",
+    "activity", "hero_challenge",
 }
 POST_VISIBILITY = {"public", "friends", "private", "duo"}
 DUO_WALL_POST_TYPES = {"duo", "duo_free", "duo_common_session", "duo_badge", "duo_challenge"}
@@ -2860,6 +2897,11 @@ async def lifespan(app: FastAPI):
     await db.challenge_completions.create_index("pair_key")
     await db.challenge_completions.create_index("week_key")
     await db.challenge_completions.create_index("created_at")
+    try:
+        await db.hero_challenge_attempts.create_index([("user_id", 1), ("created_at", -1)])
+        await db.hero_challenge_attempts.create_index([("user_id", 1), ("challenge_id", 1)])
+    except Exception as exc:
+        logger.warning("Hero challenge indexes failed: %s", exc)
     await db.session_time_audit.create_index("session_id")
     await db.workout_progress.create_index([("user_id", 1), ("saved_at", -1)])
     await db.live_workout_messages.create_index([("pair_key", 1), ("created_at", -1)])
@@ -3243,6 +3285,13 @@ async def update_profile(data: UserUpdate, user: dict = Depends(get_current_user
             raise HTTPException(status_code=400, detail="notification_prefs invalide")
         from push_service import merge_notification_prefs
         set_data["notification_prefs"] = merge_notification_prefs(raw_prefs)
+
+    if "profile_theme_id" in payload:
+        theme_raw = payload.pop("profile_theme_id")
+        unlocked_map = await BadgeProgressService(db).get_unlocked_solo(user["id"])
+        set_data["profile_theme_id"] = assert_profile_theme_allowed(
+            theme_raw, set(unlocked_map.keys())
+        )
 
     if "account_visibility" in payload:
         vis = payload.pop("account_visibility")
@@ -5276,6 +5325,58 @@ def serialize_template(template: dict, include_blocks: bool = True) -> dict:
         row.pop("blocks", None)
     return row
 
+@api_router.get("/hero-challenges")
+async def list_hero_challenges(user: dict = Depends(get_current_user)):
+    progress = await user_hero_progress(db, user["id"])
+    best = progress.get("best_scores") or {}
+    success = set(progress.get("success_ids") or [])
+    completed = set(progress.get("completed_ids") or [])
+    unlocked = await BadgeProgressService(db).get_unlocked_solo(user["id"])
+    items = []
+    for raw in all_challenges():
+        pub = public_challenge(raw)
+        cid = raw["id"]
+        badge_id = (raw.get("reward") or {}).get("badge_id")
+        pub["progress"] = {
+            "best_score": best.get(cid, 0),
+            "completed": cid in completed,
+            "success": cid in success,
+            "badge_unlocked": bool(badge_id and badge_id in unlocked),
+        }
+        items.append(pub)
+    return {"version": items[0]["version"] if items else 1, "challenges": items}
+
+
+@api_router.get("/hero-challenges/progress")
+async def get_hero_progress(user: dict = Depends(get_current_user)):
+    progress = await user_hero_progress(db, user["id"])
+    unlocked = await BadgeProgressService(db).get_unlocked_solo(user["id"])
+    return {
+        **progress,
+        "unlocked_badge_ids": list(unlocked.keys()),
+        "profile_theme_id": user.get("profile_theme_id") or DEFAULT_PROFILE_THEME,
+        "best_scores": await best_scores_map(db, user["id"]),
+    }
+
+
+@api_router.get("/hero-challenges/{slug}")
+async def get_hero_challenge(slug: str, user: dict = Depends(get_current_user)):
+    raw = get_challenge_or_404(slug)
+    pub = public_challenge(raw)
+    progress = await user_hero_progress(db, user["id"])
+    cid = raw["id"]
+    badge_id = (raw.get("reward") or {}).get("badge_id")
+    unlocked = await BadgeProgressService(db).get_unlocked_solo(user["id"])
+    pub["progress"] = {
+        "best_score": (progress.get("best_scores") or {}).get(cid, 0),
+        "completed": cid in set(progress.get("completed_ids") or []),
+        "success": cid in set(progress.get("success_ids") or []),
+        "badge_unlocked": bool(badge_id and badge_id in unlocked),
+        "attempts": [a for a in progress.get("attempts") or [] if a.get("challenge_id") == cid],
+    }
+    return pub
+
+
 @api_router.get("/templates")
 async def get_templates(summary: bool = False, user: dict = Depends(get_current_user)):
     system = await db.workout_templates.find({"is_system": True}).sort("program_order", 1).to_list(50)
@@ -5460,6 +5561,28 @@ async def get_workout(workout_id: str, allow_draft: Optional[bool] = False, user
     return {"id": str(workout["_id"]), **{k: v for k, v in workout.items() if k != "_id"}}
 
 
+def _stamp_hero_challenge(workout_doc: dict, hero_challenge_id: Optional[str], user: dict) -> dict:
+    hid = (hero_challenge_id or "").strip()
+    if not hid:
+        workout_doc.pop("hero_challenge_id", None)
+        workout_doc.pop("hero_challenge_version", None)
+        workout_doc.pop("hero_challenge_snapshot", None)
+        if workout_doc.get("source_type") == "hero_challenge":
+            workout_doc.pop("source_type", None)
+        return workout_doc
+    challenge = get_challenge_or_404(hid)
+    if not is_playable(challenge):
+        raise HTTPException(
+            status_code=400,
+            detail="Programme de référence — détails incomplets pour générer une séance exacte.",
+        )
+    locale = (user.get("locale") or "fr").split("-")[0]
+    if not workout_doc.get("blocks"):
+        workout_doc["blocks"] = validate_workout_blocks(build_workout_blocks(challenge, locale))
+    attach_hero_metadata(workout_doc, challenge)
+    return workout_doc
+
+
 @api_router.post("/workouts")
 async def create_workout(data: ScheduledWorkoutCreate, user: dict = Depends(get_current_user)):
     for_user_id = data.for_user_id or user["id"]
@@ -5483,6 +5606,7 @@ async def create_workout(data: ScheduledWorkoutCreate, user: dict = Depends(get_
         "created_at": datetime.now(timezone.utc).isoformat(),
         "updated_at": datetime.now(timezone.utc).isoformat()
     }
+    _stamp_hero_challenge(workout_doc, data.hero_challenge_id, user)
     
     result = await db.scheduled_workouts.insert_one(workout_doc)
     workout_doc["id"] = str(result.inserted_id)
@@ -5502,6 +5626,14 @@ async def update_workout(workout_id: str, data: ScheduledWorkoutCreate, user: di
     update_data["blocks"] = validate_workout_blocks(data.blocks)
     update_data["updated_at"] = datetime.now(timezone.utc).isoformat()
     
+    if workout.get("source_type") == "hero_challenge":
+        update_data["source_type"] = "hero_challenge"
+        update_data["hero_challenge_id"] = workout.get("hero_challenge_id")
+        update_data["hero_challenge_version"] = workout.get("hero_challenge_version")
+        update_data["hero_challenge_snapshot"] = workout.get("hero_challenge_snapshot")
+    elif data.hero_challenge_id:
+        _stamp_hero_challenge(update_data, data.hero_challenge_id, user)
+
     await db.scheduled_workouts.update_one({"_id": ObjectId(workout_id)}, {"$set": update_data})
     
     updated = await db.scheduled_workouts.find_one({"_id": ObjectId(workout_id)})
@@ -5589,6 +5721,7 @@ async def create_multi_schedule(data: MultiScheduleCreate, user: dict = Depends(
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat()
         }
+        _stamp_hero_challenge(workout_doc, data.hero_challenge_id, user)
         
         result = await db.scheduled_workouts.insert_one(workout_doc)
         workout_doc["id"] = str(result.inserted_id)
@@ -5801,6 +5934,20 @@ async def create_session(data: WorkoutSessionCreate, user: dict = Depends(get_cu
         "comments": [],
         "created_at": datetime.now(timezone.utc).isoformat()
     }
+    hero_eval = None
+    snap = snapshot_from_workout(workout)
+    if snap:
+        log = data.exercise_log or []
+        has_skips = any(
+            str(ex.get("status") or "").lower() in ("skipped", "skip", "not_done")
+            for ex in log
+        )
+        payload = dict(data.hero_result or {})
+        payload.setdefault("has_skips", has_skips)
+        payload.setdefault("duration_seconds", data.total_time)
+        hero_eval = evaluate_hero_result(snap, payload, session_status=data.status)
+        session_doc["hero_result"] = hero_eval
+        session_doc["hero_challenge_id"] = snap.get("id")
     
     result = await db.workout_sessions.insert_one(session_doc)
     
@@ -5811,6 +5958,12 @@ async def create_session(data: WorkoutSessionCreate, user: dict = Depends(get_cu
     
     session_doc["id"] = str(result.inserted_id)
     session_doc.pop("_id", None)  # Remove ObjectId before returning
+
+    if hero_eval:
+        try:
+            await record_attempt(db, user["id"], hero_eval, session_doc["id"])
+        except Exception:
+            pass
 
     if data.status == "completed":
         schedule_badge_evaluation(trigger_solo_evaluation(db, user["id"]))
@@ -6418,6 +6571,38 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
             name = activity.get("exercise_name_snapshot") or activity.get("activity_kind") or "activité"
             title = f"Activité terminée : {name}"
 
+    hero_result_snapshot = None
+    if post_type == "hero_challenge":
+        if not workout_session_id:
+            raise HTTPException(status_code=400, detail="Séance requise")
+        try:
+            session = await db.workout_sessions.find_one({"_id": ObjectId(workout_session_id)})
+        except Exception:
+            session = None
+        if not session:
+            raise HTTPException(status_code=404, detail="Séance introuvable")
+        if session.get("user_id") != user["id"]:
+            raise HTTPException(status_code=403, detail="Cette séance ne vous appartient pas")
+        hero_result_snapshot = session.get("hero_result")
+        if not isinstance(hero_result_snapshot, dict):
+            raise HTTPException(status_code=400, detail="Résultat de défi introuvable")
+        workout = await _load_workout_for_session(session)
+        session_snapshot = build_session_snapshot(session, workout)
+        snap = snapshot_from_workout(workout) or {}
+        hero_result_snapshot = {
+            **hero_result_snapshot,
+            "challenge_id": hero_result_snapshot.get("challenge_id") or snap.get("id"),
+            "title": snap.get("title") or (workout.get("title") if workout else None) or session.get("workout_title"),
+            "character_name": snap.get("character_name"),
+            "actor_name": snap.get("actor_name"),
+            "visual_theme": snap.get("visual_theme") or {},
+            "benchmark": snap.get("benchmark"),
+            "badge_id": hero_result_snapshot.get("badge_id"),
+            "profile_theme_id": hero_result_snapshot.get("profile_theme_id"),
+        }
+        if not title:
+            title = hero_result_snapshot.get("title") or "Défi Héros"
+
     now = datetime.now(timezone.utc).isoformat()
     owner_type = "user"
     owner_id = user["id"]
@@ -6454,6 +6639,7 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         "source_post_id": None,
         "visibility": visibility,
         "session_snapshot": session_snapshot,
+        "hero_result": hero_result_snapshot,
         "likes": [],
         "comments": [],
         "created_at": now,

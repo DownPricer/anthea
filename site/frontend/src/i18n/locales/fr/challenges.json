@@ -72,5 +72,56 @@
   "duo_weekly_3_encourage": {
     "title": "3 encouragements",
     "description": "Envoyer 3 encouragements cette semaine"
+  },
+  "hero": {
+    "tabMine": "Mes modèles",
+    "tabHero": "Défis Héros",
+    "startWorkout": "Faire l'entraînement",
+    "viewProgram": "Voir le programme",
+    "rounds": "Tours",
+    "round": "Tour",
+    "plusRound": "+1 tour",
+    "minusRound": "−1",
+    "roundsDone": "Tours terminés",
+    "roundOf": "Tour {{current}} / {{total}}",
+    "roundsCount_one": "{{count}} tour",
+    "roundsCount_other": "{{count}} tours",
+    "challengeDone": "Défi terminé",
+    "challengeWon": "Défi réussi",
+    "successTitle": "Défi {{name}} réussi",
+    "newBadge": "Nouveau badge débloqué",
+    "newTheme": "Nouveau thème de profil débloqué",
+    "publishSuccess": "Publier ma réussite",
+    "themeLocked": "Réussissez le défi {{name}}",
+    "badgeLocked": "Badge verrouillé",
+    "source": "Source de l'entraînement",
+    "unofficial": "Programme inspiré d'un entraînement public attribué à {{actor}}. Non officiel.",
+    "amrapSafety": "AMRAP : réalisez autant de tours que possible avec une technique propre. Adaptez les exercices à votre niveau.",
+    "legendaryGoal": "Objectif légendaire · {{count}} tours",
+    "scoreLine": "{{rounds}} tours · {{reps}} reps · {{minutes}} min",
+    "postScore": "{{rounds}} tours · {{reps}} reps · {{minutes}} min",
+    "incompleteProgram": "Programme de référence — détails incomplets pour générer une séance exacte.",
+    "strengthDisclaimer": "Performance publique de référence — ce n'est pas une charge conseillée.",
+    "actorRefDisclaimer": "Référence publique de l'acteur — pas une charge recommandée.",
+    "close": "Fermer",
+    "filters": { "all": "Tous", "marvel": "Marvel", "dc": "DC" },
+    "dropSetsDone": "Drop sets terminés",
+    "types": {
+      "amrap": "AMRAP",
+      "rounds": "Tours",
+      "structured": "Structuré",
+      "program_reference": "Programme",
+      "strength_reference": "Repères"
+    },
+    "themes": {
+      "default": "FitGather",
+      "spiderman": "Spider-Man",
+      "thor": "Thor",
+      "shangchi": "Shang-Chi",
+      "deadpool": "Deadpool",
+      "batman": "Batman",
+      "wonderwoman": "Wonder Woman",
+      "aquaman": "Aquaman"
+    }
   }
 }

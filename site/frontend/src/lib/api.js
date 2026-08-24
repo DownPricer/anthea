@@ -183,6 +183,12 @@ export const templatesApi = {
   delete: (id) => api.delete(`/templates/${id}`),
 };
 
+export const heroChallengesApi = {
+  list: () => api.get('/hero-challenges'),
+  getOne: (slug) => api.get(`/hero-challenges/${encodeURIComponent(slug)}`),
+  progress: () => api.get('/hero-challenges/progress'),
+};
+
 // Workouts API
 export const workoutsApi = {
   getAll: (params) => api.get('/workouts', { params }), // params.light=true : sans blocs (léger)
