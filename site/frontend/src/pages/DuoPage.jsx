@@ -30,6 +30,7 @@ import {
   duoTime,
   dedupeInflight,
 } from '../lib/duoCache';
+import { filterDuoHistoryFeed, getDuoHistoryEmptyKey } from '../lib/duoHistory';
 import { DuoMembersAvatar } from '../components/duo/DuoMembersAvatar';
 import { UserAvatar } from '../components/UserAvatar';
 import { getDisplayName } from '../lib/userProfile';
@@ -260,7 +261,8 @@ export function DuoPage() {
   const [coachStreakInput, setCoachStreakInput] = useState('');
   const [exemptDateStr, setExemptDateStr] = useState(() => format(new Date(), 'yyyy-MM-dd'));
   const [exemptWho, setExemptWho] = useState('partner'); // 'me' | 'partner'
-  const [historyItems, setHistoryItems] = useState([]);
+  const [historyFeed, setHistoryFeed] = useState([]);
+  const [historyScope, setHistoryScope] = useState('all');
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyTarget, setHistoryTarget] = useState('me'); // export coach uniquement
   const [exporting, setExporting] = useState(false);
@@ -326,7 +328,7 @@ export function DuoPage() {
     if (activeTab === 'stats' && partnerUserId) {
       loadSelectedStats();
     }
-    if (activeTab === 'history' && partnerUserId) {
+    if (activeTab === 'history') {
       loadHistory();
     }
     // Intentionally omit loader fns — they close over current filters
@@ -342,18 +344,21 @@ export function DuoPage() {
     }
   };
 
+  const historyItems = useMemo(
+    () => filterDuoHistoryFeed(historyFeed, historyScope, user?.id, partnerUserId),
+    [historyFeed, historyScope, user?.id, partnerUserId],
+  );
+
   const loadHistory = async () => {
     setHistoryLoading(true);
     try {
       const { data } = await duoApi.getActivityFeed(100);
-      const commonSessions = (data || [])
-        .filter((item) => item.type === 'common_session')
-        .sort((a, b) => {
-          const aTime = a.created_at || a.date || '';
-          const bTime = b.created_at || b.date || '';
-          return bTime.localeCompare(aTime);
-        });
-      setHistoryItems(commonSessions);
+      const sorted = (data || []).sort((a, b) => {
+        const aTime = a.created_at || a.date || '';
+        const bTime = b.created_at || b.date || '';
+        return bTime.localeCompare(aTime);
+      });
+      setHistoryFeed(sorted);
     } catch {
       toast.error(t('duo:errors.historyLoadError'));
     } finally {
@@ -1070,9 +1075,35 @@ export function DuoPage() {
 
         {/* History Tab — historique d'abord, agenda annuel replié */}
         <TabsContent value="history" className="space-y-4" data-testid="duo-history-tab">
-          <h2 className="text-sm font-medium text-muted uppercase tracking-wider">
-            {t('duo:history')}
-          </h2>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <h2 className="text-sm font-medium text-muted uppercase tracking-wider">
+              {t('duo:history')}
+            </h2>
+            <div
+              className="flex flex-wrap gap-2"
+              role="tablist"
+              aria-label={t('duo:historyScope.label')}
+              data-testid="duo-history-scope"
+            >
+              {['mine', 'partner', 'all'].map((scope) => (
+                <button
+                  key={scope}
+                  type="button"
+                  role="tab"
+                  aria-selected={historyScope === scope}
+                  data-testid={`duo-history-scope-${scope}`}
+                  onClick={() => setHistoryScope(scope)}
+                  className={`min-h-10 rounded-full px-4 text-sm font-medium transition-colors ${
+                    historyScope === scope
+                      ? 'bg-[var(--theme-primary)] text-foreground'
+                      : 'bg-hover text-muted hover:bg-active hover:text-foreground'
+                  }`}
+                >
+                  {t(`duo:historyScope.${scope}`)}
+                </button>
+              ))}
+            </div>
+          </div>
           {(user?.relation_type === 'coach' || canModerateStreak) && (
             <div className="flex flex-wrap gap-2 items-center p-3 rounded-2xl bg-surface-elevated border border-border min-w-0">
               <Select value={historyTarget} onValueChange={setHistoryTarget}>
@@ -1141,20 +1172,39 @@ export function DuoPage() {
           ) : historyItems.length === 0 ? (
             <div className="card p-8 text-center" data-testid="duo-history-list">
               <History className="mx-auto text-subtle mb-3" size={28} />
-              <p className="text-subtle">{t('duo:emptyStates.sharedHistory')}</p>
+              <p className="text-subtle">{t(`duo:emptyStates.${getDuoHistoryEmptyKey(historyScope)}`)}</p>
             </div>
           ) : (
             <div className="space-y-4" data-testid="duo-history-list">
-              {historyItems.map((item) => (
-                <CommonSessionCard
-                  key={`history-common-${item.date}`}
-                  item={item}
-                  user={user}
-                  partner={partner}
-                  theme={theme}
-                  duoProfile={duoStats?.duo_profile}
-                />
-              ))}
+              {historyItems.map((item) =>
+                item.type === 'common_session' ? (
+                  <CommonSessionCard
+                    key={`history-common-${item.date}`}
+                    item={item}
+                    user={user}
+                    partner={partner}
+                    theme={theme}
+                    duoProfile={duoStats?.duo_profile}
+                  />
+                ) : (
+                  <SessionCard
+                    key={`history-session-${item.id}`}
+                    session={item}
+                    user={user}
+                    partner={partner}
+                    theme={theme}
+                    isLikedByMe={isLikedByMe(item)}
+                    onLike={handleLike}
+                    onReaction={handleReaction}
+                    activeCommentSession={activeCommentSession}
+                    setActiveCommentSession={setActiveCommentSession}
+                    commentText={commentText}
+                    setCommentText={setCommentText}
+                    onComment={handleComment}
+                    quickReactions={quickReactions}
+                  />
+                ),
+              )}
             </div>
           )}
           <CollapsibleAnnualAgenda

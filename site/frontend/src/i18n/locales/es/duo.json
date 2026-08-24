@@ -39,6 +39,12 @@
     "completed": "Completadas",
     "abandoned": "Abandonadas"
   },
+  "historyScope": {
+    "label": "Filtrar historial",
+    "mine": "Mis sesiones",
+    "partner": "Sus sesiones",
+    "all": "Todo"
+  },
   "export": {
     "period7d": "7 días",
     "period30d": "30 días",
@@ -67,6 +73,9 @@
     "activity": "Aún no hay actividad",
     "history": "Ninguna sesión en el historial",
     "sharedHistory": "Ninguna sesión realizada juntos por el momento.",
+    "historyMine": "Ninguna sesión por el momento.",
+    "historyPartner": "Ninguna sesión visible por el momento.",
+    "historyAll": "Ninguna actividad que mostrar por el momento.",
     "statsPeriod": "Sin datos en este periodo",
     "duoStats": "No hay datos de Dúo disponibles",
     "noData": "No hay datos disponibles",

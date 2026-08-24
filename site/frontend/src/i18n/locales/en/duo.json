@@ -39,6 +39,12 @@
     "completed": "Completed",
     "abandoned": "Abandoned"
   },
+  "historyScope": {
+    "label": "Filter history",
+    "mine": "My sessions",
+    "partner": "Partner's sessions",
+    "all": "All"
+  },
   "export": {
     "period7d": "7 days",
     "period30d": "30 days",
@@ -67,6 +73,9 @@
     "activity": "No activity yet",
     "history": "No workouts in history",
     "sharedHistory": "No workouts completed together yet.",
+    "historyMine": "No sessions yet.",
+    "historyPartner": "No visible sessions yet.",
+    "historyAll": "No activity to show yet.",
     "statsPeriod": "No data for this period",
     "duoStats": "No Duo data available",
     "noData": "No data available",
