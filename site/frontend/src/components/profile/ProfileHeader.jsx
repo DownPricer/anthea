@@ -61,7 +61,11 @@ export function ProfileHeader({
   const showBadges = isOwn || !isLimited;
 
   return (
-    <section className="card overflow-hidden" data-testid="profile-header">
+    <section
+      className="card overflow-hidden profile-hero-shell"
+      data-testid="profile-header"
+      data-profile-theme={profileUser?.profile_theme_id || 'default'}
+    >
       <div className="relative p-3 sm:p-4">
         <div className="flex flex-col sm:flex-row sm:items-start gap-2.5 sm:gap-3">
           {hasAvatar ? (

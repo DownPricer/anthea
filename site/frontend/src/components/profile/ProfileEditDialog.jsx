@@ -41,6 +41,7 @@ import {
   toggleFeaturedBadgeId,
 } from '../../lib/featuredBadges';
 import { BadgeArtwork } from '../badges/BadgeArtwork';
+import { ProfileThemeSelector } from './ProfileThemeSelector';
 import { useTranslation } from 'react-i18next';
 
 const FITNESS_LEVEL_VALUES = ['beginner', 'intermediate', 'advanced', 'expert'];
@@ -68,6 +69,7 @@ function buildInitialForm(user) {
     bio: user?.bio || '',
     fitness_level: user?.fitness_level || 'beginner',
     main_goal: user?.main_goal || '',
+    profile_theme_id: user?.profile_theme_id || 'default',
   };
 }
 
@@ -90,7 +92,7 @@ export function ProfileEditDialog({
   avatarUploading = false,
   suppressCloseAutoFocus = false,
 }) {
-  const { t } = useTranslation(['profile', 'common', 'badges']);
+  const { t } = useTranslation(['profile', 'common', 'badges', 'challenges']);
   const isMobile = useIsMobile();
   const [form, setForm] = useState(() => buildInitialForm(user));
   const [baseline, setBaseline] = useState(() => buildInitialForm(user));
@@ -143,6 +145,9 @@ export function ProfileEditDialog({
     }
     if ((form.main_goal || '') !== (baseline.main_goal || '')) {
       payload.main_goal = form.main_goal;
+    }
+    if ((form.profile_theme_id || 'default') !== (baseline.profile_theme_id || 'default')) {
+      payload.profile_theme_id = form.profile_theme_id || 'default';
     }
     if (!idsEqual(selectedBadgeIds, baselineBadgeIds)) {
       payload.featured_badge_ids = selectedBadgeIds;
@@ -375,6 +380,12 @@ export function ProfileEditDialog({
           </Select>
         </div>
       </div>
+
+      <ProfileThemeSelector
+        value={form.profile_theme_id || 'default'}
+        unlockedBadgeIds={unlockedSoloBadges.map((b) => b.id)}
+        onChange={(id) => setForm((f) => ({ ...f, profile_theme_id: id }))}
+      />
 
       {unlockedSoloBadges.length > 0 ? (
         <div className="space-y-2">

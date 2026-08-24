@@ -56,6 +56,7 @@
     "removePhoto": "Quitar la foto",
     "photoFormats": "JPG, PNG o WebP",
     "featuredBadges": "Insignias destacadas",
+    "profileTheme": "Tema del perfil",
     "featuredCount_one": "{{count}} insignia seleccionada de 3",
     "featuredCount_other": "{{count}} insignias seleccionadas de 3",
     "selected": "Seleccionado",

@@ -56,6 +56,7 @@
     "removePhoto": "Retirer la photo",
     "photoFormats": "JPG, PNG ou WebP",
     "featuredBadges": "Badges mis en avant",
+    "profileTheme": "Thème du profil",
     "featuredCount_one": "{{count}} badge sélectionné sur 3",
     "featuredCount_other": "{{count}} badges sélectionnés sur 3",
     "selected": "Sélectionné",
