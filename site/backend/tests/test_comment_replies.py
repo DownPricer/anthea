@@ -48,6 +48,32 @@ def test_serialize_comments_threaded():
     assert threaded[0]["replies"][0]["parent_comment_id"] == ROOT_COMMENT_ID
 
 
+def test_count_root_comments_excludes_replies():
+    from server import _count_root_comments, _preview_root_comments
+
+    comments = [
+        {
+            "id": ROOT_COMMENT_ID,
+            "user_id": AUTHOR_ID,
+            "username": "author",
+            "text": "Root",
+            "likes": [],
+        },
+        {
+            "id": REPLY_COMMENT_ID,
+            "user_id": REPLIER_ID,
+            "username": "marie",
+            "text": "Reply",
+            "parent_comment_id": ROOT_COMMENT_ID,
+            "likes": [],
+        },
+    ]
+    assert _count_root_comments(comments) == 1
+    preview = _preview_root_comments(comments, AUTHOR_ID, limit=2)
+    assert len(preview) == 1
+    assert len(preview[0]["replies"]) == 1
+
+
 def test_add_post_comment_reply_notifies_parent():
     from server import add_post_comment, PostCommentCreate
 

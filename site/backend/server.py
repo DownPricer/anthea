@@ -2158,6 +2158,10 @@ def _serialize_post_comment(comment: dict, viewer_id: Optional[str] = None) -> d
     }
 
 
+def _count_root_comments(comments: list) -> int:
+    return sum(1 for c in (comments or []) if not c.get("parent_comment_id"))
+
+
 def _serialize_comments_threaded(comments: list, viewer_id: Optional[str] = None) -> list:
     roots = []
     replies_by_parent: dict = {}
@@ -2171,6 +2175,11 @@ def _serialize_comments_threaded(comments: list, viewer_id: Optional[str] = None
     for root in roots:
         root["replies"] = replies_by_parent.get(root["id"], [])
     return roots
+
+
+def _preview_root_comments(comments: list, viewer_id: Optional[str] = None, limit: int = 2) -> list:
+    threaded = _serialize_comments_threaded(comments, viewer_id)
+    return threaded[:limit]
 
 
 async def serialize_post(
@@ -2206,6 +2215,8 @@ async def serialize_post(
     likes = post.get("likes") or []
     comments = post.get("comments") or []
     serialized_comments = _serialize_comments_threaded(comments, viewer_id)
+    preview_roots = _preview_root_comments(comments, viewer_id, limit=2)
+    root_comments_count = _count_root_comments(comments)
     flat_comments = [_serialize_post_comment(c, viewer_id) for c in comments]
 
     actor_type = post.get("actor_type") or ("duo" if is_duo else "user")
@@ -2241,7 +2252,7 @@ async def serialize_post(
         "source_post_id": post.get("source_post_id"),
         "visibility": post.get("visibility", "public"),
         "likes_count": len(likes),
-        "comments_count": len(comments),
+        "comments_count": root_comments_count,
         "is_liked": viewer_id in likes,
         "viewer_has_reposted": False,
         "viewer_repost_id": None,
@@ -2249,10 +2260,9 @@ async def serialize_post(
         "can_repost": False,
         "repost_block_reason": "not_allowed",
         "can_delete": await can_delete_post(viewer_id, post, duo_doc),
-        "preview_comment": flat_comments[-1] if flat_comments else None,
-        "comments": serialized_comments if include_all_comments else (
-            [flat_comments[-1]] if flat_comments else []
-        ),
+        "preview_comments": preview_roots,
+        "preview_comment": preview_roots[-1] if preview_roots else None,
+        "comments": serialized_comments if include_all_comments else preview_roots,
         "created_at": post.get("created_at"),
         "session_snapshot": post.get("session_snapshot"),
         "can_view_session_details": False,
@@ -2413,6 +2423,11 @@ async def serialize_public_post(
                 comments.append(safe_c)
 
     preview = _public_safe_comment(full.get("preview_comment"))
+    preview_comments = []
+    for c in full.get("preview_comments") or full.get("comments") or []:
+        safe_c = _public_safe_comment(c)
+        if safe_c:
+            preview_comments.append(safe_c)
 
     session_snapshot = None
     if full.get("can_view_session_details") and full.get("session_snapshot"):
@@ -2460,6 +2475,7 @@ async def serialize_public_post(
         "session_snapshot": session_snapshot,
         "can_view_session_details": bool(full.get("can_view_session_details")),
         "preview_comment": preview,
+        "preview_comments": preview_comments,
         "comments": comments if include_comments else [],
         "feed_source": full.get("feed_source"),
         "trending_rank": full.get("trending_rank"),
@@ -4193,7 +4209,11 @@ async def get_user_profile_stats(handle: str, user: dict = Depends(get_current_u
         calculated = await calculate_streak(target_id, target.get("partner_id"))
         manual = await _get_manual_streak_override(target_id, target.get("partner_id")) if target.get("partner_id") else None
         streak = manual if manual is not None else calculated
-        badges = await get_duo_badges(target_id, None, streak_value=streak) if can_badges else []
+        badges = []
+        if can_badges:
+            service = BadgeProgressService(db)
+            solo = await service.get_solo_catalog_with_progress(target_id, streak_value=streak)
+            badges = list(solo.get("badges") or [])
         solo_unlocked = [b for b in badges if b.get("unlocked") and b.get("scope") != "duo"]
         result["duo_stats"] = {
             "streak": streak,
@@ -4934,7 +4954,19 @@ async def get_duo_activity_feed(limit: int = 20, user: dict = Depends(get_curren
         if sid in wall_by_session:
             item["duo_wall_post_id"] = wall_by_session[sid]
 
-    return items[:min(limit, 50)]
+    partner_doc = await get_user_doc_by_id(user["partner_id"])
+    visible_items = []
+    for item in items:
+        if item.get("type") == "session" and item.get("user_id") == user["partner_id"]:
+            if partner_doc and await can_view_session_in_post(
+                user["id"], partner_doc, {"user_id": user["partner_id"]}
+            ):
+                visible_items.append(item)
+            continue
+        visible_items.append(item)
+    items = visible_items
+
+    return items[:min(limit, 100)]
 
 async def _get_live_session_for_user(user_id: str) -> Optional[dict]:
     progress = await db.workout_progress.find_one(
@@ -6779,10 +6811,11 @@ async def add_post_comment(
     updated = await db.posts.find_one({"_id": ObjectId(post_id)})
     all_comments = updated.get("comments") or []
     threaded = _serialize_comments_threaded(all_comments, user["id"])
-    flat = [_serialize_post_comment(c, user["id"]) for c in all_comments]
+    preview_roots = _preview_root_comments(all_comments, user["id"], limit=2)
     return {
-        "comments_count": len(all_comments),
-        "preview_comment": flat[-1] if flat else None,
+        "comments_count": _count_root_comments(all_comments),
+        "preview_comments": preview_roots,
+        "preview_comment": preview_roots[-1] if preview_roots else None,
         "comments": threaded,
     }
 
@@ -6799,9 +6832,9 @@ async def get_post_comments(post_id: str, user: dict = Depends(get_current_user)
     if not await can_view_post_doc(user["id"], post):
         raise HTTPException(status_code=403, detail="Publication non accessible")
 
-    comments = _serialize_comments_threaded(post.get("comments") or [], user["id"])
-    flat_count = len(post.get("comments") or [])
-    return {"comments": comments, "comments_count": flat_count}
+    raw_comments = post.get("comments") or []
+    comments = _serialize_comments_threaded(raw_comments, user["id"])
+    return {"comments": comments, "comments_count": _count_root_comments(raw_comments)}
 
 
 @api_router.post("/posts/{post_id}/comments/{comment_id}/like")
