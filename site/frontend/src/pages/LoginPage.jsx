@@ -110,7 +110,10 @@ export function LoginPage() {
               data-testid="login-email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                if (unverifiedEmail) setUnverifiedEmail('');
+              }}
               placeholder="toi@email.com"
               className="h-14 rounded-xl bg-surface-elevated border-border text-foreground placeholder:text-subtle focus:border-[var(--theme-primary)] focus:ring-1 focus:ring-[var(--theme-primary)]"
               autoComplete="email"
