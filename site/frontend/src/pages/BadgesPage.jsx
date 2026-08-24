@@ -23,18 +23,22 @@ export function BadgesPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
+    const pairKey =
+      scope === 'duo' && user?.id && user?.partner_id
+        ? [user.id, user.partner_id].sort().join('_')
+        : null;
+    const cacheContext = { scope, userId: user?.id, pairKey };
     const loader = () =>
       scope === 'duo'
         ? badgesApi.getCatalog('duo').then(({ data }) => data)
         : badgesApi.getMyBadges().then(({ data }) => data);
-    fetchBadgesCached(scope, loader)
+    fetchBadgesCached(cacheContext, loader)
       .then((data) => {
         if (cancelled) return;
         setBadges(data?.badges || []);
         setSummary(data?.summary || null);
-        if (scope === 'duo' && user?.partner_id) {
-          const pk = [user.id, user.partner_id].sort().join('_');
-          setPairKey(pk);
+        if (scope === 'duo' && pairKey) {
+          setPairKey(pairKey);
         }
       })
       .catch(() => {

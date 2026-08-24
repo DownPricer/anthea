@@ -74,6 +74,42 @@ def test_count_root_comments_excludes_replies():
     assert len(preview[0]["replies"]) == 1
 
 
+def test_count_root_comments_multiple_roots_and_replies():
+    from server import _count_root_comments
+
+    comments = [
+        {"id": "r1", "user_id": AUTHOR_ID, "text": "One", "likes": []},
+        {"id": "r1-a", "user_id": REPLIER_ID, "text": "R1", "parent_comment_id": "r1", "likes": []},
+        {"id": "r1-b", "user_id": REPLIER_ID, "text": "R2", "parent_comment_id": "r1", "likes": []},
+        {"id": "r1-c", "user_id": REPLIER_ID, "text": "R3", "parent_comment_id": "r1", "likes": []},
+        {"id": "r2", "user_id": AUTHOR_ID, "text": "Two", "likes": []},
+        {"id": "r2-a", "user_id": REPLIER_ID, "text": "R2 reply", "parent_comment_id": "r2", "likes": []},
+    ]
+    assert _count_root_comments(comments) == 2
+
+
+def test_count_root_comments_unchanged_when_reply_removed():
+    from server import _count_root_comments
+
+    comments = [
+        {"id": "r1", "user_id": AUTHOR_ID, "text": "One", "likes": []},
+        {"id": "r1-a", "user_id": REPLIER_ID, "text": "R1", "parent_comment_id": "r1", "likes": []},
+    ]
+    assert _count_root_comments(comments) == 1
+    without_reply = [comments[0]]
+    assert _count_root_comments(without_reply) == 1
+
+
+def test_count_root_comments_deleted_root_still_counts():
+    from server import _count_root_comments
+
+    comments = [
+        {"id": "r1", "user_id": AUTHOR_ID, "text": "", "deleted": True, "likes": []},
+        {"id": "r1-a", "user_id": REPLIER_ID, "text": "R1", "parent_comment_id": "r1", "likes": []},
+    ]
+    assert _count_root_comments(comments) == 1
+
+
 def test_add_post_comment_reply_notifies_parent():
     from server import add_post_comment, PostCommentCreate
 

@@ -230,10 +230,13 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
           setDuoStats(statsData.value);
           setBadges(statsData.value?.badges || []);
           if (statsData.value?.badges?.length) {
-            setBadgesCache('solo', {
-              badges: statsData.value.badges,
-              summary: statsData.value.badges_summary || null,
-            });
+            setBadgesCache(
+              { scope: 'solo', userId: user?.id },
+              {
+                badges: statsData.value.badges,
+                summary: statsData.value.badges_summary || null,
+              },
+            );
           }
         }
         if (detailedData.status === 'fulfilled') {

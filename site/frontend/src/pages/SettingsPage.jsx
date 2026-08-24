@@ -261,7 +261,17 @@ export function SettingsPage() {
   }, [openSection]);
 
   useEffect(() => {
-    fetchBadgesCached('solo', () => badgesApi.getMyBadges().then(({ data }) => data))
+    if (!user?.id) {
+      setBadges([]);
+      setBadgeSummary(null);
+      setBadgesLoading(false);
+      return;
+    }
+    setBadgesLoading(true);
+    fetchBadgesCached(
+      { scope: 'solo', userId: user.id },
+      () => badgesApi.getMyBadges().then(({ data }) => data),
+    )
       .then((data) => {
         setBadges(data?.badges || []);
         setBadgeSummary(data?.summary || null);
@@ -271,7 +281,7 @@ export function SettingsPage() {
         setBadgeSummary(null);
       })
       .finally(() => setBadgesLoading(false));
-  }, []);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.partner_id) {

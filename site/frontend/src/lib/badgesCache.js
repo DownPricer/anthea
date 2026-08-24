@@ -1,5 +1,11 @@
 /**
  * Cache mémoire partagé pour les catalogues badges (solo / duo).
+ *
+ * Clés scoppées par utilisateur (+ pairKey pour duo) pour éviter toute fuite
+ * entre comptes sur la même session navigateur.
+ *
+ * Invalidation : logout (clear total) + fin de séance (invalidateBadgesForUser).
+ * TTL 2 min reste une filet de sécurité si une mutation badge échappe à ces points.
  */
 
 const store = new Map();
@@ -10,12 +16,25 @@ const STALE = {
   duo: 2 * 60 * 1000,
 };
 
-function keyOf(scope) {
-  return `badges::${scope || 'solo'}`;
+export function badgesCacheKey({ scope = 'solo', userId = null, pairKey = null } = {}) {
+  const uid = userId != null ? String(userId) : 'anon';
+  if (scope === 'duo') {
+    const pk = pairKey ? String(pairKey) : 'no-pair';
+    return `badges::duo::${pk}::${uid}`;
+  }
+  return `badges::solo::${uid}`;
 }
 
-export function getBadgesCache(scope) {
-  const key = keyOf(scope);
+function resolveContext(context) {
+  if (typeof context === 'string') {
+    return { scope: context === 'duo' ? 'duo' : 'solo', userId: null, pairKey: null };
+  }
+  return context || { scope: 'solo', userId: null, pairKey: null };
+}
+
+export function getBadgesCache(context) {
+  const ctx = resolveContext(context);
+  const key = badgesCacheKey(ctx);
   const entry = store.get(key);
   if (!entry) return null;
   if (Date.now() > entry.expiresAt) {
@@ -25,26 +44,45 @@ export function getBadgesCache(scope) {
   return entry.data;
 }
 
-export function setBadgesCache(scope, data, staleMs = STALE[scope] || STALE.solo) {
-  const key = keyOf(scope);
-  store.set(key, { data, expiresAt: Date.now() + staleMs, cachedAt: Date.now() });
+export function setBadgesCache(context, data, staleMs) {
+  const ctx = resolveContext(context);
+  const key = badgesCacheKey(ctx);
+  const ttl = staleMs ?? STALE[ctx.scope] ?? STALE.solo;
+  store.set(key, { data, expiresAt: Date.now() + ttl, cachedAt: Date.now() });
   return data;
 }
 
-export function invalidateBadgesCache(scope) {
-  if (!scope) {
+export function invalidateBadgesCache(context) {
+  if (context == null) {
     store.clear();
     inflight.clear();
     return;
   }
-  const key = keyOf(scope);
+  const key = badgesCacheKey(resolveContext(context));
   store.delete(key);
   inflight.delete(key);
 }
 
-export async function fetchBadgesCached(scope, fetcher, staleMs) {
-  const key = keyOf(scope);
-  const cached = getBadgesCache(scope);
+export function invalidateBadgesForUser(userId) {
+  if (userId == null) return;
+  const uid = String(userId);
+  for (const key of [...store.keys(), ...inflight.keys()]) {
+    if (key.endsWith(`::${uid}`)) {
+      store.delete(key);
+      inflight.delete(key);
+    }
+  }
+}
+
+export function invalidateAllBadgesCache() {
+  store.clear();
+  inflight.clear();
+}
+
+export async function fetchBadgesCached(context, fetcher, staleMs) {
+  const ctx = resolveContext(context);
+  const key = badgesCacheKey(ctx);
+  const cached = getBadgesCache(ctx);
   if (cached != null) return cached;
 
   if (inflight.has(key)) {
@@ -54,7 +92,7 @@ export async function fetchBadgesCached(scope, fetcher, staleMs) {
   const promise = (async () => {
     try {
       const data = await fetcher();
-      setBadgesCache(scope, data, staleMs ?? STALE[scope] ?? STALE.solo);
+      setBadgesCache(ctx, data, staleMs);
       return data;
     } finally {
       inflight.delete(key);

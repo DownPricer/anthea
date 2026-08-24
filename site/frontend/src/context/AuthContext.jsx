@@ -5,6 +5,7 @@ import { setAppLocale } from '../i18n';
 import { writeStoredTimeFormat } from '../i18n/storage';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
 import { preloadHomeWeek } from '../lib/homeCache';
+import { invalidateAllBadgesCache } from '../lib/badgesCache';
 
 const AuthContext = createContext(null);
 
@@ -96,6 +97,7 @@ export function AuthProvider({ children }) {
     checkAuth();
 
     const handleInvalidSession = () => {
+      invalidateAllBadgesCache();
       commitUser(false);
       setAuthStatus('anonymous');
       setAuthUnavailable(false);
@@ -223,6 +225,7 @@ export function AuthProvider({ children }) {
     try {
       await authApi.logout();
     } finally {
+      invalidateAllBadgesCache();
       commitUser(false);
       setAuthStatus('anonymous');
       setAuthUnavailable(false);
