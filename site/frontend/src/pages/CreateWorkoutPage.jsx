@@ -1192,7 +1192,7 @@ export function CreateWorkoutPage() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <Label className="text-muted text-sm">{t('workouts:create.forWho')}</Label>
               <Select value={forUserId || user?.id} onValueChange={setForUserId}>
@@ -1227,7 +1227,9 @@ export function CreateWorkoutPage() {
           </div>
 
           <div>
-            <Label className="text-muted text-sm">{t('workouts:create.timeOptional')}</Label>
+            <Label htmlFor="workout-time" className="text-muted text-sm">
+              {t('workouts:create.timeOptional')}
+            </Label>
             <div className="relative mt-2 w-full sm:w-44">
               <Clock
                 size={18}
@@ -1235,6 +1237,7 @@ export function CreateWorkoutPage() {
                 aria-hidden="true"
               />
               <Input
+                id="workout-time"
                 type="time"
                 data-testid="workout-time"
                 value={scheduledTime}
