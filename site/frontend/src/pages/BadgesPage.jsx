@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Loader2, Trophy } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { badgesApi } from '../lib/api';
+import { fetchBadgesCached } from '../lib/badgesCache';
 import { BadgesCatalogView } from '../components/badges/BadgesCatalog';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useTranslation } from 'react-i18next';
@@ -22,12 +23,12 @@ export function BadgesPage() {
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    const loader =
+    const loader = () =>
       scope === 'duo'
-        ? badgesApi.getCatalog('duo')
-        : badgesApi.getMyBadges();
-    loader
-      .then(({ data }) => {
+        ? badgesApi.getCatalog('duo').then(({ data }) => data)
+        : badgesApi.getMyBadges().then(({ data }) => data);
+    fetchBadgesCached(scope, loader)
+      .then((data) => {
         if (cancelled) return;
         setBadges(data?.badges || []);
         setSummary(data?.summary || null);

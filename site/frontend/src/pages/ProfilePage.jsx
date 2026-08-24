@@ -16,7 +16,6 @@ import { Button } from '../components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs';
 import {
   Settings,
-  LogOut,
   Loader2,
   LayoutGrid,
   Repeat2,
@@ -38,6 +37,7 @@ import {
   DUO_STALE,
   invalidateDuoDomain,
 } from '../lib/duoCache';
+import { setBadgesCache } from '../lib/badgesCache';
 
 /**
  * Profil social V2 — affiche le profil connecté par défaut.
@@ -45,7 +45,7 @@ import {
  */
 export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
   const { t } = useTranslation(['profile', 'common']);
-  const { user, updateProfile, logout, patchUser, refreshUser } = useAuth();
+  const { user, updateProfile, patchUser, refreshUser } = useAuth();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
 
@@ -229,6 +229,12 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
         if (statsData.status === 'fulfilled' && statsData.value) {
           setDuoStats(statsData.value);
           setBadges(statsData.value?.badges || []);
+          if (statsData.value?.badges?.length) {
+            setBadgesCache('solo', {
+              badges: statsData.value.badges,
+              summary: statsData.value.badges_summary || null,
+            });
+          }
         }
         if (detailedData.status === 'fulfilled') {
           setDetailedStats(detailedData.value || null);
@@ -348,11 +354,6 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
     } finally {
       setFollowLoading(false);
     }
-  };
-
-  const handleLogout = async () => {
-    await logout();
-    navigate('/', { replace: true });
   };
 
   if (!profileUser) {
@@ -501,17 +502,6 @@ export function ProfilePage({ viewedUser = null, onProfileUpdate = null }) {
             />
           </TabsContent>
         </Tabs>
-
-        {isOwn ? (
-          <Button
-            onClick={handleLogout}
-            variant="outline"
-            data-testid="logout-btn"
-            className="w-full h-12 rounded-xl bg-red-500/10 border-red-500/30 text-red-400 hover:bg-red-500/20"
-          >
-            <LogOut size={18} className="mr-2" /> {t('common:actions.logout')}
-          </Button>
-        ) : null}
       </div>
 
       {isOwn ? (

@@ -3,6 +3,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { badgesApi, partnerApi, uploadsApi } from '../lib/api';
+import { fetchBadgesCached } from '../lib/badgesCache';
 import { useTranslation } from 'react-i18next';
 import { setAppLocale } from '../i18n';
 import i18n from '../i18n';
@@ -260,11 +261,10 @@ export function SettingsPage() {
   }, [openSection]);
 
   useEffect(() => {
-    badgesApi
-      .getMyBadges()
-      .then((res) => {
-        setBadges(res.data?.badges || []);
-        setBadgeSummary(res.data?.summary || null);
+    fetchBadgesCached('solo', () => badgesApi.getMyBadges().then(({ data }) => data))
+      .then((data) => {
+        setBadges(data?.badges || []);
+        setBadgeSummary(data?.summary || null);
       })
       .catch(() => {
         setBadges([]);
