@@ -236,6 +236,7 @@ class FakeDB:
         self.duo_profiles = FakeCollection()
         self.posts = FakeCollection()
         self.notifications = FakeCollection()
+        self.hero_challenge_attempts = FakeCollection()
 
 
 def _run(coro):
@@ -258,7 +259,7 @@ def service(db):
 def test_new_account_zero_badges(service, db):
     catalog = _run(service.get_solo_catalog_with_progress("user_new"))
     assert catalog["summary"]["unlocked"] == 0
-    assert catalog["summary"]["total"] == 50
+    assert catalog["summary"]["total"] == 57
     assert all(not b["unlocked"] for b in catalog["badges"])
 
 
