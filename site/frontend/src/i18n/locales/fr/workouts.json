@@ -120,10 +120,15 @@
     },
     "templates": {
       "saved": "Modèles enregistrés",
-      "show": "Voir",
-      "hide": "Masquer",
-      "loadPlaceholder": "Charger un modèle…",
-      "empty": "Aucun modèle pour l’instant. Remplis ta séance puis sauvegarde-la comme modèle."
+      "openAria": "Ouvrir les modèles enregistrés",
+      "openTooltip": "Modèles enregistrés",
+      "modalHint": "Choisissez un modèle à charger dans votre séance en cours.",
+      "empty": "Aucun modèle pour l’instant. Remplis ta séance puis sauvegarde-la comme modèle.",
+      "exerciseCount_one": "{{count}} exercice",
+      "exerciseCount_other": "{{count}} exercices",
+      "namePromptTitle": "Nom du modèle",
+      "namePromptDesc": "Donne un nom à ce modèle pour le retrouver plus tard.",
+      "namePlaceholder": "Ex. Push jour A"
     },
     "scheduling": {
       "title": "Planification",
@@ -218,6 +223,7 @@
       "deletePermanently": "Supprimer définitivement"
     },
     "loadTemplate": "Charger",
+    "useTemplate": "Utiliser",
     "deleteTemplateTitle": "Supprimer ce modèle",
     "templateDialog": {
       "deleteTitle": "Supprimer ce modèle ?",

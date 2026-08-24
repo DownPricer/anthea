@@ -78,6 +78,7 @@ import {
   Image as ImageIcon,
   Upload,
   Pencil,
+  Library,
 } from 'lucide-react';
 import { format, addDays, addWeeks, startOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { toast } from 'sonner';
@@ -181,9 +182,12 @@ export function CreateWorkoutPage() {
   
   const [exercises, setExercises] = useState([]);
   const [templates, setTemplates] = useState([]);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const [templatesModalOpen, setTemplatesModalOpen] = useState(false);
   const [templatePendingDelete, setTemplatePendingDelete] = useState(null);
   const [deletingTemplate, setDeletingTemplate] = useState(false);
+  const [savingTemplate, setSavingTemplate] = useState(false);
+  const [templateNamePromptOpen, setTemplateNamePromptOpen] = useState(false);
+  const [templateNameInput, setTemplateNameInput] = useState('');
   const [exerciseLibraryLoading, setExerciseLibraryLoading] = useState(false);
   const [exerciseLibraryLoaded, setExerciseLibraryLoaded] = useState(false);
   const [exercisePage, setExercisePage] = useState(1);
@@ -684,6 +688,7 @@ export function CreateWorkoutPage() {
       }
 
       toast.success(t('workouts:create.toast.templateLoaded'));
+      setTemplatesModalOpen(false);
     } catch (error) {
       toast.error(t('workouts:create.toast.templateLoadError'));
     }
@@ -894,15 +899,18 @@ export function CreateWorkoutPage() {
     }
   };
 
-  const handleSaveAsTemplate = async () => {
-    if (!title.trim()) {
+  const saveTemplateWithTitle = async (templateTitle) => {
+    const name = (templateTitle || '').trim();
+    if (!name) {
       toast.error(t('workouts:create.validation.sessionTitleRequired'));
       return;
     }
+    if (savingTemplate) return;
 
+    setSavingTemplate(true);
     try {
-      await templatesApi.create({
-        title: title.trim(),
+      const { data } = await templatesApi.create({
+        title: name,
         description: description.trim(),
         difficulty,
         blocks: blocks.filter((b) => b.exercises.length > 0).map((b) => ({
@@ -910,10 +918,29 @@ export function CreateWorkoutPage() {
           exercises: b.exercises,
         })),
       });
+      setTemplates((prev) => [data, ...prev.filter((item) => item.id !== data.id)]);
       toast.success(t('workouts:create.toast.templateSaved'));
+      setTemplateNamePromptOpen(false);
+      setTemplateNameInput('');
     } catch (error) {
       toast.error(t('workouts:create.toast.templateSaveError'));
+    } finally {
+      setSavingTemplate(false);
     }
+  };
+
+  const handleSaveAsTemplate = async () => {
+    const exerciseCount = blocks.reduce((n, b) => n + b.exercises.length, 0);
+    if (exerciseCount === 0) {
+      toast.error(t('workouts:create.validation.exerciseRequired'));
+      return;
+    }
+    if (title.trim()) {
+      await saveTemplateWithTitle(title.trim());
+      return;
+    }
+    setTemplateNameInput('');
+    setTemplateNamePromptOpen(true);
   };
 
   const filteredExercises = exercises;
@@ -1045,99 +1072,8 @@ export function CreateWorkoutPage() {
             </div>
           </div>
         ) : null}
-        <div className="grid gap-6 lg:grid-cols-12">
-          <div className="space-y-6 order-1 lg:order-2 lg:col-span-4 lg:sticky lg:top-24 h-fit">
-            {/* Modèles — liste + actions claires */}
-            <div className="rounded-xl border border-border bg-surface-elevated p-4">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <Label className="block text-sm font-medium text-muted">{t('workouts:create.templates.saved')}</Label>
-            {templates.length > 0 && (
-              <button
-                type="button"
-                onClick={() => setTemplatesOpen((v) => !v)}
-                className="text-xs font-medium text-[var(--theme-primary)] hover:opacity-90 flex items-center gap-1"
-              >
-                {templatesOpen ? t('workouts:create.templates.hide') : t('workouts:create.templates.show')} ({templates.length})
-                {templatesOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-              </button>
-            )}
-          </div>
-          {templates.length > 0 && (
-            <Select
-              onValueChange={(id) => {
-                const t = templates.find((x) => x.id === id);
-                if (t) loadFromTemplate(t);
-              }}
-            >
-              <SelectTrigger className="mb-3 h-12 w-full rounded-xl bg-background border-border text-foreground">
-                <SelectValue placeholder={t('workouts:create.templates.loadPlaceholder')} />
-              </SelectTrigger>
-              <SelectContent className="bg-surface-elevated border-border max-h-64">
-                {templates.map((t) => (
-                  <SelectItem key={t.id} value={t.id} className="text-foreground">
-                    {t.title}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          {templates.length === 0 ? (
-            <p className="text-sm text-subtle">
-              {t('workouts:create.templates.empty')}
-            </p>
-          ) : templatesOpen ? (
-            <ul className="space-y-2 max-h-72 overflow-y-auto pr-1">
-              {templates.map((template) => (
-                <li
-                  key={template.id}
-                  className="flex items-center gap-2 rounded-xl border border-border bg-background p-3"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <p className="truncate font-medium text-foreground">{template.title}</p>
-                      {template.is_system && (
-                        <span className="shrink-0 rounded-full bg-[var(--theme-primary)]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--theme-primary)]">
-                          Anthea
-                        </span>
-                      )}
-                    </div>
-                    {template.difficulty && (
-                      <p className="text-xs capitalize text-subtle">
-                        {t(`workouts:create.difficulties.${template.difficulty}`, {
-                          defaultValue: template.difficulty,
-                        })}
-                      </p>
-                    )}
-                  </div>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    onClick={() => loadFromTemplate(template)}
-                    className="shrink-0 border-border bg-hover text-foreground hover:bg-active"
-                  >
-                    {t('workouts:create.loadTemplate')}
-                  </Button>
-                  {!template.is_system && (
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      title={t('workouts:create.deleteTemplateTitle')}
-                      className="h-9 w-9 shrink-0 text-subtle hover:bg-red-500/15 hover:text-red-400"
-                      onClick={() => setTemplatePendingDelete(template)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  )}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-            </div>
-          </div>
-
-          <div className="space-y-6 order-2 lg:order-1 lg:col-span-8">
+        <div className="space-y-6">
+          <div className="space-y-6">
             {/* Basic Info */}
             <div className="space-y-4">
           <div>
@@ -2139,22 +2075,36 @@ export function CreateWorkoutPage() {
 
             {/* Actions */}
             <div className="space-y-3 pt-4">
-          <Button
-            onClick={() => handleSave(false)}
-            disabled={saving || previewDates.length === 0}
-            data-testid="save-workout-btn"
-            className="w-full h-14 rounded-2xl font-bold text-foreground btn-primary"
-          >
-            {saving ? (
-              <Loader2 className="w-5 h-5 animate-spin" />
-            ) : (
-              <>
-                {previewDates.length > 1
-                  ? t('workouts:create.scheduleMany', { count: previewDates.length })
-                  : t('workouts:create.scheduleOne')}
-              </>
-            )}
-          </Button>
+          <div className="flex gap-3">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTemplatesModalOpen(true)}
+              disabled={saving}
+              data-testid="open-templates-btn"
+              aria-label={t('workouts:create.templates.openAria')}
+              title={t('workouts:create.templates.openTooltip')}
+              className="h-14 w-14 shrink-0 rounded-2xl border-border bg-hover text-foreground hover:bg-active"
+            >
+              <Library size={22} aria-hidden="true" />
+            </Button>
+            <Button
+              onClick={() => handleSave(false)}
+              disabled={saving || previewDates.length === 0}
+              data-testid="save-workout-btn"
+              className="flex-1 h-14 rounded-2xl font-bold text-foreground btn-primary"
+            >
+              {saving ? (
+                <Loader2 className="w-5 h-5 animate-spin" />
+              ) : (
+                <>
+                  {previewDates.length > 1
+                    ? t('workouts:create.scheduleMany', { count: previewDates.length })
+                    : t('workouts:create.scheduleOne')}
+                </>
+              )}
+            </Button>
+          </div>
 
           <div className="flex gap-3">
             <Button
@@ -2169,18 +2119,157 @@ export function CreateWorkoutPage() {
             <Button
               variant="outline"
               onClick={handleSaveAsTemplate}
-              disabled={saving}
+              disabled={saving || savingTemplate}
               className="flex-1 h-12 rounded-2xl bg-hover border-border text-foreground"
             >
-              <Copy size={18} className="mr-2" />
-              <span className="sm:hidden">{t('workouts:create.saveAsTemplateShort')}</span>
-              <span className="hidden sm:inline">{t('workouts:create.saveAsTemplateLong')}</span>
+              {savingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Copy size={18} className="mr-2" />
+                  <span className="sm:hidden">{t('workouts:create.saveAsTemplateShort')}</span>
+                  <span className="hidden sm:inline">{t('workouts:create.saveAsTemplateLong')}</span>
+                </>
+              )}
             </Button>
           </div>
         </div>
           </div>
         </div>
       </div>
+
+      <Dialog open={templatesModalOpen} onOpenChange={setTemplatesModalOpen}>
+        <DialogContent className="max-h-[85vh] overflow-hidden border-border bg-surface-elevated text-foreground sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{t('workouts:create.templates.saved')}</DialogTitle>
+            <DialogDescription className="text-muted">
+              {t('workouts:create.templates.modalHint')}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="max-h-[50vh] overflow-y-auto pr-1 space-y-2">
+            {templates.length === 0 ? (
+              <p className="text-sm text-subtle py-4 text-center">
+                {t('workouts:create.templates.empty')}
+              </p>
+            ) : (
+              templates.map((template) => {
+                const exerciseCount = template.blocks
+                  ? template.blocks.reduce((n, b) => n + (b.exercises?.length || 0), 0)
+                  : null;
+                return (
+                  <div
+                    key={template.id}
+                    className="flex items-center gap-2 rounded-xl border border-border bg-background p-3"
+                    data-testid={`template-item-${template.id}`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="truncate font-medium text-foreground">{template.title}</p>
+                        {template.is_system ? (
+                          <span className="shrink-0 rounded-full bg-[var(--theme-primary)]/20 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-[var(--theme-primary)]">
+                            Anthea
+                          </span>
+                        ) : null}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap gap-x-2 text-xs text-subtle">
+                        {template.difficulty ? (
+                          <span>
+                            {t(`workouts:create.difficulties.${template.difficulty}`, {
+                              defaultValue: template.difficulty,
+                            })}
+                          </span>
+                        ) : null}
+                        {exerciseCount != null ? (
+                          <span>{t('workouts:create.templates.exerciseCount', { count: exerciseCount })}</span>
+                        ) : null}
+                        {template.updated_at ? (
+                          <span>{formatShortDate(parseISO(template.updated_at))}</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => loadFromTemplate(template)}
+                      className="shrink-0 border-border bg-hover text-foreground hover:bg-active"
+                    >
+                      {t('workouts:create.useTemplate')}
+                    </Button>
+                    {!template.is_system ? (
+                      <Button
+                        type="button"
+                        size="icon"
+                        variant="ghost"
+                        title={t('workouts:create.deleteTemplateTitle')}
+                        aria-label={t('workouts:create.deleteTemplateTitle')}
+                        className="h-9 w-9 shrink-0 text-subtle hover:bg-red-500/15 hover:text-red-400"
+                        onClick={() => setTemplatePendingDelete(template)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    ) : null}
+                  </div>
+                );
+              })
+            )}
+          </div>
+          <div className="pt-2 border-t border-border">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSaveAsTemplate}
+              disabled={savingTemplate}
+              className="w-full h-11 rounded-xl border-border bg-hover text-foreground"
+            >
+              {savingTemplate ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <>
+                  <Copy size={16} className="mr-2" />
+                  {t('workouts:create.saveAsTemplateLong')}
+                </>
+              )}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={templateNamePromptOpen} onOpenChange={setTemplateNamePromptOpen}>
+        <DialogContent className="border-border bg-surface-elevated text-foreground sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t('workouts:create.templates.namePromptTitle')}</DialogTitle>
+            <DialogDescription className="text-muted">
+              {t('workouts:create.templates.namePromptDesc')}
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            value={templateNameInput}
+            onChange={(e) => setTemplateNameInput(e.target.value)}
+            placeholder={t('workouts:create.templates.namePlaceholder')}
+            className="h-12 rounded-xl bg-background border-border text-foreground"
+            autoFocus
+          />
+          <div className="flex gap-2 justify-end">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setTemplateNamePromptOpen(false)}
+              className="border-border bg-hover text-foreground"
+            >
+              {t('common:actions.cancel')}
+            </Button>
+            <Button
+              type="button"
+              onClick={() => saveTemplateWithTitle(templateNameInput)}
+              disabled={savingTemplate || !templateNameInput.trim()}
+              className="btn-primary text-foreground"
+            >
+              {savingTemplate ? <Loader2 className="h-4 w-4 animate-spin" /> : t('common:actions.save')}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={deleteDraftDialogOpen} onOpenChange={setDeleteDraftDialogOpen}>
         <AlertDialogContent className="border-border bg-surface-elevated text-foreground sm:rounded-xl">

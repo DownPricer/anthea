@@ -120,10 +120,15 @@
     },
     "templates": {
       "saved": "Plantillas guardadas",
-      "show": "Ver",
-      "hide": "Ocultar",
-      "loadPlaceholder": "Cargar una plantilla…",
-      "empty": "Aún no hay plantillas. Rellena tu sesión y guárdala como plantilla."
+      "openAria": "Abrir plantillas guardadas",
+      "openTooltip": "Plantillas guardadas",
+      "modalHint": "Elige una plantilla para cargarla en tu sesión actual.",
+      "empty": "Aún no hay plantillas. Rellena tu sesión y guárdala como plantilla.",
+      "exerciseCount_one": "{{count}} ejercicio",
+      "exerciseCount_other": "{{count}} ejercicios",
+      "namePromptTitle": "Nombre de la plantilla",
+      "namePromptDesc": "Pon un nombre a esta plantilla para encontrarla después.",
+      "namePlaceholder": "Ej. Push día A"
     },
     "scheduling": {
       "title": "Planificación",
@@ -218,6 +223,7 @@
       "deletePermanently": "Eliminar definitivamente"
     },
     "loadTemplate": "Cargar",
+    "useTemplate": "Usar",
     "deleteTemplateTitle": "Eliminar este modelo",
     "templateDialog": {
       "deleteTitle": "¿Eliminar esta plantilla?",

@@ -120,10 +120,15 @@
     },
     "templates": {
       "saved": "Saved templates",
-      "show": "Show",
-      "hide": "Hide",
-      "loadPlaceholder": "Load a template…",
-      "empty": "No templates yet. Fill in your workout, then save it as a template."
+      "openAria": "Open saved templates",
+      "openTooltip": "Saved templates",
+      "modalHint": "Choose a template to load into your current workout.",
+      "empty": "No templates yet. Fill in your workout, then save it as a template.",
+      "exerciseCount_one": "{{count}} exercise",
+      "exerciseCount_other": "{{count}} exercises",
+      "namePromptTitle": "Template name",
+      "namePromptDesc": "Give this template a name so you can find it later.",
+      "namePlaceholder": "e.g. Push day A"
     },
     "scheduling": {
       "title": "Scheduling",
@@ -218,6 +223,7 @@
       "deletePermanently": "Delete permanently"
     },
     "loadTemplate": "Load",
+    "useTemplate": "Use",
     "deleteTemplateTitle": "Delete this template",
     "templateDialog": {
       "deleteTitle": "Delete this template?",
