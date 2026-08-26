@@ -87,6 +87,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../components/ui/tabs'
 import { HeroChallengeCard } from '../components/hero/HeroChallengeCard';
 import { HeroThemePattern } from '../components/hero/HeroThemePattern';
 import { fetchHeroCatalog } from '../lib/heroChallenges';
+import { buildReferenceDraftBlocks } from '../lib/heroExerciseFormat';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
 
 const BLOCK_TYPE_VALUES = ['warmup', 'main', 'cooldown'];
@@ -707,43 +708,46 @@ export function CreateWorkoutPage() {
   };
 
   const applyHeroChallenge = (challenge) => {
-    if (!challenge?.playable) {
-      setHeroDetail(challenge);
-      return;
-    }
+    const lang = (i18n.language || 'fr').split('-')[0];
     setHeroChallengeId(challenge.id);
     setTitle(challenge.title);
     setDescription(challenge.description || '');
-    const blocks = [
-      {
-        block_type: 'main',
-        expanded: true,
-        exercises: [...(challenge.exercises || []), ...(challenge.coda_exercises || [])].map((ex, order) => ({
-          exercise_id: ex.exercise_id,
-          name: ex.name_i18n?.[(i18n.language || 'fr').split('-')[0]] || ex.name_i18n?.fr,
-          description: ex.intensity_hint || ex.notes || null,
-          exercise_type: ex.exercise_type || 'reps',
-          duration: ex.duration,
-          reps: ex.reps,
-          rest_after: ex.rest_after || 30,
-          order,
-          tts_enabled: true,
-          image_url: ex.image_url || ex.media_snapshot || null,
-          exercise_name_snapshot: ex.name_i18n?.fr,
-          exercise_name_i18n_snapshot: ex.name_i18n,
-          sets: ex.sets,
-          reps_scheme: ex.reps_scheme,
-          intensity_hint: ex.intensity_hint,
-          load: ex.load ?? null,
-          per_side: ex.per_side,
-          distance_yards: ex.distance_yards,
-          distance_meters: ex.distance_meters,
-          hero_open_series: ex.hero_open_series,
-          unspecified: ex.unspecified,
-        })),
-      },
-    ];
-    setBlocks(blocks);
+
+    if (challenge?.playable) {
+      const blocks = [
+        {
+          block_type: 'main',
+          expanded: true,
+          exercises: [...(challenge.exercises || []), ...(challenge.coda_exercises || [])].map((ex, order) => ({
+            exercise_id: ex.exercise_id,
+            name: ex.name_i18n?.[lang] || ex.name_i18n?.fr,
+            description: ex.intensity_hint || ex.notes || null,
+            exercise_type: ex.exercise_type || 'reps',
+            duration: ex.duration,
+            reps: ex.reps,
+            rest_after: ex.rest_after || 30,
+            order,
+            tts_enabled: true,
+            image_url: ex.image_url || ex.media_snapshot || null,
+            exercise_name_snapshot: ex.name_i18n?.fr,
+            exercise_name_i18n_snapshot: ex.name_i18n,
+            sets: ex.sets,
+            reps_scheme: ex.reps_scheme,
+            intensity_hint: ex.intensity_hint,
+            load: ex.load ?? null,
+            per_side: ex.per_side,
+            distance_yards: ex.distance_yards,
+            distance_meters: ex.distance_meters,
+            hero_open_series: ex.hero_open_series,
+            unspecified: ex.unspecified,
+          })),
+        },
+      ];
+      setBlocks(blocks);
+    } else {
+      setBlocks(buildReferenceDraftBlocks(challenge, lang));
+    }
+
     setHeroDetail(null);
     setTemplatesModalOpen(false);
     toast.success(t('workouts:create.toast.templateLoaded'));
@@ -2347,7 +2351,7 @@ export function CreateWorkoutPage() {
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch">
                 {heroChallenges
                   .filter((c) => heroFilter === 'all' || c.universe === heroFilter)
                   .map((challenge) => (

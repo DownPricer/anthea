@@ -5573,6 +5573,9 @@ def _stamp_hero_challenge(workout_doc: dict, hero_challenge_id: Optional[str], u
         return workout_doc
     challenge = get_challenge_or_404(hid)
     if not is_playable(challenge):
+        if workout_doc.get("blocks"):
+            attach_hero_metadata(workout_doc, challenge)
+            return workout_doc
         raise HTTPException(
             status_code=400,
             detail="Programme de référence — détails incomplets pour générer une séance exacte.",
@@ -6387,6 +6390,7 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
     image_url = normalize_upload_path(data.image_url) if data.image_url else None
 
     session_snapshot = None
+    hero_result_snapshot = None
     badge_name = None
     badge_icon = None
     badge_rarity = None

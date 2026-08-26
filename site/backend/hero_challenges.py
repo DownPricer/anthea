@@ -195,6 +195,71 @@ def build_workout_blocks(challenge: dict, locale: str = "fr") -> List[dict]:
     return [{"block_type": "main", "exercises": exercises_out}]
 
 
+REF_MOVEMENT_I18N = {
+    "bench": {"fr": "Développé couché", "en": "Bench press", "es": "Press banca"},
+    "barbell lunges": {"fr": "Fentes barre", "en": "Barbell lunges", "es": "Zancadas con barra"},
+    "squats": {"fr": "Squats", "en": "Squats", "es": "Sentadillas"},
+    "leg press": {"fr": "Presse à cuisses", "en": "Leg press", "es": "Prensa de piernas"},
+    "presses": {"fr": "Presses", "en": "Presses", "es": "Presses"},
+    "pull-ups": {"fr": "Tractions", "en": "Pull-ups", "es": "Dominadas"},
+    "pulldowns": {"fr": "Tirages", "en": "Pulldowns", "es": "Jalones"},
+    "rows": {"fr": "Rowings", "en": "Rows", "es": "Remos"},
+    "hip thrust": {"fr": "Hip thrust", "en": "Hip thrust", "es": "Hip thrust"},
+    "deadlift": {"fr": "Deadlift", "en": "Deadlift", "es": "Peso muerto"},
+    "one-arm pull-up": {"fr": "Traction à un bras", "en": "One-arm pull-up", "es": "Dominada a un brazo"},
+}
+
+
+def _localize_movement(movement: str, locale: str = "fr") -> str:
+    key = str(movement or "").strip().lower()
+    labels = REF_MOVEMENT_I18N.get(key)
+    lang = (locale or "fr").split("-")[0]
+    if labels:
+        return labels.get(lang) or labels.get("fr") or movement
+    return movement
+
+
+def build_reference_draft_blocks(challenge: dict, locale: str = "fr") -> List[dict]:
+    """Brouillon prérempli depuis mouvements connus — jamais de charges inventées."""
+    ctype = challenge.get("challenge_type")
+    exercises_out: List[dict] = []
+    order = 0
+
+    def add_movement(movement: str) -> None:
+        nonlocal order
+        key = str(movement or "").strip().lower().replace(" ", "-")
+        name = _localize_movement(movement, locale)
+        exercises_out.append(
+            {
+                "exercise_id": f"hero:ref:{key}",
+                "name": name,
+                "description": None,
+                "exercise_type": "reps",
+                "duration": None,
+                "reps": None,
+                "rest_after": 30,
+                "order": order,
+                "tts_enabled": True,
+                "sets": None,
+                "load": None,
+                "unspecified": True,
+            }
+        )
+        order += 1
+
+    if ctype == "strength_reference":
+        for ref in challenge.get("strength_references") or []:
+            if ref.get("movement"):
+                add_movement(ref["movement"])
+    elif ctype == "program_reference":
+        for mov in (challenge.get("program") or {}).get("known_movements") or []:
+            add_movement(mov)
+
+    if not exercises_out:
+        return []
+    return [{"block_type": "main", "exercises": exercises_out}]
+
+
 def build_snapshot(challenge: dict) -> dict:
     """Snapshot minimal figé au moment de la planification."""
     reward = challenge.get("reward") or {}

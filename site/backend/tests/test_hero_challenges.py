@@ -291,12 +291,25 @@ def test_create_session_records_attempts_and_best_score():
     assert mock_db.hero_challenge_attempts.insert_one.await_count == 3
 
 
-def test_stamp_rejects_reference_program():
+def test_stamp_rejects_reference_program_without_blocks():
     from server import _stamp_hero_challenge
 
     with pytest.raises(HTTPException) as exc:
         _stamp_hero_challenge({}, "wolverine-hugh-jackman", {"locale": "fr"})
     assert exc.value.status_code == 400
+
+
+def test_stamp_accepts_reference_program_with_client_blocks():
+    from hero_challenges import build_reference_draft_blocks
+    from server import _stamp_hero_challenge
+
+    blocks = build_reference_draft_blocks(get_challenge("wolverine-hugh-jackman"), "fr")
+    assert len(blocks[0]["exercises"]) == 4
+    assert all(ex.get("load") is None for ex in blocks[0]["exercises"])
+    doc = {"blocks": blocks}
+    out = _stamp_hero_challenge(doc, "wolverine-hugh-jackman", {"locale": "fr"})
+    assert out["hero_challenge_id"] == "wolverine-hugh-jackman"
+    assert out["source_type"] == "hero_challenge"
 
 
 def test_simu_liu_media_aliases_and_durations():
