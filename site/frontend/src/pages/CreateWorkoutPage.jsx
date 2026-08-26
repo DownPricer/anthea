@@ -2377,11 +2377,58 @@ export function CreateWorkoutPage() {
                 </div>
               </div>
               <p className="text-sm text-muted">{heroDetail.description}</p>
+              {heroDetail.challenge_type === 'program_reference' && heroDetail.program ? (
+                <div className="mt-3 space-y-2 rounded-xl border border-border p-3">
+                  {heroDetail.program.daily_duration_hint ? (
+                    <p className="text-sm text-foreground">
+                      <span className="font-medium">{t('challenges:hero.programDailyDuration')}:</span>{' '}
+                      {heroDetail.program.daily_duration_hint}
+                    </p>
+                  ) : null}
+                  {heroDetail.program.session_duration_hint ? (
+                    <p className="text-sm text-foreground">
+                      <span className="font-medium">{t('challenges:hero.programSessionDuration')}:</span>{' '}
+                      {heroDetail.program.session_duration_hint}
+                    </p>
+                  ) : null}
+                  {heroDetail.program.sessions_per_week ? (
+                    <p className="text-sm text-foreground">
+                      <span className="font-medium">{t('challenges:hero.programSessionsPerWeek')}:</span>{' '}
+                      {heroDetail.program.sessions_per_week}
+                    </p>
+                  ) : null}
+                  {(heroDetail.program.split || []).length > 0 ? (
+                    <p className="text-sm text-foreground">
+                      <span className="font-medium">{t('challenges:hero.programSplit')}:</span>{' '}
+                      {(heroDetail.program.split || []).join(' / ')}
+                    </p>
+                  ) : null}
+                  {(heroDetail.program.phases || []).length > 0 ? (
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{t('challenges:hero.programPhases')}</p>
+                      <ul className="text-sm text-muted list-disc pl-5">
+                        {(heroDetail.program.phases || []).map((phase) => (
+                          <li key={phase}>{phase}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ) : null}
+                  {(heroDetail.program.known_movements || []).length > 0 ? (
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{t('challenges:hero.programMovements')}</p>
+                      <p className="text-sm text-muted">{(heroDetail.program.known_movements || []).join(', ')}</p>
+                    </div>
+                  ) : null}
+                  {(heroDetail.program.notes || []).map((note) => (
+                    <p key={note} className="text-xs text-muted">{note}</p>
+                  ))}
+                </div>
+              ) : null}
               {heroDetail.challenge_type === 'program_reference' ? (
                 <p className="text-sm text-foreground mt-2">{t('challenges:hero.incompleteProgram')}</p>
               ) : null}
               {heroDetail.challenge_type === 'strength_reference' ? (
-                <p className="text-sm text-foreground mt-2">{t('challenges:hero.strengthDisclaimer')}</p>
+                <p className="text-sm text-foreground mt-2">{t('challenges:hero.performanceReference')}</p>
               ) : null}
               {(heroDetail.strength_references || []).map((ref) => (
                 <p key={ref.movement} className="text-sm text-muted mt-1">
