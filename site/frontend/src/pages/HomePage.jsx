@@ -4,30 +4,18 @@ import { useAuth } from '../context/AuthContext';
 import { workoutsApi, partnerApi, streakApi, notificationsApi } from '../lib/api';
 import { Button } from '../components/ui/button';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from '../components/ui/dialog';
-import {
   Play,
   Calendar,
-  Flame,
   Trophy,
-  Heart,
   ChevronRight,
   Zap,
   Clock,
-  User,
   Loader2,
   Bell,
-  BedDouble,
-  XCircle,
-  Undo2,
   RotateCcw,
   Search,
 } from 'lucide-react';
-import { format, startOfWeek, addDays, isToday, parseISO } from 'date-fns';
+import { format, startOfWeek, addDays, isToday } from 'date-fns';
 import { useTheme } from '../context/ThemeContext';
 import { WeekAgendaStrip } from '../components/agenda/WeekAgendaStrip';
 import { HomeFeed } from '../components/social/HomeFeed';
@@ -37,17 +25,18 @@ import { usePartnerLiveSession } from '../hooks/usePartnerLiveSession';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
 import { getAccentForUser } from '../lib/userAccent';
 import { calendarDaysToMap } from '../lib/agendaDayMap';
-import { getHomeCache, setHomeCache, homeCacheKey, HOME_STALE, fetchHomeWeekCached, invalidateHomeWeekCache } from '../lib/homeCache';
+import { getHomeCache, setHomeCache, homeCacheKey, HOME_STALE, fetchHomeWeekCached } from '../lib/homeCache';
 import {
   getPrimaryWorkoutAction,
   shouldShowEmptyTodayCard,
   getCompletedTodayWorkouts,
   getWorkoutListSubtitle,
+  getDayRelation,
+  getWorkoutsForDate,
 } from '../lib/homeWorkoutState';
 import { UserAvatar } from '../components/UserAvatar';
 import { PageHeader } from '../components/layout/PageHeader';
 import { getPublicHandle } from '../lib/userProfile';
-import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 
 export function HomePage() {
@@ -58,15 +47,13 @@ export function HomePage() {
   const navigate = useNavigate();
   
   const [todayWorkouts, setTodayWorkouts] = useState([]);
+  const [weekWorkouts, setWeekWorkouts] = useState([]);
   const [calendarDayMap, setCalendarDayMap] = useState({});
   const [partner, setPartner] = useState(null);
   const [partnerRequests, setPartnerRequests] = useState([]);
-  const [streakDays, setStreakDays] = useState([]);
-  const [streakDaysLoading, setStreakDaysLoading] = useState(false);
   const [todayLoading, setTodayLoading] = useState(true);
   const [weekLoading, setWeekLoading] = useState(true);
-  const [showStreakModal, setShowStreakModal] = useState(false);
-  const [selectedDay, setSelectedDay] = useState(null);
+  const [viewDay, setViewDay] = useState(() => new Date());
   const [unreadNotifications, setUnreadNotifications] = useState(0);
 
   const { liveSession } = usePartnerLiveSession(!!partner);
@@ -74,7 +61,6 @@ export function HomePage() {
   const reqIdRef = useRef(0);
   const didInitRef = useRef(false);
   const weekRangeRef = useRef({ start: null, end: null });
-  const streakDaysRangeRef = useRef({ start: null, end: null, loaded: false });
 
   const scheduleNonBlocking = (fn) => {
     if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
@@ -113,8 +99,11 @@ export function HomePage() {
       setWeekLoading(true);
     }
 
-    setStreakDaysLoading(false);
-    streakDaysRangeRef.current = { start: null, end: null, loaded: false };
+    const weekWorkoutsKey = homeCacheKey('week-workouts', user?.id, wsStr, weStr);
+    const cachedWeekWorkouts = getHomeCache(weekWorkoutsKey);
+    if (cachedWeekWorkouts) {
+      setWeekWorkouts(cachedWeekWorkouts);
+    }
 
     // Priorité 1–2 : séances du jour + « Cette semaine » en parallèle (jamais enchaînés).
     const todayPromise = workoutsApi
@@ -149,7 +138,19 @@ export function HomePage() {
         setWeekLoading(false);
       });
 
-    Promise.allSettled([todayPromise, weekPromise]);
+    const weekWorkoutsPromise = workoutsApi
+      .getAll({ start_date: wsStr, end_date: weStr, light: true })
+      .then(({ data }) => {
+        if (!isActive()) return;
+        const rows = data || [];
+        setWeekWorkouts(rows);
+        setHomeCache(weekWorkoutsKey, rows, HOME_STALE.week);
+      })
+      .catch((error) => {
+        console.error('Failed to load week workouts:', error);
+      });
+
+    Promise.allSettled([todayPromise, weekPromise, weekWorkoutsPromise]);
 
     // Secondaire : Duo / partenaire / demandes — après le contenu prioritaire, sans bloquer.
     scheduleNonBlocking(async () => {
@@ -193,35 +194,15 @@ export function HomePage() {
     return () => window.removeEventListener('notifications:read', onRead);
   }, [refreshUnreadNotifications]);
 
-  const ensureStreakDaysLoaded = useCallback(async () => {
-    const { start, end } = weekRangeRef.current || {};
-    if (!start || !end) return;
-    if (
-      streakDaysRangeRef.current?.start === start &&
-      streakDaysRangeRef.current?.end === end &&
-      streakDaysRangeRef.current?.loaded
-    ) {
-      return;
-    }
-
-    setStreakDaysLoading(true);
-    try {
-      const streakRes = await streakApi.getDays(start, end);
-      setStreakDays(streakRes.data || []);
-      streakDaysRangeRef.current = { start, end, loaded: true };
-    } catch (error) {
-      console.error('Failed to load streak days:', error);
-    } finally {
-      setStreakDaysLoading(false);
-    }
-  }, []);
-
-
   /** Prochaine action utile : reprendre une séance en cours (toi), sinon première séance pending. */
-  const primaryWorkoutAction = getPrimaryWorkoutAction(todayWorkouts, user?.id);
-  const completedTodayWorkouts = getCompletedTodayWorkouts(todayWorkouts);
-  const showCompletedTodayCard = !primaryWorkoutAction && completedTodayWorkouts.length > 0;
-  const showEmptyTodayCard = shouldShowEmptyTodayCard(todayWorkouts);
+  const viewingToday = isToday(viewDay);
+  const viewDayRelation = getDayRelation(viewDay);
+  const viewDayWorkouts = getWorkoutsForDate(weekWorkouts, viewDay);
+  const viewDayState = calendarDayMap[format(viewDay, 'yyyy-MM-dd')] || {};
+  const primaryWorkoutAction = viewingToday ? getPrimaryWorkoutAction(todayWorkouts, user?.id) : null;
+  const completedTodayWorkouts = viewingToday ? getCompletedTodayWorkouts(todayWorkouts) : [];
+  const showCompletedTodayCard = viewingToday && !primaryWorkoutAction && completedTodayWorkouts.length > 0;
+  const showEmptyTodayCard = viewingToday && shouldShowEmptyTodayCard(todayWorkouts);
 
   const workoutHref = (w) => {
     if (
@@ -231,54 +212,6 @@ export function HomePage() {
       return `/player/${w.id}`;
     }
     return `/workouts/${w.id}`;
-  };
-
-  const getStreakDayType = (date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    const entry = streakDays.find((d) => d.date === dateStr);
-    return entry?.type || null;
-  };
-
-  const handleMarkRestDay = async (date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    try {
-      await streakApi.markRestDay(dateStr);
-      setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'rest' }]);
-      invalidateHomeWeekCache(user?.id);
-      loadData();
-      toast.success(t('home:restDayMarked'));
-      setShowStreakModal(false);
-    } catch {
-      toast.error(t('common:states.error'));
-    }
-  };
-
-  const handleMarkSkipDay = async (date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    try {
-      await streakApi.markSkipDay(dateStr);
-      setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'skip' }]);
-      invalidateHomeWeekCache(user?.id);
-      loadData();
-      toast.success(t('home:skipDayMarked'));
-      setShowStreakModal(false);
-    } catch {
-      toast.error(t('common:states.error'));
-    }
-  };
-
-  const handleRemoveStreakDay = async (date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    try {
-      await streakApi.removeDay(dateStr);
-      setStreakDays((prev) => prev.filter((d) => d.date !== dateStr));
-      invalidateHomeWeekCache(user?.id);
-      loadData();
-      toast.success(t('home:markerRemoved'));
-      setShowStreakModal(false);
-    } catch {
-      toast.error(t('common:states.error'));
-    }
   };
 
   // Week view
@@ -368,7 +301,40 @@ export function HomePage() {
       </div>
 
       <div className="mx-auto mt-6 w-full max-w-4xl space-y-6">
-          {/* Next Workout Card */}
+          {/* Week View */}
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-foreground font-['Outfit']">{t('home:thisWeek')}</h2>
+              <Link to="/workouts" className="text-[var(--theme-primary)] text-sm flex items-center">
+                {t('home:seeAll')} <ChevronRight size={16} />
+              </Link>
+            </div>
+
+            {weekLoading ? (
+              <div className="flex gap-1.5">
+                {Array.from({ length: 7 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 min-w-0 h-[74px] rounded-2xl bg-hover animate-pulse"
+                  />
+                ))}
+              </div>
+            ) : (
+              <WeekAgendaStrip
+                weekDays={weekDays}
+                dayMap={calendarDayMap}
+                myAccent={myAccent}
+                partnerAccent={partnerAccent}
+                isToday={isToday}
+                selectedDay={viewDay}
+                onDayClick={setViewDay}
+              />
+            )}
+          </div>
+
+          {viewingToday ? (
+            <>
+          {/* Next Workout Card — aujourd'hui uniquement */}
           {todayLoading ? (
             <div className="card p-5 relative overflow-hidden">
               <div className="space-y-3">
@@ -464,40 +430,6 @@ export function HomePage() {
             </div>
           ) : null}
 
-          {/* Week View */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-foreground font-['Outfit']">{t('home:thisWeek')}</h2>
-              <Link to="/workouts" className="text-[var(--theme-primary)] text-sm flex items-center">
-                {t('home:seeAll')} <ChevronRight size={16} />
-              </Link>
-            </div>
-
-            {weekLoading ? (
-              <div className="flex gap-1.5">
-                {Array.from({ length: 7 }).map((_, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 min-w-0 h-[74px] rounded-2xl bg-hover animate-pulse"
-                  />
-                ))}
-              </div>
-            ) : (
-              <WeekAgendaStrip
-                weekDays={weekDays}
-                dayMap={calendarDayMap}
-                myAccent={myAccent}
-                partnerAccent={partnerAccent}
-                isToday={isToday}
-                onDayClick={(day) => {
-                  ensureStreakDaysLoaded();
-                  setSelectedDay(day);
-                  setShowStreakModal(true);
-                }}
-              />
-            )}
-          </div>
-
           {/* Today's workouts list */}
           {todayWorkouts.length > 0 && (
             <div>
@@ -538,78 +470,66 @@ export function HomePage() {
               </div>
             </div>
           )}
+            </>
+          ) : (
+            <div className="card p-5 space-y-4" data-testid="home-day-readonly-panel">
+              <div>
+                <h2 className="text-lg font-semibold text-foreground font-['Outfit']">
+                  {formatWeekdayDate(viewDay)}
+                </h2>
+                <p className="text-subtle text-sm">
+                  {viewDayRelation === 'past'
+                    ? t('home:pastDayReadOnly')
+                    : t('home:futureDayAgenda')}
+                </p>
+              </div>
+              {viewDayState.rest ? (
+                <p className="rounded-xl bg-blue-500/15 px-3 py-2 text-sm text-blue-400">
+                  {t('home:restDayActive')}
+                </p>
+              ) : null}
+              {viewDayWorkouts.length === 0 ? (
+                <div className="text-center py-4">
+                  <Calendar className="mx-auto text-subtle mb-2" size={24} />
+                  <p className="text-muted">{t('home:nothingScheduled')}</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {viewDayWorkouts.map((workout) => (
+                    <Link
+                      key={workout.id}
+                      to={workoutHref(workout)}
+                      data-testid={`view-day-workout-${workout.id}`}
+                      className="card p-4 flex items-center gap-4 hover:-translate-y-0.5 transition-all"
+                    >
+                      <div
+                        className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                          workout.status === 'completed'
+                            ? 'bg-green-500/20 text-green-500'
+                            : workout.status === 'in_progress'
+                            ? 'bg-yellow-500/20 text-yellow-500'
+                            : 'bg-hover text-muted'
+                        }`}
+                      >
+                        {workout.status === 'completed' ? <Trophy size={20} /> : <Clock size={20} />}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-foreground font-medium truncate">{workout.title}</h4>
+                        <p className="text-subtle text-sm">
+                          {getWorkoutListSubtitle(workout, user?.id, t)}
+                          {workout.scheduled_time ? ` • ${workout.scheduled_time}` : ''}
+                        </p>
+                      </div>
+                      <ChevronRight className="text-subtle" size={18} />
+                    </Link>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           <HomeFeed />
       </div>
-
-      {/* Streak Day Modal */}
-      <Dialog open={showStreakModal} onOpenChange={setShowStreakModal}>
-        <DialogContent className="bg-surface-elevated border-border text-foreground max-w-sm mx-auto">
-          <DialogHeader>
-            <DialogTitle className="text-foreground text-center">
-              {selectedDay && formatWeekdayDate(selectedDay)}
-            </DialogTitle>
-            <p className="text-subtle text-sm text-center">{t('home:manageStreakDay')}</p>
-          </DialogHeader>
-          {streakDaysLoading && (
-            <div className="flex items-center justify-center py-2 text-subtle text-xs">
-              <Loader2 className="w-4 h-4 animate-spin mr-2" /> {t('common:states.loading')}
-            </div>
-          )}
-          {selectedDay && (() => {
-            const dayType = getStreakDayType(selectedDay);
-            const dayStr = format(selectedDay, 'yyyy-MM-dd');
-            return (
-              <div className="space-y-3 pt-2">
-                {dayType && (
-                  <div className={`p-3 rounded-xl text-center text-sm font-medium ${
-                    dayType === 'rest' ? 'bg-blue-500/15 text-blue-400' : 'bg-red-500/15 text-red-400'
-                  }`}>
-                    {dayType === 'rest' ? t('home:restDayActive') : t('home:skipDayActive')}
-                  </div>
-                )}
-
-                {dayType ? (
-                  <Button
-                    onClick={() => handleRemoveStreakDay(selectedDay)}
-                    data-testid="remove-streak-day-btn"
-                    className="w-full h-12 rounded-xl bg-active hover:bg-active text-foreground"
-                  >
-                    <Undo2 size={18} className="mr-2" />
-                    {t('home:removeMarker')}
-                  </Button>
-                ) : (
-                  <>
-                    <Button
-                      onClick={() => handleMarkRestDay(selectedDay)}
-                      data-testid="mark-rest-day-btn"
-                      className="w-full h-12 rounded-xl bg-blue-600 hover:bg-blue-700 text-foreground"
-                    >
-                      <BedDouble size={18} className="mr-2" />
-                      {t('home:restDay')}
-                    </Button>
-                    <p className="text-subtle text-xs text-center -mt-1">
-                      {t('home:restDayHint')}
-                    </p>
-
-                    <Button
-                      onClick={() => handleMarkSkipDay(selectedDay)}
-                      data-testid="mark-skip-day-btn"
-                      className="w-full h-12 rounded-xl bg-red-600/80 hover:bg-red-600 text-foreground"
-                    >
-                      <XCircle size={18} className="mr-2" />
-                      {t('home:skipDay')}
-                    </Button>
-                    <p className="text-subtle text-xs text-center -mt-1">
-                      {t('home:skipDayHint')}
-                    </p>
-                  </>
-                )}
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

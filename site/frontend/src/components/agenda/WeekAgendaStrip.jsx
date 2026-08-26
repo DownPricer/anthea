@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils';
 import { heatmapDayTitle } from '@/lib/heatmapDayStyle';
 import { useLocaleFormat } from '../../hooks/useLocaleFormat';
 
-export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onDayClick, isToday }) {
+export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onDayClick, isToday, selectedDay }) {
   const { formatWeekdayDate, dateFnsLocale } = useLocaleFormat();
 
   return (
@@ -16,6 +16,7 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
         const dateStr = format(day, 'yyyy-MM-dd');
         const state = dayMap[dateStr] || {};
         const current = isToday(day);
+        const selected = selectedDay ? format(selectedDay, 'yyyy-MM-dd') === dateStr : current;
         const {
           in_streak: inStreak,
           my_completed: myDone,
@@ -39,6 +40,7 @@ export function WeekAgendaStrip({ weekDays, dayMap, myAccent, partnerAccent, onD
             className={cn(
               'relative flex-1 min-w-0 py-2.5 px-1 rounded-2xl text-center transition-all border',
               current && 'ring-1 ring-[var(--theme-primary)] border-[var(--theme-primary)]/40',
+              selected && !current && 'ring-1 ring-white/30 border-white/20',
               bothDone && 'agenda-mod-both border-transparent',
               !bothDone && myDone && 'agenda-mod-mine border-transparent',
               !bothDone && partnerDone && !myDone && 'agenda-mod-partner border-transparent',

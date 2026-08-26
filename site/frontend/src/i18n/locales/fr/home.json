@@ -29,6 +29,11 @@
   "markerRemoved": "Marqueur supprimé",
   "restDayActive": "Jour de repos (streak maintenue)",
   "skipDayActive": "Jour skip (streak cassée)",
+  "dayAgendaTitle": "Agenda du jour",
+  "pastDayReadOnly": "Jour passé — lecture seule",
+  "futureDayAgenda": "Séances planifiées",
+  "nothingScheduled": "Rien de programmé",
+  "completedOnDay": "Séance terminée",
   "feed": {
     "title": "Fil d'actualité",
     "following": "Abonnements et amis",
