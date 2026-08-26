@@ -14,6 +14,7 @@
     "rare": "Rare",
     "epic": "Epic",
     "legendary": "Legendary",
+    "superhero": "Superhero",
     "unlocked": "Unlocked",
     "locked": "To unlock"
   },
@@ -21,6 +22,7 @@
     "common": "Common",
     "rare": "Rare",
     "epic": "Epic",
+    "superhero": "Superhero",
     "legendary": "Legendary"
   },
   "emptyFilter": "No badges in this filter.",

@@ -14,6 +14,7 @@
     "rare": "Rare",
     "epic": "Épique",
     "legendary": "Légendaire",
+    "superhero": "Super-héros",
     "unlocked": "Débloqués",
     "locked": "À obtenir"
   },
@@ -21,6 +22,7 @@
     "common": "Commun",
     "rare": "Rare",
     "epic": "Épique",
+    "superhero": "Super-héros",
     "legendary": "Légendaire"
   },
   "emptyFilter": "Aucun badge dans ce filtre.",

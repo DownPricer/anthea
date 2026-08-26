@@ -1215,6 +1215,7 @@
         "common": "commun",
         "rare": "rare",
         "epic": "épique",
+        "superhero": "super-héros",
         "legendary": "légendaire"
       }
     },
@@ -1227,6 +1228,7 @@
         "common": "common",
         "rare": "rare",
         "epic": "epic",
+        "superhero": "superhero",
         "legendary": "legendary"
       }
     },
@@ -1239,6 +1241,7 @@
         "common": "común",
         "rare": "rara",
         "epic": "épica",
+        "superhero": "superhéroe",
         "legendary": "legendaria"
       }
     }

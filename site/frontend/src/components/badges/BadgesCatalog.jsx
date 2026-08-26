@@ -3,7 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { BadgesGridShared } from './BadgeCard';
 import { useBadgeDetail } from './BadgeDetailSheet';
 
-const RARITY_FILTER_IDS = ['all', 'common', 'rare', 'epic', 'legendary'];
+const RARITY_FILTER_IDS = ['all', 'common', 'rare', 'epic', 'superhero', 'legendary'];
 const STATUS_FILTER_IDS = ['all', 'unlocked', 'locked'];
 
 function rarityKeyOf(badge) {
@@ -12,6 +12,9 @@ function rarityKeyOf(badge) {
     Commun: 'common',
     Rare: 'rare',
     Épique: 'epic',
+    'Super-héros': 'superhero',
+    Superhero: 'superhero',
+    Superhéroe: 'superhero',
     Légendaire: 'legendary',
     Diamant: 'legendary',
   };
@@ -26,7 +29,7 @@ function sortBadges(list) {
     const aProg = a.unlocked ? 100 : Number(a.progress || 0);
     const bProg = b.unlocked ? 100 : Number(b.progress || 0);
     if (aProg !== bProg) return bProg - aProg;
-    const rarityOrder = { legendary: 0, epic: 1, rare: 2, common: 3 };
+    const rarityOrder = { legendary: 0, superhero: 1, epic: 2, rare: 3, common: 4 };
     const ar = rarityOrder[rarityKeyOf(a)] ?? 4;
     const br = rarityOrder[rarityKeyOf(b)] ?? 4;
     if (ar !== br) return ar - br;

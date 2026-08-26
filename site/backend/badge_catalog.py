@@ -12,6 +12,7 @@ RARITY_POINTS = {
     "common": 10,
     "rare": 25,
     "epic": 60,
+    "superhero": 80,
     "legendary": 150,
 }
 
@@ -19,6 +20,7 @@ RARITY_LABELS = {
     "common": "Commun",
     "rare": "Rare",
     "epic": "Épique",
+    "superhero": "Super-héros",
     "legendary": "Légendaire",
 }
 
@@ -536,37 +538,37 @@ def _build_hero_catalog() -> List[dict]:
     cat = "hero_challenge"
     return [
         _b("hero_spiderman_challenge", scope=s, name="Spider Challenge",
-           description="Atteignez 27 tours en 20 minutes.", rarity="legendary",
+           description="Atteignez 27 tours en 20 minutes.", rarity="superhero",
            category=cat, condition_type="hero_challenge_benchmark", condition_value=1,
            params={"hero_challenge_id": "spider-man-tom-holland", "unlock": "benchmark"},
            icon_key="hero_web", sort_order=201),
         _b("hero_thor_challenge", scope=s, name="Storm Power",
-           description="Terminez tous les blocs prescrits du défi Storm Power.", rarity="epic",
+           description="Terminez tous les blocs prescrits du défi Storm Power.", rarity="superhero",
            category=cat, condition_type="hero_challenge_complete", condition_value=1,
            params={"hero_challenge_id": "thor-chris-hemsworth", "unlock": "complete"},
            icon_key="hero_storm", sort_order=202),
         _b("hero_shangchi_challenge", scope=s, name="Explosive Day",
-           description="Terminez tous les blocs prescrits du défi Explosive Day.", rarity="epic",
+           description="Terminez tous les blocs prescrits du défi Explosive Day.", rarity="superhero",
            category=cat, condition_type="hero_challenge_complete", condition_value=1,
            params={"hero_challenge_id": "shang-chi-simu-liu", "unlock": "complete"},
            icon_key="hero_rings", sort_order=203),
         _b("hero_deadpool_challenge", scope=s, name="Red Merc Challenge",
-           description="Terminez les 5 tours du défi Red Merc.", rarity="rare",
+           description="Terminez les 5 tours du défi Red Merc.", rarity="superhero",
            category=cat, condition_type="hero_challenge_complete", condition_value=1,
            params={"hero_challenge_id": "deadpool-ryan-reynolds", "unlock": "complete"},
            icon_key="hero_slash", sort_order=204),
         _b("hero_batman_challenge", scope=s, name="Dark Knight Session",
-           description="Terminez la séance Dark Knight.", rarity="epic",
+           description="Terminez la séance Dark Knight.", rarity="superhero",
            category=cat, condition_type="hero_challenge_complete", condition_value=1,
            params={"hero_challenge_id": "batman-ben-affleck", "unlock": "complete"},
            icon_key="hero_shadow", sort_order=205),
         _b("hero_wonderwoman_challenge", scope=s, name="Amazon Power Day",
-           description="Terminez les blocs documentés du défi Amazon Power.", rarity="epic",
+           description="Terminez les blocs documentés du défi Amazon Power.", rarity="superhero",
            category=cat, condition_type="hero_challenge_complete", condition_value=1,
            params={"hero_challenge_id": "wonder-woman-gal-gadot", "unlock": "complete"},
            icon_key="hero_star", sort_order=206),
         _b("hero_aquaman_challenge", scope=s, name="Ocean Power Circuit",
-           description="Terminez les 5 tours et les drop sets du défi Ocean Power.", rarity="epic",
+           description="Terminez les 5 tours et les drop sets du défi Ocean Power.", rarity="superhero",
            category=cat, condition_type="hero_challenge_complete", condition_value=1,
            params={"hero_challenge_id": "aquaman-jason-momoa", "unlock": "complete"},
            icon_key="hero_wave", sort_order=207),
@@ -612,13 +614,14 @@ def get_catalog(scope: Optional[str] = None, *, include_disabled: bool = True) -
 
 def rarity_summary(badges: List[dict], unlocked_ids: Optional[set] = None) -> dict:
     unlocked_ids = unlocked_ids or set()
-    rarities = ("common", "rare", "epic", "legendary")
+    rarities = ("common", "rare", "epic", "superhero", "legendary")
     summary = {
         "unlocked": 0,
         "total": 0,
         "common": {"unlocked": 0, "total": 0},
         "rare": {"unlocked": 0, "total": 0},
         "epic": {"unlocked": 0, "total": 0},
+        "superhero": {"unlocked": 0, "total": 0},
         "legendary": {"unlocked": 0, "total": 0},
     }
     for b in badges:

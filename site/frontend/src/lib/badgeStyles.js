@@ -27,6 +27,27 @@ export const BADGE_RARITY_STYLES = {
     text: 'text-amber-300',
     glow: 'shadow-[0_0_28px_rgba(245,158,11,0.25)]',
   },
+  'Super-héros': {
+    label: 'Super-héros',
+    border: 'border-emerald-500/50',
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-300',
+    glow: 'shadow-[0_0_24px_rgba(16,185,129,0.2)]',
+  },
+  Superhero: {
+    label: 'Superhero',
+    border: 'border-emerald-500/50',
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-300',
+    glow: 'shadow-[0_0_24px_rgba(16,185,129,0.2)]',
+  },
+  Superhéroe: {
+    label: 'Superhéroe',
+    border: 'border-emerald-500/50',
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-300',
+    glow: 'shadow-[0_0_24px_rgba(16,185,129,0.2)]',
+  },
   Diamant: {
     label: 'Légendaire',
     border: 'border-amber-500/50',
@@ -61,6 +82,13 @@ export const BADGE_RARITY_STYLES = {
     bg: 'bg-amber-500/10',
     text: 'text-amber-300',
     glow: 'shadow-[0_0_28px_rgba(245,158,11,0.25)]',
+  },
+  superhero: {
+    label: 'Super-héros',
+    border: 'border-emerald-500/50',
+    bg: 'bg-emerald-500/10',
+    text: 'text-emerald-300',
+    glow: 'shadow-[0_0_24px_rgba(16,185,129,0.2)]',
   },
 };
 

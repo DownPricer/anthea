@@ -312,6 +312,15 @@ def test_stamp_accepts_reference_program_with_client_blocks():
     assert out["source_type"] == "hero_challenge"
 
 
+def test_hero_badges_use_superhero_rarity():
+    from badge_catalog import HERO_BADGES, get_badge_definition
+
+    for badge in HERO_BADGES:
+        assert badge["rarity"] == "superhero"
+    assert get_badge_definition("hero_spiderman_challenge")["rarity"] == "superhero"
+    assert get_badge_definition("hero_thor_challenge")["rarity"] == "superhero"
+
+
 def test_simu_liu_media_aliases_and_durations():
     challenge = get_challenge("shang-chi-simu-liu")
     bike = challenge["exercises"][0]

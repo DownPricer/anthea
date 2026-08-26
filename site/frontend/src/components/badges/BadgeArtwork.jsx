@@ -22,6 +22,13 @@ const RARITY_PALETTE = {
     glow: 'rgba(168,85,247,0.4)',
     crystal: '#C084FC',
   },
+  superhero: {
+    key: 'superhero',
+    fill: '#10B981',
+    accent: '#6EE7B7',
+    glow: 'rgba(16,185,129,0.35)',
+    crystal: '#34D399',
+  },
   legendary: {
     key: 'legendary',
     fill: '#F59E0B',
@@ -35,11 +42,15 @@ const LABEL_TO_KEY = {
   Commun: 'common',
   Rare: 'rare',
   Épique: 'epic',
+  'Super-héros': 'superhero',
+  Superhero: 'superhero',
+  Superhéroe: 'superhero',
   Légendaire: 'legendary',
   Diamant: 'legendary',
   common: 'common',
   rare: 'rare',
   epic: 'epic',
+  superhero: 'superhero',
   legendary: 'legendary',
 };
 

@@ -10,7 +10,7 @@ describe('badge rarity styles', () => {
   });
 
   test('styles exist for all rarities', () => {
-    ['Commun', 'Rare', 'Épique', 'Légendaire', 'common', 'rare', 'epic', 'legendary'].forEach((r) => {
+    ['Commun', 'Rare', 'Épique', 'Super-héros', 'Légendaire', 'common', 'rare', 'epic', 'superhero', 'legendary'].forEach((r) => {
       const style = getBadgeRarityStyle(r);
       expect(style.label).toBeTruthy();
       expect(style.border).toBeTruthy();

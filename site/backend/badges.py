@@ -183,6 +183,7 @@ def _badge(
             "Commun": "common",
             "Rare": "rare",
             "Épique": "epic",
+            "Super-héros": "superhero",
             "Légendaire": "legendary",
             "Diamant": "legendary",
         }.get(resolved_rarity, "common"),
