@@ -96,7 +96,6 @@ export function WorkoutPlayerPage() {
   const [createdSession, setCreatedSession] = useState(null);
   const [shareDialogOpen, setShareDialogOpen] = useState(false);
   const [heroOutcome, setHeroOutcome] = useState(null);
-  const [heroPublishing, setHeroPublishing] = useState(false);
   const { supported: wakeLockSupported, active: wakeLockActive, error: wakeLockError, requestWakeLock, releaseWakeLock } = useWakeLock();
   const [showStopModal, setShowStopModal] = useState(false);
   const [savedProgress, setSavedProgress] = useState(null);
@@ -866,32 +865,21 @@ export function WorkoutPlayerPage() {
 
   if (heroOutcome) {
     return (
-      <HeroResultScreen
-        result={heroOutcome.result}
-        snapshot={heroOutcome.snapshot}
-        publishing={heroPublishing}
-        onClose={() => navigate('/workouts')}
-        onPublish={async () => {
-          if (!createdSession?.id) {
-            toast.error(t('player:toast.saveError'));
-            return;
-          }
-          setHeroPublishing(true);
-          try {
-            await postsApi.create({
-              type: 'hero_challenge',
-              workout_session_id: createdSession.id,
-              visibility: 'public',
-            });
-            toast.success(t('player:toast.sessionSaved'));
-            navigate('/');
-          } catch (error) {
-            toast.error(formatApiError(error) || t('player:toast.saveError'));
-          } finally {
-            setHeroPublishing(false);
-          }
-        }}
-      />
+      <>
+        <HeroResultScreen
+          result={heroOutcome.result}
+          snapshot={heroOutcome.snapshot}
+          onClose={() => navigate('/workouts')}
+          onPublish={() => setShareDialogOpen(true)}
+        />
+        <ShareWorkoutDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          session={createdSession}
+          onShared={() => navigate('/')}
+          onSkip={() => {}}
+        />
+      </>
     );
   }
 

@@ -87,6 +87,8 @@ describe('create workout UX + hero surfaces', () => {
     expect(amrapSrc).toContain('hero-launch-screen');
     expect(amrapSrc).toContain('hero-launch-button');
     expect(amrapSrc).toContain('resolveExerciseMediaUrl');
+    expect(playerSrc).toContain('ShareWorkoutDialog');
+    expect(playerSrc).not.toContain("type: 'hero_challenge'");
     expect(playerSrc).toContain('HeroThemePattern');
     expect(resultSrc).toContain('goalMissed');
     expect(resultSrc).toContain('publishSession');

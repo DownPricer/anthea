@@ -6460,6 +6460,10 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         session_snapshot = build_session_snapshot(session, workout)
         if not title and session_snapshot.get("workout_title"):
             title = session_snapshot["workout_title"]
+        hr = session.get("hero_result")
+        if isinstance(hr, dict) and hr.get("challenge_id"):
+            snap = snapshot_from_workout(workout) or {}
+            hero_result_snapshot = build_hero_post_snapshot(hr, snap, workout)
     elif post_type in ("duo", "duo_common_session", "duo_badge", "duo_challenge", "duo_free"):
         if post_type in ("duo", "duo_common_session") and workout_session_id and partner_session_id:
             if not title:
@@ -6576,7 +6580,6 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
             name = activity.get("exercise_name_snapshot") or activity.get("activity_kind") or "activité"
             title = f"Activité terminée : {name}"
 
-    hero_result_snapshot = None
     if post_type == "hero_challenge":
         if not workout_session_id:
             raise HTTPException(status_code=400, detail="Séance requise")

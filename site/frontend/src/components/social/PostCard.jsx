@@ -575,7 +575,7 @@ export function PostCard({
         </Suspense>
       )}
 
-      {post.type === 'hero_challenge' && (
+      {(post.type === 'hero_challenge' || post.hero_result) && (
         <HeroPostCard post={post} />
       )}
 
