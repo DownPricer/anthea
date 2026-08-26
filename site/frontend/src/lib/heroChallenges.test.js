@@ -89,7 +89,10 @@ describe('create workout UX + hero surfaces', () => {
     expect(amrapSrc).toContain('resolveExerciseMediaUrl');
     expect(playerSrc).toContain('HeroThemePattern');
     expect(resultSrc).toContain('goalMissed');
+    expect(resultSrc).toContain('publishSession');
     expect(resultSrc).toContain('newBadge');
     expect(postSrc).toContain('badgeUnlocked');
+    expect(postSrc).toContain('resolveHeroThemeId');
+    expect(postSrc).not.toMatch(/\|\|\s*20/);
   });
 });

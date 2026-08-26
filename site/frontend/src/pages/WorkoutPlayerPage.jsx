@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, sessionsApi, streakApi, partnerApi, postsApi, badgesApi } from '../lib/api';
+import { workoutsApi, sessionsApi, streakApi, partnerApi, postsApi, badgesApi, formatApiError } from '../lib/api';
 import { invalidateHomeWeekCache } from '../lib/homeCache';
 import { fetchBadgesCached, invalidateBadgesForUser } from '../lib/badgesCache';
+import { invalidateDuoDomain } from '../lib/duoCache';
 import { heroPlayerKind, heroSnapshot, isHeroWorkout } from '../lib/heroChallenges';
 import { heroExerciseImageUrl } from '../lib/heroExerciseMedia';
 import { HeroAmrapPlayer } from '../components/hero/HeroAmrapPlayer';
@@ -452,11 +453,25 @@ export function WorkoutPlayerPage() {
     const heroResult = session?.hero_result;
     if (!heroResult || !user?.id) return;
     invalidateBadgesForUser(user.id);
+    invalidateDuoDomain('stats', user.id);
+    if (user.partner_id) {
+      const pairKey = [user.id, user.partner_id].sort().join('_');
+      invalidateDuoDomain('badges', pairKey);
+      invalidateDuoDomain('stats', pairKey);
+    }
     if (heroResult.badge_id) {
+      const pairKey =
+        user.partner_id ? [user.id, user.partner_id].sort().join('_') : null;
       fetchBadgesCached(
         { scope: 'solo', userId: user.id },
         () => badgesApi.getCatalog().then((res) => res.data),
       ).catch(() => {});
+      if (pairKey) {
+        fetchBadgesCached(
+          { scope: 'duo', userId: user.id, pairKey },
+          () => badgesApi.getCatalog('duo').then((res) => res.data),
+        ).catch(() => {});
+      }
     }
     if (heroResult.profile_theme_id) {
       refreshUser?.().catch(() => {});
@@ -857,7 +872,10 @@ export function WorkoutPlayerPage() {
         publishing={heroPublishing}
         onClose={() => navigate('/workouts')}
         onPublish={async () => {
-          if (!createdSession?.id) return;
+          if (!createdSession?.id) {
+            toast.error(t('player:toast.saveError'));
+            return;
+          }
           setHeroPublishing(true);
           try {
             await postsApi.create({
@@ -868,7 +886,7 @@ export function WorkoutPlayerPage() {
             toast.success(t('player:toast.sessionSaved'));
             navigate('/');
           } catch (error) {
-            toast.error(t('player:toast.saveError'));
+            toast.error(formatApiError(error) || t('player:toast.saveError'));
           } finally {
             setHeroPublishing(false);
           }

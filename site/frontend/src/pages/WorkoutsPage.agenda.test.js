@@ -41,4 +41,11 @@ describe('WorkoutsPage selected day detail overflow', () => {
     );
     expect(source).not.toContain('overflow-x-hidden');
   });
+
+  it('places streak actions in agenda panel only', () => {
+    expect(source).toContain('agenda-streak-actions');
+    expect(source).toContain('agenda-mark-rest-day-btn');
+    expect(source).toContain('getDayRelation');
+    expect(source).not.toContain('loadStreakDaysForMonth');
+  });
 });

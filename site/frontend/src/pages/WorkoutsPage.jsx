@@ -38,7 +38,7 @@ import {
   XCircle,
   Undo2,
 } from 'lucide-react';
-import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths, isBefore, startOfDay } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../components/layout/PageHeader';
@@ -64,8 +64,6 @@ export function WorkoutsPage() {
   const [loading, setLoading] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedWorkouts, setSelectedWorkouts] = useState([]);
-  const [streakDays, setStreakDays] = useState([]);
-  const [streakDaysLoading, setStreakDaysLoading] = useState(false);
 
   const agendaMetaCacheRef = useRef(new Map());
   const calendarWorkoutsCacheRef = useRef(new Map());
@@ -93,36 +91,23 @@ export function WorkoutsPage() {
     if (activeTab === 'agenda') {
       loadCalendarWorkouts();
       loadAgendaMeta();
-      loadStreakDaysForMonth();
     }
-  }, [activeTab, currentMonth, selectedDate]);
-
-  const loadStreakDaysForMonth = async () => {
-    setStreakDaysLoading(true);
-    try {
-      const start = startOfMonth(currentMonth);
-      const end = endOfMonth(currentMonth);
-      const { data } = await streakApi.getDays(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'));
-      setStreakDays(data || []);
-    } catch {
-      setStreakDays([]);
-    } finally {
-      setStreakDaysLoading(false);
-    }
-  };
+  }, [activeTab, currentMonth]);
 
   const getStreakDayType = (date) => {
-    const dateStr = format(date, 'yyyy-MM-dd');
-    return streakDays.find((d) => d.date === dateStr)?.type || null;
+    const state = calendarDayMap[format(date, 'yyyy-MM-dd')] || {};
+    if (state.skip) return 'skip';
+    if (state.rest) return 'rest';
+    return null;
   };
 
   const handleMarkRestDay = async (date) => {
     const dateStr = format(date, 'yyyy-MM-dd');
     try {
       await streakApi.markRestDay(dateStr);
-      setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'rest' }]);
       invalidateHomeWeekCache(user?.id);
-      loadAgendaMeta();
+      agendaMetaCacheRef.current.clear();
+      await loadAgendaMeta();
       toast.success(t('home:restDayMarked', { ns: 'home' }));
     } catch {
       toast.error(t('workouts:deleteError'));
@@ -133,9 +118,9 @@ export function WorkoutsPage() {
     const dateStr = format(date, 'yyyy-MM-dd');
     try {
       await streakApi.markSkipDay(dateStr);
-      setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'skip' }]);
       invalidateHomeWeekCache(user?.id);
-      loadAgendaMeta();
+      agendaMetaCacheRef.current.clear();
+      await loadAgendaMeta();
       toast.success(t('home:skipDayMarked', { ns: 'home' }));
     } catch {
       toast.error(t('workouts:deleteError'));
@@ -146,9 +131,9 @@ export function WorkoutsPage() {
     const dateStr = format(date, 'yyyy-MM-dd');
     try {
       await streakApi.removeDay(dateStr);
-      setStreakDays((prev) => prev.filter((d) => d.date !== dateStr));
       invalidateHomeWeekCache(user?.id);
-      loadAgendaMeta();
+      agendaMetaCacheRef.current.clear();
+      await loadAgendaMeta();
       toast.success(t('home:markerRemoved', { ns: 'home' }));
     } catch {
       toast.error(t('workouts:deleteError'));
@@ -561,9 +546,7 @@ export function WorkoutsPage() {
                 {canManageStreakDay ? (
                   <div className="card p-4 space-y-3" data-testid="agenda-streak-actions">
                     <p className="text-sm font-medium text-foreground">{t('home:manageStreakDay', { ns: 'home' })}</p>
-                    {streakDaysLoading ? (
-                      <p className="text-subtle text-xs">{t('common:states.loading', { ns: 'common' })}</p>
-                    ) : selectedStreakType ? (
+                    {selectedStreakType ? (
                       <>
                         <p className={`rounded-xl px-3 py-2 text-center text-sm ${
                           selectedStreakType === 'rest' ? 'bg-blue-500/15 text-blue-400' : 'bg-red-500/15 text-red-400'
