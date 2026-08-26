@@ -12,6 +12,7 @@ from hero_challenges import (
     all_challenges,
     assert_profile_theme_allowed,
     attach_hero_metadata,
+    build_hero_post_snapshot,
     build_snapshot,
     build_workout_blocks,
     can_use_profile_theme,
@@ -21,6 +22,7 @@ from hero_challenges import (
     load_catalog,
     public_challenge,
 )
+from hero_exercise_media import resolve_hero_exercise_media
 
 
 def test_catalog_loads_and_validates():
@@ -295,3 +297,44 @@ def test_stamp_rejects_reference_program():
     with pytest.raises(HTTPException) as exc:
         _stamp_hero_challenge({}, "wolverine-hugh-jackman", {"locale": "fr"})
     assert exc.value.status_code == 400
+
+
+def test_simu_liu_media_aliases_and_durations():
+    challenge = get_challenge("shang-chi-simu-liu")
+    bike = challenge["exercises"][0]
+    assert bike["duration"] == 300
+    assert bike["image_url"].endswith("H1PESYI.gif")
+    trap = next(ex for ex in challenge["exercises"] if ex["exercise_id"] == "hero:trap-bar-deadlift-bands")
+    assert trap["sets"] == 5 and trap["reps"] == 5
+    assert resolve_hero_exercise_media("hero:lat-pulldown")["catalog_id"] == "exdb_ecpY0rH"
+    sled = resolve_hero_exercise_media("hero:sled-sprint")
+    assert sled.get("gif_url") is None
+    assert sled.get("fallback") == "cardio"
+    blocks = build_workout_blocks(challenge)
+    assert blocks[0]["exercises"][0]["duration"] == 300
+
+
+def test_evaluate_hero_result_includes_visual_theme():
+    snap = build_snapshot(get_challenge("shang-chi-simu-liu"))
+    ev = evaluate_hero_result(
+        snap,
+        {"duration_seconds": 1800, "blocks_complete": True},
+        session_status="completed",
+    )
+    assert ev["visual_theme"]["id"] == "shangchi"
+    assert ev["title"] == "Simu Liu Explosive Day"
+    assert ev["challenge_type"] == "structured"
+
+
+def test_build_hero_post_snapshot_preserves_theme_without_live_catalog():
+    snap = build_snapshot(get_challenge("shang-chi-simu-liu"))
+    session_result = evaluate_hero_result(
+        snap,
+        {"duration_seconds": 900, "blocks_complete": True},
+        session_status="completed",
+    )
+    post = build_hero_post_snapshot(session_result, snap, {"title": "Simu Liu Explosive Day"})
+    assert post["visual_theme"]["id"] == "shangchi"
+    assert post["duration_seconds"] == 900
+    assert post["challenge_id"] == "shang-chi-simu-liu"
+    assert post["title"] == "Simu Liu Explosive Day"

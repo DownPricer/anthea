@@ -1,9 +1,32 @@
+import { format, addDays, startOfDay } from 'date-fns';
 import {
   getPrimaryWorkoutAction,
   shouldShowEmptyTodayCard,
   getCompletedTodayWorkouts,
   getWorkoutListSubtitle,
+  getDayRelation,
+  getWorkoutsForDate,
 } from './homeWorkoutState';
+
+describe('homeWorkoutState day navigation', () => {
+  const today = startOfDay(new Date('2026-08-24'));
+
+  test('classifies past, today and future', () => {
+    expect(getDayRelation(today, today)).toBe('today');
+    expect(getDayRelation(addDays(today, -1), today)).toBe('past');
+    expect(getDayRelation(addDays(today, 1), today)).toBe('future');
+  });
+
+  test('filters workouts for a given date', () => {
+    const rows = [
+      { id: 'a', scheduled_date: '2026-08-22', is_draft: false },
+      { id: 'b', scheduled_date: '2026-08-24', is_draft: false },
+      { id: 'c', scheduled_date: '2026-08-24', is_draft: true },
+    ];
+    expect(getWorkoutsForDate(rows, today)).toHaveLength(1);
+    expect(getWorkoutsForDate(rows, today)[0].id).toBe('b');
+  });
+});
 
 describe('homeWorkoutState', () => {
   const userId = 'user-1';
