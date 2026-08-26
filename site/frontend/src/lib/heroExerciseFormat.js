@@ -1,4 +1,4 @@
-/** Formatage unifié des exercices et previews Hero. */
+/** Formatage unifié des exercices et previews Hero (cartes compactes). */
 
 const REF_MOVEMENT_I18N = {
   bench: { fr: 'Développé couché', en: 'Bench press', es: 'Press banca' },
@@ -12,31 +12,21 @@ const REF_MOVEMENT_I18N = {
   'hip thrust': { fr: 'Hip thrust', en: 'Hip thrust', es: 'Hip thrust' },
   deadlift: { fr: 'Deadlift', en: 'Deadlift', es: 'Peso muerto' },
   'one-arm pull-up': { fr: 'Traction à un bras', en: 'One-arm pull-up', es: 'Dominada a un brazo' },
-  'chest/triceps': { fr: 'Pecs/triceps', en: 'Chest/triceps', es: 'Pecho/tríceps' },
-  'back/biceps': { fr: 'Dos/biceps', en: 'Back/biceps', es: 'Espalda/bíceps' },
-  shoulders: { fr: 'Épaules', en: 'Shoulders', es: 'Hombros' },
-  arms: { fr: 'Bras', en: 'Arms', es: 'Brazos' },
-  'chest/back': { fr: 'Pecs/dos', en: 'Chest/back', es: 'Pecho/espalda' },
+  push: { fr: 'Push', en: 'Push', es: 'Push' },
+  pull: { fr: 'Pull', en: 'Pull', es: 'Pull' },
   legs: { fr: 'Jambes', en: 'Legs', es: 'Piernas' },
 };
 
-const PHASE_I18N = {
-  'heavy phase with long rest': {
-    fr: 'lourd · repos longs',
-    en: 'heavy · long rest',
-    es: 'pesado · descansos largos',
-  },
-  'lighter / slower phase': {
-    fr: 'plus léger · tempo lent',
-    en: 'lighter · slow tempo',
-    es: 'más ligero · tempo lento',
-  },
-  'explosive phase': {
-    fr: 'explosif',
-    en: 'explosive',
-    es: 'explosivo',
-  },
+const SPLIT_I18N = {
+  'chest/triceps': { fr: 'Pecs / triceps', en: 'Chest / triceps', es: 'Pecho / tríceps' },
+  'back/biceps': { fr: 'Dos / biceps', en: 'Back / biceps', es: 'Espalda / bíceps' },
+  shoulders: { fr: 'Épaules', en: 'Shoulders', es: 'Hombros' },
+  arms: { fr: 'Bras', en: 'Arms', es: 'Brazos' },
+  'chest/back': { fr: 'Pecs / dos', en: 'Chest / back', es: 'Pecho / espalda' },
+  legs: { fr: 'Jambes', en: 'Legs', es: 'Piernas' },
 };
+
+const CARD_PREVIEW_MAX = 4;
 
 function langKey(lang) {
   return (lang || 'fr').split('-')[0];
@@ -46,30 +36,32 @@ export function localizeMovement(movement, lang) {
   const key = String(movement || '').trim().toLowerCase();
   const labels = REF_MOVEMENT_I18N[key];
   if (labels) return labels[langKey(lang)] || labels.fr || movement;
-  return movement;
+  const titled = String(movement || '').trim();
+  if (!titled) return '';
+  return titled.charAt(0).toUpperCase() + titled.slice(1);
 }
 
-export function localizePhase(phase, lang) {
-  const key = String(phase || '').trim();
-  const labels = PHASE_I18N[key];
-  if (labels) return labels[langKey(lang)] || labels.fr || phase;
-  return phase;
+function localizeSplitDay(day, lang) {
+  const key = String(day || '').trim().toLowerCase();
+  const labels = SPLIT_I18N[key];
+  if (labels) return labels[langKey(lang)] || labels.fr || day;
+  return localizeMovement(day, lang);
 }
 
 export function formatDurationSeconds(seconds, lang = 'fr') {
   const sec = Number(seconds);
   if (!sec || sec <= 0) return null;
   const mins = Math.round(sec / 60);
-  if (mins < 1) return langKey(lang) === 'en' ? '<1 min' : langKey(lang) === 'es' ? '<1 min' : '<1 min';
-  if (langKey(lang) === 'en') return `${mins} min`;
-  if (langKey(lang) === 'es') return `${mins} min`;
+  if (mins < 1) {
+    return langKey(lang) === 'en' ? '<1 min' : langKey(lang) === 'es' ? '<1 min' : '<1 min';
+  }
   return `${mins} min`;
 }
 
 function formatPrescription(ex, lang) {
   const type = ex.exercise_type || 'reps';
   const duration = ex.duration ?? ex.duration_seconds;
-  if (type === 'duration' && duration) {
+  if (type === 'duration' && duration && ex.exercise_id !== 'hero:intervals-20-20') {
     return formatDurationSeconds(duration, lang);
   }
   const sets = ex.sets != null ? Number(ex.sets) : null;
@@ -96,12 +88,31 @@ function formatPrescription(ex, lang) {
   return scheme;
 }
 
-export function formatHeroExerciseLine(ex, lang = 'fr') {
+function compactExerciseName(ex, lang) {
+  if (ex.exercise_id === 'hero:intervals-20-20') {
+    if (langKey(lang) === 'en') return 'Bike intervals · 6×20 s / 20 s';
+    if (langKey(lang) === 'es') return 'Intervalos bici · 6×20 s / 20 s';
+    return 'Intervalles vélo · 6×20 s / 20 s';
+  }
+  if (ex.exercise_id === 'hero:unspecified-arm-shoulder-supersets') {
+    if (langKey(lang) === 'en') return '2 arm/shoulder supersets';
+    if (langKey(lang) === 'es') return '2 superseries brazos/hombros';
+    return '2 supersets bras/épaules';
+  }
   const names = ex.name_i18n || {};
-  const name = names[langKey(lang)] || names.fr || ex.name || ex.exercise_id || '';
+  return names[langKey(lang)] || names.fr || ex.name || ex.exercise_id || '';
+}
+
+export function formatHeroExerciseLine(ex, lang = 'fr') {
+  const name = compactExerciseName(ex, lang);
   const prescription = formatPrescription(ex, lang);
   if (prescription) return `${name} · ${prescription}`;
   return name;
+}
+
+function formatCodaLine(ex, lang) {
+  const names = ex.name_i18n || {};
+  return names[langKey(lang)] || names.fr || ex.name || ex.exercise_id || '';
 }
 
 export function heroSeriesCount(challenge) {
@@ -111,9 +122,13 @@ export function heroSeriesCount(challenge) {
   return Math.max(...sets.map(Number));
 }
 
-export function heroMetaChips(challenge, t) {
+/** Chips compacts pour cartes — max 3, données programme dans les chips quand pertinent. */
+export function heroCardMetaChips(challenge, t) {
   const chips = [];
   const type = challenge?.challenge_type;
+  const program = challenge?.program || {};
+  const id = challenge?.id;
+
   if (type) {
     chips.push(
       t(`challenges:hero.types.${type}`, {
@@ -121,95 +136,127 @@ export function heroMetaChips(challenge, t) {
       })
     );
   }
-  const durationMin = challenge?.duration_seconds
-    ? Math.round(challenge.duration_seconds / 60)
-    : null;
-  if (durationMin) {
-    chips.push(`${durationMin} min`);
+
+  if (id === 'wolverine-hugh-jackman') {
+    chips.push('≈ 1 h 30');
+  } else if (id === 'superman-david-corenswet') {
+    if (program.sessions_per_week) chips.push(`${program.sessions_per_week}× / semaine`);
+    if (program.session_duration_hint) {
+      chips.push(String(program.session_duration_hint).replace('~', '≈ '));
+    }
+  } else if (id === 'black-adam-dwayne-johnson' && program.days_per_week) {
+    chips.push(t('challenges:hero.daysPerWeekChip', { count: program.days_per_week }));
+  } else {
+    const durationMin = challenge?.duration_seconds
+      ? Math.round(challenge.duration_seconds / 60)
+      : null;
+    if (durationMin) chips.push(`${durationMin} min`);
+    if (type === 'rounds' && challenge?.rounds) {
+      chips.push(t('challenges:hero.roundsChip', { count: challenge.rounds }));
+    }
+    const series = heroSeriesCount(challenge);
+    if (type === 'structured' && series) {
+      chips.push(t('challenges:hero.seriesChip', { count: series }));
+    }
   }
-  if (type === 'rounds' && challenge?.rounds) {
-    chips.push(t('challenges:hero.roundsChip', { count: challenge.rounds }));
+
+  return chips.slice(0, 3);
+}
+
+/** Sous-titre carte — simplifié pour références. */
+export function heroCardSubtitle(challenge, t) {
+  if (challenge?.challenge_type === 'strength_reference') {
+    return t('challenges:hero.performanceRefSubtitle');
   }
-  const series = heroSeriesCount(challenge);
-  if (type === 'structured' && series) {
-    chips.push(t('challenges:hero.seriesChip', { count: series }));
+  return challenge?.subtitle || challenge?.character_name || '';
+}
+
+/** Preview exercices playable — max 4 lignes + overflow. */
+export function heroExercisePreviewLines(challenge, lang, t, maxVisible = CARD_PREVIEW_MAX) {
+  const items = [
+    ...(challenge?.exercises || []).map((ex) => ({ ex, isCoda: false })),
+    ...(challenge?.coda_exercises || []).map((ex) => ({ ex, isCoda: true })),
+  ];
+  const formatted = items.map(({ ex, isCoda }) => ({
+    text: isCoda ? formatCodaLine(ex, lang) : formatHeroExerciseLine(ex, lang),
+    isCoda,
+  }));
+  return {
+    lines: formatted.slice(0, maxVisible),
+    overflow: Math.max(0, formatted.length - maxVisible),
+    overflowLabel:
+      formatted.length > maxVisible
+        ? t('challenges:hero.moreExercises', { count: formatted.length - maxVisible })
+        : null,
+  };
+}
+
+/** Preview compacte pour programmes / repères de référence. */
+export function heroCardReferencePreview(challenge, t, lang = 'fr') {
+  const ctype = challenge?.challenge_type;
+  const program = challenge?.program || {};
+  const id = challenge?.id;
+
+  if (ctype === 'strength_reference') {
+    const lines = (challenge.strength_references || []).map((ref) => {
+      const mov = localizeMovement(ref.movement, lang);
+      return ref.value_kg != null ? `${mov} · ${ref.value_kg} kg` : mov;
+    });
+    return {
+      lines,
+      footnote: t('challenges:hero.referenceOnlyDisclaimer'),
+    };
   }
-  return chips;
+
+  if (ctype !== 'program_reference') {
+    return { lines: [], footnote: null };
+  }
+
+  if (id === 'wolverine-hugh-jackman') {
+    return {
+      lines: [
+        t('challenges:hero.hughPhasesCompact'),
+        ...(program.known_movements || []).map((m) => localizeMovement(m, lang)),
+      ],
+      footnote: t('challenges:hero.benchPublicRef', { kg: 143 }),
+    };
+  }
+
+  if (id === 'superman-david-corenswet') {
+    const splitLine = (program.split || [])
+      .map((s) => localizeSplitDay(s, lang))
+      .join(' · ');
+    return {
+      lines: [splitLine, ...(program.known_movements || []).map((m) => localizeMovement(m, lang))],
+      footnote: t('challenges:hero.progressiveOverloadShort'),
+    };
+  }
+
+  if (id === 'black-adam-dwayne-johnson') {
+    const days = (program.split || []).slice(0, 4).map((d) => localizeSplitDay(d, lang));
+    return {
+      lines: days,
+      footnote: t('challenges:hero.blackAdamFootnote'),
+    };
+  }
+
+  const fallback = [
+    ...(program.known_movements || []).slice(0, 4).map((m) => localizeMovement(m, lang)),
+  ];
+  return { lines: fallback, footnote: null };
+}
+
+// Alias conservé pour compatibilité tests existants — non utilisé par les cartes.
+export function heroMetaChips(challenge, t) {
+  return heroCardMetaChips(challenge, t);
 }
 
 export function heroProgramPreviewLines(challenge, t, lang = 'fr') {
-  const lines = [];
-  const ctype = challenge?.challenge_type;
-  const program = challenge?.program || {};
-
-  if (ctype === 'program_reference' && program) {
-    if (program.daily_duration_hint) {
-      lines.push({ kind: 'meta', text: program.daily_duration_hint });
-    }
-    if (program.session_duration_hint) {
-      lines.push({ kind: 'meta', text: program.session_duration_hint });
-    }
-    if (program.sessions_per_week) {
-      lines.push({
-        kind: 'meta',
-        text: `${program.sessions_per_week} ${t('challenges:hero.programSessionsPerWeek').toLowerCase()}`,
-      });
-    }
-    if ((program.split || []).length) {
-      lines.push({
-        kind: 'heading',
-        text: t('challenges:hero.programSplit'),
-      });
-      (program.split || []).forEach((item) => {
-        lines.push({ kind: 'bullet', text: localizeMovement(item, lang) });
-      });
-    }
-    if ((program.phases || []).length) {
-      lines.push({ kind: 'heading', text: t('challenges:hero.programPhases') });
-      (program.phases || []).forEach((phase) => {
-        lines.push({ kind: 'bullet', text: localizePhase(phase, lang) });
-      });
-    }
-    if ((program.known_movements || []).length) {
-      lines.push({ kind: 'heading', text: t('challenges:hero.programMovements') });
-      (program.known_movements || []).forEach((mov) => {
-        lines.push({ kind: 'bullet', text: localizeMovement(mov, lang) });
-      });
-    }
-    if (program.days_per_week) {
-      lines.push({
-        kind: 'meta',
-        text: `${program.days_per_week} ${t('challenges:hero.daysPerWeek')}`,
-      });
-    }
-    (program.notes || []).slice(0, 2).forEach((note) => {
-      lines.push({ kind: 'note', text: note });
-    });
-  }
-
-  if (ctype === 'strength_reference') {
-    lines.push({ kind: 'heading', text: t('challenges:hero.strengthRefHeading') });
-    (challenge.strength_references || []).forEach((ref) => {
-      const mov = localizeMovement(ref.movement, lang);
-      const kg = ref.value_kg != null ? `${ref.value_kg} kg` : null;
-      lines.push({ kind: 'bullet', text: kg ? `${mov} · ${kg}` : mov });
-    });
-    lines.push({ kind: 'disclaimer', text: t('challenges:hero.performanceReference') });
-  }
-
-  const benchRef = (challenge.strength_references || []).find((r) => r.movement === 'bench' && r.value_kg);
-  if (ctype === 'program_reference' && benchRef?.value_kg) {
-    lines.push({
-      kind: 'note',
-      text: t('challenges:hero.benchReferenceNote', { kg: benchRef.value_kg }),
-    });
-  }
-
-  if (program.notes?.includes('progressive overload') || (program.notes || []).some((n) => /progressive/i.test(n))) {
-    lines.push({ kind: 'note', text: t('challenges:hero.progressiveOverload') });
-  }
-
-  return lines;
+  const ref = heroCardReferencePreview(challenge, t, lang);
+  return [
+    ...ref.lines.map((text) => ({ kind: 'line', text })),
+    ...(ref.footnote ? [{ kind: 'note', text: ref.footnote }] : []),
+  ];
 }
 
 export function buildReferenceDraftExercises(challenge, lang = 'fr') {

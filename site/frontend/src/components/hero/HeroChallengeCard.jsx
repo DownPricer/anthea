@@ -6,63 +6,57 @@ import { HeroThemePattern } from './HeroThemePattern';
 import { resolveHeroThemeId } from '../../lib/heroChallenges';
 import { HeroCategoryBadge } from './HeroCategoryBadge';
 import {
-  formatHeroExerciseLine,
-  heroMetaChips,
-  heroProgramPreviewLines,
+  heroCardMetaChips,
+  heroCardSubtitle,
+  heroExercisePreviewLines,
+  heroCardReferencePreview,
 } from '../../lib/heroExerciseFormat';
 
-export function HeroChallengeCard({ challenge, onSelect, compact = false }) {
+export function HeroChallengeCard({ challenge, onSelect }) {
   const { t, i18n } = useTranslation(['challenges', 'workouts']);
   const lang = (i18n.language || 'fr').split('-')[0];
   const themeId = resolveHeroThemeId(null, challenge);
   const playable = Boolean(challenge?.playable);
   const isReference = !playable;
-  const exercises = (challenge?.exercises || []).slice(0, compact ? 3 : 6);
   const badgeLocked = challenge?.reward?.badge_id && !challenge?.progress?.badge_unlocked;
-  const metaChips = useMemo(() => heroMetaChips(challenge, t), [challenge, t]);
-  const exerciseLines = useMemo(
-    () => exercises.map((ex) => formatHeroExerciseLine(ex, lang)),
-    [exercises, lang]
+  const metaChips = useMemo(() => heroCardMetaChips(challenge, t), [challenge, t]);
+  const subtitle = useMemo(() => heroCardSubtitle(challenge, t), [challenge, t]);
+  const exercisePreview = useMemo(
+    () => (playable ? heroExercisePreviewLines(challenge, lang, t) : null),
+    [challenge, playable, lang, t]
   );
-  const referenceLines = useMemo(
-    () => (isReference ? heroProgramPreviewLines(challenge, t, lang) : []),
+  const referencePreview = useMemo(
+    () => (isReference ? heroCardReferencePreview(challenge, t, lang) : null),
     [challenge, isReference, t, lang]
   );
 
   return (
     <article
-      className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-border text-left"
+      className="relative overflow-hidden rounded-2xl border border-border text-left"
       data-testid={`hero-card-${challenge?.slug || challenge?.id}`}
       data-hero-theme={themeId}
     >
       <HeroThemePattern themeId={themeId} />
-      <div className="relative flex h-full flex-col bg-black/35 p-4">
-        {/* HEADER */}
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <HeroCategoryBadge />
-            {badgeLocked ? (
-              <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[10px] text-white/80">
-                <Lock size={11} aria-hidden />
-                {t('challenges:hero.badgeLocked')}
-              </span>
-            ) : null}
-          </div>
+      <div className="relative space-y-2 bg-black/35 p-4">
+        <div className="flex flex-wrap items-center gap-1.5">
+          <HeroCategoryBadge />
+          {badgeLocked ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/40 px-2 py-0.5 text-[10px] text-white/80">
+              <Lock size={11} aria-hidden />
+              {t('challenges:hero.badgeLocked')}
+            </span>
+          ) : null}
         </div>
 
-        {/* TITLE */}
-        <div className="mt-2 min-w-0">
+        <div className="min-w-0">
           <h3 className="font-['Outfit'] text-lg font-semibold leading-tight text-white">
             {challenge?.title}
           </h3>
-          <p className="text-sm text-white/80">
-            {challenge?.subtitle || challenge?.character_name}
-          </p>
+          {subtitle ? <p className="text-sm text-white/80">{subtitle}</p> : null}
         </div>
 
-        {/* META CHIPS */}
         {metaChips.length > 0 ? (
-          <div className="mt-2 flex flex-wrap gap-1.5" data-testid="hero-meta-chips">
+          <div className="flex flex-wrap gap-1.5" data-testid="hero-meta-chips">
             {metaChips.map((chip) => (
               <span
                 key={chip}
@@ -74,60 +68,33 @@ export function HeroChallengeCard({ challenge, onSelect, compact = false }) {
           </div>
         ) : null}
 
-        {/* PROGRAM PREVIEW */}
-        <div className="mt-3 min-h-0 flex-1 space-y-1">
-          {playable && exerciseLines.length > 0 ? (
-            <ul className="space-y-0.5 text-sm text-white/90" data-testid="hero-exercise-preview">
-              {exerciseLines.map((line) => (
-                <li key={line} className="truncate">
-                  {line}
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {isReference && referenceLines.length > 0 ? (
-            <div className="space-y-1 text-sm text-white/90" data-testid="hero-reference-preview">
-              {referenceLines.map((item, idx) => {
-                if (item.kind === 'heading') {
-                  return (
-                    <p key={`${item.text}-${idx}`} className="pt-1 text-[11px] font-semibold uppercase tracking-wide text-white/70">
-                      {item.text}
-                    </p>
-                  );
-                }
-                if (item.kind === 'bullet') {
-                  return (
-                    <p key={`${item.text}-${idx}`} className="pl-1">
-                      • {item.text}
-                    </p>
-                  );
-                }
-                if (item.kind === 'disclaimer') {
-                  return (
-                    <p key={`${item.text}-${idx}`} className="rounded-lg border border-amber-400/20 bg-amber-400/10 px-2 py-1 text-xs text-amber-100/90">
-                      {item.text}
-                    </p>
-                  );
-                }
-                if (item.kind === 'note') {
-                  return (
-                    <p key={`${item.text}-${idx}`} className="text-xs text-white/65">
-                      {item.text}
-                    </p>
-                  );
-                }
-                return (
-                  <p key={`${item.text}-${idx}`} className="text-xs text-white/75">
-                    {item.text}
-                  </p>
-                );
-              })}
-            </div>
-          ) : null}
-        </div>
+        {playable && exercisePreview?.lines?.length > 0 ? (
+          <ul className="space-y-0.5 text-sm text-white/90" data-testid="hero-exercise-preview">
+            {exercisePreview.lines.map((item) => (
+              <li key={item.text} className={item.isCoda ? 'truncate pl-1 text-white/80' : 'truncate'}>
+                {item.isCoda ? `• ${item.text}` : item.text}
+              </li>
+            ))}
+            {exercisePreview.overflowLabel ? (
+              <li className="text-xs text-white/65">{exercisePreview.overflowLabel}</li>
+            ) : null}
+          </ul>
+        ) : null}
 
-        {/* FOOTER */}
-        <div className="mt-auto space-y-2 pt-3">
+        {isReference && referencePreview?.lines?.length > 0 ? (
+          <div className="space-y-0.5 text-sm text-white/90" data-testid="hero-reference-preview">
+            {referencePreview.lines.map((line) => (
+              <p key={line} className="truncate">
+                {line}
+              </p>
+            ))}
+            {referencePreview.footnote ? (
+              <p className="pt-0.5 text-xs text-white/60">{referencePreview.footnote}</p>
+            ) : null}
+          </div>
+        ) : null}
+
+        <div className="space-y-2 pt-1">
           {challenge?.benchmark?.target ? (
             <p className="text-sm text-white/90">
               {t('challenges:hero.heroGoal', { count: challenge.benchmark.target })}

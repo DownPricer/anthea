@@ -2351,7 +2351,7 @@ export function CreateWorkoutPage() {
                   </button>
                 ))}
               </div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-stretch">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:items-start">
                 {heroChallenges
                   .filter((c) => heroFilter === 'all' || c.universe === heroFilter)
                   .map((challenge) => (
