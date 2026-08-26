@@ -4,10 +4,13 @@ import { Lock } from 'lucide-react';
 import { Button } from '../ui/button';
 import { HeroThemePattern } from './HeroThemePattern';
 
+import { resolveHeroThemeId } from '../../lib/heroChallenges';
+import { HeroCategoryBadge } from './HeroCategoryBadge';
+
 export function HeroChallengeCard({ challenge, onSelect, compact = false }) {
   const { t, i18n } = useTranslation(['challenges', 'workouts']);
   const lang = (i18n.language || 'fr').split('-')[0];
-  const themeId = challenge?.visual_theme?.id || challenge?.rename_key || 'spiderman';
+  const themeId = resolveHeroThemeId(null, challenge);
   const playable = Boolean(challenge?.playable);
   const durationMin = challenge?.duration_seconds
     ? Math.round(challenge.duration_seconds / 60)
@@ -39,6 +42,7 @@ export function HeroChallengeCard({ challenge, onSelect, compact = false }) {
             <p className="text-[11px] uppercase tracking-[0.18em] text-white/70">
               {playable ? t('challenges:hero.challengeLabel') : t('challenges:hero.referenceLabel')}
             </p>
+            <HeroCategoryBadge className="mb-1" />
             <h3 className="text-lg font-semibold text-white font-['Outfit'] leading-tight">
               {challenge?.title}
             </h3>
