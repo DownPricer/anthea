@@ -9,6 +9,8 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import HTTPException
 
+from hero_exercise_media import enrich_hero_exercise, enrich_hero_exercises
+
 CATALOG_PATH = Path(__file__).resolve().parent / "data" / "hero_challenges.json"
 CHALLENGE_TYPES = {
     "amrap",
@@ -155,6 +157,7 @@ def build_workout_blocks(challenge: dict, locale: str = "fr") -> List[dict]:
 
     def add_ex(ex: dict) -> None:
         nonlocal order
+        ex = enrich_hero_exercise(ex)
         name = localize_name(ex, locale)
         item = {
             "exercise_id": ex.get("exercise_id"),
@@ -210,8 +213,8 @@ def build_snapshot(challenge: dict) -> dict:
         "benchmark": deepcopy(challenge.get("benchmark")),
         "reward": deepcopy(reward),
         "visual_theme": deepcopy(challenge.get("visual_theme") or {}),
-        "exercises": deepcopy(challenge.get("exercises") or []),
-        "coda_exercises": deepcopy(challenge.get("coda_exercises") or []),
+        "exercises": enrich_hero_exercises(deepcopy(challenge.get("exercises") or [])),
+        "coda_exercises": enrich_hero_exercises(deepcopy(challenge.get("coda_exercises") or [])),
         "safety_note_key": challenge.get("safety_note_key"),
     }
 
@@ -256,8 +259,8 @@ def public_challenge(challenge: dict, *, progress: Optional[dict] = None) -> dic
         "difficulty": challenge.get("difficulty"),
         "status": challenge.get("status"),
         "is_curated": True,
-        "exercises": deepcopy(challenge.get("exercises") or []),
-        "coda_exercises": deepcopy(challenge.get("coda_exercises") or []),
+        "exercises": enrich_hero_exercises(deepcopy(challenge.get("exercises") or [])),
+        "coda_exercises": enrich_hero_exercises(deepcopy(challenge.get("coda_exercises") or [])),
         "program": deepcopy(challenge.get("program")),
         "strength_references": deepcopy(challenge.get("strength_references") or []),
         "related_references": deepcopy(challenge.get("related_references") or []),
@@ -345,6 +348,12 @@ def evaluate_hero_result(snapshot: dict, result: Optional[dict], *, session_stat
     return {
         "challenge_id": snapshot.get("id"),
         "challenge_type": ctype,
+        "title": snapshot.get("title"),
+        "display_name": snapshot.get("title"),
+        "character_name": snapshot.get("character_name"),
+        "actor_name": snapshot.get("actor_name"),
+        "visual_theme": deepcopy(snapshot.get("visual_theme") or {}),
+        "benchmark": deepcopy(snapshot.get("benchmark")),
         "rounds": rounds,
         "partial_reps": _int(result.get("partial_reps")),
         "total_reps": total_reps,
@@ -357,6 +366,40 @@ def evaluate_hero_result(snapshot: dict, result: Optional[dict], *, session_stat
         "badge_id": badge_id,
         "profile_theme_id": theme_id,
         "has_skips": skipped,
+    }
+
+
+def build_hero_post_snapshot(
+    session_result: Optional[dict],
+    workout_snapshot: Optional[dict],
+    workout: Optional[dict] = None,
+) -> dict:
+    """Snapshot stable pour posts hero — indépendant du catalogue live."""
+    snap = workout_snapshot or {}
+    base = dict(session_result or {})
+    theme = base.get("visual_theme") if isinstance(base.get("visual_theme"), dict) else {}
+    if not theme.get("id"):
+        theme = deepcopy(snap.get("visual_theme") or {})
+    return {
+        **base,
+        "challenge_id": base.get("challenge_id") or snap.get("id"),
+        "challenge_type": base.get("challenge_type") or snap.get("challenge_type"),
+        "title": base.get("title") or snap.get("title") or (workout or {}).get("title"),
+        "display_name": base.get("display_name") or snap.get("title"),
+        "character_name": base.get("character_name") or snap.get("character_name"),
+        "actor_name": base.get("actor_name") or snap.get("actor_name"),
+        "visual_theme": theme,
+        "benchmark": deepcopy(base.get("benchmark") or snap.get("benchmark")),
+        "duration_seconds": base.get("duration_seconds"),
+        "rounds": base.get("rounds"),
+        "total_reps": base.get("total_reps"),
+        "completed": base.get("completed"),
+        "benchmark_reached": base.get("benchmark_reached"),
+        "success": base.get("success"),
+        "badge_id": base.get("badge_id"),
+        "profile_theme_id": base.get("profile_theme_id"),
+        "blocks_complete": base.get("blocks_complete"),
+        "coda_complete": base.get("coda_complete"),
     }
 
 

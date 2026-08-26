@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "aliases": {
+    "hero:bike": {
+      "catalog_id": "exdb_H1PESYI",
+      "gif_url": "https://static.exercisedb.dev/media/H1PESYI.gif",
+      "canonical_name": "stationary bike run"
+    },
+    "hero:trap-bar-deadlift-bands": {
+      "catalog_id": "exdb_jQGwmxN",
+      "gif_url": "https://static.exercisedb.dev/media/jQGwmxN.gif",
+      "canonical_name": "trap bar deadlift",
+      "note": "Catalogue : trap bar deadlift (sans variante bandes distincte)"
+    },
+    "hero:box-jump": {
+      "catalog_id": "exdb_iPm26QU",
+      "gif_url": "https://static.exercisedb.dev/media/iPm26QU.gif",
+      "canonical_name": "box jump down with one leg stabilization",
+      "note": "Meilleure correspondance catalogue pour box jump"
+    },
+    "hero:sled-sprint": {
+      "catalog_id": null,
+      "gif_url": null,
+      "fallback": "cardio",
+      "note": "Pas de sled push / sprint dans le catalogue ExerciseDB"
+    },
+    "hero:med-ball-slam": {
+      "catalog_id": "exdb_oHg8eop",
+      "gif_url": "https://static.exercisedb.dev/media/oHg8eop.gif",
+      "canonical_name": "medicine ball overhead slam"
+    },
+    "hero:lat-pulldown": {
+      "catalog_id": "exdb_ecpY0rH",
+      "gif_url": "https://static.exercisedb.dev/media/ecpY0rH.gif",
+      "canonical_name": "reverse grip machine lat pulldown"
+    },
+    "hero:lateral-raise": {
+      "catalog_id": "exdb_goJ6ezq",
+      "gif_url": "https://static.exercisedb.dev/media/goJ6ezq.gif",
+      "canonical_name": "cable lateral raise"
+    }
+  }
+}

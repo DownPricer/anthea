@@ -1,10 +1,11 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { workoutsApi, sessionsApi, streakApi, partnerApi, postsApi } from '../lib/api';
+import { workoutsApi, sessionsApi, streakApi, partnerApi, postsApi, badgesApi } from '../lib/api';
 import { invalidateHomeWeekCache } from '../lib/homeCache';
-import { invalidateBadgesForUser } from '../lib/badgesCache';
-import { heroPlayerKind, heroSnapshot } from '../lib/heroChallenges';
+import { fetchBadgesCached, invalidateBadgesForUser } from '../lib/badgesCache';
+import { heroPlayerKind, heroSnapshot, isHeroWorkout } from '../lib/heroChallenges';
+import { heroExerciseImageUrl } from '../lib/heroExerciseMedia';
 import { HeroAmrapPlayer } from '../components/hero/HeroAmrapPlayer';
 import { HeroRoundsPlayer } from '../components/hero/HeroRoundsPlayer';
 import { HeroResultScreen } from '../components/hero/HeroResultScreen';
@@ -66,7 +67,7 @@ import { toast } from 'sonner';
 export function WorkoutPlayerPage() {
   const { t, i18n } = useTranslation(['player', 'common', 'workouts']);
   const { workoutId } = useParams();
-  const { user } = useAuth();
+  const { user, refreshUser } = useAuth();
   const navigate = useNavigate();
 
   const [workout, setWorkout] = useState(null);
@@ -430,7 +431,6 @@ export function WorkoutPlayerPage() {
 
   const finishWorkout = (status = 'completed') => {
     setPhase('finished');
-    setShowFeedback(true);
     releaseWakeLock();
     setPartnerLive(null);
     setDuoLive(false);
@@ -440,6 +440,27 @@ export function WorkoutPlayerPage() {
     }
     if (timerRef.current) clearInterval(timerRef.current);
     if (totalTimeRef.current) clearInterval(totalTimeRef.current);
+
+    if (isHeroWorkout(workout) && heroPlayerKind(workout) === 'structured') {
+      saveFeedback(status);
+      return;
+    }
+    setShowFeedback(true);
+  };
+
+  const applyHeroRewardRefresh = async (session) => {
+    const heroResult = session?.hero_result;
+    if (!heroResult || !user?.id) return;
+    invalidateBadgesForUser(user.id);
+    if (heroResult.badge_id) {
+      fetchBadgesCached(
+        { scope: 'solo', userId: user.id },
+        () => badgesApi.getCatalog().then((res) => res.data),
+      ).catch(() => {});
+    }
+    if (heroResult.profile_theme_id) {
+      refreshUser?.().catch(() => {});
+    }
   };
 
   // STOP MODAL HANDLERS
@@ -641,7 +662,7 @@ export function WorkoutPlayerPage() {
       });
       toast.success(t('player:toast.sessionSaved'));
       invalidateHomeWeekCache(user?.id);
-      invalidateBadgesForUser(user?.id);
+      await applyHeroRewardRefresh(session);
       setCreatedSession({
         ...session,
         workout_title: session.workout_title || workout?.title,
@@ -810,7 +831,7 @@ export function WorkoutPlayerPage() {
         hero_result: payload,
       });
       invalidateHomeWeekCache(user?.id);
-      invalidateBadgesForUser(user?.id);
+      await applyHeroRewardRefresh(session);
       setCreatedSession(session);
       setHeroOutcome({ result: session.hero_result || payload, snapshot: heroSnapshot(workout) });
     } catch (error) {
@@ -1110,10 +1131,10 @@ export function WorkoutPlayerPage() {
         {/* First exercise preview */}
         {currentExercise && !savedProgress && (
           <div className="card p-6 w-full max-w-sm mb-8">
-            {(currentExercise.image_url || currentExercise.media_snapshot) && (
+            {heroExerciseImageUrl(currentExercise) && (
               <div className="w-full h-32 rounded-xl overflow-hidden mb-4 bg-hover">
                 <img 
-                  src={resolveExerciseMediaUrl(currentExercise.image_url || currentExercise.media_snapshot)} 
+                  src={resolveExerciseMediaUrl(heroExerciseImageUrl(currentExercise))} 
                   alt={localizedCurrentName}
                   loading="lazy"
                   decoding="async"
@@ -1361,7 +1382,7 @@ export function WorkoutPlayerPage() {
             className="flex w-full max-w-full min-w-0 mx-auto md:max-w-2xl flex-col items-center gap-4 sm:gap-6 text-center overflow-hidden"
             data-testid="player-exercise-stage"
           >
-              {(currentExercise?.image_url || currentExercise?.media_snapshot) &&
+              {heroExerciseImageUrl(currentExercise) &&
                 phase === 'exercise' &&
                 !isCurrentTracked && (
                 <div
@@ -1369,7 +1390,7 @@ export function WorkoutPlayerPage() {
                   data-testid="player-exercise-gif"
                 >
                   <img
-                    src={resolveExerciseMediaUrl(currentExercise.image_url || currentExercise.media_snapshot)}
+                    src={resolveExerciseMediaUrl(heroExerciseImageUrl(currentExercise))}
                     alt={localizedCurrentName}
                     decoding="async"
                     referrerPolicy="no-referrer"

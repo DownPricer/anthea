@@ -160,6 +160,8 @@
         {
           "exercise_id": "hero:bike",
           "name_i18n": { "fr": "Vélo", "en": "Bike", "es": "Bici" },
+          "image_url": "https://static.exercisedb.dev/media/H1PESYI.gif",
+          "catalog_exercise_id": "exdb_H1PESYI",
           "exercise_type": "duration",
           "duration": 300,
           "load": null
@@ -167,6 +169,8 @@
         {
           "exercise_id": "hero:trap-bar-deadlift-bands",
           "name_i18n": { "fr": "Trap-bar deadlift avec bandes", "en": "Trap-bar deadlift with bands", "es": "Peso muerto trap bar con bandas" },
+          "image_url": "https://static.exercisedb.dev/media/jQGwmxN.gif",
+          "catalog_exercise_id": "exdb_jQGwmxN",
           "exercise_type": "reps",
           "sets": 5,
           "reps": 5,
@@ -175,6 +179,8 @@
         {
           "exercise_id": "hero:box-jump",
           "name_i18n": { "fr": "Box jumps", "en": "Box jumps", "es": "Saltos al cajón" },
+          "image_url": "https://static.exercisedb.dev/media/iPm26QU.gif",
+          "catalog_exercise_id": "exdb_iPm26QU",
           "exercise_type": "reps",
           "sets": 5,
           "reps": 5,
@@ -183,6 +189,7 @@
         {
           "exercise_id": "hero:sled-sprint",
           "name_i18n": { "fr": "Traîneau + sprint", "en": "Sled + sprint", "es": "Trineo + sprint" },
+          "media_fallback": "cardio",
           "exercise_type": "reps",
           "sets": 5,
           "reps": 1,
@@ -193,6 +200,8 @@
         {
           "exercise_id": "hero:med-ball-slam",
           "name_i18n": { "fr": "Med-ball slam", "en": "Med-ball slam", "es": "Slam con balón medicinal" },
+          "image_url": "https://static.exercisedb.dev/media/oHg8eop.gif",
+          "catalog_exercise_id": "exdb_oHg8eop",
           "exercise_type": "reps",
           "sets": 3,
           "reps": 5,
@@ -202,6 +211,8 @@
         {
           "exercise_id": "hero:lat-pulldown",
           "name_i18n": { "fr": "Tirage vertical", "en": "Lat pulldown", "es": "Jalón al pecho" },
+          "image_url": "https://static.exercisedb.dev/media/ecpY0rH.gif",
+          "catalog_exercise_id": "exdb_ecpY0rH",
           "exercise_type": "reps",
           "sets": 3,
           "reps": 15,

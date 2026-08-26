@@ -2,8 +2,9 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '../ui/button';
 import { HeroThemePattern } from './HeroThemePattern';
-import { repsPerRound } from '../../lib/heroChallenges';
+import { repsPerRound, resolveHeroThemeId } from '../../lib/heroChallenges';
 import { resolveExerciseMediaUrl } from '../../lib/exerciseMedia';
+import { heroExerciseImageUrl } from '../../lib/heroExerciseMedia';
 
 function formatClock(seconds) {
   const s = Math.max(0, Math.floor(seconds));
@@ -28,7 +29,7 @@ export function HeroAmrapPlayer({
   const endedRef = useRef(false);
   const roundsRef = useRef(0);
   const remainingRef = useRef(duration);
-  const themeId = snapshot?.visual_theme?.id || 'spiderman';
+  const themeId = resolveHeroThemeId(null, snapshot);
 
   useEffect(() => {
     roundsRef.current = rounds;
@@ -77,7 +78,7 @@ export function HeroAmrapPlayer({
   };
 
   if (!started) {
-    const previewExercise = (snapshot?.exercises || []).find((exercise) => exercise.image_url || exercise.media_snapshot);
+    const previewExercise = (snapshot?.exercises || []).find((exercise) => heroExerciseImageUrl(exercise));
     return (
       <div className="relative min-h-screen overflow-hidden px-5 py-8" data-testid="hero-launch-screen" data-hero-theme={themeId}>
         <HeroThemePattern themeId={themeId} />
@@ -90,7 +91,7 @@ export function HeroAmrapPlayer({
           {previewExercise ? (
             <div className="mt-6 aspect-video overflow-hidden rounded-2xl border border-white/20 bg-black/25">
               <img
-                src={resolveExerciseMediaUrl(previewExercise.image_url || previewExercise.media_snapshot)}
+                src={resolveExerciseMediaUrl(heroExerciseImageUrl(previewExercise))}
                 alt={previewExercise.name_i18n?.[lang] || previewExercise.name_i18n?.fr || ''}
                 className="h-full w-full object-contain"
                 decoding="async"
@@ -141,9 +142,9 @@ export function HeroAmrapPlayer({
           {(snapshot?.exercises || []).map((ex) => (
             <li key={ex.exercise_id} className="flex items-center justify-between gap-3 text-foreground">
               <div className="flex min-w-0 items-center gap-3">
-                {(ex.image_url || ex.media_snapshot) ? (
+                {(heroExerciseImageUrl(ex) || ex.media_snapshot) ? (
                   <img
-                    src={resolveExerciseMediaUrl(ex.image_url || ex.media_snapshot)}
+                    src={resolveExerciseMediaUrl(heroExerciseImageUrl(ex) || ex.media_snapshot)}
                     alt=""
                     className="h-11 w-11 shrink-0 rounded-xl bg-hover object-contain"
                     loading="lazy"
