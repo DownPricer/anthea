@@ -34,15 +34,19 @@ import {
   Square,
   X,
   RotateCcw,
+  BedDouble,
+  XCircle,
+  Undo2,
 } from 'lucide-react';
-import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths } from 'date-fns';
+import { format, parseISO, startOfMonth, endOfMonth, addMonths, subMonths, isBefore, startOfDay } from 'date-fns';
 import { toast } from 'sonner';
 import { useTranslation } from 'react-i18next';
 import { PageHeader } from '../components/layout/PageHeader';
 import { useLocaleFormat } from '../hooks/useLocaleFormat';
+import { getDayRelation } from '../lib/homeWorkoutState';
 
 export function WorkoutsPage() {
-  const { t } = useTranslation(['workouts', 'common']);
+  const { t } = useTranslation(['workouts', 'common', 'home']);
   const { formatWeekdayDate } = useLocaleFormat();
   const { user } = useAuth();
   const { theme } = useTheme();
@@ -60,6 +64,8 @@ export function WorkoutsPage() {
   const [loading, setLoading] = useState(true);
   const [selectMode, setSelectMode] = useState(false);
   const [selectedWorkouts, setSelectedWorkouts] = useState([]);
+  const [streakDays, setStreakDays] = useState([]);
+  const [streakDaysLoading, setStreakDaysLoading] = useState(false);
 
   const agendaMetaCacheRef = useRef(new Map());
   const calendarWorkoutsCacheRef = useRef(new Map());
@@ -87,8 +93,67 @@ export function WorkoutsPage() {
     if (activeTab === 'agenda') {
       loadCalendarWorkouts();
       loadAgendaMeta();
+      loadStreakDaysForMonth();
     }
-  }, [activeTab, currentMonth]);
+  }, [activeTab, currentMonth, selectedDate]);
+
+  const loadStreakDaysForMonth = async () => {
+    setStreakDaysLoading(true);
+    try {
+      const start = startOfMonth(currentMonth);
+      const end = endOfMonth(currentMonth);
+      const { data } = await streakApi.getDays(format(start, 'yyyy-MM-dd'), format(end, 'yyyy-MM-dd'));
+      setStreakDays(data || []);
+    } catch {
+      setStreakDays([]);
+    } finally {
+      setStreakDaysLoading(false);
+    }
+  };
+
+  const getStreakDayType = (date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    return streakDays.find((d) => d.date === dateStr)?.type || null;
+  };
+
+  const handleMarkRestDay = async (date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    try {
+      await streakApi.markRestDay(dateStr);
+      setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'rest' }]);
+      invalidateHomeWeekCache(user?.id);
+      loadAgendaMeta();
+      toast.success(t('home:restDayMarked', { ns: 'home' }));
+    } catch {
+      toast.error(t('workouts:deleteError'));
+    }
+  };
+
+  const handleMarkSkipDay = async (date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    try {
+      await streakApi.markSkipDay(dateStr);
+      setStreakDays((prev) => [...prev.filter((d) => d.date !== dateStr), { date: dateStr, type: 'skip' }]);
+      invalidateHomeWeekCache(user?.id);
+      loadAgendaMeta();
+      toast.success(t('home:skipDayMarked', { ns: 'home' }));
+    } catch {
+      toast.error(t('workouts:deleteError'));
+    }
+  };
+
+  const handleRemoveStreakDay = async (date) => {
+    const dateStr = format(date, 'yyyy-MM-dd');
+    try {
+      await streakApi.removeDay(dateStr);
+      setStreakDays((prev) => prev.filter((d) => d.date !== dateStr));
+      invalidateHomeWeekCache(user?.id);
+      loadAgendaMeta();
+      toast.success(t('home:markerRemoved', { ns: 'home' }));
+    } catch {
+      toast.error(t('workouts:deleteError'));
+    }
+  };
 
   const loadAgendaMeta = async () => {
     const monthKey = `${format(currentMonth, 'yyyy-MM')}:${user?.id || ''}`;
@@ -197,6 +262,9 @@ export function WorkoutsPage() {
   };
 
   const selectedDateWorkouts = getWorkoutsForDate(selectedDate);
+  const selectedDayRelation = getDayRelation(selectedDate);
+  const canManageStreakDay = selectedDayRelation !== 'past';
+  const selectedStreakType = getStreakDayType(selectedDate);
   // Les brouillons ne doivent pas apparaître dans la liste « Séances »
   const publishedToday = todayWorkouts.filter((w) => !w.is_draft);
 
@@ -489,6 +557,52 @@ export function WorkoutsPage() {
                     )}
                   </div>
                 )}
+
+                {canManageStreakDay ? (
+                  <div className="card p-4 space-y-3" data-testid="agenda-streak-actions">
+                    <p className="text-sm font-medium text-foreground">{t('home:manageStreakDay', { ns: 'home' })}</p>
+                    {streakDaysLoading ? (
+                      <p className="text-subtle text-xs">{t('common:states.loading', { ns: 'common' })}</p>
+                    ) : selectedStreakType ? (
+                      <>
+                        <p className={`rounded-xl px-3 py-2 text-center text-sm ${
+                          selectedStreakType === 'rest' ? 'bg-blue-500/15 text-blue-400' : 'bg-red-500/15 text-red-400'
+                        }`}>
+                          {selectedStreakType === 'rest'
+                            ? t('home:restDayActive', { ns: 'home' })
+                            : t('home:skipDayActive', { ns: 'home' })}
+                        </p>
+                        <Button
+                          onClick={() => handleRemoveStreakDay(selectedDate)}
+                          data-testid="agenda-remove-streak-day-btn"
+                          className="w-full h-11 rounded-xl bg-active hover:bg-active text-foreground"
+                        >
+                          <Undo2 size={16} className="mr-2" />
+                          {t('home:removeMarker', { ns: 'home' })}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={() => handleMarkRestDay(selectedDate)}
+                          data-testid="agenda-mark-rest-day-btn"
+                          className="w-full h-11 rounded-xl bg-blue-600 hover:bg-blue-700 text-foreground"
+                        >
+                          <BedDouble size={16} className="mr-2" />
+                          {t('home:restDay', { ns: 'home' })}
+                        </Button>
+                        <Button
+                          onClick={() => handleMarkSkipDay(selectedDate)}
+                          data-testid="agenda-mark-skip-day-btn"
+                          className="w-full h-11 rounded-xl bg-red-600/80 hover:bg-red-600 text-foreground"
+                        >
+                          <XCircle size={16} className="mr-2" />
+                          {t('home:skipDay', { ns: 'home' })}
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
