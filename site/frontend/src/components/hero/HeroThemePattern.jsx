@@ -1,4 +1,8 @@
 const THEMES = {
+  default: {
+    colors: ['#1e293b', '#334155', '#64748b'],
+    pattern: 'angles',
+  },
   spiderman: {
     colors: ['#7f1d1d', '#0b1b3a', '#f5f0e8'],
     pattern: 'web',
@@ -45,8 +49,8 @@ const THEMES = {
   },
 };
 
-export function HeroThemePattern({ themeId = 'spiderman', className = '' }) {
-  const theme = THEMES[themeId] || THEMES.spiderman;
+export function HeroThemePattern({ themeId = 'default', className = '' }) {
+  const theme = THEMES[themeId] || THEMES.default;
   const [a, b] = theme.colors;
   return (
     <div className={`absolute inset-0 pointer-events-none ${className}`} aria-hidden="true">

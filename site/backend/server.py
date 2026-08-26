@@ -51,6 +51,7 @@ from hero_challenges import (
     assert_profile_theme_allowed,
     attach_hero_metadata,
     best_scores_map,
+    build_hero_post_snapshot,
     build_workout_blocks,
     DEFAULT_PROFILE_THEME,
     evaluate_hero_result,
@@ -6589,17 +6590,7 @@ async def create_post(data: PostCreate, user: dict = Depends(get_current_user)):
         workout = await _load_workout_for_session(session)
         session_snapshot = build_session_snapshot(session, workout)
         snap = snapshot_from_workout(workout) or {}
-        hero_result_snapshot = {
-            **hero_result_snapshot,
-            "challenge_id": hero_result_snapshot.get("challenge_id") or snap.get("id"),
-            "title": snap.get("title") or (workout.get("title") if workout else None) or session.get("workout_title"),
-            "character_name": snap.get("character_name"),
-            "actor_name": snap.get("actor_name"),
-            "visual_theme": snap.get("visual_theme") or {},
-            "benchmark": snap.get("benchmark"),
-            "badge_id": hero_result_snapshot.get("badge_id"),
-            "profile_theme_id": hero_result_snapshot.get("profile_theme_id"),
-        }
+        hero_result_snapshot = build_hero_post_snapshot(hero_result_snapshot, snap, workout)
         if not title:
             title = hero_result_snapshot.get("title") or "Défi Héros"
 

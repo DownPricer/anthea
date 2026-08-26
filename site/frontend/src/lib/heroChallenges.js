@@ -89,3 +89,30 @@ export function themeUnlockBadge(themeId) {
   };
   return map[themeId] || null;
 }
+
+/** Thème visuel depuis snapshot/résultat — jamais de fallback franchise codé en dur. */
+export function resolveHeroThemeId(result, snapshot) {
+  const fromResult = result?.visual_theme?.id;
+  if (fromResult) return fromResult;
+  const fromSnap = snapshot?.visual_theme?.id;
+  if (fromSnap) return fromSnap;
+  return 'default';
+}
+
+export function heroDurationMinutes(result, snapshot) {
+  const sec = Number(result?.duration_seconds);
+  if (sec > 0) return Math.round(sec / 60);
+  const snapSec = Number(snapshot?.duration_seconds);
+  if (snapSec > 0) return Math.round(snapSec / 60);
+  return null;
+}
+
+export function heroHasRoundsScore(result, snapshot) {
+  const type = result?.challenge_type || snapshot?.challenge_type;
+  if (type === 'amrap' || type === 'rounds') return true;
+  return Number(result?.rounds) > 0;
+}
+
+export function heroBenchmarkReached(result) {
+  return Boolean(result?.benchmark_reached ?? result?.success);
+}
